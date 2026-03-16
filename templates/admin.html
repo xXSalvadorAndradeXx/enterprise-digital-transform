@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrativo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 10px 10px 0 0;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.5rem;
+            font-weight: 600;
+        }
+
+        .header p {
+            color: #666;
+            margin-top: 0.5rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .card-header h2 {
+            color: #333;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .product-list, .order-list {
+            list-style: none;
+        }
+
+        .product-item, .order-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .product-item:last-child, .order-item:last-child {
+            border-bottom: none;
+        }
+
+        .product-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .product-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .product-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .stock-badge {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .stock-badge.low {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .stock-badge.medium {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .order-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .order-number {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .order-amount {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #999;
+        }
+
+        .actions {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Panel Administrativo</h1>
+            <p>Bienvenido al panel de control de tu tienda</p>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Tarjeta de Productos -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Productos</h2>
+                    <span class="badge">{{ productos|length }} total</span>
+                </div>
+                
+                {% if productos %}
+                    <ul class="product-list">
+                    {% for p in productos %}
+                        <li class="product-item">
+                            <div class="product-info">
+                                <div class="product-icon">📦</div>
+                                <span class="product-name">{{ p[1] }}</span>
+                            </div>
+                            
+                            {% set stock = p[4]|int %}
+                            {% if stock <= 5 %}
+                                <span class="stock-badge low">Stock: {{ stock }}</span>
+                            {% elif stock <= 20 %}
+                                <span class="stock-badge medium">Stock: {{ stock }}</span>
+                            {% else %}
+                                <span class="stock-badge">Stock: {{ stock }}</span>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="empty-state">
+                        No hay productos disponibles
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Tarjeta de Pedidos -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Pedidos</h2>
+                    <span class="badge">{{ pedidos|length }} total</span>
+                </div>
+                
+                {% if pedidos %}
+                    <ul class="order-list">
+                    {% for ped in pedidos %}
+                        <li class="order-item">
+                            <div class="order-info">
+                                <span class="product-icon">🛍️</span>
+                                <span class="order-number">Pedido #{{ ped[0] }}</span>
+                            </div>
+                            <span class="order-amount">${{ "%.2f"|format(ped[2]|float) }}</span>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="empty-state">
+                        No hay pedidos recientes
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-secondary" onclick="window.location.href='/admin/productos'">
+                Gestionar Productos
+            </button>
+            <button class="btn btn-primary" onclick="window.location.href='/admin/pedidos'">
+                Ver Todos los Pedidos
+            </button>
+        </div>
+    </div>
+</body>
+</html>
