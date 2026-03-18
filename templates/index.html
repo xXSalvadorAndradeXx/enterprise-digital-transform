@@ -3,597 +3,618 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Tienda - Inicio</title>
+    <title>Dashboard Profesional · Mi Tienda Dinámica</title>
+    <!-- Font Awesome 6 (iconos profesionales) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Google Fonts (Inter moderno) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            background-color: #f0f3f8;
             display: flex;
             flex-direction: column;
+            min-height: 100vh;
         }
 
-        /* Navbar */
-        .navbar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            animation: slideDown 0.5s ease;
-        }
-
-        @keyframes slideDown {
-            from {
-                transform: translateY(-100%);
-            }
-            to {
-                transform: translateY(0);
-            }
-        }
-
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
+        /* ----- HEADER PROFESIONAL CON NAVEGACIÓN ----- */
+        .top-bar {
+            background: linear-gradient(145deg, #0b2b4e, #123b66);
+            color: white;
+            padding: 0.8rem 2rem;
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
+            flex-wrap: wrap;
+            box-shadow: 0 8px 20px rgba(0,20,40,0.2);
+            border-bottom: 1px solid #2d547a;
         }
 
-        .logo {
+        .logo-area {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            text-decoration: none;
-            font-size: 1.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            gap: 12px;
         }
 
         .logo-icon {
-            font-size: 2rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            background: #2a7de1;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.7rem;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .brand h1 {
+            font-weight: 600;
+            font-size: 1.8rem;
+            letter-spacing: -0.5px;
+        }
+
+        .brand span {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            display: block;
+            margin-top: -4px;
+            font-weight: 400;
         }
 
         .nav-links {
             display: flex;
-            gap: 1rem;
-            align-items: center;
+            gap: 2rem;
         }
 
-        .nav-link {
+        .nav-links a {
+            color: #eef5ff;
             text-decoration: none;
-            color: #333;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            transition: all 0.3s ease;
             font-weight: 500;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 6px;
+            padding: 8px 12px;
+            border-radius: 30px;
+            transition: 0.2s;
         }
 
-        .nav-link:hover {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        .nav-link.admin {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .nav-link.admin:hover {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        /* Hero Section */
-        .hero {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-            padding: 2rem;
-        }
-
-        .hero::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="%23ffffff" fill-opacity="0.1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,154.7C960,171,1056,181,1152,170.7C1248,160,1344,128,1392,112L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>');
-            background-repeat: no-repeat;
-            background-position: bottom;
-            background-size: cover;
-            opacity: 0.5;
-        }
-
-        .hero-content {
-            max-width: 800px;
-            text-align: center;
-            color: white;
-            position: relative;
-            z-index: 1;
-            animation: fadeInUp 1s ease;
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .hero-title {
-            font-size: 4rem;
-            font-weight: 800;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-            line-height: 1.2;
-        }
-
-        .hero-subtitle {
-            font-size: 1.25rem;
-            margin-bottom: 2rem;
-            opacity: 0.95;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-        }
-
-        .hero-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .hero-btn {
-            padding: 1rem 2rem;
-            border-radius: 12px;
-            text-decoration: none;
-            font-weight: 600;
+        .nav-links a i {
             font-size: 1.1rem;
-            transition: all 0.3s ease;
-            display: inline-flex;
+        }
+
+        .nav-links a:hover, .nav-links .active {
+            background-color: #1f5380;
+            color: white;
+        }
+
+        .user-profile {
+            display: flex;
             align-items: center;
-            gap: 0.5rem;
-            border: 2px solid transparent;
+            gap: 15px;
+            background: #1d4b77;
+            padding: 6px 15px 6px 10px;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.2s;
         }
 
-        .hero-btn-primary {
+        .user-profile i {
+            font-size: 1.3rem;
+            color: #ffd966;
+        }
+
+        .user-profile span {
+            font-weight: 500;
+        }
+
+        .user-profile:hover {
+            background: #2f6192;
+        }
+
+        /* ----- CUADRO DE MÉTRICAS (KPI CARDS) ----- */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            padding: 2rem 2rem 1rem 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .kpi-card {
             background: white;
-            color: #667eea;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border-radius: 24px;
+            padding: 1.5rem 1.2rem;
+            box-shadow: 0 8px 24px rgba(0, 32, 64, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid #ffffff80;
+            backdrop-filter: blur(2px);
+            transition: all 0.2s;
         }
 
-        .hero-btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 28px rgba(0, 50, 90, 0.12);
         }
 
-        .hero-btn-secondary {
+        .kpi-left h4 {
+            color: #60758b;
+            font-weight: 500;
+            font-size: 0.9rem;
+            letter-spacing: 0.3px;
+            margin-bottom: 6px;
+        }
+
+        .kpi-number {
+            font-size: 2.1rem;
+            font-weight: 700;
+            color: #0f2b42;
+        }
+
+        .kpi-icon {
+            background: #eef5fc;
+            width: 54px;
+            height: 54px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: #1f5e9e;
+        }
+
+        /* ----- SECCIÓN PRINCIPAL: TÍTULO DINÁMICO Y FILTROS ----- */
+        .dashboard-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            padding: 0.5rem 2rem 0 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .title-section h2 {
+            font-weight: 600;
+            color: #1a324a;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .title-section h2 i {
+            color: #2a7de1;
+            background: #e3ecf7;
+            padding: 8px;
+            border-radius: 14px;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            background: white;
+            padding: 6px 8px 6px 18px;
+            border-radius: 48px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+            border: 1px solid #e9eef3;
+        }
+
+        .filter-bar i {
+            color: #6b85a0;
+            font-size: 1rem;
+        }
+
+        .filter-bar select, .filter-bar input {
+            border: none;
             background: transparent;
+            padding: 8px 4px;
+            font-weight: 500;
+            color: #1e3e5c;
+            outline: none;
+            font-size: 0.9rem;
+        }
+
+        .filter-bar button {
+            background: #2a7de1;
+            border: none;
             color: white;
-            border: 2px solid white;
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: 0.15s;
         }
 
-        .hero-btn-secondary:hover {
-            background: white;
-            color: #667eea;
-            transform: translateY(-3px);
+        .filter-bar button:hover {
+            background: #1d5bb5;
         }
 
-        /* Features Section */
-        .features {
-            background: white;
-            padding: 4rem 2rem;
-            position: relative;
-        }
-
-        .features-container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .features-title {
-            text-align: center;
-            font-size: 2.5rem;
-            color: #333;
-            margin-bottom: 3rem;
-        }
-
-        .features-grid {
+        /* ----- CONTENEDOR DE TARJETAS (productos) ----- */
+        .product-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-        }
-
-        .feature-card {
-            text-align: center;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1.8rem;
             padding: 2rem;
-            border-radius: 16px;
-            background: #f8f9fa;
-            transition: all 0.3s ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
-
-        .feature-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .feature-title {
-            font-size: 1.25rem;
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-
-        .feature-description {
-            color: #666;
-            line-height: 1.6;
-        }
-
-        /* Footer */
-        .footer {
-            background: #2d3748;
-            color: white;
-            padding: 3rem 2rem;
-        }
-
-        .footer-container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 2rem;
+            width: 100%;
         }
 
-        .footer-section h3 {
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-            color: #a0aec0;
-        }
-
-        .footer-links {
-            list-style: none;
-        }
-
-        .footer-links li {
-            margin-bottom: 0.5rem;
-        }
-
-        .footer-links a {
-            color: #cbd5e0;
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-
-        .footer-links a:hover {
-            color: white;
-        }
-
-        .footer-bottom {
-            text-align: center;
-            margin-top: 3rem;
-            padding-top: 2rem;
-            border-top: 1px solid #4a5568;
-            color: #a0aec0;
-        }
-
-        /* Productos destacados (opcional) */
-        .featured-products {
-            padding: 4rem 2rem;
-            background: #f8f9fa;
-        }
-
-        .products-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 2rem;
-            margin-top: 2rem;
-        }
-
+        /* tarjeta de producto moderna */
         .product-card {
             background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
+            border-radius: 28px;
+            padding: 1.8rem 1rem 1.5rem;
+            box-shadow: 0 16px 30px -8px rgba(20, 40, 70, 0.12);
+            transition: all 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.5);
+            backdrop-filter: blur(2px);
+            position: relative;
+            cursor: default;
         }
 
         .product-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+            transform: scale(1.02);
+            box-shadow: 0 25px 35px -10px #0b2f4e33;
         }
 
-        .product-image {
-            width: 100%;
-            height: 150px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 8px;
-            margin-bottom: 1rem;
+        .product-badge {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: #fbbf24;
+            color: #1e293b;
+            font-weight: 700;
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 40px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .product-icon {
+            background: #e5f0fe;
+            width: 70px;
+            height: 70px;
+            border-radius: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 3rem;
+            font-size: 2.4rem;
+            color: #2a7de1;
+            margin-bottom: 1.2rem;
+            transition: 0.2s;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .hero-title {
-                font-size: 2.5rem;
-            }
+        .product-card h3 {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: #0f2b42;
+            margin-bottom: 6px;
+        }
 
-            .hero-subtitle {
-                font-size: 1rem;
-            }
+        .product-category {
+            color: #6f8fae;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 8px;
+        }
 
-            .nav-container {
+        .product-price {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #1f5e9e;
+            margin: 10px 0 12px;
+            display: flex;
+            align-items: baseline;
+            gap: 2px;
+        }
+
+        .product-price small {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #6b85a0;
+        }
+
+        .btn-buy {
+            background: linear-gradient(135deg, #1e5b9e, #123f6b);
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 14px 0;
+            width: 85%;
+            border-radius: 40px;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 10px 18px -6px #123f6b80;
+            margin-top: 8px;
+        }
+
+        .btn-buy i {
+            font-size: 1.1rem;
+        }
+
+        .btn-buy:hover {
+            background: linear-gradient(135deg, #2870b5, #154b7c);
+            transform: scale(1.02);
+            box-shadow: 0 14px 22px -8px #0f3760;
+        }
+
+        /* mensaje cuando no hay productos */
+        .empty-state {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 50px;
+            padding: 3rem;
+            text-align: center;
+            color: #6b7d95;
+            font-size: 1.2rem;
+            box-shadow: 0 8px 18px #cdd9e9;
+        }
+
+        /* footer minimalista */
+        .footer-dash {
+            margin-top: 2rem;
+            padding: 1.2rem 2rem;
+            background: white;
+            border-top: 1px solid #d9e2ef;
+            display: flex;
+            justify-content: space-between;
+            color: #4d6582;
+            font-size: 0.9rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-dash i {
+            color: #2a7de1;
+        }
+
+        /* responsive */
+        @media (max-width: 700px) {
+            .top-bar {
                 flex-direction: column;
-                gap: 1rem;
+                gap: 10px;
+                align-items: stretch;
             }
-
             .nav-links {
-                width: 100%;
                 justify-content: center;
             }
-
-            .features-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Animaciones adicionales */
-        .pulse {
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.05);
-            }
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        .floating {
-            animation: floating 3s ease-in-out infinite;
-        }
-
-        @keyframes floating {
-            0% {
-                transform: translateY(0px);
-            }
-            50% {
-                transform: translateY(-10px);
-            }
-            100% {
-                transform: translateY(0px);
+            .kpi-grid {
+                padding: 1rem;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="/" class="logo">
-                <span class="logo-icon">🛍️</span>
-                Mi Tienda
-            </a>
-            <div class="nav-links">
-                <a href="/productos" class="nav-link">
-                    <span>📦</span>
-                    Productos
-                </a>
-                <a href="/login" class="nav-link">
-                    <span>🔐</span>
-                    Login
-                </a>
-                <a href="/admin" class="nav-link admin">
-                    <span>⚙️</span>
-                    Admin
-                </a>
-            </div>
-        </div>
-    </nav>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-content">
-            <h1 class="hero-title">Mi Tienda</h1>
-            <p class="hero-subtitle">
-                Descubre los mejores productos con los mejores precios. 
-                Envíos gratis en compras mayores a $1500.
-            </p>
-            <div class="hero-buttons">
-                <a href="/productos" class="hero-btn hero-btn-primary">
-                    <span>🛒</span>
-                    Ver Productos
-                </a>
-                <a href="/ofertas" class="hero-btn hero-btn-secondary">
-                    <span>🔥</span>
-                    Ofertas Especiales
-                </a>
-            </div>
-            
-            <!-- Estadísticas rápidas -->
-            <div style="display: flex; gap: 2rem; justify-content: center; margin-top: 3rem; color: white;">
-                <div>
-                    <div style="font-size: 2rem; font-weight: 700;">+5000</div>
-                    <div style="opacity: 0.9;">Productos</div>
-                </div>
-                <div>
-                    <div style="font-size: 2rem; font-weight: 700;">+1000</div>
-                    <div style="opacity: 0.9;">Clientes</div>
-                </div>
-                <div>
-                    <div style="font-size: 2rem; font-weight: 700;">24/7</div>
-                    <div style="opacity: 0.9;">Soporte</div>
-                </div>
+    <!-- HEADER MODERNO CON NAVEGACIÓN -->
+    <div class="top-bar">
+        <div class="logo-area">
+            <div class="logo-icon"><i class="fas fa-store-alt"></i></div>
+            <div class="brand">
+                <h1>Mi Tienda <span>dashboard pro</span></h1>
             </div>
         </div>
-    </section>
+        <div class="nav-links">
+            <a href="#" class="active"><i class="fas fa-th-large"></i> Dashboard</a>
+            <a href="#"><i class="fas fa-box"></i> Productos</a>
+            <a href="#"><i class="fas fa-chart-line"></i> Analíticas</a>
+            <a href="#"><i class="fas fa-cog"></i> Ajustes</a>
+        </div>
+        <div class="user-profile">
+            <i class="fas fa-user-circle"></i>
+            <span>Admin</span>
+            <i class="fas fa-chevron-down" style="font-size: 0.8rem;"></i>
+        </div>
+    </div>
 
-    <!-- Features Section -->
-    <section class="features">
-        <div class="features-container">
-            <h2 class="features-title">¿Por qué elegirnos?</h2>
-            <div class="features-grid">
-                <div class="feature-card floating">
-                    <div class="feature-icon">🚚</div>
-                    <h3 class="feature-title">Envío Gratis</h3>
-                    <p class="feature-description">En compras mayores a $1500. Entregas en 24-48 horas.</p>
-                </div>
-                <div class="feature-card floating" style="animation-delay: 0.2s;">
-                    <div class="feature-icon">🔒</div>
-                    <h3 class="feature-title">Pago Seguro</h3>
-                    <p class="feature-description">Tus datos están protegidos con encriptación SSL.</p>
-                </div>
-                <div class="feature-card floating" style="animation-delay: 0.4s;">
-                    <div class="feature-icon">💬</div>
-                    <h3 class="feature-title">Soporte 24/7</h3>
-                    <p class="feature-description">Estamos aquí para ayudarte en todo momento.</p>
-                </div>
-                <div class="feature-card floating" style="animation-delay: 0.6s;">
-                    <div class="feature-icon">🎁</div>
-                    <h3 class="feature-title">Ofertas Exclusivas</h3>
-                    <p class="feature-description">Descuentos especiales para clientes frecuentes.</p>
-                </div>
+    <!-- KPIS (métricas dinámicas) -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-left">
+                <h4>Ingresos hoy</h4>
+                <div class="kpi-number" id="kpi-ingresos">$1,280</div>
             </div>
+            <div class="kpi-icon"><i class="fas fa-dollar-sign"></i></div>
         </div>
-    </section>
+        <div class="kpi-card">
+            <div class="kpi-left">
+                <h4>Productos activos</h4>
+                <div class="kpi-number" id="kpi-productos">0</div>
+            </div>
+            <div class="kpi-icon"><i class="fas fa-cubes"></i></div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-left">
+                <h4>Pedidos hoy</h4>
+                <div class="kpi-number">24</div>
+            </div>
+            <div class="kpi-icon"><i class="fas fa-truck"></i></div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-left">
+                <h4>Valor promedio</h4>
+                <div class="kpi-number">$53</div>
+            </div>
+            <div class="kpi-icon"><i class="fas fa-calculator"></i></div>
+        </div>
+    </div>
 
-    <!-- Productos Destacados (ejemplo) -->
-    <section class="featured-products">
-        <div class="features-container">
-            <h2 class="features-title">Productos Destacados</h2>
-            <div class="products-grid">
-                <div class="product-card">
-                    <div class="product-image">👕</div>
-                    <h3>Camisa Premium</h3>
-                    <p style="color: #666; margin: 0.5rem 0;">$499.99</p>
-                    <a href="/productos/1" style="color: #667eea; text-decoration: none;">Ver más →</a>
-                </div>
-                <div class="product-card">
-                    <div class="product-image">👖</div>
-                    <h3>Pantalón Casual</h3>
-                    <p style="color: #666; margin: 0.5rem 0;">$699.99</p>
-                    <a href="/productos/2" style="color: #667eea; text-decoration: none;">Ver más →</a>
-                </div>
-                <div class="product-card">
-                    <div class="product-image">👟</div>
-                    <h3>Tenis Deportivos</h3>
-                    <p style="color: #666; margin: 0.5rem 0;">$899.99</p>
-                    <a href="/productos/3" style="color: #667eea; text-decoration: none;">Ver más →</a>
-                </div>
-            </div>
+    <!-- BARRA DE TÍTULO Y FILTROS DINÁMICOS -->
+    <div class="dashboard-header">
+        <div class="title-section">
+            <h2><i class="fas fa-tag"></i> Catálogo en tiempo real</h2>
         </div>
-    </section>
+        <div class="filter-bar">
+            <i class="fas fa-filter"></i>
+            <select id="categoriaFiltro">
+                <option value="todas">Todas las categorías</option>
+                <option value="electronica">Electrónica</option>
+                <option value="ropa">Ropa</option>
+                <option value="hogar">Hogar</option>
+                <option value="libros">Libros</option>
+            </select>
+            <input type="text" placeholder="Buscar producto..." id="buscarInput">
+            <button id="filtrarBtn"><i class="fas fa-sliders-h"></i> Filtrar</button>
+        </div>
+    </div>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="footer-container">
-            <div class="footer-section">
-                <h3>Mi Tienda</h3>
-                <ul class="footer-links">
-                    <li><a href="/nosotros">Sobre Nosotros</a></li>
-                    <li><a href="/contacto">Contacto</a></li>
-                    <li><a href="/terminos">Términos y Condiciones</a></li>
-                </ul>
-            </div>
-            <div class="footer-section">
-                <h3>Ayuda</h3>
-                <ul class="footer-links">
-                    <li><a href="/preguntas">Preguntas Frecuentes</a></li>
-                    <li><a href="/envios">Información de Envíos</a></li>
-                    <li><a href="/devoluciones">Devoluciones</a></li>
-                </ul>
-            </div>
-            <div class="footer-section">
-                <h3>Síguenos</h3>
-                <ul class="footer-links">
-                    <li><a href="#">Facebook</a></li>
-                    <li><a href="#">Instagram</a></li>
-                    <li><a href="#">Twitter</a></li>
-                </ul>
-            </div>
-            <div class="footer-section">
-                <h3>Contacto</h3>
-                <ul class="footer-links">
-                    <li>📞 +52 555 123 4567</li>
-                    <li>✉️ info@mitienda.com</li>
-                    <li>📍 Ciudad de México</li>
-                </ul>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; 2024 Mi Tienda. Todos los derechos reservados.</p>
-        </div>
-    </footer>
+    <!-- CONTENEDOR DE PRODUCTOS (GRID DINÁMICO) -->
+    <div id="productosContainer" class="product-grid">
+        <!-- Se inyecta con JS desde catálogo simulado -->
+    </div>
 
-    <!-- Script para animaciones adicionales -->
+    <!-- FOOTER PROFESIONAL -->
+    <div class="footer-dash">
+        <span><i class="far fa-clock"></i> Actualizado en tiempo real</span>
+        <span>⚡ Mi Tienda v2.0 · dashboard profesional</span>
+        <span><i class="fas fa-shield-alt"></i> datos simulados</span>
+    </div>
+
     <script>
-        // Cambiar navbar al hacer scroll
-        window.addEventListener('scroll', function() {
-            const navbar = document.querySelector('.navbar');
-            if (window.scrollY > 100) {
-                navbar.style.background = 'rgba(255, 255, 255, 0.98)';
-                navbar.style.boxShadow = '0 2px 20px rgba(0,0,0,0.15)';
-            } else {
-                navbar.style.background = 'rgba(255, 255, 255, 0.95)';
-                navbar.style.boxShadow = '0 2px 20px rgba(0,0,0,0.1)';
-            }
-        });
+        (function() {
+            // ----------------------------------------------
+            // BASE DE DATOS SIMULADA (más de 6 productos para lucir el dashboard)
+            // ----------------------------------------------
+            const catalogo = [
+                { id: 1, nombre: "Auriculares Sony", precio: 299, categoria: "electronica", icono: "fa-headphones", badge: "TOP" },
+                { id: 2, nombre: "Camiseta técnica", precio: 49, categoria: "ropa", icono: "fa-tshirt", badge: "nuevo" },
+                { id: 3, nombre: "Lámpara LED", precio: 89, categoria: "hogar", icono: "fa-lightbulb", badge: "" },
+                { id: 4, nombre: "Libro 'Clean Code'", precio: 59, categoria: "libros", icono: "fa-book", badge: "best seller" },
+                { id: 5, nombre: "Smartwatch", precio: 199, categoria: "electronica", icono: "fa-clock", badge: "-15%" },
+                { id: 6, nombre: "Zapatillas urbanas", precio: 129, categoria: "ropa", icono: "fa-shoe-prints", badge: "" },
+                { id: 7, nombre: "Set de sartenes", precio: 159, categoria: "hogar", icono: "fa-utensils", badge: "oferta" },
+                { id: 8, nombre: "Tablet", precio: 399, categoria: "electronica", icono: "fa-tablet-alt", badge: "" },
+                { id: 9, nombre: "Chaqueta de cuero", precio: 259, categoria: "ropa", icono: "fa-user-tie", badge: "limited" }
+            ];
 
-        // Animación suave para los enlaces
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.querySelector(this.getAttribute('href')).scrollIntoView({
-                    behavior: 'smooth'
+            // elementos del DOM
+            const container = document.getElementById('productosContainer');
+            const kpiProductos = document.getElementById('kpi-productos');
+            const selectCat = document.getElementById('categoriaFiltro');
+            const inputBuscar = document.getElementById('buscarInput');
+            const filtrarBtn = document.getElementById('filtrarBtn');
+
+            // función para renderizar productos según filtros
+            function renderizarProductos() {
+                const categoria = selectCat.value;
+                const busqueda = inputBuscar.value.trim().toLowerCase();
+
+                let filtrados = catalogo.filter(prod => {
+                    // filtro categoría
+                    if (categoria !== 'todas' && prod.categoria !== categoria) return false;
+                    // filtro búsqueda por nombre
+                    if (busqueda && !prod.nombre.toLowerCase().includes(busqueda)) return false;
+                    return true;
                 });
+
+                // actualizar KPI productos activos (cantidad mostrada)
+                kpiProductos.textContent = filtrados.length;
+
+                // si no hay productos
+                if (filtrados.length === 0) {
+                    container.innerHTML = `<div class="empty-state"><i class="fas fa-box-open" style="font-size:3rem; opacity:0.4; margin-bottom:1rem;"></i><br />No hay productos con esos filtros</div>`;
+                    return;
+                }
+
+                // construir HTML
+                let html = '';
+                filtrados.forEach(prod => {
+                    // badge si tiene
+                    const badgeHtml = prod.badge ? `<span class="product-badge">${prod.badge}</span>` : '';
+                    // icono fijo o por defecto
+                    const icono = prod.icono || 'fa-box';
+                    html += `
+                        <div class="product-card">
+                            ${badgeHtml}
+                            <div class="product-icon"><i class="fas ${icono}"></i></div>
+                            <h3>${prod.nombre}</h3>
+                            <div class="product-category">${prod.categoria.toUpperCase()}</div>
+                            <div class="product-price"><small>$</small>${prod.precio}</div>
+                            <button class="btn-buy" onclick="comprarProducto(${prod.id})"><i class="fas fa-shopping-cart"></i> Comprar</button>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+            }
+
+            // Función global para el botón comprar (simulación)
+            window.comprarProducto = function(idProducto) {
+                const prod = catalogo.find(p => p.id === idProducto);
+                if (prod) {
+                    alert(`✅ Has agregado "${prod.nombre}" al carrito.\nPrecio: $${prod.precio} (demostración interactiva)`);
+                } else {
+                    alert('Producto no encontrado');
+                }
+            };
+
+            // Escuchar cambios en filtros (botón aplicar)
+            filtrarBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                renderizarProductos();
             });
-        });
+
+            // También permitir filtrar al escribir (opcional) pero con un pequeño debounce para no saturar
+            let timeout;
+            inputBuscar.addEventListener('input', () => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    renderizarProductos();
+                }, 300);
+            });
+
+            // Filtro por categoría inmediato (cambia al seleccionar)
+            selectCat.addEventListener('change', renderizarProductos);
+
+            // Inicializar dashboard
+            renderizarProductos();
+
+            // Simular cambio dinámico de ingresos (solo estético)
+            const ingresosElem = document.getElementById('kpi-ingresos');
+            const montos = ['$1,540', '$2,110', '$1,890', '$2,430', '$1,990'];
+            let idx = 0;
+            setInterval(() => {
+                ingresosElem.textContent = montos[idx % montos.length];
+                idx++;
+            }, 4000);
+        })();
     </script>
+
+    <!-- pequeño estilo extra para botón activo y compra -->
+    <style>
+        /* hace que los cards tengan un aspecto impecable */
+        .btn-buy:active { transform: scale(0.98); background: linear-gradient(135deg, #103456, #0b2a44); }
+        .product-card { transition: transform 0.2s, box-shadow 0.3s; }
+        .filter-bar button i { font-size: 0.9rem; }
+        /* scroll suave */
+        html { scroll-behavior: smooth; }
+    </style>
 </body>
 </html>
