@@ -1,0 +1,19 @@
+Descarga Node.js v24.15.0
+
+    https://nodejs.org/es/download
+
+Instala Bun 
+
+    powershell -c "irm bun.sh/install.ps1|iex"
+
+Add Bun to your PATH
+
+    & "$env:USERPROFILE\.bun\bin\bun" --version
+
+Verificar version
+
+        bun --version
+
+Para Ejecutar
+
+    bun run start
