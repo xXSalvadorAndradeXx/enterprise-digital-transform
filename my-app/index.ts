@@ -1,5 +1,5 @@
 import figlet from 'figlet';
-import index from './index.html'; 
+import index from './src/index.html'; 
 
 const server = Bun.serve({
   port: 3000,
