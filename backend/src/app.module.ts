@@ -1,15 +1,19 @@
+// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
 
     TypeOrmModule.forRootAsync({
-      // inject: permite usar ConfigService dentro de useFactory
       inject: [ConfigService],
-      
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
         host:     config.get('DB_HOST'),
@@ -17,17 +21,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         username: config.get('DB_USERNAME'),
         password: config.get('DB_PASSWORD'),
         database: config.get('DB_DATABASE'),
-        
-        // entities: archivos que definen las tablas
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        
-        // synchronize: TypeORM crea/altera tablas automáticamente
-        // SOLO en desarrollo. En producción usar migrations
         synchronize: config.get('NODE_ENV') === 'development',
-        
         logging: config.get('NODE_ENV') === 'development',
       }),
     }),
   ],
+  controllers: [AppController],  // ← esto es clave
+  providers: [AppService],
 })
 export class AppModule {}
