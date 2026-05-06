@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config'; // Importa ConfigService
+import { TypeOrmModule } from '@nestjs/typeorm'; // Importa TypeOrmModule
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -9,7 +10,32 @@ import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
-    UsersModule, ProductsModule, CartModule, AuthModule, ConfigModule.forRoot({isGlobal: true})],
+    // Configuración de Variables de Entorno
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+
+    // Configuración de Conexión a PostgreSQL (T-03)
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        host: config.get<string>('DB_HOST',),
+        port: config.get<number>('DB_PORT', 5432),
+        username: config.get<string>('DB_USERNAME'),
+        password: config.get<string>('DB_PASSWORD'),
+        database: config.get<string>('DB_NAME'),
+        autoLoadEntities: true, // Carga automáticamente las entidades de tus módulos
+        synchronize: true,      // Sincroniza las tablas con tus entidades (solo para desarrollo)
+      }),
+    }),
+
+    // Tus Módulos
+    UsersModule,
+    ProductsModule,
+    CartModule,
+    AuthModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
