@@ -1,16 +1,17 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
-  id!: number; 
 
-  @Column()
-  fullName!: string; 
+  @PrimaryGeneratedColumn()
+  id!: number;
 
   @Column({ unique: true })
-  email!: string; 
+  email!: string;
 
-  @Column({ default: true })
-  isActive!: boolean; 
+  @Column()
+  password!: string;
+
+  @CreateDateColumn()
+  createdAt!: Date;
 }
