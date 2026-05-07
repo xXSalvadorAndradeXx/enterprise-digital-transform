@@ -1,33 +1,45 @@
-# Frontend - E-Commerce
+# E-Commerce Frontend
 
-Este proyecto corresponde al módulo Frontend del sistema E-Commerce. Fue creado con Next.js 14, TypeScript y Tailwind CSS.
+Frontend del proyecto E-Commerce desarrollado con Next.js 14+, TypeScript y Tailwind CSS.
+
+---
 
 ## Tecnologías utilizadas
 
-- Next.js 14
+- Next.js 14+
+- React
 - TypeScript
 - Tailwind CSS
-- ESLint
-- App Router
 
-## Estructura de carpetas
+---
 
-frontend/
-└── src/
-    ├── app/
-    │   ├── login/
-    │   │   └── page.tsx
-    │   ├── registro/
-    │   │   └── page.tsx
-    │   ├── layout.tsx
-    │   └── page.tsx
-    │
-    ├── components/
-    │   
-    │   
-    │
-    ├── lib/
-    │   
-    │
-    └── types/
-        
+## Estructura del proyecto
+
+src/
+├── app/
+│ ├── login/
+│ │ └── page.tsx
+│ ├── registro/
+│ │ └── page.tsx
+│ ├── globals.css
+│ ├── layout.tsx
+│ └── page.tsx
+│
+├── components/
+│ ├── Footer.tsx
+│ ├── Header.tsx
+│ └── MainLayout.tsx
+│
+├── lib/
+├── types/
+└── utils/
+
+---
+
+## Rutas disponibles
+
+| Ruta | Descripción |
+|------|-------------|
+| `/` | Página principal |
+| `/login` | Inicio de sesión |
+| `/registro` | Registro de usuario |
