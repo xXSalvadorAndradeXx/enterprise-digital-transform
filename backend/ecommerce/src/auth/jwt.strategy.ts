@@ -8,14 +8,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false, // Rechaza el token si ya expiró
+      ignoreExpiration: false, 
       secretOrKey: configService.get<string>('JWT_SECRET') || 'back4455end',
     });
   }
 
-  // Si el token es válido, Passport llama a este método
+  
   async validate(payload: any) {
-    // Lo que retornes aquí se inyectará en el objeto 'req.user'
+    
     return { userId: payload.sub, email: payload.email, rol: payload.rol };
   }
 }
