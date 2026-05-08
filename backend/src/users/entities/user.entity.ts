@@ -29,8 +29,7 @@ export class User {
   @Column({ default: true })
   isActive!: boolean;
 
-  @Column()
-  phone!: string;
+
 
   // TypeORM lo rellena solo al crear el registro
   @CreateDateColumn()
