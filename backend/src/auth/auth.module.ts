@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { User } from '../users/entities/user.entity';
 import { Cart } from '../cart/entities/cart.entity';
 
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Cart]),
