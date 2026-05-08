@@ -1,11 +1,209 @@
-export default function RegistroPage() {
-  return (
-    <section className="mx-auto max-w-4xl px-6 py-16">
-      <h1 className="text-3xl font-bold text-blue-900">Registro</h1>
+"use client";
 
-      <p className="mt-4 text-white-600">
-        Esta será la pantalla de registro de usuarios
-      </p>
-    </section>
+import { useState } from "react";
+
+interface RegisterFormData {
+  name: string;
+  email: string;
+  password: string;
+}
+
+interface FormErrors {
+  name?: string;
+  email?: string;
+  password?: string;
+}
+
+export default function RegistroPage() {
+  const [formData, setFormData] = useState<RegisterFormData>({
+    name: "",
+    email: "",
+    password: "",
+  });
+
+  const [errors, setErrors] = useState<FormErrors>({
+    name: "",
+    email: "",
+    password: "",
+  });
+
+  const [message, setMessage] = useState("");
+
+  // Manejar cambios
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  // Validaciones
+  const validateForm = () => {
+    let newErrors: FormErrors = {};
+
+    // Nombre
+    if (!formData.name.trim()) {
+      newErrors.name = "El nombre es obligatorio";
+    }
+
+    // Email
+    if (!formData.email.trim()) {
+      newErrors.email = "El email es obligatorio";
+    } else if (
+      !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(
+        formData.email
+      )
+    ) {
+      newErrors.email = "Correo inválido";
+    }
+
+    // Password
+    if (!formData.password.trim()) {
+      newErrors.password = "La contraseña es obligatoria";
+    } else if (formData.password.length < 6) {
+      newErrors.password =
+        "La contraseña debe tener al menos 6 caracteres";
+    }
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Enviar formulario
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    try {
+      const response = await fetch(
+        "http://localhost:3000/api/auth/register",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage("Usuario registrado correctamente");
+
+        setFormData({
+          name: "",
+          email: "",
+          password: "",
+        });
+
+        setErrors({});
+      } else {
+        setMessage(data.message || "Error al registrar");
+      }
+    } catch (error) {
+      console.error(error);
+      setMessage("Error de conexión con el servidor");
+    }
+  };
+
+  return (
+    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-8 rounded-lg shadow-md w-96"
+      >
+        <h1 className="text-3xl font-bold mb-6 text-center text-black">
+          Registro
+        </h1>
+
+        {/* Nombre */}
+        <div className="mb-4">
+          <label className="block mb-1 text-black">
+            Nombre
+          </label>
+
+          <input
+            type="text"
+            name="name"
+            placeholder="Ingresa tu nombre"
+            value={formData.name}
+            onChange={handleChange}
+            className="w-full border p-2 rounded text-black placeholder:text-gray-500"
+          />
+
+          {errors.name && (
+            <p className="text-red-500 text-sm mt-1">
+              {errors.name}
+            </p>
+          )}
+        </div>
+
+        {/* Email */}
+        <div className="mb-4">
+          <label className="block mb-1 text-black">
+            Email
+          </label>
+
+          <input
+            type="email"
+            name="email"
+            placeholder="correo@email.com"
+            value={formData.email}
+            onChange={handleChange}
+            className="w-full border p-2 rounded text-black placeholder:text-gray-500"
+          />
+
+          {errors.email && (
+            <p className="text-red-500 text-sm mt-1">
+              {errors.email}
+            </p>
+          )}
+        </div>
+
+        {/* Password */}
+        <div className="mb-4">
+          <label className="block mb-1 text-black">
+            Contraseña
+          </label>
+
+          <input
+            type="password"
+            name="password"
+            placeholder="******"
+            value={formData.password}
+            onChange={handleChange}
+            className="w-full border p-2 rounded text-black placeholder:text-gray-500"
+          />
+
+          {errors.password && (
+            <p className="text-red-500 text-sm mt-1">
+              {errors.password}
+            </p>
+          )}
+        </div>
+
+        {/* Botón */}
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+        >
+          Registrarse
+        </button>
+
+        {/* Mensaje */}
+        {message && (
+          <p className="mt-4 text-center text-black">
+            {message}
+          </p>
+        )}
+      </form>
+    </div>
   );
 }

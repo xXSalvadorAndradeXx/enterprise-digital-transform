@@ -6,17 +6,22 @@ async function bootstrap() {
   // Crea la app a partir del módulo raíz
   const app = await NestFactory.create(AppModule);
 
-  // Prefijo global para todas las rutas: /api/auth, /api/products, etc.
+  // HABILITAR CORS
+  app.enableCors();
+
+  // Prefijo global para todas las rutas
   app.setGlobalPrefix('api');
 
-  // Activa validación en TODOS los endpoints automáticamente
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,             // Elimina propiedades no definidas en el DTO
-    forbidNonWhitelisted: true,  // Error si llegan propiedades extra
-    transform: true,             // Convierte tipos automáticamente (string→number)
-  }));
+  // Validaciones globales
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
-  // Escucha en el puerto 3000
+  // Puerto
   await app.listen(3000);
 
   console.log(`API corriendo en: http://localhost:3000/api`);
