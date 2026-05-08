@@ -30,7 +30,6 @@ export class User {
   isActive!: boolean;
 
 
-
   // TypeORM lo rellena solo al crear el registro
   @CreateDateColumn()
   createdAt!: Date;
