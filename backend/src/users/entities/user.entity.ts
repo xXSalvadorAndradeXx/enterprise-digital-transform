@@ -12,6 +12,8 @@ export class User {
   @PrimaryGeneratedColumn('uuid')  // ID único generado automáticamente
   id!: string;
 
+  
+
   @Column({ unique: true })          // unique: no puede haber dos iguales
   email!: string;
 
@@ -26,6 +28,7 @@ export class User {
 
   @Column({ default: true })
   isActive!: boolean;
+
 
   // TypeORM lo rellena solo al crear el registro
   @CreateDateColumn()
