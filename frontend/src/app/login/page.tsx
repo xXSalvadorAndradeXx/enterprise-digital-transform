@@ -132,7 +132,22 @@ export default function LoginPage() {
       }
 
       // Login exitoso
-      setMessage("Login exitoso");
+      // Guardar token
+        localStorage.setItem(
+       "token",
+        data.access_token
+        );
+
+// Guardar usuario
+        localStorage.setItem(
+        "user",
+        JSON.stringify(data.user)
+        );
+
+         setMessage("Login exitoso");
+
+         // Redirección automática
+          window.location.href = "/dashboard";
 
       console.log(data);
 
