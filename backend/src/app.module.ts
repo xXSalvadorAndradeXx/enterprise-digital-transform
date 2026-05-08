@@ -9,36 +9,34 @@ import { CartModule } from './cart/cart.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 
+
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
+  ConfigModule.forRoot({
+    isGlobal: true,
+    envFilePath: '.env',
+  }),
+
+  TypeOrmModule.forRootAsync({
+    inject: [ConfigService],
+    useFactory: (config: ConfigService) => ({
+      type: 'postgres',
+      host: config.get('DB_HOST'),
+      port: config.get<number>('DB_PORT'),
+      username: config.get('DB_USERNAME'),
+      password: config.get('DB_PASSWORD'),
+      database: config.get('DB_DATABASE'),
+      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      synchronize: config.get('NODE_ENV') === 'development',
+      logging: config.get('NODE_ENV') === 'development',
     }),
+  }),
 
-    TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host:     config.get('DB_HOST'),
-        port:     config.get<number>('DB_PORT'),
-        username: config.get('DB_USERNAME'),
-        password: config.get('DB_PASSWORD'),
-        database: config.get('DB_DATABASE'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: config.get('NODE_ENV') === 'development',
-        logging: config.get('NODE_ENV') === 'development',
-      }),
-    }),
-
-    ProductsModule,
-
-    CartModule,
-
-    UsersModule,
-
-    AuthModule,
-  ],
+  ProductsModule,
+  CartModule,
+  UsersModule,
+  AuthModule,
+],
   controllers: [AppController],  // ← esto es clave
   providers: [AppService],
 })
