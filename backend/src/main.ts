@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+
 
 async function bootstrap() {
   // Crea la app a partir del módulo raíz
@@ -12,6 +14,8 @@ async function bootstrap() {
   // Prefijo global para todas las rutas
   app.setGlobalPrefix('api');
 
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalFilters(new AllExceptionsFilter()); 
   // Validaciones globales
   app.useGlobalPipes(
     new ValidationPipe({
@@ -21,6 +25,7 @@ async function bootstrap() {
     }),
   );
 
+  
   // Puerto
   await app.listen(3000);
 
