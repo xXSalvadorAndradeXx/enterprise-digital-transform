@@ -15,70 +15,100 @@ interface FormErrors {
 }
 
 export default function RegistroPage() {
-  const [formData, setFormData] = useState<RegisterFormData>({
-    name: "",
-    email: "",
-    password: "",
-  });
 
-  const [errors, setErrors] = useState<FormErrors>({
-    name: "",
-    email: "",
-    password: "",
-  });
+  const [formData, setFormData] =
+    useState<RegisterFormData>({
+      name: "",
+      email: "",
+      password: "",
+    });
 
-  const [message, setMessage] = useState("");
+  const [errors, setErrors] =
+    useState<FormErrors>({
+      name: "",
+      email: "",
+      password: "",
+    });
 
-  const [loading, setLoading] = useState(false);
+  const [message, setMessage] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
 
   // Manejar cambios
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
+
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
+
   };
 
   // Validaciones
   const validateForm = () => {
+
     let newErrors: FormErrors = {};
 
     // Nombre
     if (!formData.name.trim()) {
-      newErrors.name = "El nombre es obligatorio";
+
+      newErrors.name =
+        "El nombre es obligatorio";
+
     }
 
     // Email
     if (!formData.email.trim()) {
-      newErrors.email = "El email es obligatorio";
-    } else if (
-      !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(
+
+      newErrors.email =
+        "El email es obligatorio";
+
+    }
+
+    // Validar dominios reales
+    else if (
+      !/^[a-zA-Z0-9._%+-]+@(gmail\.com|hotmail\.com|outlook\.com|yahoo\.com)$/i.test(
         formData.email
       )
     ) {
-      newErrors.email = "Correo inválido";
+
+      newErrors.email =
+        "Ingrese un correo válido";
+
     }
 
     // Password
     if (!formData.password.trim()) {
+
       newErrors.password =
         "La contraseña es obligatoria";
-    } else if (formData.password.length < 6) {
+
+    } else if (
+      formData.password.length < 8
+    ) {
+
       newErrors.password =
-        "La contraseña debe tener al menos 6 caracteres";
+        "La contraseña debe tener al menos 8 caracteres";
+
     }
 
     setErrors(newErrors);
 
-    return Object.keys(newErrors).length === 0;
+    return (
+      Object.keys(newErrors).length === 0
+    );
+
   };
 
   // Enviar formulario
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>
   ) => {
+
     e.preventDefault();
 
     setMessage("");
@@ -86,6 +116,7 @@ export default function RegistroPage() {
     if (!validateForm()) return;
 
     try {
+
       setLoading(true);
 
       const response = await fetch(
@@ -104,6 +135,7 @@ export default function RegistroPage() {
 
       // Registro exitoso
       if (response.ok) {
+
         setMessage(
           "Usuario registrado correctamente"
         );
@@ -115,14 +147,27 @@ export default function RegistroPage() {
         });
 
         setErrors({});
+
       } else {
 
-        // Manejo correcto del error
-        setMessage(
-          typeof data.message === "string"
-            ? data.message
-            : "Error al registrar"
-        );
+        // Correo ya registrado
+        if (
+          typeof data.message === "string" &&
+          data.message.toLowerCase().includes("registrado")
+        ) {
+
+          setMessage(
+            "El correo ya está registrado"
+          );
+
+        } else {
+
+          setMessage(
+            "El correo ya esta registrado"
+          );
+
+        }
+
       }
 
     } catch (error) {
@@ -138,9 +183,11 @@ export default function RegistroPage() {
       setLoading(false);
 
     }
+
   };
 
   return (
+
     <div className="flex justify-center items-center min-h-screen bg-gray-100">
 
       <form
@@ -186,7 +233,7 @@ export default function RegistroPage() {
           <input
             type="email"
             name="email"
-            placeholder="correo@email.com"
+            placeholder="correo@gmail.com"
             value={formData.email}
             onChange={handleChange}
             className="w-full border p-2 rounded text-black placeholder:text-gray-500"
@@ -210,7 +257,7 @@ export default function RegistroPage() {
           <input
             type="password"
             name="password"
-            placeholder="******"
+            placeholder="********"
             value={formData.password}
             onChange={handleChange}
             className="w-full border p-2 rounded text-black placeholder:text-gray-500"
@@ -230,9 +277,11 @@ export default function RegistroPage() {
           disabled={loading}
           className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition disabled:bg-gray-400"
         >
+
           {loading
             ? "Registrando..."
             : "Registrarse"}
+
         </button>
 
         {/* Mensaje */}
@@ -243,6 +292,9 @@ export default function RegistroPage() {
         )}
 
       </form>
+
     </div>
+
   );
+
 }
