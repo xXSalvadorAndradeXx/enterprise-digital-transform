@@ -29,6 +29,8 @@ export default function RegistroPage() {
 
   const [message, setMessage] = useState("");
 
+  const [loading, setLoading] = useState(false);
+
   // Manejar cambios
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -61,7 +63,8 @@ export default function RegistroPage() {
 
     // Password
     if (!formData.password.trim()) {
-      newErrors.password = "La contraseña es obligatoria";
+      newErrors.password =
+        "La contraseña es obligatoria";
     } else if (formData.password.length < 6) {
       newErrors.password =
         "La contraseña debe tener al menos 6 caracteres";
@@ -78,15 +81,20 @@ export default function RegistroPage() {
   ) => {
     e.preventDefault();
 
+    setMessage("");
+
     if (!validateForm()) return;
 
     try {
+      setLoading(true);
+
       const response = await fetch(
         "http://localhost:3000/api/auth/register",
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify(formData),
         }
@@ -94,8 +102,11 @@ export default function RegistroPage() {
 
       const data = await response.json();
 
+      // Registro exitoso
       if (response.ok) {
-        setMessage("Usuario registrado correctamente");
+        setMessage(
+          "Usuario registrado correctamente"
+        );
 
         setFormData({
           name: "",
@@ -105,26 +116,45 @@ export default function RegistroPage() {
 
         setErrors({});
       } else {
-        setMessage(data.message || "Error al registrar");
+
+        // Manejo correcto del error
+        setMessage(
+          typeof data.message === "string"
+            ? data.message
+            : "Error al registrar"
+        );
       }
+
     } catch (error) {
+
       console.error(error);
-      setMessage("Error de conexión con el servidor");
+
+      setMessage(
+        "Error de conexión con el servidor"
+      );
+
+    } finally {
+
+      setLoading(false);
+
     }
   };
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100">
+
       <form
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded-lg shadow-md w-96"
       >
+
         <h1 className="text-3xl font-bold mb-6 text-center text-black">
           Registro
         </h1>
 
         {/* Nombre */}
         <div className="mb-4">
+
           <label className="block mb-1 text-black">
             Nombre
           </label>
@@ -143,10 +173,12 @@ export default function RegistroPage() {
               {errors.name}
             </p>
           )}
+
         </div>
 
         {/* Email */}
         <div className="mb-4">
+
           <label className="block mb-1 text-black">
             Email
           </label>
@@ -165,10 +197,12 @@ export default function RegistroPage() {
               {errors.email}
             </p>
           )}
+
         </div>
 
         {/* Password */}
         <div className="mb-4">
+
           <label className="block mb-1 text-black">
             Contraseña
           </label>
@@ -187,14 +221,18 @@ export default function RegistroPage() {
               {errors.password}
             </p>
           )}
+
         </div>
 
         {/* Botón */}
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition disabled:bg-gray-400"
         >
-          Registrarse
+          {loading
+            ? "Registrando..."
+            : "Registrarse"}
         </button>
 
         {/* Mensaje */}
@@ -203,6 +241,7 @@ export default function RegistroPage() {
             {message}
           </p>
         )}
+
       </form>
     </div>
   );
