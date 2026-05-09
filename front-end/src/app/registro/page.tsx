@@ -28,6 +28,8 @@ const whitespaceRegex = /\s/;
 const inputClassName =
   "w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-gray-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 const passwordInputClassName = `${inputClassName} pr-12`;
+const primaryButtonClassName =
+  "inline-flex min-w-44 items-center justify-center gap-2 rounded-xl bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg disabled:cursor-not-allowed disabled:bg-blue-300 disabled:hover:translate-y-0 disabled:hover:shadow-md";
 
 function joinPasswordRequirements(requirements: string[]): string {
   if (requirements.length <= 1) {
@@ -218,7 +220,7 @@ export default function RegistroPage() {
           </Link>
         </div>
       ) : (
-        <div className="w-full max-w-lg rounded-lg border border-sky-100 bg-white p-5 shadow-[0_18px_55px_rgba(37,99,235,0.10)] sm:p-6">
+        <div className="w-full max-w-md rounded-lg border border-sky-100 bg-white p-5 shadow-[0_18px_55px_rgba(37,99,235,0.10)] sm:p-6">
         <div className="border-b border-slate-100 pb-4">
           <h1 className="text-2xl font-bold text-gray-950">Registro</h1>
 
@@ -387,7 +389,7 @@ export default function RegistroPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-xl bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg disabled:cursor-not-allowed disabled:bg-blue-300 disabled:hover:translate-y-0 disabled:hover:shadow-md"
+              className={primaryButtonClassName}
             >
               {isSubmitting ? "Registrando..." : "Crear cuenta"}
             </button>
