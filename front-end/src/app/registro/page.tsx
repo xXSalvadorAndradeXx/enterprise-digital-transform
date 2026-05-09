@@ -1,10 +1,12 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, Eye, EyeOff, LogIn } from "lucide-react";
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 
 type RegisterFormData = {
+  nombre: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -13,16 +15,40 @@ type RegisterFormData = {
 type RegisterFormErrors = Partial<Record<keyof RegisterFormData, string>>;
 
 const initialFormData: RegisterFormData = {
+  nombre: "",
   email: "",
   password: "",
   confirmPassword: "",
 };
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+const numberRegex = /\d/;
+const uppercaseRegex = /[A-ZÁÉÍÓÚÑ]/;
+const whitespaceRegex = /\s/;
+const inputClassName =
+  "w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-gray-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+const passwordInputClassName = `${inputClassName} pr-12`;
+
+function joinPasswordRequirements(requirements: string[]): string {
+  if (requirements.length <= 1) {
+    return requirements.join("");
+  }
+
+  return `${requirements.slice(0, -1).join(", ")} y ${
+    requirements[requirements.length - 1]
+  }`;
+}
 
 function validateRegisterForm(formData: RegisterFormData): RegisterFormErrors {
   const errors: RegisterFormErrors = {};
+  const nombre = formData.nombre.trim();
   const email = formData.email.trim();
+
+  if (!nombre) {
+    errors.nombre = "El nombre es obligatorio.";
+  } else if (numberRegex.test(nombre)) {
+    errors.nombre = "El nombre no debe contener números.";
+  }
 
   if (!email) {
     errors.email = "El correo electrónico es obligatorio.";
@@ -32,8 +58,30 @@ function validateRegisterForm(formData: RegisterFormData): RegisterFormErrors {
 
   if (!formData.password) {
     errors.password = "La contraseña es obligatoria.";
-  } else if (formData.password.length < 6) {
-    errors.password = "La contraseña debe tener al menos 6 caracteres.";
+  } else {
+    const passwordErrors: string[] = [];
+
+    if (formData.password.length < 6) {
+      passwordErrors.push("tener al menos 6 caracteres");
+    }
+
+    if (!uppercaseRegex.test(formData.password)) {
+      passwordErrors.push("contener al menos una letra mayúscula");
+    }
+
+    if (!numberRegex.test(formData.password)) {
+      passwordErrors.push("contener al menos un número");
+    }
+
+    if (whitespaceRegex.test(formData.password)) {
+      passwordErrors.push("no contener espacios");
+    }
+
+    if (passwordErrors.length > 0) {
+      errors.password = `La contraseña debe ${joinPasswordRequirements(
+        passwordErrors,
+      )}.`;
+    }
   }
 
   if (!formData.confirmPassword) {
@@ -76,15 +124,16 @@ export default function RegistroPage() {
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
+    const fieldName = name as keyof RegisterFormData;
 
     setFormData((currentFormData) => ({
       ...currentFormData,
-      [name]: value,
+      [fieldName]: value,
     }));
 
     setErrors((currentErrors) => ({
       ...currentErrors,
-      [name]: undefined,
+      [fieldName]: undefined,
     }));
     setSuccessMessage("");
     setSubmitError("");
@@ -102,32 +151,33 @@ export default function RegistroPage() {
       return;
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+    const registerEndpoint = "http://localhost:3000/auth/register";
 
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${apiUrl}/auth/register`, {
+      const response = await fetch(registerEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          nombre: formData.nombre.trim(),
           email: formData.email.trim(),
           password: formData.password,
         }),
       });
 
+      let responseData: unknown = null;
+
+      try {
+        responseData = await response.json();
+      } catch {
+        responseData = null;
+      }
+
       if (!response.ok) {
-        let errorResponse: unknown = null;
-
-        try {
-          errorResponse = await response.json();
-        } catch {
-          errorResponse = null;
-        }
-
-        setSubmitError(getBackendErrorMessage(errorResponse));
+        setSubmitError(getBackendErrorMessage(responseData));
         return;
       }
 
@@ -141,15 +191,70 @@ export default function RegistroPage() {
   };
 
   return (
-    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-6 py-12">
-      <div className="w-full max-w-xl rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-        <h1 className="text-3xl font-bold text-gray-900">Registro</h1>
+    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[linear-gradient(180deg,#f8fbff_0%,#eef7ff_52%,#f9fafb_100%)] px-6 py-8 sm:py-10">
+      {successMessage ? (
+        <div
+          role="status"
+          className="w-full max-w-sm rounded-2xl border border-emerald-200 bg-white p-7 text-center shadow-[0_24px_80px_rgba(5,150,105,0.18)]"
+        >
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 ring-8 ring-emerald-100">
+            <CheckCircle2 className="h-11 w-11 text-emerald-600" aria-hidden="true" />
+          </div>
 
-        <p className="mt-3 text-sm text-gray-600">
-          Crea tu cuenta para continuar comprando en E-Commerce.
-        </p>
+          <h1 className="mt-7 text-2xl font-extrabold text-gray-950">
+            {successMessage}
+          </h1>
 
-        <form className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
+          <p className="mt-3 text-sm leading-6 text-gray-600">
+            ¡Tu cuenta fue creada con éxito!
+          </p>
+
+          <Link
+            href="/login"
+            className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-100"
+          >
+            <LogIn className="h-4 w-4" aria-hidden="true" />
+            Iniciar sesión
+          </Link>
+        </div>
+      ) : (
+        <div className="w-full max-w-lg rounded-lg border border-sky-100 bg-white p-5 shadow-[0_18px_55px_rgba(37,99,235,0.10)] sm:p-6">
+        <div className="border-b border-slate-100 pb-4">
+          <h1 className="text-2xl font-bold text-gray-950">Registro</h1>
+
+          <p className="mt-2 text-sm leading-6 text-gray-600">
+            Crea tu cuenta para continuar comprando en E-Commerce.
+          </p>
+        </div>
+
+        <form className="mt-5 space-y-4" onSubmit={handleSubmit} noValidate>
+          <div>
+            <label
+              htmlFor="nombre"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Nombre completo
+            </label>
+            <div className="relative mt-2">
+              <input
+                id="nombre"
+                name="nombre"
+                type="text"
+                autoComplete="name"
+                value={formData.nombre}
+                onChange={handleChange}
+                className={inputClassName}
+                aria-invalid={Boolean(errors.nombre)}
+                aria-describedby={errors.nombre ? "nombre-error" : undefined}
+              />
+            </div>
+            {errors.nombre ? (
+              <p id="nombre-error" className="mt-2 text-sm text-red-600">
+                {errors.nombre}
+              </p>
+            ) : null}
+          </div>
+
           <div>
             <label
               htmlFor="email"
@@ -157,17 +262,19 @@ export default function RegistroPage() {
             >
               Correo electrónico
             </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="mt-2 w-full rounded-md border border-gray-300 px-4 py-3 text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              aria-invalid={Boolean(errors.email)}
-              aria-describedby={errors.email ? "email-error" : undefined}
-            />
+            <div className="relative mt-2">
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={formData.email}
+                onChange={handleChange}
+                className={inputClassName}
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? "email-error" : undefined}
+              />
+            </div>
             {errors.email ? (
               <p id="email-error" className="mt-2 text-sm text-red-600">
                 {errors.email}
@@ -190,7 +297,7 @@ export default function RegistroPage() {
                 autoComplete="new-password"
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 px-4 py-3 pr-12 text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className={passwordInputClassName}
                 aria-invalid={Boolean(errors.password)}
                 aria-describedby={
                   errors.password ? "password-error" : undefined
@@ -233,7 +340,7 @@ export default function RegistroPage() {
                 autoComplete="new-password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 px-4 py-3 pr-12 text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className={passwordInputClassName}
                 aria-invalid={Boolean(errors.confirmPassword)}
                 aria-describedby={
                   errors.confirmPassword
@@ -270,27 +377,34 @@ export default function RegistroPage() {
             ) : null}
           </div>
 
-          {successMessage ? (
-            <p className="rounded-md bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-              {successMessage}
-            </p>
-          ) : null}
-
           {submitError ? (
             <p className="rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               {submitError}
             </p>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-md bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-          >
-            {isSubmitting ? "Registrando..." : "Crear cuenta"}
-          </button>
+          <div className="flex justify-center pt-1">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-xl bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg disabled:cursor-not-allowed disabled:bg-blue-300 disabled:hover:translate-y-0 disabled:hover:shadow-md"
+            >
+              {isSubmitting ? "Registrando..." : "Crear cuenta"}
+            </button>
+          </div>
+
+          <p className="border-t border-slate-100 pt-4 text-center text-sm text-gray-600">
+            ¿Ya tienes cuenta?{" "}
+            <Link
+              href="/login"
+              className="font-semibold text-blue-600 underline-offset-4 transition hover:text-blue-700 hover:underline"
+            >
+              Inicia sesión
+            </Link>
+          </p>
         </form>
       </div>
+      )}
     </section>
   );
 }
