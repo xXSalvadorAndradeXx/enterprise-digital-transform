@@ -1,7 +1,9 @@
+// src/products/products.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
+import { CreateProductDto } from '../auth/dto/create-product.dto'; // ← ruta correcta
 
 @Injectable()
 export class ProductsService {
@@ -10,16 +12,14 @@ export class ProductsService {
     private repo: Repository<Product>,
   ) {}
 
-  // Devuelve TODOS los productos activos con su categoría
   findAll() {
     return this.repo.find({
       where: { isActive: true },
-      relations: ['category'],       // ← join con la tabla categories
-      order: { createdAt: 'DESC' },  // ← los más nuevos primero
+      relations: ['category'],
+      order: { createdAt: 'DESC' },
     });
   }
 
-  // Devuelve un producto por ID (útil para GET /products/:id)
   async findOne(id: string) {
     const product = await this.repo.findOne({
       where: { id },
@@ -27,5 +27,14 @@ export class ProductsService {
     });
     if (!product) throw new NotFoundException(`Producto ${id} no encontrado`);
     return product;
+  }
+
+  // ← esto faltaba
+  async create(dto: CreateProductDto) {
+    const product = this.repo.create({
+      ...dto,
+      category: { id: dto.categoryId }, // TypeORM resuelve la relación por ID
+    });
+    return this.repo.save(product);
   }
 }
