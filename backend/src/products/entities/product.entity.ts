@@ -17,7 +17,15 @@ export class Product {
   description!: string;
 
   // decimal: para dinero. precision=10 dígitos, scale=2 decimales
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({
+  type: 'decimal',
+  precision: 10,
+  scale: 2,
+  transformer: {
+    to: (value: number) => value,
+    from: (value: string) => parseFloat(value),
+  },
+})
   price!: number;
 
   @Column({ default: 0 })
