@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  clearAuthSession,
+  hasActiveSession,
+  readSessionUser,
+  type AuthUser,
+} from "@/lib/auth-session";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -14,37 +20,10 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-type SessionUser = {
-  id?: number;
-  nombre?: string;
-  email?: string;
-  rol?: string;
-};
-
 type SessionState = {
   isChecking: boolean;
-  user: SessionUser | null;
+  user: AuthUser | null;
 };
-
-function readSessionUser(): SessionUser | null {
-  const storedUser = localStorage.getItem("user");
-
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    const parsedUser: unknown = JSON.parse(storedUser);
-
-    if (typeof parsedUser === "object" && parsedUser !== null) {
-      return parsedUser as SessionUser;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
 
 export default function CuentaPage() {
   const router = useRouter();
@@ -55,9 +34,7 @@ export default function CuentaPage() {
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
-      const accessToken = localStorage.getItem("access_token");
-
-      if (!accessToken) {
+      if (!hasActiveSession()) {
         router.replace("/login");
         return;
       }
@@ -72,9 +49,7 @@ export default function CuentaPage() {
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
-    window.dispatchEvent(new Event("auth-session-changed"));
+    clearAuthSession();
     router.replace("/login");
   };
 

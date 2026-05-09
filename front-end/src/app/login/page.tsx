@@ -1,5 +1,6 @@
 "use client";
 
+import { hasActiveSession, saveAuthSession } from "@/lib/auth-session";
 import Link from "next/link";
 import { CheckCircle2, Eye, EyeOff, LogIn } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -68,35 +69,6 @@ function getBackendErrorMessage(errorResponse: unknown): string {
   return "Credenciales inválidas o usuario no encontrado.";
 }
 
-function saveSession(responseData: unknown) {
-  if (
-    typeof responseData === "object" &&
-    responseData !== null &&
-    "access_token" in responseData
-  ) {
-    const accessToken = (responseData as { access_token?: unknown })
-      .access_token;
-
-    if (typeof accessToken === "string") {
-      localStorage.setItem("access_token", accessToken);
-    }
-  }
-
-  if (
-    typeof responseData === "object" &&
-    responseData !== null &&
-    "user" in responseData
-  ) {
-    const user = (responseData as { user?: unknown }).user;
-
-    if (typeof user === "object" && user !== null) {
-      localStorage.setItem("user", JSON.stringify(user));
-    }
-  }
-
-  window.dispatchEvent(new Event("auth-session-changed"));
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const [formData, setFormData] = useState<LoginFormData>(initialFormData);
@@ -107,7 +79,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem("access_token")) {
+    if (hasActiveSession()) {
       router.replace("/cuenta");
     }
   }, [router]);
@@ -170,7 +142,7 @@ export default function LoginPage() {
         return;
       }
 
-      saveSession(responseData);
+      saveAuthSession(responseData);
       setFormData(initialFormData);
       setSuccessMessage("Inicio de sesión exitoso. Preparando tu cuenta...");
       router.push("/cuenta");

@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  AUTH_SESSION_CHANGED_EVENT,
+  hasActiveSession,
+} from "@/lib/auth-session";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,16 +14,16 @@ export default function Header() {
 
   useEffect(() => {
     const updateAuthState = () => {
-      setIsAuthenticated(Boolean(localStorage.getItem("access_token")));
+      setIsAuthenticated(hasActiveSession());
     };
 
     updateAuthState();
     window.addEventListener("storage", updateAuthState);
-    window.addEventListener("auth-session-changed", updateAuthState);
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, updateAuthState);
 
     return () => {
       window.removeEventListener("storage", updateAuthState);
-      window.removeEventListener("auth-session-changed", updateAuthState);
+      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, updateAuthState);
     };
   }, [pathname]);
 
