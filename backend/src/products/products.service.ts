@@ -2,30 +2,30 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
-import { Category } from '../categories/entities/category.entity';
-import { CreateProductDto } from './create-product.dto';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectRepository(Product)
-    private productRepo: Repository<Product>,
-    @InjectRepository(Category)
-    private categoryRepo: Repository<Category>,
+    private repo: Repository<Product>,
   ) {}
 
+  // Devuelve TODOS los productos activos con su categoría
   findAll() {
-    return this.productRepo.find();
+    return this.repo.find({
+      where: { isActive: true },
+      relations: ['category'],       // ← join con la tabla categories
+      order: { createdAt: 'DESC' },  // ← los más nuevos primero
+    });
   }
 
-  async create(dto: CreateProductDto) {
-    // Verificar que la categoría existe
-    const category = await this.categoryRepo.findOne({
-      where: { id: dto.categoryId }
+  // Devuelve un producto por ID (útil para GET /products/:id)
+  async findOne(id: string) {
+    const product = await this.repo.findOne({
+      where: { id },
+      relations: ['category'],
     });
-    if (!category) throw new NotFoundException('Categoría no encontrada');
-
-    const product = this.productRepo.create({ ...dto, category });
-    return this.productRepo.save(product);
+    if (!product) throw new NotFoundException(`Producto ${id} no encontrado`);
+    return product;
   }
 }

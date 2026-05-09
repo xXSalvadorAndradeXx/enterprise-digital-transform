@@ -1,20 +1,17 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { CreateProductDto } from './create-product.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('products')
 export class ProductsController {
-  constructor(private productsService: ProductsService) {}
+  constructor(private readonly service: ProductsService) {}
 
-  @Get()  // público — sin guard
+  @Get()                        // GET /api/products
   findAll() {
-    return this.productsService.findAll();
+    return this.service.findAll();
   }
 
-  @Post()
-  @UseGuards(JwtAuthGuard)  // 🔒 solo usuarios autenticados
-  create(@Body() dto: CreateProductDto) {
-    return this.productsService.create(dto);
+  @Get(':id')                   // GET /api/products/:id
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(id);
   }
 }
