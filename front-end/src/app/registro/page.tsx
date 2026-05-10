@@ -23,10 +23,33 @@ const initialFormData: RegisterFormData = {
   confirmPassword: "",
 };
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 const numberRegex = /\d/;
 const uppercaseRegex = /[A-ZÁÉÍÓÚÑ]/;
+const lowercaseRegex = /[a-záéíóúüñ]/;
 const whitespaceRegex = /\s/;
+const consecutiveSpacesRegex = /\s{2,}/;
+const nameErrorMessage = "Ingresa tu nombre completo.";
+const nameLetterRegex = /[A-Za-zÁÉÍÓÚÑáéíóúñ]/;
+const validNameRegex = /^[A-Za-zÁÉÍÓÚÑáéíóúñ '\u2019-]+$/;
+const localEmailRegex = /^[a-z0-9.!#$%&*+/=?^_`{|}~-]+$/i;
+const allowedEmailDomains = new Set([
+  "gmail.com",
+  "hotmail.com",
+  "outlook.com",
+  "yahoo.com",
+  "icloud.com",
+]);
+const allowedEmailDomainsMessage =
+  "Solo se permiten correos de Gmail, Hotmail, Outlook, Yahoo o iCloud.";
+const commonPasswords = new Set([
+  "123456",
+  "1234567",
+  "12345678",
+  "password",
+  "qwerty123",
+  "abc123",
+  "admin123",
+]);
 const inputClassName =
   "w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-gray-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 const passwordInputClassName = `${inputClassName} pr-12`;
@@ -43,49 +66,172 @@ function joinPasswordRequirements(requirements: string[]): string {
   }`;
 }
 
+function isRepeatedNameCharacter(nombre: string) {
+  const normalizedName = nombre
+    .toLowerCase()
+    .replace(/[\s'\u2019-]/g, "");
+
+  return (
+    normalizedName.length > 1 &&
+    normalizedName.split("").every((letter) => letter === normalizedName[0])
+  );
+}
+
+function validateName(nombre: string) {
+  const trimmedName = nombre.trim();
+
+  if (numberRegex.test(trimmedName)) {
+    return "El nombre no debe contener números.";
+  }
+
+  if (consecutiveSpacesRegex.test(trimmedName)) {
+    return "El nombre no debe tener espacios consecutivos.";
+  }
+
+  if (
+    !trimmedName ||
+    nombre !== trimmedName ||
+    trimmedName.length < 6 ||
+    trimmedName.length > 50 ||
+    !trimmedName.includes(" ") ||
+    !validNameRegex.test(trimmedName) ||
+    !nameLetterRegex.test(trimmedName) ||
+    isRepeatedNameCharacter(trimmedName) ||
+    trimmedName.split(" ").some((word) => word.length < 2)
+  ) {
+    return nameErrorMessage;
+  }
+
+  return undefined;
+}
+
+function isValidEmail(email: string) {
+  if (!email || email.length > 254 || whitespaceRegex.test(email)) {
+    return false;
+  }
+
+  const emailParts = email.split("@");
+
+  if (emailParts.length !== 2) {
+    return false;
+  }
+
+  const [localPart, domainPart] = emailParts;
+
+  if (
+    localPart.length < 6 ||
+    !domainPart ||
+    localPart.startsWith(".") ||
+    localPart.endsWith(".") ||
+    localPart.includes("..") ||
+    domainPart.startsWith(".") ||
+    domainPart.endsWith(".") ||
+    domainPart.includes("..") ||
+    !localEmailRegex.test(localPart)
+  ) {
+    return false;
+  }
+
+  const domainLabels = domainPart.split(".");
+  const extension = domainLabels[domainLabels.length - 1];
+
+  return (
+    extension.length >= 2 &&
+    domainLabels.every(
+      (label) =>
+        label.length >= 2 && !label.startsWith("-") && !label.endsWith("-"),
+    )
+  );
+}
+
+function hasAllowedEmailDomain(email: string) {
+  const emailParts = email.split("@");
+
+  if (emailParts.length !== 2) {
+    return false;
+  }
+
+  return allowedEmailDomains.has(emailParts[1]);
+}
+
+function validateEmail(email: string) {
+  if (!email) {
+    return "El correo electrónico es obligatorio.";
+  }
+
+  if (!isValidEmail(email)) {
+    return "Ingresa un correo electrónico válido.";
+  }
+
+  if (!hasAllowedEmailDomain(email)) {
+    return allowedEmailDomainsMessage;
+  }
+
+  return undefined;
+}
+
+function validatePassword(password: string) {
+  if (!password) {
+    return "La contraseña es obligatoria.";
+  }
+
+  const passwordErrors: string[] = [];
+  const isCommonPassword = commonPasswords.has(password.toLowerCase());
+
+  if (password.length < 6) {
+    passwordErrors.push("tener al menos 6 caracteres");
+  }
+
+  if (!uppercaseRegex.test(password)) {
+    passwordErrors.push("contener al menos una letra mayúscula");
+  }
+
+  if (!lowercaseRegex.test(password)) {
+    passwordErrors.push("contener al menos una letra minúscula");
+  }
+
+  if (!numberRegex.test(password)) {
+    passwordErrors.push("contener al menos un número");
+  }
+
+  if (whitespaceRegex.test(password)) {
+    passwordErrors.push("no contener espacios");
+  }
+
+  if (passwordErrors.length > 0) {
+    const requirementsMessage = `La contraseña debe ${joinPasswordRequirements(
+      passwordErrors,
+    )}.`;
+
+    return isCommonPassword
+      ? `${requirementsMessage} La contraseña es demasiado común.`
+      : requirementsMessage;
+  }
+
+  if (isCommonPassword) {
+    return "La contraseña es demasiado común.";
+  }
+
+  return undefined;
+}
+
 function validateRegisterForm(formData: RegisterFormData): RegisterFormErrors {
   const errors: RegisterFormErrors = {};
-  const nombre = formData.nombre.trim();
-  const email = formData.email.trim();
+  const email = formData.email.trim().toLowerCase();
+  const nameError = validateName(formData.nombre);
+  const emailError = validateEmail(email);
+  const passwordError = validatePassword(formData.password);
 
-  if (!nombre) {
-    errors.nombre = "El nombre es obligatorio.";
-  } else if (numberRegex.test(nombre)) {
-    errors.nombre = "El nombre no debe contener números.";
+  if (nameError) {
+    errors.nombre = nameError;
   }
 
-  if (!email) {
-    errors.email = "El correo electrónico es obligatorio.";
-  } else if (!emailRegex.test(email)) {
-    errors.email = "Ingresa un correo electrónico válido.";
+  if (emailError) {
+    errors.email = emailError;
   }
 
-  if (!formData.password) {
-    errors.password = "La contraseña es obligatoria.";
-  } else {
-    const passwordErrors: string[] = [];
-
-    if (formData.password.length < 6) {
-      passwordErrors.push("tener al menos 6 caracteres");
-    }
-
-    if (!uppercaseRegex.test(formData.password)) {
-      passwordErrors.push("contener al menos una letra mayúscula");
-    }
-
-    if (!numberRegex.test(formData.password)) {
-      passwordErrors.push("contener al menos un número");
-    }
-
-    if (whitespaceRegex.test(formData.password)) {
-      passwordErrors.push("no contener espacios");
-    }
-
-    if (passwordErrors.length > 0) {
-      errors.password = `La contraseña debe ${joinPasswordRequirements(
-        passwordErrors,
-      )}.`;
-    }
+  if (passwordError) {
+    errors.password = passwordError;
   }
 
   if (!formData.confirmPassword) {
@@ -109,16 +255,31 @@ export default function RegistroPage() {
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     const fieldName = name as keyof RegisterFormData;
-
-    setFormData((currentFormData) => ({
-      ...currentFormData,
+    const nextFormData = {
+      ...formData,
       [fieldName]: value,
-    }));
+    };
 
-    setErrors((currentErrors) => ({
-      ...currentErrors,
-      [fieldName]: undefined,
-    }));
+    setFormData(nextFormData);
+
+    setErrors((currentErrors) => {
+      const nextErrors: RegisterFormErrors = {
+        ...currentErrors,
+        [fieldName]: undefined,
+      };
+
+      if (
+        (fieldName === "password" || fieldName === "confirmPassword") &&
+        nextFormData.confirmPassword
+      ) {
+        nextErrors.confirmPassword =
+          nextFormData.confirmPassword === nextFormData.password
+            ? undefined
+            : "Las contraseñas no coinciden.";
+      }
+
+      return nextErrors;
+    });
     setSuccessMessage("");
     setSubmitError("");
   };
@@ -140,7 +301,7 @@ export default function RegistroPage() {
     try {
       await registerUser({
         nombre: formData.nombre.trim(),
-        email: formData.email.trim(),
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
       });
 
