@@ -1,6 +1,8 @@
 "use client";
 
+import { ApiRequestError } from "@/lib/api-client";
 import { hasActiveSession, saveAuthSession } from "@/lib/auth-session";
+import { loginUser } from "@/services/auth-service";
 import Link from "next/link";
 import { CheckCircle2, Eye, EyeOff, LogIn } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -43,30 +45,6 @@ function validateLoginForm(formData: LoginFormData): LoginFormErrors {
   }
 
   return errors;
-}
-
-function getBackendErrorMessage(errorResponse: unknown): string {
-  if (
-    typeof errorResponse === "object" &&
-    errorResponse !== null &&
-    "message" in errorResponse
-  ) {
-    const message = (errorResponse as { message?: unknown }).message;
-
-    if (Array.isArray(message)) {
-      return message.join(" ");
-    }
-
-    if (typeof message === "string") {
-      if (message.toLowerCase().includes("credenciales inválidas")) {
-        return "Credenciales inválidas o usuario no encontrado.";
-      }
-
-      return message;
-    }
-  }
-
-  return "Credenciales inválidas o usuario no encontrado.";
 }
 
 export default function LoginPage() {
@@ -113,40 +91,28 @@ export default function LoginPage() {
       return;
     }
 
-    const loginEndpoint = "http://localhost:3000/auth/login";
-
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(loginEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password,
-        }),
+      const responseData = await loginUser({
+        email: formData.email.trim(),
+        password: formData.password,
       });
-
-      let responseData: unknown = null;
-
-      try {
-        responseData = await response.json();
-      } catch {
-        responseData = null;
-      }
-
-      if (!response.ok) {
-        setSubmitError(getBackendErrorMessage(responseData));
-        return;
-      }
 
       saveAuthSession(responseData);
       setFormData(initialFormData);
       setSuccessMessage("Inicio de sesión exitoso. Preparando tu cuenta...");
       router.push("/cuenta");
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        setSubmitError(
+          error.message.toLowerCase().includes("credenciales inválidas")
+            ? "Credenciales inválidas o usuario no encontrado."
+            : error.message,
+        );
+        return;
+      }
+
       setSubmitError("No se pudo conectar con el servidor.");
     } finally {
       setIsSubmitting(false);

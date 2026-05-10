@@ -1,11 +1,8 @@
+import type { User } from "@/types/user";
+
 export const AUTH_SESSION_CHANGED_EVENT = "auth-session-changed";
 
-export type AuthUser = {
-  id?: number;
-  nombre?: string;
-  email?: string;
-  rol?: string;
-};
+export type AuthUser = Partial<User>;
 
 function canUseStorage() {
   return typeof window !== "undefined";

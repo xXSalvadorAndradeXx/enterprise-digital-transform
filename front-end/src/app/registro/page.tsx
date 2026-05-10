@@ -1,5 +1,7 @@
 "use client";
 
+import { ApiRequestError } from "@/lib/api-client";
+import { registerUser } from "@/services/auth-service";
 import Link from "next/link";
 import { CheckCircle2, Eye, EyeOff, LogIn } from "lucide-react";
 import { useState } from "react";
@@ -95,26 +97,6 @@ function validateRegisterForm(formData: RegisterFormData): RegisterFormErrors {
   return errors;
 }
 
-function getBackendErrorMessage(errorResponse: unknown): string {
-  if (
-    typeof errorResponse === "object" &&
-    errorResponse !== null &&
-    "message" in errorResponse
-  ) {
-    const message = (errorResponse as { message?: unknown }).message;
-
-    if (Array.isArray(message)) {
-      return message.join(" ");
-    }
-
-    if (typeof message === "string") {
-      return message;
-    }
-  }
-
-  return "No se pudo completar el registro.";
-}
-
 export default function RegistroPage() {
   const [formData, setFormData] = useState<RegisterFormData>(initialFormData);
   const [errors, setErrors] = useState<RegisterFormErrors>({});
@@ -153,39 +135,23 @@ export default function RegistroPage() {
       return;
     }
 
-    const registerEndpoint = "http://localhost:3000/auth/register";
-
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(registerEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          nombre: formData.nombre.trim(),
-          email: formData.email.trim(),
-          password: formData.password,
-        }),
+      await registerUser({
+        nombre: formData.nombre.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
       });
-
-      let responseData: unknown = null;
-
-      try {
-        responseData = await response.json();
-      } catch {
-        responseData = null;
-      }
-
-      if (!response.ok) {
-        setSubmitError(getBackendErrorMessage(responseData));
-        return;
-      }
 
       setFormData(initialFormData);
       setSuccessMessage("¡Registro completado correctamente!.");
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        setSubmitError(error.message);
+        return;
+      }
+
       setSubmitError("No se pudo conectar con el servidor.");
     } finally {
       setIsSubmitting(false);
