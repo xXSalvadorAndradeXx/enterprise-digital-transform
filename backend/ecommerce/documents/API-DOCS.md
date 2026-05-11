@@ -30,6 +30,37 @@
 
 ## 2. Catálogo Público
 
+### Listar Productos (Con Paginación)
+* **Método:** `GET`
+* **Endpoint:** `/products`
+* **Descripción:** Obtiene la lista de productos disponibles. Soporta paginación mediante query params.
+* **Query Params (Opcionales):**
+  * `limit` (number): Cantidad máxima de registros a retornar (Default: 10).
+  * `offset` (number): Cantidad de registros a omitir (Default: 0).
+* **Headers:** No requiere.
+* **Respuesta Exitosa (200):**
+  ```json
+  {
+    "status": "success",
+    "message": "Productos obtenidos",
+    "data": {
+      "products": [
+        {
+          "id": 1,
+          "nombre": "Laptop Gamer",
+          "precio": "1500.00",
+          "stock": 10,
+          "category": {
+            "id": 1,
+            "nombre": "Laptops"
+          }
+        }
+      ],
+      "total": 1
+    }
+  }
+  ```
+
 ### Listar Categorías
 * **Método:** `GET`
 * **Endpoint:** `/categories`
