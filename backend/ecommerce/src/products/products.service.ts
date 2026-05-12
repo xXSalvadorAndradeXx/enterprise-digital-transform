@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
@@ -21,5 +21,19 @@ export class ProductsService {
     });
 
     return { data, total };
+  }
+
+  async findOne(id: number) {
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: ['category'],
+    });
+
+    if (!product) {
+      // Usamos el exception filter de NestJS para devolver automáticamente un 404 Not Found
+      throw new NotFoundException(`Producto con id ${id} no encontrado`);
+    }
+
+    return product;
   }
 }
