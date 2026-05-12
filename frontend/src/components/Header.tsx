@@ -39,6 +39,9 @@ export default function Header() {
             Registro
           </Link>
 
+
+         
+
         </nav>
       </div>
     </header>
