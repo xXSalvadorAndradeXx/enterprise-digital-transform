@@ -122,8 +122,8 @@ export default function CuentaPage() {
 
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Link
-                  href="/"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg"
+                  href="/productos"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#003791] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#003791]/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-lg"
                 >
                   Ir a comprar
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
