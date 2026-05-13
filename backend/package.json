@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migration:generate": "npm run build && typeorm migration:generate src/migrations/Init -d dist/data-source.js",
     "migration:run": "typeorm migration:run -d dist/data-source.js",
-    "migration:revert": "typeorm migration:revert -d dist/data-source.js"
+    "migration:revert": "typeorm migration:revert -d dist/data-source.js",
+    "seed": "ts-node src/database/seeds/product.seeder.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
