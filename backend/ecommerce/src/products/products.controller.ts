@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Patch, Delete, Body, Query, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { ProductFilterDto } from './dto/product-filter.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -11,8 +11,8 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  async findAll(@Query() paginationDto: PaginationDto) {
-    const { data, total } = await this.productsService.findAll(paginationDto);
+  async findAll(@Query() filterDto: ProductFilterDto) {
+    const { data, total } = await this.productsService.findAll(filterDto);
     
     return {
       status: 'success',

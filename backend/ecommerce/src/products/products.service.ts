@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { ProductFilterDto } from './dto/product-filter.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
@@ -13,14 +13,34 @@ export class ProductsService {
     private readonly productRepository: Repository<Product>,
   ) {}
 
-  async findAll(paginationDto: PaginationDto) {
-    const { limit = 10, offset = 0 } = paginationDto;
+  async findAll(filterDto: ProductFilterDto) {
+    const { limit = 10, offset = 0, search, minPrice, maxPrice, categoryId } = filterDto;
     
-    const [data, total] = await this.productRepository.findAndCount({
-      relations: ['category'],
-      take: limit,
-      skip: offset,
-    });
+    const query = this.productRepository.createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category');
+
+    if (search) {
+      query.andWhere(
+        '(LOWER(product.nombre) LIKE LOWER(:search) OR LOWER(product.descripcion) LIKE LOWER(:search))',
+        { search: `%${search}%` }
+      );
+    }
+
+    if (minPrice !== undefined) {
+      query.andWhere('product.precio >= :minPrice', { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      query.andWhere('product.precio <= :maxPrice', { maxPrice });
+    }
+
+    if (categoryId) {
+      query.andWhere('product.categoryId = :categoryId', { categoryId });
+    }
+
+    query.take(limit).skip(offset);
+
+    const [data, total] = await query.getManyAndCount();
 
     return { data, total };
   }
