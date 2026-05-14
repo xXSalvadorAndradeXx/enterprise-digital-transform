@@ -5,6 +5,7 @@ import {
   Body,
   UseGuards,
   Query,
+  Param, // <-- agrega esto
 } from '@nestjs/common';
 
 import { ProductsService } from './products.service';
@@ -16,13 +17,18 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class ProductsController {
   constructor(private productsService: ProductsService) {}
 
-  @Get() // público
+  @Get()
   findAll(@Query() paginationDto: PaginationDto) {
     return this.productsService.findAll(paginationDto);
   }
 
+  @Get(':id') // <-- agrega esto
+  findOne(@Param('id') id: string) {
+    return this.productsService.findOne(id);
+  }
+
   @Post()
-  @UseGuards(JwtAuthGuard) // 🔒 solo autenticados
+  @UseGuards(JwtAuthGuard)
   create(@Body() dto: CreateProductDto) {
     return this.productsService.create(dto);
   }

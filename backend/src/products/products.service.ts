@@ -1,11 +1,19 @@
 // src/products/products.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { Product } from './entities/product.entity';
 import { CreateProductDto } from '../auth/dto/create-product.dto';
 import { PaginationDto } from '../auth/dto/pagination.dto';
+
+// Regex para validar UUID
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class ProductsService {
@@ -40,6 +48,11 @@ export class ProductsService {
   }
 
   async findOne(id: string) {
+    // Validar formato UUID antes de buscar
+    if (!UUID_REGEX.test(id)) {
+      throw new BadRequestException(`"${id}" no es un ID válido`);
+    }
+
     const product = await this.repo.findOne({
       where: { id },
       relations: ['category'],
