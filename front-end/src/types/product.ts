@@ -12,6 +12,7 @@ export interface Product {
   stock: number;
   imagenUrl: string;
   createdAt: string;
+  deletedAt?: string | null;
   category: ProductCategory | null;
 }
 
@@ -21,5 +22,13 @@ export interface ProductsResponse {
   data: {
     products: Product[];
     total: number;
+  };
+}
+
+export interface ProductDetailResponse {
+  status: string;
+  message: string;
+  data: {
+    product: Product;
   };
 }
