@@ -1,6 +1,14 @@
 import ProductCard from "@/components/ProductCard";
 
-async function getProducts() {
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+}
+
+async function getProducts(): Promise<Product[]> {
+
   const response = await fetch(
     "http://localhost:3000/api/products",
     {
@@ -9,12 +17,15 @@ async function getProducts() {
   );
 
   if (!response.ok) {
-    throw new Error(
-      "Error al obtener productos"
-    );
+    return [];
   }
 
-  return response.json();
+  const data = await response.json();
+
+  // Verifica que sea un array
+  return Array.isArray(data)
+    ? data
+    : [];
 }
 
 export default async function ProductosPage() {
@@ -39,7 +50,7 @@ export default async function ProductosPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-          {products.map((product: any) => (
+          {products.map((product) => (
 
             <ProductCard
               key={product.id}
