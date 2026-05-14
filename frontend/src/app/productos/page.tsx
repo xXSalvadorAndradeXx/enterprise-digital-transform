@@ -1,16 +1,44 @@
 import ProductCard from "@/components/ProductCard";
+import ProductFilters from "@/components/ProductFilters";
 
 interface Product {
   id: string;
   name: string;
   price: number;
   image: string;
+  category?: string;
 }
 
-async function getProducts(): Promise<Product[]> {
+async function getProducts(
+  searchParams: {
+    name?: string;
+    category?: string;
+    price?: string;
+  }
+): Promise<Product[]> {
+
+  const params = new URLSearchParams();
+
+  if (searchParams.name) {
+    params.append("name", searchParams.name);
+  }
+
+  if (searchParams.category) {
+    params.append(
+      "category",
+      searchParams.category
+    );
+  }
+
+  if (searchParams.price) {
+    params.append(
+      "price",
+      searchParams.price
+    );
+  }
 
   const response = await fetch(
-    "http://localhost:3000/api/products",
+    `http://localhost:3000/api/products?${params.toString()}`,
     {
       cache: "no-store",
     }
@@ -22,15 +50,24 @@ async function getProducts(): Promise<Product[]> {
 
   const data = await response.json();
 
-  // Verifica que sea un array
   return Array.isArray(data)
     ? data
     : [];
 }
 
-export default async function ProductosPage() {
+export default async function ProductosPage({
+  searchParams,
+}: {
+  searchParams: {
+    name?: string;
+    category?: string;
+    price?: string;
+  };
+}) {
 
-  const products = await getProducts();
+  const products = await getProducts(
+    searchParams
+  );
 
   return (
     <div className="p-10">
@@ -39,10 +76,12 @@ export default async function ProductosPage() {
         Productos
       </h1>
 
+      <ProductFilters />
+
       {/* Estado vacío */}
       {products.length === 0 ? (
 
-        <p className="text-gray-500">
+        <p className="text-white-500">
           No hay productos disponibles
         </p>
 
