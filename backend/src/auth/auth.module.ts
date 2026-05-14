@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { RolesGuard } from './guards/roles.guard';
 
 import { User } from '../users/entities/user.entity';
 import { Cart } from '../cart/entities/cart.entity';
@@ -40,17 +41,21 @@ import { Cart } from '../cart/entities/cart.entity';
     ]),
   ],
 
-  controllers: [AuthController],
+  controllers: [
+    AuthController,
+  ],
 
   providers: [
     AuthService,
     JwtStrategy,
+    RolesGuard,
   ],
 
   exports: [
     PassportModule,
     JwtModule,
     JwtStrategy,
+    RolesGuard,
   ],
 })
 export class AuthModule {}

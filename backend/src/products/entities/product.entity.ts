@@ -5,6 +5,7 @@ import {
   ManyToOne,
   OneToMany,
   CreateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 
 import { Category } from '../../categories/entities/category.entity';
@@ -45,13 +46,17 @@ export class Product {
   })
   imageUrl!: string;
 
-  @Column({
-    default: true,
-  })
-  isActive!: boolean;
+  // puedes quitar isActive si migras totalmente a soft delete
+  // @Column({ default: true })
+  // isActive!: boolean;
 
   @CreateDateColumn()
   createdAt!: Date;
+
+  @DeleteDateColumn({
+    nullable: true,
+  })
+  deletedAt!: Date;
 
   @Column({
     type: 'jsonb',
@@ -59,12 +64,16 @@ export class Product {
   })
   metadata!: Record<string, any>;
 
-  // Un producto pertenece a una categoría
-  @ManyToOne(() => Category, (category) => category.products, {
-    eager: true,
-  })
+  @ManyToOne(
+    () => Category,
+    (category) => category.products,
+    { eager: true },
+  )
   category!: Category;
 
-  @OneToMany(() => CartItem, (item) => item.product)
+  @OneToMany(
+    () => CartItem,
+    (item) => item.product,
+  )
   cartItems!: CartItem[];
 }
