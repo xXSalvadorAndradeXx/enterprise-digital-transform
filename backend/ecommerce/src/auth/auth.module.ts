@@ -15,7 +15,7 @@ import { JwtStrategy } from './jwt.strategy'; // 1. Importación de la estrategi
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') || 'back4455end', 
+        secret: config.get<string>('JWT_SECRET'), 
         signOptions: { expiresIn: '1d' }, 
       }),
     }),
