@@ -6,6 +6,7 @@ interface RegisterFormData {
   name: string;
   email: string;
   password: string;
+  role: string;
 }
 
 interface FormErrors {
@@ -21,6 +22,7 @@ export default function RegistroPage() {
       name: "",
       email: "",
       password: "",
+      role: "user",
     });
 
   const [errors, setErrors] =
@@ -87,7 +89,9 @@ export default function RegistroPage() {
       newErrors.password =
         "La contraseña es obligatoria";
 
-    } else if (
+    }
+
+    else if (
       formData.password.length < 8
     ) {
 
@@ -144,33 +148,66 @@ export default function RegistroPage() {
           name: "",
           email: "",
           password: "",
+          role: "user",
         });
 
         setErrors({});
 
-      } else {
+      }
 
-        // Correo ya registrado
+      // Manejo de errores
+      else {
+
+        // Error tipo string
         if (
-          typeof data.message === "string" &&
-          data.message.toLowerCase().includes("registrado")
+          typeof data.message === "string"
         ) {
 
-          setMessage(
-            "El correo ya está registrado"
-          );
+          // Usuario ya registrado
+          if (
+            data.message
+              .toLowerCase()
+              .includes("registrado")
+          ) {
 
-        } else {
+            setMessage(
+              "El correo ya está registrado"
+            );
+
+          }
+
+          else {
+
+            // Mostrar mensaje real del backend
+            setMessage(data.message);
+
+          }
+
+        }
+
+        // Error tipo array
+        else if (
+          Array.isArray(data.message)
+        ) {
+
+          setMessage(data.message[0]);
+
+        }
+
+        // Error genérico
+        else {
 
           setMessage(
-            "El correo ya esta registrado"
+            "Error al registrar usuario"
           );
 
         }
 
       }
 
-    } catch (error) {
+    }
+
+    catch (error) {
 
       console.error(error);
 
@@ -178,7 +215,9 @@ export default function RegistroPage() {
         "Error de conexión con el servidor"
       );
 
-    } finally {
+    }
+
+    finally {
 
       setLoading(false);
 
