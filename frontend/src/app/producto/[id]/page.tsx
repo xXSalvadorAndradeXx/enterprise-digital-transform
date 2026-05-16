@@ -15,19 +15,23 @@ async function getProduct(id: string) {
   }
 
   return response.json();
+
 }
 
 interface ProductPageProps {
+
   params: {
     id: string;
   };
+
 }
 
 export default async function ProductDetailPage({
   params,
 }: ProductPageProps) {
 
-  const product = await getProduct(params.id);
+  const product =
+    await getProduct(params.id);
 
   // 404
   if (!product) {
@@ -35,29 +39,37 @@ export default async function ProductDetailPage({
   }
 
   return (
+
     <div className="p-10">
 
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-8">
 
+        {/* Imagen */}
         <img
           src={product.image}
           alt={product.name}
           className="w-full h-96 object-cover rounded-lg mb-6"
         />
 
+        {/* Nombre */}
         <h1 className="text-4xl font-bold text-black mb-4">
           {product.name}
         </h1>
 
+        {/* Precio */}
         <p className="text-2xl text-blue-600 font-semibold mb-4">
           ${product.price}
         </p>
 
+        {/* Descripción */}
         <p className="text-gray-700">
           {product.description}
         </p>
 
       </div>
+
     </div>
+
   );
+
 }

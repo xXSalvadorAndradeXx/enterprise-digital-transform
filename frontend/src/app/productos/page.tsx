@@ -9,36 +9,43 @@ interface Product {
   category?: string;
 }
 
-async function getProducts(
+interface ProductosPageProps {
   searchParams: {
     name?: string;
     category?: string;
     price?: string;
-  }
+  };
+}
+
+async function getProducts(
+  searchParams: ProductosPageProps["searchParams"]
 ): Promise<Product[]> {
 
-  const params = new URLSearchParams();
+  const query = new URLSearchParams();
 
+  // Nombre
   if (searchParams.name) {
-    params.append("name", searchParams.name);
+    query.append("name", searchParams.name);
   }
 
+  // Categoría
   if (searchParams.category) {
-    params.append(
+    query.append(
       "category",
       searchParams.category
     );
   }
 
+  // Precio
   if (searchParams.price) {
-    params.append(
+    query.append(
       "price",
       searchParams.price
     );
   }
 
   const response = await fetch(
-    `http://localhost:3000/api/products?${params.toString()}`,
+    `http://localhost:3000/api/products?${query.toString()}`,
     {
       cache: "no-store",
     }
@@ -57,19 +64,13 @@ async function getProducts(
 
 export default async function ProductosPage({
   searchParams,
-}: {
-  searchParams: {
-    name?: string;
-    category?: string;
-    price?: string;
-  };
-}) {
+}: ProductosPageProps) {
 
-  const products = await getProducts(
-    searchParams
-  );
+  const products =
+    await getProducts(searchParams);
 
   return (
+
     <div className="p-10">
 
       <h1 className="text-4xl font-bold mb-8 text-white">
@@ -81,8 +82,8 @@ export default async function ProductosPage({
       {/* Estado vacío */}
       {products.length === 0 ? (
 
-        <p className="text-white-500">
-          No hay productos disponibles
+        <p className="text-gray-200 text-xl">
+          No se encontraron productos
         </p>
 
       ) : (
@@ -93,6 +94,7 @@ export default async function ProductosPage({
 
             <ProductCard
               key={product.id}
+              id={product.id}
               image={product.image}
               name={product.name}
               price={product.price}
@@ -106,5 +108,7 @@ export default async function ProductosPage({
       )}
 
     </div>
+
   );
+
 }
