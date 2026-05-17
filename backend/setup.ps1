@@ -1,15 +1,7 @@
 # ==============================
-# SETUP PROYECTO NESTJS (POWERSHELL)
+# SETUP PROYECTO NESTJS (POWERSHELL + PNPM)
 # ==============================
 
-Write-Host "Instalando dependencias..."
-npm install
-
-Write-Host "Instalando dependencias adicionales..."
-npm install bcrypt class-validator class-transformer
-
-Write-Host "Instalando tipos de desarrollo..."
-npm install -D @types/node @types/bcrypt
 
 Write-Host "Eliminando node_modules y package-lock.json..."
 if (Test-Path node_modules) {
@@ -19,10 +11,22 @@ if (Test-Path package-lock.json) {
     Remove-Item -Force package-lock.json
 }
 
-Write-Host "Reinstalando todo limpio..."
-npm install
+Write-Host "Limpiando cache de pnpm..."
+pnpm store prune
+
+Write-Host "Instalando dependencias..."
+pnpm install
+
+Write-Host "Instalando dependencias dotenv..."
+pnpm add dotenv
+
+Write-Host "Instalando dependencias adicionales..."
+pnpm add bcrypt class-validator class-transformer
+
+Write-Host "Instalando tipos de desarrollo..."
+pnpm add -D @types/node @types/bcrypt
 
 Write-Host "Levantando servidor..."
-npm run start:dev
+pnpm start:dev
 
 Write-Host "Listo 🚀"
