@@ -89,20 +89,12 @@ async function getProduct(id: string): Promise<ProductRequestResult> {
 
 function ProductNotFoundState() {
   return (
-    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[#F4F7FB] px-6 py-10 text-[#111111]">
-      <div className="w-full max-w-md rounded-xl border border-[#D9E2EC] bg-white p-8 text-center shadow-[0_12px_30px_rgba(17,17,17,0.06)]">
-        <p className="text-sm font-bold uppercase text-[#003791]">Error 404</p>
-        <h1 className="mt-3 text-3xl font-extrabold text-[#111111]">
-          Producto no encontrado
-        </h1>
-        <Link
-          href="/productos"
-          className="mt-7 inline-flex items-center justify-center gap-2 rounded-lg bg-[#003791] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-md"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Volver a Productos
-        </Link>
-      </div>
+    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[#F4F7FB] px-6 py-10">
+      <img
+        src="/images/robot-404-producto.png"
+        alt="Producto no encontrado"
+        className="h-auto w-full max-w-[min(92vw,760px)] object-contain"
+      />
     </section>
   );
 }
