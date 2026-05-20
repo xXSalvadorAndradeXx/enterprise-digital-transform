@@ -147,4 +147,4 @@ src/
 
 ---
 
-> Proyecto desarrollado con ❤️ usando NestJS y TypeScript.
+> Proyecto desarrollado con ❤️ usando NestJS y TypeScript. 
