@@ -119,10 +119,10 @@ export default function ProductFilters({
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-6 rounded-xl border border-[#D9E2EC] bg-white p-4 shadow-[0_12px_30px_rgba(0,55,145,0.08)]"
+      className="mt-6 rounded-xl border border-[#D9E2EC] bg-white p-4 shadow-[0_12px_30px_rgba(0,55,145,0.08)] sm:p-5"
     >
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_0.8fr_0.8fr_auto] lg:items-end">
-        <div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.75fr)_minmax(0,0.75fr)_minmax(10rem,auto)] xl:items-end">
+        <div className="min-w-0 md:col-span-2 xl:col-span-1">
           <label
             htmlFor="search"
             className="text-xs font-bold uppercase text-slate-500"
@@ -140,7 +140,7 @@ export default function ProductFilters({
           />
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label
             htmlFor="categoryId"
             className="text-xs font-bold uppercase text-slate-500"
@@ -163,7 +163,7 @@ export default function ProductFilters({
           </select>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label
             htmlFor="minPrice"
             className="text-xs font-bold uppercase text-slate-500"
@@ -183,7 +183,7 @@ export default function ProductFilters({
           />
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label
             htmlFor="maxPrice"
             className="text-xs font-bold uppercase text-slate-500"
@@ -203,17 +203,17 @@ export default function ProductFilters({
           />
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 lg:min-w-44 lg:grid-cols-1">
+        <div className="grid gap-2 sm:grid-cols-2 md:col-span-2 xl:col-span-1 xl:min-w-40 xl:grid-cols-1">
           <button
             type="submit"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-[#003791] px-5 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-md"
+            className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#003791] px-5 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-md"
           >
             Aplicar filtros
           </button>
           <button
             type="button"
             onClick={handleClearFilters}
-            className="inline-flex h-11 items-center justify-center rounded-lg border border-[#D9E2EC] bg-[#F4F7FB] px-5 text-sm font-semibold text-[#003791] transition-all duration-300 hover:bg-[#EAF3FF]"
+            className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-[#D9E2EC] bg-[#F4F7FB] px-5 text-sm font-semibold text-[#003791] transition-all duration-300 hover:bg-[#EAF3FF]"
           >
             Limpiar
           </button>

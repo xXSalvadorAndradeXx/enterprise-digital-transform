@@ -90,13 +90,13 @@ async function getProduct(id: string): Promise<ProductRequestResult> {
 
 function ProductNotFoundState() {
   return (
-    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[#F4F7FB] px-6 py-10">
+    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[#F4F7FB] px-4 py-8 sm:px-6 sm:py-10">
       <Image
         src="/images/robot-404-producto.png"
         width={1448}
         height={1086}
         alt="Error 404 producto no encontrado"
-        className="h-auto w-full max-w-[min(92vw,760px)] object-contain"
+        className="h-auto w-full max-w-[min(94vw,760px)] object-contain"
       />
     </section>
   );
@@ -104,8 +104,8 @@ function ProductNotFoundState() {
 
 function ProductErrorState() {
   return (
-    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[#F4F7FB] px-6 py-10 text-[#111111]">
-      <div className="w-full max-w-md rounded-xl border border-[#D9E2EC] bg-white p-8 text-center shadow-[0_12px_30px_rgba(17,17,17,0.06)]">
+    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[#F4F7FB] px-4 py-8 text-[#111111] sm:px-6 sm:py-10">
+      <div className="w-full max-w-md rounded-xl border border-[#D9E2EC] bg-white p-6 text-center shadow-[0_12px_30px_rgba(17,17,17,0.06)] sm:p-8">
         <h1 className="text-2xl font-extrabold text-[#111111]">
           {PRODUCT_ERROR_MESSAGE}
         </h1>
@@ -141,19 +141,19 @@ export default async function ProductDetailPage({
   const formattedDate = formatProductDate(product.createdAt);
 
   return (
-    <section className="min-h-[calc(100vh-10rem)] bg-[#F4F7FB] px-6 py-10 text-[#111111]">
-      <div className="mx-auto max-w-6xl">
+    <section className="min-h-[calc(100vh-10rem)] bg-[#F4F7FB] px-4 py-8 text-[#111111] sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl">
         <Link
           href="/productos"
-          className="inline-flex items-center gap-2 rounded-full border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-semibold text-[#003791] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#005BFF] hover:bg-[#EAF3FF] hover:text-[#005BFF]"
+          className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-semibold text-[#003791] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#005BFF] hover:bg-[#EAF3FF] hover:text-[#005BFF]"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Volver a Productos
         </Link>
 
-        <article className="mt-6 overflow-hidden rounded-xl border border-[#D9E2EC] bg-white shadow-[0_18px_45px_rgba(0,55,145,0.10)]">
-          <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="bg-[#EAF3FF] p-4 sm:p-6">
+        <article className="mt-5 overflow-hidden rounded-2xl border border-[#D9E2EC] bg-white shadow-[0_18px_45px_rgba(0,55,145,0.10)] sm:mt-6">
+          <div className="grid gap-0 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <div className="bg-[#EAF3FF] p-4 sm:p-6 lg:p-7">
               <div className="relative aspect-square overflow-hidden rounded-xl border border-[#D9E2EC] bg-[#F4F7FB]">
                 <ProductDetailImage
                   src={imageUrl}
@@ -163,7 +163,7 @@ export default async function ProductDetailPage({
               </div>
             </div>
 
-            <div className="flex flex-col p-6 sm:p-8">
+            <div className="flex min-w-0 flex-col p-5 sm:p-7 lg:p-8">
               <div className="flex flex-wrap items-center gap-3">
                 {product.category ? (
                   <span className="rounded-full border border-[#D9E2EC] bg-[#EAF3FF] px-3 py-1 text-sm font-semibold text-[#003791]">
@@ -181,20 +181,20 @@ export default async function ProductDetailPage({
                 </span>
               </div>
 
-              <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-[#111111] sm:text-4xl">
+              <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-[#111111] sm:text-3xl lg:text-4xl">
                 {product.nombre}
               </h1>
 
-              <p className="mt-4 text-base leading-7 text-slate-600">
+              <p className="mt-4 break-words text-sm leading-6 text-slate-600 sm:text-base sm:leading-7">
                 {product.descripcion}
               </p>
 
-              <div className="mt-7 grid gap-4 border-y border-[#D9E2EC] py-5 sm:grid-cols-2">
+              <div className="mt-6 grid gap-4 border-y border-[#D9E2EC] py-5 sm:mt-7 sm:grid-cols-2">
                 <div>
                   <p className="text-xs font-bold uppercase text-slate-500">
                     Precio
                   </p>
-                  <p className="mt-1 text-3xl font-extrabold text-[#111111]">
+                  <p className="mt-1 break-words text-2xl font-extrabold text-[#111111] sm:text-3xl">
                     {formatProductPrice(product.precio)}
                   </p>
                 </div>
@@ -214,7 +214,7 @@ export default async function ProductDetailPage({
                 </p>
               ) : null}
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="mt-6 grid gap-3 md:grid-cols-3">
                 <div className="rounded-lg border border-[#D9E2EC] bg-[#F4F7FB] px-3 py-3">
                   <p className="text-sm font-bold text-[#111111]">
                     Envio disponible
@@ -244,7 +244,7 @@ export default async function ProductDetailPage({
               <button
                 type="button"
                 disabled={!isAvailable}
-                className={`mt-8 inline-flex w-full items-center justify-center gap-2.5 rounded-xl px-7 py-4 text-sm font-bold shadow-sm transition-all duration-300 sm:w-auto ${
+                className={`mt-8 inline-flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold shadow-sm transition-all duration-300 md:w-auto ${
                   isAvailable
                     ? "bg-[#003791] text-white shadow-[0_16px_35px_rgba(0,55,145,0.22)] hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-[0_20px_45px_rgba(0,91,255,0.26)]"
                     : "cursor-not-allowed bg-slate-300 text-slate-500 shadow-none"

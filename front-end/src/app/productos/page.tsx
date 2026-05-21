@@ -259,35 +259,35 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
     limit,
   });
   const disabledPaginationClassName =
-    "inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#D9E2EC] bg-[#F4F7FB] px-4 text-sm font-semibold text-slate-400";
+    "inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-lg border border-[#D9E2EC] bg-[#F4F7FB] px-3 text-sm font-semibold text-slate-400 sm:px-4";
   const activePaginationClassName =
-    "inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#003791] px-4 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-md";
+    "inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-[#003791] px-3 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-md sm:px-4";
 
   return (
-    <section className="min-h-[calc(100vh-10rem)] bg-[#F4F7FB] px-6 py-10 text-[#111111]">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-5 border-b border-[#D9E2EC] pb-7 md:flex-row md:items-end md:justify-between">
+    <section className="min-h-[calc(100vh-10rem)] bg-[#F4F7FB] px-4 py-8 text-[#111111] sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl">
+        <div className="flex flex-col gap-5 border-b border-[#D9E2EC] pb-6 md:flex-row md:items-end md:justify-between md:pb-7">
           <div>
             <p className="inline-flex rounded-full border border-[#D9E2EC] bg-[#EAF3FF] px-3 py-1 text-xs font-bold uppercase text-[#003791]">
               Catalogo
             </p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#111111] sm:text-4xl">
+            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#111111] sm:text-4xl lg:text-5xl">
               Productos
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+            <p className="mt-3 max-w-2xl break-words text-sm leading-6 text-slate-600 sm:text-base">
               Elige tecnologia de las mejores marcas, encuentra productos modernos y de la mas alta calidad.
             </p>
           </div>
 
           {!errorMessage ? (
-            <div className="inline-flex items-center gap-3 rounded-xl border border-[#D9E2EC] bg-white px-5 py-3 shadow-[0_12px_30px_rgba(0,55,145,0.08)]">
+            <div className="grid w-full grid-cols-[auto_1fr] items-center gap-2 rounded-xl border border-[#D9E2EC] bg-white px-4 py-3 shadow-[0_12px_30px_rgba(0,55,145,0.08)] sm:inline-flex sm:w-auto sm:gap-3 sm:px-5">
               <span className="text-xs font-bold uppercase text-slate-500">
                 Total
               </span>
-              <span className="rounded-lg bg-[#EAF3FF] px-3 py-1 text-lg font-extrabold text-[#003791]">
+              <span className="justify-self-start rounded-lg bg-[#EAF3FF] px-3 py-1 text-lg font-extrabold text-[#003791]">
                 {total}
               </span>
-              <span className="text-xs font-semibold text-slate-500">
+              <span className="col-span-2 text-xs font-semibold text-slate-500 sm:col-span-1 sm:whitespace-nowrap">
                 Pagina {page} de {totalPages} - {limit} por pagina
               </span>
             </div>
@@ -305,11 +305,11 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
             {errorMessage}
           </div>
         ) : products.length === 0 && filtersAreActive ? (
-          <div className="mx-auto mt-8 flex max-w-2xl flex-col items-center rounded-2xl border border-[#D9E2EC] bg-white px-6 py-9 text-center shadow-[0_16px_40px_rgba(0,55,145,0.10)]">
+          <div className="mx-auto mt-8 flex max-w-2xl flex-col items-center rounded-2xl border border-[#D9E2EC] bg-white px-5 py-8 text-center shadow-[0_16px_40px_rgba(0,55,145,0.10)] sm:px-6 sm:py-9">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#D9E2EC] bg-[#EAF3FF] text-[#003791]">
               <SearchX className="h-8 w-8" aria-hidden="true" />
             </div>
-            <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-[#111111]">
+            <h2 className="mt-5 text-xl font-extrabold tracking-tight text-[#111111] sm:text-2xl">
               No se encontraron coincidencias...
             </h2>
             <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
@@ -321,7 +321,7 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
             No hay productos disponibles por el momento.
           </div>
         ) : (
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
@@ -331,14 +331,14 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
         {shouldShowPagination ? (
           <nav
             aria-label="Paginacion de productos"
-            className="mt-8 flex flex-col items-center justify-between gap-4 rounded-xl border border-[#D9E2EC] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(0,55,145,0.08)] sm:flex-row"
+            className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-xl border border-[#D9E2EC] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(0,55,145,0.08)] sm:flex-row sm:items-center"
           >
-            <p className="text-sm font-semibold text-slate-600">
+            <p className="text-center text-sm font-semibold text-slate-600 sm:text-left">
               Pagina <span className="text-[#003791]">{page}</span> de{" "}
               <span className="text-[#003791]">{totalPages}</span>
             </p>
 
-            <div className="grid w-full grid-cols-2 gap-3 sm:w-auto">
+            <div className="grid w-full grid-cols-2 gap-3 sm:w-auto sm:min-w-72">
               {hasPreviousPage ? (
                 <Link href={previousPageHref} className={activePaginationClassName}>
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />

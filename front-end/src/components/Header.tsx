@@ -9,10 +9,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const navLinkBaseClassName =
-  "rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-300";
+  "rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-300 sm:px-4";
 
 const primaryNavLinkBaseClassName =
-  "rounded-xl px-5 py-2.5 text-sm font-semibold shadow-md transition-all duration-300";
+  "rounded-xl px-4 py-2.5 text-sm font-semibold shadow-md transition-all duration-300 sm:px-5";
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/") {
@@ -66,14 +66,14 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#D9E2EC] bg-white/95 shadow-[0_12px_35px_rgba(0,55,145,0.08)] backdrop-blur-md">
-      <nav className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 md:flex-row md:items-center md:justify-between">
-        <Link href="/" className="flex items-center gap-2">
+      <nav className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
+        <Link href="/" className="flex min-w-0 items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#003791] text-lg font-bold text-white shadow-md shadow-[#003791]/20">
             E
           </div>
 
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-[#111111]">
+            <h1 className="text-xl font-extrabold tracking-tight text-[#111111] sm:text-2xl">
               E-<span className="text-[#005BFF]">Commerce</span>
             </h1>
             <p className="text-xs font-medium text-slate-500">
@@ -82,7 +82,7 @@ export default function Header() {
           </div>
         </Link>
 
-        <div className="flex flex-wrap items-center gap-2 md:justify-end md:gap-3">
+        <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end md:gap-3">
           <Link href="/" className={getNavLinkClassName(pathname, "/")}>
             Inicio
           </Link>
