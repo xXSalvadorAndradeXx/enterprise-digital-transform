@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Product } from "@/types/product";
 
 interface ProductCardProps extends Product {}
@@ -13,11 +14,20 @@ export default function ProductCard({
 
     <div className="bg-white rounded-xl shadow-md p-4 hover:shadow-xl transition">
 
-      <img
-        src={image}
-        alt={name}
-        className="w-full h-48 sm:h-56 md:h-64 object-cover rounded-lg"
-      />
+        <Image
+          src={image}
+          alt={name}
+          width={500}
+          height={300}
+          className="
+           w-full
+           h-48
+           sm:h-56
+           md:h-64
+           object-cover
+           rounded-lg
+          " 
+        />
 
       <h2 className="text-lg sm:text-xl font-semibold mt-4 text-black">
         {name}

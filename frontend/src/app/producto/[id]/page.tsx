@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 
 async function getProduct(id: string) {
@@ -58,19 +59,22 @@ export default async function ProductDetailPage({
       >
 
         {/* Imagen */}
-        <img
-          src={product.image}
-          alt={product.name}
-          className="
-            w-full
-            h-64
-            sm:h-80
-            md:h-96
-            object-cover
-            rounded-lg
-            mb-6
-          "
-        />
+        <Image
+           src={product.image}
+           alt={product.name}
+           width={1000}
+           height={600}
+           priority
+           className="
+                w-full
+                h-64
+                sm:h-80
+                md:h-96
+                object-cover
+                rounded-lg
+                mb-6
+               "
+             />
 
         {/* Nombre */}
         <h1
