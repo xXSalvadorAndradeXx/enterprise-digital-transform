@@ -1,4 +1,5 @@
-﻿import { SearchX } from "lucide-react";
+import { ChevronLeft, ChevronRight, SearchX } from "lucide-react";
+import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
 import ProductFilters from "@/components/ProductFilters";
 import type { ProductFilterValues } from "@/components/ProductFilters";
@@ -6,13 +7,18 @@ import type { ProductCategory, ProductsResponse } from "@/types/product";
 
 const API_BASE_URL = "http://localhost:3000";
 const PRODUCTS_ERROR_MESSAGE = "No se pudieron cargar los productos.";
-const PRODUCTS_LIMIT = "10";
-const PRODUCTS_OFFSET = "0";
+const DEFAULT_PRODUCTS_LIMIT = 10;
+const DEFAULT_PRODUCTS_PAGE = 1;
 
 type ProductSearchParams = Record<string, string | string[] | undefined>;
 
 type ProductosPageProps = {
   searchParams: Promise<ProductSearchParams>;
+};
+
+type ProductPaginationValues = {
+  page: number;
+  limit: number;
 };
 
 function readParam(searchParams: ProductSearchParams, key: string) {
@@ -42,6 +48,21 @@ function readNonNegativeNumberParam(
   }
 
   return String(numericValue);
+}
+
+function readPositiveIntegerParam(
+  searchParams: ProductSearchParams,
+  key: string,
+  fallbackValue: number,
+) {
+  const value = readParam(searchParams, key);
+  const numericValue = Number(value);
+
+  if (!Number.isInteger(numericValue) || numericValue <= 0) {
+    return fallbackValue;
+  }
+
+  return numericValue;
 }
 
 function readCategoryIdParam(searchParams: ProductSearchParams) {
@@ -78,40 +99,82 @@ function readProductFilters(searchParams: ProductSearchParams): ProductFilterVal
   return filters;
 }
 
+function readProductPagination(
+  searchParams: ProductSearchParams,
+): ProductPaginationValues {
+  return {
+    page: readPositiveIntegerParam(
+      searchParams,
+      "page",
+      DEFAULT_PRODUCTS_PAGE,
+    ),
+    limit: readPositiveIntegerParam(
+      searchParams,
+      "limit",
+      DEFAULT_PRODUCTS_LIMIT,
+    ),
+  };
+}
+
 function hasActiveFilters(filters: ProductFilterValues) {
   return Boolean(
     filters.search || filters.categoryId || filters.minPrice || filters.maxPrice,
   );
 }
 
-function buildProductsUrl(filters: ProductFilterValues) {
-  const productsUrl = new URL("/products", API_BASE_URL);
-
-  productsUrl.searchParams.set("limit", PRODUCTS_LIMIT);
-  productsUrl.searchParams.set("offset", PRODUCTS_OFFSET);
-
+function appendProductQueryParams(
+  queryParams: URLSearchParams,
+  filters: ProductFilterValues,
+  pagination: ProductPaginationValues,
+) {
   if (filters.search) {
-    productsUrl.searchParams.set("search", filters.search);
+    queryParams.set("search", filters.search);
   }
 
   if (filters.categoryId) {
-    productsUrl.searchParams.set("categoryId", filters.categoryId);
+    queryParams.set("categoryId", filters.categoryId);
   }
 
   if (filters.minPrice) {
-    productsUrl.searchParams.set("minPrice", filters.minPrice);
+    queryParams.set("minPrice", filters.minPrice);
   }
 
   if (filters.maxPrice) {
-    productsUrl.searchParams.set("maxPrice", filters.maxPrice);
+    queryParams.set("maxPrice", filters.maxPrice);
   }
+
+  queryParams.set("page", String(pagination.page));
+  queryParams.set("limit", String(pagination.limit));
+}
+
+function buildProductsUrl(
+  filters: ProductFilterValues,
+  pagination: ProductPaginationValues,
+) {
+  const productsUrl = new URL("/products", API_BASE_URL);
+
+  appendProductQueryParams(productsUrl.searchParams, filters, pagination);
 
   return productsUrl;
 }
 
-async function getProducts(filters: ProductFilterValues) {
+function buildProductsPageHref(
+  filters: ProductFilterValues,
+  pagination: ProductPaginationValues,
+) {
+  const queryParams = new URLSearchParams();
+
+  appendProductQueryParams(queryParams, filters, pagination);
+
+  return `/productos?${queryParams.toString()}`;
+}
+
+async function getProducts(
+  filters: ProductFilterValues,
+  pagination: ProductPaginationValues,
+) {
   try {
-    const response = await fetch(buildProductsUrl(filters), {
+    const response = await fetch(buildProductsUrl(filters, pagination), {
       cache: "no-store",
     });
 
@@ -119,28 +182,36 @@ async function getProducts(filters: ProductFilterValues) {
       return {
         products: [],
         total: 0,
+        page: pagination.page,
+        limit: pagination.limit,
         errorMessage: PRODUCTS_ERROR_MESSAGE,
       };
     }
 
     const responseData = (await response.json()) as ProductsResponse;
-    const products = Array.isArray(responseData.data?.products)
-      ? responseData.data.products
-      : [];
+    const products = Array.isArray(responseData.data) ? responseData.data : [];
     const total =
-      typeof responseData.data?.total === "number"
-        ? responseData.data.total
-        : products.length;
+      typeof responseData.total === "number" ? responseData.total : products.length;
+    const page =
+      typeof responseData.page === "number" ? responseData.page : pagination.page;
+    const limit =
+      typeof responseData.limit === "number"
+        ? responseData.limit
+        : pagination.limit;
 
     return {
       products,
       total,
+      page,
+      limit,
       errorMessage: "",
     };
   } catch {
     return {
       products: [],
       total: 0,
+      page: pagination.page,
+      limit: pagination.limit,
       errorMessage: PRODUCTS_ERROR_MESSAGE,
     };
   }
@@ -167,13 +238,30 @@ async function getCategories() {
 export default async function ProductosPage({ searchParams }: ProductosPageProps) {
   const resolvedSearchParams = await searchParams;
   const filters = readProductFilters(resolvedSearchParams);
+  const pagination = readProductPagination(resolvedSearchParams);
   const filtersKey = `${filters.search}-${filters.categoryId}-${filters.minPrice}-${filters.maxPrice}`;
   const filtersAreActive = hasActiveFilters(filters);
   const [productsResult, categories] = await Promise.all([
-    getProducts(filters),
+    getProducts(filters, pagination),
     getCategories(),
   ]);
-  const { products, total, errorMessage } = productsResult;
+  const { products, total, page, limit, errorMessage } = productsResult;
+  const totalPages = Math.max(1, Math.ceil(total / Math.max(limit, 1)));
+  const shouldShowPagination = !errorMessage && totalPages > 1;
+  const hasPreviousPage = page > 1;
+  const hasNextPage = page < totalPages;
+  const previousPageHref = buildProductsPageHref(filters, {
+    page: Math.max(page - 1, 1),
+    limit,
+  });
+  const nextPageHref = buildProductsPageHref(filters, {
+    page: Math.min(page + 1, totalPages),
+    limit,
+  });
+  const disabledPaginationClassName =
+    "inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#D9E2EC] bg-[#F4F7FB] px-4 text-sm font-semibold text-slate-400";
+  const activePaginationClassName =
+    "inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#003791] px-4 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-md";
 
   return (
     <section className="min-h-[calc(100vh-10rem)] bg-[#F4F7FB] px-6 py-10 text-[#111111]">
@@ -199,6 +287,9 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
               <span className="rounded-lg bg-[#EAF3FF] px-3 py-1 text-lg font-extrabold text-[#003791]">
                 {total}
               </span>
+              <span className="text-xs font-semibold text-slate-500">
+                Pagina {page} de {totalPages} - {limit} por pagina
+              </span>
             </div>
           ) : null}
         </div>
@@ -222,7 +313,7 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
               No se encontraron coincidencias...
             </h2>
             <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
-              Prueba con otra búsqueda o ajusta los filtros para descubrir más productos.
+              Prueba con otra busqueda o ajusta los filtros para descubrir mas productos.
             </p>
           </div>
         ) : products.length === 0 ? (
@@ -236,6 +327,44 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
             ))}
           </div>
         )}
+
+        {shouldShowPagination ? (
+          <nav
+            aria-label="Paginacion de productos"
+            className="mt-8 flex flex-col items-center justify-between gap-4 rounded-xl border border-[#D9E2EC] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(0,55,145,0.08)] sm:flex-row"
+          >
+            <p className="text-sm font-semibold text-slate-600">
+              Pagina <span className="text-[#003791]">{page}</span> de{" "}
+              <span className="text-[#003791]">{totalPages}</span>
+            </p>
+
+            <div className="grid w-full grid-cols-2 gap-3 sm:w-auto">
+              {hasPreviousPage ? (
+                <Link href={previousPageHref} className={activePaginationClassName}>
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                  Anterior
+                </Link>
+              ) : (
+                <span className={disabledPaginationClassName} aria-disabled="true">
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                  Anterior
+                </span>
+              )}
+
+              {hasNextPage ? (
+                <Link href={nextPageHref} className={activePaginationClassName}>
+                  Siguiente
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              ) : (
+                <span className={disabledPaginationClassName} aria-disabled="true">
+                  Siguiente
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </span>
+              )}
+            </div>
+          </nav>
+        ) : null}
       </div>
     </section>
   );

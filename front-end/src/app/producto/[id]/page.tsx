@@ -72,7 +72,7 @@ async function getProduct(id: string): Promise<ProductRequestResult> {
     }
 
     const responseData = (await response.json()) as ProductDetailResponse;
-    const product = responseData.data?.product;
+    const product = responseData.data;
 
     if (!product) {
       return { status: "not-found" };
@@ -265,3 +265,4 @@ export default async function ProductDetailPage({
     </section>
   );
 }
+

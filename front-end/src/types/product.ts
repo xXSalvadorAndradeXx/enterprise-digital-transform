@@ -1,4 +1,4 @@
-export interface ProductCategory {
+﻿export interface ProductCategory {
   id: number;
   nombre: string;
   descripcion: string | null;
@@ -17,18 +17,12 @@ export interface Product {
 }
 
 export interface ProductsResponse {
-  status: string;
-  message: string;
-  data: {
-    products: Product[];
-    total: number;
-  };
+  data: Product[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface ProductDetailResponse {
-  status: string;
-  message: string;
-  data: {
-    product: Product;
-  };
+  data: Product;
 }

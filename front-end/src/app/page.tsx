@@ -1,65 +1,93 @@
-import Image from "next/image";
+import { ArrowRight, CreditCard, ShieldCheck, Truck } from "lucide-react";
+import Link from "next/link";
+
+const benefits = [
+  {
+    title: "Catalogo actualizado",
+    description: "Productos cargados desde la API del e-commerce.",
+    icon: Truck,
+  },
+  {
+    title: "Pago seguro",
+    description: "Una experiencia preparada para compras confiables.",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Compra sencilla",
+    description: "Navega, filtra y revisa cada producto con claridad.",
+    icon: CreditCard,
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <section className="min-h-[calc(100vh-10rem)] bg-[#F4F7FB] px-6 py-12 text-[#111111]">
+      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <div>
+          <p className="inline-flex rounded-full border border-[#D9E2EC] bg-[#EAF3FF] px-3 py-1 text-xs font-bold uppercase text-[#003791]">
+            E-commerce tecnologico
           </p>
+          <h1 className="mt-5 max-w-3xl text-4xl font-extrabold tracking-tight text-[#111111] sm:text-5xl lg:text-6xl">
+            Encuentra tecnologia para renovar tu espacio digital.
+          </h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+            Explora el catalogo conectado al backend, revisa disponibilidad y descubre productos por categoria, precio o busqueda.
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/productos"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#003791] px-6 py-3 text-sm font-bold text-white shadow-[0_16px_35px_rgba(0,55,145,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-[0_20px_45px_rgba(0,91,255,0.26)]"
+            >
+              Ver productos
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="rounded-2xl border border-[#D9E2EC] bg-white p-5 shadow-[0_18px_45px_rgba(0,55,145,0.10)]">
+          <div className="rounded-xl border border-[#D9E2EC] bg-[#EAF3FF] p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase text-[#003791]">
+                  Tienda online
+                </p>
+                <h2 className="mt-2 text-2xl font-extrabold text-[#111111]">
+                  Catalogo en tiempo real
+                </h2>
+              </div>
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#003791] text-white shadow-[0_14px_30px_rgba(0,55,145,0.24)]">
+                <ArrowRight className="h-6 w-6" aria-hidden="true" />
+              </div>
+            </div>
+
+            <div className="mt-7 grid gap-3">
+              {benefits.map((benefit) => {
+                const Icon = benefit.icon;
+
+                return (
+                  <div
+                    key={benefit.title}
+                    className="flex gap-3 rounded-xl border border-[#D9E2EC] bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#F4F7FB] text-[#003791]">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[#111111]">
+                        {benefit.title}
+                      </h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">
+                        {benefit.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </section>
   );
 }

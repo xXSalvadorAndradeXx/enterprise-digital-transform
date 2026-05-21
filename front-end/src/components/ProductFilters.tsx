@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -23,6 +23,9 @@ const emptyFilters: ProductFilterValues = {
   minPrice: "",
   maxPrice: "",
 };
+
+const DEFAULT_PRODUCTS_PAGE = "1";
+const DEFAULT_PRODUCTS_LIMIT = "10";
 
 const fieldClassName =
   "h-11 w-full rounded-lg border border-[#D9E2EC] bg-white px-3 text-sm text-[#111111] shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#005BFF] focus:ring-2 focus:ring-[#EAF3FF]";
@@ -82,6 +85,8 @@ export default function ProductFilters({
     }
 
     const queryParams = new URLSearchParams();
+    queryParams.set("page", DEFAULT_PRODUCTS_PAGE);
+    queryParams.set("limit", DEFAULT_PRODUCTS_LIMIT);
     const search = filters.search.trim();
 
     if (search) {
@@ -100,15 +105,15 @@ export default function ProductFilters({
       queryParams.set("maxPrice", String(maxPrice));
     }
 
-    router.push(
-      queryParams.size > 0 ? `/productos?${queryParams.toString()}` : "/productos",
-    );
+    router.push(`/productos?${queryParams.toString()}`);
   };
 
   const handleClearFilters = () => {
     setFilters(emptyFilters);
     setValidationMessage("");
-    router.push("/productos");
+    router.push(
+      `/productos?page=${DEFAULT_PRODUCTS_PAGE}&limit=${DEFAULT_PRODUCTS_LIMIT}`,
+    );
   };
 
   return (
