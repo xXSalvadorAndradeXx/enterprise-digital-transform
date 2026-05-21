@@ -1,6 +1,7 @@
-﻿/* eslint-disable @next/next/no-img-element -- Product image hosts are backend-provided and not fixed in next.config.ts. */
+import Image from "next/image";
 import { ArrowLeft, ShoppingCart } from "lucide-react";
 import Link from "next/link";
+import ProductDetailImage from "@/components/ProductDetailImage";
 import type { Product, ProductDetailResponse } from "@/types/product";
 
 const PRODUCT_ERROR_MESSAGE = "No se pudo cargar el producto.";
@@ -90,9 +91,11 @@ async function getProduct(id: string): Promise<ProductRequestResult> {
 function ProductNotFoundState() {
   return (
     <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[#F4F7FB] px-6 py-10">
-      <img
+      <Image
         src="/images/robot-404-producto.png"
-        alt="Producto no encontrado"
+        width={1448}
+        height={1086}
+        alt="Error 404 producto no encontrado"
         className="h-auto w-full max-w-[min(92vw,760px)] object-contain"
       />
     </section>
@@ -151,20 +154,12 @@ export default async function ProductDetailPage({
         <article className="mt-6 overflow-hidden rounded-xl border border-[#D9E2EC] bg-white shadow-[0_18px_45px_rgba(0,55,145,0.10)]">
           <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="bg-[#EAF3FF] p-4 sm:p-6">
-              <div className="aspect-square overflow-hidden rounded-xl border border-[#D9E2EC] bg-[#F4F7FB]">
-                {imageUrl ? (
-                  <img
-                    src={imageUrl}
-                    alt={product.nombre}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#EAF3FF] to-[#F4F7FB] px-6 text-center">
-                    <span className="rounded-full border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-semibold text-slate-500 shadow-sm">
-                      Sin imagen
-                    </span>
-                  </div>
-                )}
+              <div className="relative aspect-square overflow-hidden rounded-xl border border-[#D9E2EC] bg-[#F4F7FB]">
+                <ProductDetailImage
+                  src={imageUrl}
+                  alt={product.nombre}
+                  priority
+                />
               </div>
             </div>
 
@@ -265,4 +260,3 @@ export default async function ProductDetailPage({
     </section>
   );
 }
-

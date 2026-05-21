@@ -1,6 +1,6 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- Product image hosts are backend-provided and not fixed in next.config.ts. */
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { Product } from "@/types/product";
@@ -36,11 +36,12 @@ export default function ProductCard({ product }: ProductCardProps) {
     <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-[#D9E2EC] bg-white shadow-[0_10px_24px_rgba(17,17,17,0.06)] transition-all duration-300 hover:-translate-y-1 hover:border-[#005BFF] hover:shadow-[0_18px_42px_rgba(0,55,145,0.14)]">
       <div className="relative aspect-[16/10] overflow-hidden bg-[#F4F7FB]">
         {shouldShowImage ? (
-          <img
+          <Image
             src={imageUrl}
             alt={product.nombre}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
             onError={() => setFailedImageUrl(imageUrl)}
           />
         ) : (
