@@ -6,45 +6,30 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PaginatedResponse, SingleResponse } from '../common/interfaces/api-response.interface';
+import { Product } from './entities/product.entity';
+
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  async findAll(@Query() filterDto: ProductFilterDto) {
-    const { data, total } = await this.productsService.findAll(filterDto);
-    
-    return {
-      status: 'success',
-      message: 'Productos obtenidos',
-      data: {
-        products: data,
-        total,
-      },
-    };
+  async findAll(@Query() filterDto: ProductFilterDto): Promise<PaginatedResponse<Product>> {
+    return this.productsService.findAll(filterDto);
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<SingleResponse<Product>> {
     const product = await this.productsService.findOne(id);
-    
-    return {
-      status: 'success',
-      message: 'Producto obtenido correctamente',
-      data: { product },
-    };
+    return { data: product };
   }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
-  async create(@Body() createProductDto: CreateProductDto) {
+  async create(@Body() createProductDto: CreateProductDto): Promise<SingleResponse<Product>> {
     const product = await this.productsService.create(createProductDto);
-    return {
-      status: 'success',
-      message: 'Producto creado correctamente',
-      data: { product },
-    };
+    return { data: product };
   }
 
   @Patch(':id')
@@ -53,24 +38,16 @@ export class ProductsController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateProductDto: UpdateProductDto,
-  ) {
+  ): Promise<SingleResponse<Product>> {
     const product = await this.productsService.update(id, updateProductDto);
-    return {
-      status: 'success',
-      message: 'Producto actualizado correctamente',
-      data: { product },
-    };
+    return { data: product };
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
-  async remove(@Param('id', ParseIntPipe) id: number) {
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<SingleResponse<Product>> {
     const product = await this.productsService.remove(id);
-    return {
-      status: 'success',
-      message: 'Producto eliminado lógicamente (soft delete)',
-      data: { product },
-    };
+    return { data: product };
   }
-}
+}

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaginatedResponse } from '../common/interfaces/api-response.interface';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
@@ -13,9 +14,11 @@ export class ProductsService {
     private readonly productRepository: Repository<Product>,
   ) {}
 
-  async findAll(filterDto: ProductFilterDto) {
-    const { limit = 10, offset = 0, search, minPrice, maxPrice, categoryId, sortBy = 'createdAt', order = SortOrder.DESC } = filterDto;
+  async findAll(filterDto: ProductFilterDto): Promise<PaginatedResponse<Product>> {
+    const { limit = 10, page = 1, search, minPrice, maxPrice, categoryId, sortBy = 'createdAt', order = SortOrder.DESC } = filterDto;
     
+    const skip = (page - 1) * limit;
+
     const query = this.productRepository.createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category');
 
@@ -41,11 +44,11 @@ export class ProductsService {
     // Apply sorting
     query.orderBy(`product.${sortBy}`, order);
 
-    query.take(limit).skip(offset);
+    query.take(limit).skip(skip);
 
     const [data, total] = await query.getManyAndCount();
 
-    return { data, total };
+    return { data, total, page, limit };
   }
 
   async findOne(id: number) {
