@@ -134,6 +134,28 @@ El servidor estará disponible en: `http://localhost:3000`
 
 ---
 
+## 📑 Endpoints Documentados
+
+### Productos
+
+`GET /products`
+
+Obtiene un listado de productos paginado y filtrado.
+
+**Query Parameters Soportados para Ordenamiento:**
+
+*   `sortBy` (Opcional): Campo por el cual se ordenarán los resultados.
+    *   Valores permitidos: `precio`, `stock`, `createdAt`.
+    *   *Por defecto:* `createdAt`
+*   `order` (Opcional): Dirección del ordenamiento.
+    *   Valores permitidos: `ASC` (Ascendente), `DESC` (Descendente).
+    *   *Por defecto:* `DESC`
+
+**Ejemplo de uso:**
+`GET /products?sortBy=precio&order=ASC`
+
+---
+
 ## 📁 Estructura del Proyecto
 
 ```

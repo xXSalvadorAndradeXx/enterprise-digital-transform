@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
-import { ProductFilterDto } from './dto/product-filter.dto';
+import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
@@ -14,7 +14,7 @@ export class ProductsService {
   ) {}
 
   async findAll(filterDto: ProductFilterDto) {
-    const { limit = 10, offset = 0, search, minPrice, maxPrice, categoryId } = filterDto;
+    const { limit = 10, offset = 0, search, minPrice, maxPrice, categoryId, sortBy = 'createdAt', order = SortOrder.DESC } = filterDto;
     
     const query = this.productRepository.createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category');
@@ -37,6 +37,9 @@ export class ProductsService {
     if (categoryId) {
       query.andWhere('product.categoryId = :categoryId', { categoryId });
     }
+
+    // Apply sorting
+    query.orderBy(`product.${sortBy}`, order);
 
     query.take(limit).skip(offset);
 
