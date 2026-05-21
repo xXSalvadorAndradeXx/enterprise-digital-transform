@@ -16,10 +16,10 @@ export default function ProductCard({
       <img
         src={image}
         alt={name}
-        className="w-full h-52 object-cover rounded-lg"
+        className="w-full h-48 sm:h-56 md:h-64 object-cover rounded-lg"
       />
 
-      <h2 className="text-xl font-semibold mt-4 text-black">
+      <h2 className="text-lg sm:text-xl font-semibold mt-4 text-black">
         {name}
       </h2>
 
