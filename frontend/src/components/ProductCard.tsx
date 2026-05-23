@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { useCart } from "@/context/CartContext";
 import { Product } from "@/types/product";
 
 interface ProductCardProps extends Product {}
@@ -9,6 +10,8 @@ export default function ProductCard({
   image,
   buttonText,
 }: ProductCardProps) {
+
+  const { addToCart } = useCart();
 
   return (
 
@@ -38,6 +41,15 @@ export default function ProductCard({
       </p>
 
       <button
+      onClick={() =>
+   addToCart({
+    id,
+    name,
+    price,
+    image,
+    quantity: 1,
+  })
+}
         className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
       >
         {buttonText}
