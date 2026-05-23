@@ -1,6 +1,8 @@
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { SingleResponse } from '../common/interfaces/api-response.interface';
+import { Cart } from './entities/cart.entity';
 
 @Controller('cart')
 export class CartController {
@@ -8,14 +10,12 @@ export class CartController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  async checkConnection(@Request() req) {
+  async getCart(@Request() req): Promise<SingleResponse<Cart>> {
+   
+    const userId = req.user.sub;
     
-    const userCart = await this.cartService.findUserCart(req.user.userId);
+    const userCart = await this.cartService.findUserCart(userId);
     
-    return {
-      status: 'success',
-      message: 'Conexión verificada',
-      data: userCart,
-    };
+    return { data: userCart };
   }
 }
