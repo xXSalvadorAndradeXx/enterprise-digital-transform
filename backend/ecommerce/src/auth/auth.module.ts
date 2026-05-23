@@ -5,11 +5,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { HashService } from './hash.service';
 import { User } from '../users/entities/user.entity';
+import { Cart } from '../cart/entities/cart.entity';
 import { JwtStrategy } from './jwt.strategy'; // 1. Importación de la estrategia
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Cart]),
     
     JwtModule.registerAsync({
       imports: [ConfigModule],

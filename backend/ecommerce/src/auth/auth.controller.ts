@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt'; 
 import { User } from '../users/entities/user.entity';
+import { Cart } from '../cart/entities/cart.entity';
 import { HashService } from './hash.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -12,6 +13,8 @@ export class AuthController {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Cart)
+    private readonly cartRepository: Repository<Cart>,
     private readonly hashService: HashService,
     private readonly jwtService: JwtService, 
   ) {}
@@ -32,6 +35,10 @@ export class AuthController {
     });
 
     const savedUser = await this.userRepository.save(newUser);
+    
+    const newCart = this.cartRepository.create({ user: savedUser });
+    await this.cartRepository.save(newCart);
+
     const { password: _, ...result } = savedUser;
     return result;
   }

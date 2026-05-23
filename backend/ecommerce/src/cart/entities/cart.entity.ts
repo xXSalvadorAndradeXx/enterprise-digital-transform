@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, CreateDateColumn, OneToOne, JoinColumn, OneToMany } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { CartItem } from './cart-item.entity';
 
@@ -7,13 +7,11 @@ export class Cart {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ default: 'activo' }) // activo, comprado, cancelado
-  estado!: string;
-
   @CreateDateColumn()
   createdAt!: Date;
 
-  @ManyToOne(() => User, (user) => user.carts)
+  @OneToOne(() => User, (user) => user.cart, { onDelete: 'CASCADE' })
+  @JoinColumn()
   user!: User;
 
   @OneToMany(() => CartItem, (cartItem) => cartItem.cart)
