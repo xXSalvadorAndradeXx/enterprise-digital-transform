@@ -7,11 +7,14 @@ export class CartItem {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
-  cantidad!: number;
+  @Column({ type: 'int', default: 1 })
+  quantity!: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  precioUnitario!: number;
+  unitPrice!: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  subtotal!: number;
 
   @ManyToOne(() => Cart, (cart) => cart.items, { onDelete: 'CASCADE' })
   cart!: Cart;
