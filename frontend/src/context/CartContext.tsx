@@ -37,6 +37,11 @@ interface CartContextType {
     id: string
   ) => void;
 
+  updateQuantity: (
+    id: string,
+    quantity: number
+  ) => void;
+
   clearCart: () => void;
 
 }
@@ -45,7 +50,7 @@ interface CartContextType {
    Context
 ========================= */
 
-const CartContext =
+export const CartContext =
   createContext<CartContextType | null>(
     null
   );
@@ -126,6 +131,32 @@ export function CartProvider({
   };
 
   /* =========================
+     Actualizar cantidad
+  ========================= */
+
+  const updateQuantity = (
+    id: string,
+    quantity: number
+  ) => {
+
+    setCartItems((prev) =>
+
+      prev.map((item) =>
+
+        item.id === id
+          ? {
+              ...item,
+              quantity,
+            }
+          : item
+
+      )
+
+    );
+
+  };
+
+  /* =========================
      Vaciar carrito
   ========================= */
 
@@ -142,6 +173,7 @@ export function CartProvider({
         cartItems,
         addToCart,
         removeFromCart,
+        updateQuantity,
         clearCart,
       }}
     >

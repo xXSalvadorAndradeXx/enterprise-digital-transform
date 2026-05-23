@@ -1,41 +1,73 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 import ProductCard from "@/components/ProductCard";
+
+import { useCart } from "@/context/CartContext";
 
 interface Product {
 
   id: string;
+
   image: string;
+
   name: string;
+
   price: number;
 
 }
 
-async function getFeaturedProducts(): Promise<Product[]> {
+export default function HomePage() {
 
-  const response = await fetch(
-    "http://localhost:3000/api/products",
-    {
-      cache: "no-store",
+  const [featuredProducts, setFeaturedProducts] =
+    useState<Product[]>([]);
+
+  const {
+    cartItems,
+    addToCart,
+  } = useCart();
+
+  /* =========================
+     Obtener productos
+  ========================= */
+
+  useEffect(() => {
+
+    async function getFeaturedProducts() {
+
+      const response = await fetch(
+        "http://localhost:3000/api/products",
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+
+        setFeaturedProducts([]);
+
+        return;
+
+      }
+
+      const data = await response.json();
+
+      setFeaturedProducts(
+
+        Array.isArray(data.data)
+          ? data.data
+          : []
+
+      );
+
     }
-  );
 
-  if (!response.ok) {
+    getFeaturedProducts();
 
-    return [];
+  }, []);
 
-  }
-
-  const data = await response.json();
-
-  return Array.isArray(data.data)
-  ? data.data
-  : [];
-
-}
-
-export default async function HomePage() {
-
-  const featuredProducts =
-    await getFeaturedProducts();
+  
 
   return (
 
