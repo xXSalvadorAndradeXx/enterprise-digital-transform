@@ -13,9 +13,8 @@ import { Category } from '../categories/entities/category.entity';
 
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { PaginationDto } from '../auth/dto/pagination.dto';
+import { FilterProductDto } from './dto/filter-product.dto';
 
-// Regex para validar UUID
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -31,28 +30,97 @@ export class ProductsService {
 
   // ==========================
   // GET /products
-  // TypeORM excluye soft deleted automáticamente
+  // filtros + búsqueda + orden + paginación
   // ==========================
-  async findAll(paginationDto: PaginationDto) {
-    const { limit, offset } = paginationDto;
+  async findAll(filters: FilterProductDto) {
+    const {
+      search,
+      categoryId,
+      minPrice,
+      maxPrice,
+      sortBy = 'createdAt',
+      order = 'DESC',
+      page = 1,
+      limit = 10,
+    } = filters;
 
-    const [products, total] = await this.productRepo.findAndCount({
-      relations: ['category'],
-      order: { createdAt: 'DESC' },
-      take: limit,
-      skip: offset,
-    });
+    const qb = this.productRepo
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.isActive = :active', {
+        active: true,
+      });
+
+    if (search) {
+      qb.andWhere(
+        `(product.name ILIKE :search
+          OR product.description ILIKE :search)`,
+        {
+          search: `%${search}%`,
+        },
+      );
+    }
+
+    if (categoryId) {
+      this.validateUUID(categoryId);
+
+      qb.andWhere(
+        'category.id = :categoryId',
+        { categoryId },
+      );
+    }
+
+    if (minPrice !== undefined) {
+      qb.andWhere(
+        'product.price >= :minPrice',
+        { minPrice },
+      );
+    }
+
+    if (maxPrice !== undefined) {
+      qb.andWhere(
+        'product.price <= :maxPrice',
+        { maxPrice },
+      );
+    }
+
+    // evita SQL injection
+    const allowedSort: Record<
+      string,
+      string
+    > = {
+      name: 'product.name',
+      price: 'product.price',
+      createdAt:
+        'product.createdAt',
+    };
+
+    qb.orderBy(
+      allowedSort[sortBy] ??
+        'product.createdAt',
+      order,
+    );
+
+    const skip =
+      (page - 1) * limit;
+
+    qb.skip(skip).take(limit);
+
+    const [data, total] =
+      await qb.getManyAndCount();
 
     return {
-      data: products,
+      data,
       meta: {
         total,
+        page,
         limit,
-        offset,
-        totalPages: Math.ceil(total / limit),
-        currentPage: Math.floor(offset / limit) + 1,
-        hasNextPage: offset + limit < total,
-        hasPrevPage: offset > 0,
+        totalPages:
+          Math.ceil(total / limit),
+        hasNextPage:
+          page * limit < total,
+        hasPrevPage:
+          page > 1,
       },
     };
   }
@@ -63,10 +131,11 @@ export class ProductsService {
   async findOne(id: string) {
     this.validateUUID(id);
 
-    const product = await this.productRepo.findOne({
-      where: { id },
-      relations: ['category'],
-    });
+    const product =
+      await this.productRepo.findOne({
+        where: { id },
+        relations: ['category'],
+      });
 
     if (!product) {
       throw new NotFoundException(
@@ -80,58 +149,79 @@ export class ProductsService {
   // ==========================
   // POST /products
   // ==========================
-  async create(dto: CreateProductDto) {
-    const category = await this.findCategory(dto.categoryId);
+  async create(
+    dto: CreateProductDto,
+  ) {
+    const category =
+      await this.findCategory(
+        dto.categoryId,
+      );
 
-    const product = this.productRepo.create({
-      ...dto,
-      category,
-    });
+    const product =
+      this.productRepo.create({
+        ...dto,
+        category,
+      });
 
-    return await this.productRepo.save(product);
+    return await this.productRepo.save(
+      product,
+    );
   }
 
   // ==========================
   // PATCH /products/:id
   // ==========================
-  async update(id: string, dto: UpdateProductDto) {
-    const product = await this.findOne(id);
+  async update(
+    id: string,
+    dto: UpdateProductDto,
+  ) {
+    const product =
+      await this.findOne(id);
 
     if (dto.categoryId) {
-      product.category = await this.findCategory(dto.categoryId);
+      product.category =
+        await this.findCategory(
+          dto.categoryId,
+        );
     }
 
     Object.assign(product, dto);
 
-    return await this.productRepo.save(product);
+    return await this.productRepo.save(
+      product,
+    );
   }
 
   // ==========================
   // DELETE /products/:id
-  // Soft delete
+  // soft delete
   // ==========================
   async remove(id: string) {
-    const product = await this.findOne(id);
+    const product =
+      await this.findOne(id);
 
-    await this.productRepo.softRemove(product);
+    await this.productRepo.softRemove(
+      product,
+    );
 
     return {
-      message: `Producto "${id}" eliminado correctamente`,
+      message:
+        `Producto "${id}" eliminado correctamente`,
     };
   }
 
   // ==========================
-  // RESTORE /products/:id/restore
-  // Restaurar producto
+  // PATCH /products/:id/restore
   // ==========================
   async restore(id: string) {
     this.validateUUID(id);
 
-    const product = await this.productRepo.findOne({
-      where: { id },
-      withDeleted: true,
-      relations: ['category'],
-    });
+    const product =
+      await this.productRepo.findOne({
+        where: { id },
+        withDeleted: true,
+        relations: ['category'],
+      });
 
     if (!product) {
       throw new NotFoundException(
@@ -139,29 +229,35 @@ export class ProductsService {
       );
     }
 
-    await this.productRepo.recover(product);
+    await this.productRepo.recover(
+      product,
+    );
 
     return {
-      message: `Producto "${id}" restaurado correctamente`,
+      message:
+        `Producto "${id}" restaurado correctamente`,
     };
   }
 
   // ==========================
-  // GET todos incluyendo eliminados
-  // (solo admin)
+  // GET incluyendo eliminados
   // ==========================
   async findAllWithDeleted() {
     return this.productRepo.find({
       withDeleted: true,
       relations: ['category'],
-      order: { createdAt: 'DESC' },
+      order: {
+        createdAt: 'DESC',
+      },
     });
   }
 
   // ==========================
-  // Helpers privados
+  // Helpers
   // ==========================
-  private validateUUID(id: string): void {
+  private validateUUID(
+    id: string,
+  ): void {
     if (!UUID_REGEX.test(id)) {
       throw new BadRequestException(
         `"${id}" no es un UUID válido`,
@@ -169,12 +265,15 @@ export class ProductsService {
     }
   }
 
-  private async findCategory(id: string): Promise<Category> {
+  private async findCategory(
+    id: string,
+  ): Promise<Category> {
     this.validateUUID(id);
 
-    const category = await this.categoryRepo.findOne({
-      where: { id },
-    });
+    const category =
+      await this.categoryRepo.findOne({
+        where: { id },
+      });
 
     if (!category) {
       throw new NotFoundException(

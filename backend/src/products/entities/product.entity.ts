@@ -64,6 +64,11 @@ export class Product {
   })
   metadata!: Record<string, any>;
 
+  @Column({
+  default: true,
+})
+  isActive!: boolean;
+
   @ManyToOne(
     () => Category,
     (category) => category.products,
@@ -76,4 +81,6 @@ export class Product {
     (item) => item.product,
   )
   cartItems!: CartItem[];
+
+  
 }

@@ -17,7 +17,7 @@ import { ProductsService } from './products.service';
 
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { PaginationDto } from '../auth/dto/pagination.dto';
+import { FilterProductDto } from './dto/filter-product.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -32,12 +32,14 @@ export class ProductsController {
   // ==========================
   // GET /products
   // Público
+  // Ej:
+  // /products?search=laptop&minPrice=100&maxPrice=500&page=1&limit=10
   // ==========================
   @Get()
   findAll(
-    @Query() paginationDto: PaginationDto,
+    @Query() filters: FilterProductDto,
   ) {
-    return this.productsService.findAll(paginationDto);
+    return this.productsService.findAll(filters);
   }
 
   // ==========================

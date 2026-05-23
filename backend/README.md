@@ -59,3 +59,29 @@ GET /api/products?limit=10&offset=30
 \`\`\`
 offset = (página - 1) × limit
 \`\`\`
+
+
+Agregar:
+
+## Ordenamiento de productos
+
+Endpoint:
+GET /api/products
+
+Parámetros soportados:
+
+sortBy:
+- name
+- price
+- createdAt
+
+order:
+- ASC
+- DESC
+
+Ejemplos:
+
+GET /api/products?sortBy=price&order=ASC
+GET /api/products?sortBy=price&order=DESC
+GET /api/products?sortBy=createdAt&order=ASC
+GET /api/products?sortBy=createdAt&order=DESC
