@@ -3,32 +3,47 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import {
+  addCartItem,
+  clearCurrentCart,
+  getCurrentCart,
+  removeCartItem,
+  updateCartItemQuantity,
+} from "@/services/cart-service";
+import type { ApiCart, ApiCartItem } from "@/types/cart";
 import type { Product } from "@/types/product";
+import {
+  AUTH_SESSION_CHANGED_EVENT,
+  readAccessToken,
+} from "@/lib/auth-session";
 
 export interface CartItem {
   id: number;
+  productId: number;
   nombre: string;
   precio: number;
   imagenUrl?: string | null;
   stock: number;
   quantity: number;
+  subtotal: number;
 }
 
 export interface CartContextValue {
   // items: productos agregados actualmente al carrito.
   items: CartItem[];
   // addItem: agrega un producto o aumenta su cantidad sin superar stock.
-  addItem: (product: Product, quantity?: number) => void;
-  // removeItem: elimina un producto del carrito por id.
-  removeItem: (productId: number) => void;
+  addItem: (product: Product, quantity?: number) => Promise<void>;
+  // removeItem: elimina un item del carrito por id de item.
+  removeItem: (itemId: number) => Promise<void>;
   // updateQuantity: ajusta la cantidad y elimina si llega a cero.
-  updateQuantity: (productId: number, quantity: number) => void;
+  updateQuantity: (itemId: number, quantity: number) => Promise<void>;
   // clearCart: vacia todos los productos del carrito.
-  clearCart: () => void;
+  clearCart: () => Promise<void>;
   // totalItems: suma total de unidades en el carrito.
   totalItems: number;
   // totalPrice: suma de precio por cantidad de todos los items.
@@ -49,88 +64,131 @@ function normalizeQuantity(quantity: number) {
   return Math.max(0, Math.floor(quantity));
 }
 
-function productToCartItem(product: Product, quantity: number): CartItem {
+function normalizePrice(price: string | number) {
+  return Number(price) || 0;
+}
+
+function apiCartItemToCartItem(item: ApiCartItem): CartItem {
+  const product = item.product;
+  const quantity = normalizeQuantity(item.quantity);
+  const precio = normalizePrice(item.unitPrice) || normalizePrice(product.precio);
+
   return {
-    id: product.id,
+    id: item.id,
+    productId: product.id,
     nombre: product.nombre,
-    precio: Number(product.precio) || 0,
+    precio,
     imagenUrl: product.imagenUrl.trim() || null,
     stock: Math.max(0, product.stock),
     quantity,
+    subtotal: normalizePrice(item.subtotal) || precio * quantity,
   };
+}
+
+function apiCartToCartItems(cart: ApiCart) {
+  return (cart.items ?? []).map(apiCartItemToCartItem);
 }
 
 export function CartProvider({ children }: CartProviderProps) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const value = useMemo<CartContextValue>(() => {
-    const addItem = (product: Product, quantity = 1) => {
-      const stock = Math.max(0, product.stock);
-      const quantityToAdd = Math.min(normalizeQuantity(quantity), stock);
+  useEffect(() => {
+    let isMounted = true;
 
-      if (stock === 0 || quantityToAdd === 0) {
+    const syncCart = async () => {
+      if (!readAccessToken()) {
+        if (isMounted) {
+          setItems([]);
+        }
         return;
       }
 
-      setItems((currentItems) => {
-        const existingItem = currentItems.find((item) => item.id === product.id);
+      try {
+        const cart = await getCurrentCart();
 
-        if (!existingItem) {
-          return [...currentItems, productToCartItem(product, quantityToAdd)];
+        if (isMounted) {
+          setItems(apiCartToCartItems(cart));
         }
-
-        return currentItems.map((item) => {
-          if (item.id !== product.id) {
-            return item;
-          }
-
-          return {
-            ...item,
-            quantity: Math.min(item.quantity + quantityToAdd, stock),
-            stock,
-          };
-        });
-      });
+      } catch {
+        if (isMounted) {
+          setItems([]);
+        }
+      }
     };
 
-    const removeItem = (productId: number) => {
-      setItems((currentItems) =>
-        currentItems.filter((item) => item.id !== productId),
+    void syncCart();
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, syncCart);
+    window.addEventListener("storage", syncCart);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, syncCart);
+      window.removeEventListener("storage", syncCart);
+    };
+  }, []);
+
+  const value = useMemo<CartContextValue>(() => {
+    const addItem = async (product: Product, quantity = 1) => {
+      const stock = Math.max(0, product.stock);
+      const currentItem = items.find((item) => item.productId === product.id);
+      const availableQuantity = stock - (currentItem?.quantity ?? 0);
+      const quantityToAdd = Math.min(
+        normalizeQuantity(quantity),
+        availableQuantity,
       );
+
+      if (stock === 0 || quantityToAdd <= 0) {
+        return;
+      }
+
+      const cart = await addCartItem({
+        productId: product.id,
+        quantity: quantityToAdd,
+      });
+
+      setItems(apiCartToCartItems(cart));
     };
 
-    const updateQuantity = (productId: number, quantity: number) => {
+    const removeItem = async (itemId: number) => {
+      const cart = await removeCartItem(itemId);
+
+      setItems(apiCartToCartItems(cart));
+    };
+
+    const updateQuantity = async (itemId: number, quantity: number) => {
       const normalizedQuantity = normalizeQuantity(quantity);
 
-      setItems((currentItems) => {
-        if (normalizedQuantity === 0) {
-          return currentItems.filter((item) => item.id !== productId);
-        }
+      if (normalizedQuantity === 0) {
+        await removeItem(itemId);
+        return;
+      }
 
-        return currentItems
-          .map((item) => {
-            if (item.id !== productId) {
-              return item;
-            }
+      const currentItem = items.find((item) => item.id === itemId);
+      const safeQuantity = currentItem
+        ? Math.min(normalizedQuantity, Math.max(0, currentItem.stock))
+        : normalizedQuantity;
 
-            const stock = Math.max(0, item.stock);
+      if (safeQuantity === 0) {
+        await removeItem(itemId);
+        return;
+      }
 
-            return {
-              ...item,
-              quantity: Math.min(normalizedQuantity, stock),
-            };
-          })
-          .filter((item) => item.quantity > 0);
+      const cart = await updateCartItemQuantity(itemId, {
+        quantity: safeQuantity,
       });
+
+      setItems(apiCartToCartItems(cart));
     };
 
-    const clearCart = () => {
-      setItems([]);
+    const clearCart = async () => {
+      const cart = await clearCurrentCart();
+
+      setItems(apiCartToCartItems(cart));
     };
 
     const totalItems = items.reduce((total, item) => total + item.quantity, 0);
     const totalPrice = items.reduce(
-      (total, item) => total + item.precio * item.quantity,
+      (total, item) => total + item.subtotal,
       0,
     );
 

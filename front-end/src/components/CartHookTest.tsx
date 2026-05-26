@@ -24,22 +24,23 @@ export default function CartHookTest() {
     updateQuantity,
     clearCart,
   } = useCart();
+  const firstItemId = items[0]?.id ?? testProduct.id;
 
   return (
     <div className="hidden" aria-hidden="true">
       <p>
         {items.length} items - {totalItems} unidades - ${totalPrice}
       </p>
-      <button type="button" onClick={() => addToCart(testProduct, 1)}>
+      <button type="button" onClick={() => void addToCart(testProduct, 1)}>
         Probar agregar
       </button>
-      <button type="button" onClick={() => updateQuantity(testProduct.id, 2)}>
+      <button type="button" onClick={() => void updateQuantity(firstItemId, 2)}>
         Probar actualizar
       </button>
-      <button type="button" onClick={() => removeFromCart(testProduct.id)}>
+      <button type="button" onClick={() => void removeFromCart(firstItemId)}>
         Probar eliminar
       </button>
-      <button type="button" onClick={clearCart}>
+      <button type="button" onClick={() => void clearCart()}>
         Probar limpiar
       </button>
     </div>
