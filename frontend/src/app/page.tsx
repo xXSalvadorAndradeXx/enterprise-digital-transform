@@ -1,37 +1,73 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 import ProductCard from "@/components/ProductCard";
 
-const featuredProducts = [
+import { useCart } from "@/context/CartContext";
 
-  {
-    id: "1",
-    image:
-      "https://images.unsplash.com/photo-1496181133206-80ce9b88a853",
-    name: "Laptop Gamer",
-    price: 1200,
-    buttonText: "Ver Producto",
-  },
+interface Product {
 
-  {
-    id: "2",
-    image:
-      "https://images.unsplash.com/photo-1527814050087-3793815479db",
-    name: "Mouse RGB",
-    price: 45,
-    buttonText: "Ver Producto",
-  },
+  id: string;
 
-  {
-    id: "3",
-    image:
-      "https://images.unsplash.com/photo-1511467687858-23d96c32e4ae",
-    name: "Teclado Mecánico",
-    price: 80,
-    buttonText: "Ver Producto",
-  },
+  image: string;
 
-];
+  name: string;
+
+  price: number;
+
+}
 
 export default function HomePage() {
+
+  const [featuredProducts, setFeaturedProducts] =
+    useState<Product[]>([]);
+
+  const {
+    cartItems,
+    addToCart,
+  } = useCart();
+
+  /* =========================
+     Obtener productos
+  ========================= */
+
+  useEffect(() => {
+
+    async function getFeaturedProducts() {
+
+      const response = await fetch(
+        "http://localhost:3000/api/products",
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+
+        setFeaturedProducts([]);
+
+        return;
+
+      }
+
+      const data = await response.json();
+
+      setFeaturedProducts(
+
+        Array.isArray(data.data)
+          ? data.data
+          : []
+
+      );
+
+    }
+
+    getFeaturedProducts();
+
+  }, []);
+
+  
 
   return (
 
@@ -41,23 +77,44 @@ export default function HomePage() {
         Productos Destacados
       </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {featuredProducts.length === 0 ? (
 
-        {featuredProducts.map((product) => (
+        <p className="text-white">
+          No hay productos disponibles
+        </p>
 
-          <ProductCard
-            key={product.id}
-            id={product.id}
-            image={product.image}
-            name={product.name}
-            price={product.price}
-            buttonText={product.buttonText}
-          />
+      ) : (
 
-        ))}
+        <div
+          className="
+            grid
+            grid-cols-1
+            sm:grid-cols-2
+            lg:grid-cols-3
+            xl:grid-cols-4
+            gap-6
+          "
+        >
 
-      </div>
+          {featuredProducts.map((product) => (
+
+            <ProductCard
+              key={product.id}
+              id={product.id}
+              image={product.image}
+              name={product.name}
+              price={product.price}
+              buttonText="Ver Producto"
+            />
+
+          ))}
+
+        </div>
+
+      )}
 
     </div>
+
   );
+
 }

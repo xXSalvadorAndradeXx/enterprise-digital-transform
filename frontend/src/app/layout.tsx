@@ -1,23 +1,45 @@
+import type { Metadata } from "next";
 import "./globals.css";
-import MainLayout from "../components/MainLayout";
 
-export const metadata = {
+import MainLayout from "@/components/MainLayout";
+
+import { CartProvider } from "@/context/CartContext";
+
+export const metadata: Metadata = {
+
   title: "E-Commerce",
-  description: "Proyecto Fullstack",
+
+  description:
+    "Proyecto E-Commerce",
+
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
+
   return (
-   <html lang="es" suppressHydrationWarning>
+
+    <html lang="es">
+
       <body>
-        <MainLayout>
-          {children}
-        </MainLayout>
+
+        <CartProvider>
+
+          <MainLayout>
+
+            {children}
+
+          </MainLayout>
+
+        </CartProvider>
+
       </body>
+
     </html>
+
   );
+
 }

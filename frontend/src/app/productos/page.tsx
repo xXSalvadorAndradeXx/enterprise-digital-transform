@@ -57,9 +57,9 @@ async function getProducts(
 
   const data = await response.json();
 
-  return Array.isArray(data)
-    ? data
-    : [];
+  return Array.isArray(data.data)
+  ? data.data
+  : [];
 }
 
 export default async function ProductosPage({
