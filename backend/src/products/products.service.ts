@@ -110,19 +110,13 @@ export class ProductsService {
       await qb.getManyAndCount();
 
     return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages:
-          Math.ceil(total / limit),
-        hasNextPage:
-          page * limit < total,
-        hasPrevPage:
-          page > 1,
-      },
-    };
+  data,
+  total,
+  page,
+  limit,
+};
+
+
   }
 
   // ==========================

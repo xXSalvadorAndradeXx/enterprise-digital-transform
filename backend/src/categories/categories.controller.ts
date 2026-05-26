@@ -9,4 +9,8 @@ export class CategoriesController {
   findAll() {
     return this.service.findAll();
   }
+
+
+
 }
+
