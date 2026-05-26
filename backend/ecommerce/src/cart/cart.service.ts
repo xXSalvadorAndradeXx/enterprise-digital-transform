@@ -94,4 +94,33 @@ export class CartService {
 
     return this.findUserCart(userId);
   }
+
+  async removeItem(userId: number, itemId: number) {
+    const cartItem = await this.cartItemRepository.findOne({
+      where: { id: itemId },
+      relations: ['cart', 'cart.user'],
+    });
+
+    if (!cartItem) {
+      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
+    }
+
+    if (cartItem.cart.user.id !== userId) {
+      // Devolvemos NotFound para no revelar información
+      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
+    }
+
+    await this.cartItemRepository.remove(cartItem);
+
+    return this.findUserCart(userId);
+  }
+
+  async clearCart(userId: number) {
+    const cart = await this.findUserCart(userId);
+
+    // Eliminamos todos los items asociados a este carrito
+    await this.cartItemRepository.delete({ cart: { id: cart.id } });
+
+    return this.findUserCart(userId);
+  }
 }

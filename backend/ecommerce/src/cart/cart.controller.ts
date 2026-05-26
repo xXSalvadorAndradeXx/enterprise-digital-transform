@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SingleResponse } from '../common/interfaces/api-response.interface';
@@ -36,6 +36,25 @@ export class CartController {
   ): Promise<SingleResponse<Cart>> {
     const userId = req.user.userId;
     const updatedCart = await this.cartService.updateItemQuantity(userId, itemId, updateCartItemDto.quantity);
+    return { data: updatedCart };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('items/:itemId')
+  async removeItem(
+    @Request() req,
+    @Param('itemId', ParseIntPipe) itemId: number,
+  ): Promise<SingleResponse<Cart>> {
+    const userId = req.user.userId;
+    const updatedCart = await this.cartService.removeItem(userId, itemId);
+    return { data: updatedCart };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete()
+  async clearCart(@Request() req): Promise<SingleResponse<Cart>> {
+    const userId = req.user.userId;
+    const updatedCart = await this.cartService.clearCart(userId);
     return { data: updatedCart };
   }
 }
