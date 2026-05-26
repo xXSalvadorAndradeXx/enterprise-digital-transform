@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import {
+  ConfigModule,
+  ConfigService,
+} from '@nestjs/config';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -17,6 +20,12 @@ import { Cart } from '../cart/entities/cart.entity';
   imports: [
     ConfigModule,
 
+    // Repositorios necesarios para AuthService
+    TypeOrmModule.forFeature([
+      User,
+      Cart,
+    ]),
+
     PassportModule.register({
       defaultStrategy: 'jwt',
     }),
@@ -24,21 +33,19 @@ import { Cart } from '../cart/entities/cart.entity';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
+      useFactory: (
+        configService: ConfigService,
+      ) => ({
         secret:
-          configService.get<string>('JWT_SECRET') ??
-          'fallback_secret',
+          configService.get<string>(
+            'JWT_SECRET',
+          ) ?? 'fallback_secret',
 
         signOptions: {
           expiresIn: '1d',
         },
       }),
     }),
-
-    TypeOrmModule.forFeature([
-      User,
-      Cart,
-    ]),
   ],
 
   controllers: [
