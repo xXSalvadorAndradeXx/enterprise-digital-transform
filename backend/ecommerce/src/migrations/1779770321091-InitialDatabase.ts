@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class UpdateCartItemsSchema1779504125831 implements MigrationInterface {
-    name = 'UpdateCartItemsSchema1779504125831'
+export class InitialDatabase1779770321091 implements MigrationInterface {
+    name = 'InitialDatabase1779770321091'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`CREATE TABLE "categories" ("id" SERIAL NOT NULL, "nombre" character varying NOT NULL, "descripcion" text, CONSTRAINT "PK_24dbc6126a28ff948da33e97d3b" PRIMARY KEY ("id"))`);

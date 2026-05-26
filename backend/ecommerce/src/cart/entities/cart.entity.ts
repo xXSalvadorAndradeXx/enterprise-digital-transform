@@ -16,4 +16,6 @@ export class Cart {
 
   @OneToMany(() => CartItem, (cartItem) => cartItem.cart)
   items!: CartItem[];
+
+  total?: number;
 }

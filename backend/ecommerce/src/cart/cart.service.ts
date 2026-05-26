@@ -27,6 +27,8 @@ export class CartService {
       throw new NotFoundException('Carrito no encontrado para este usuario');
     }
 
+    cart.total = cart.items?.reduce((acc, item) => acc + Number(item.subtotal), 0) || 0;
+
     return cart;
   }
 
@@ -64,6 +66,32 @@ export class CartService {
     }
 
     // Retornamos el carrito actualizado
+    return this.findUserCart(userId);
+  }
+
+  async updateItemQuantity(userId: number, itemId: number, quantity: number) {
+    const cartItem = await this.cartItemRepository.findOne({
+      where: { id: itemId },
+      relations: ['cart', 'cart.user', 'product'],
+    });
+
+    if (!cartItem) {
+      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
+    }
+
+    if (cartItem.cart.user.id !== userId) {
+      // Devolvemos NotFound para no revelar que el ítem pertenece a otro usuario
+      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
+    }
+
+    if (quantity > cartItem.product.stock) {
+      throw new BadRequestException(`Stock insuficiente. Solo hay ${cartItem.product.stock} unidades disponibles.`);
+    }
+
+    cartItem.quantity = quantity;
+    cartItem.subtotal = quantity * cartItem.unitPrice;
+    await this.cartItemRepository.save(cartItem);
+
     return this.findUserCart(userId);
   }
 }
