@@ -9,7 +9,7 @@ export class CartController {
 
   @Get()                    // GET /api/cart
   getCart(@Request() req) {
-    // req.user.id viene del JwtStrategy.validate()
+   
     return this.service.getCart(req.user.id);
   }
 }
