@@ -23,9 +23,12 @@ export class ProductsService {
       .leftJoinAndSelect('product.category', 'category');
 
     if (search) {
+      const fromChars = 'áéíóúäëïöüàèìòù';
+      const toChars = 'aeiouaeiouaeiou';
       query.andWhere(
-        '(LOWER(product.nombre) LIKE LOWER(:search) OR LOWER(product.descripcion) LIKE LOWER(:search))',
-        { search: `%${search}%` }
+        `(translate(LOWER(product.nombre), :fromChars, :toChars) LIKE translate(LOWER(:search), :fromChars, :toChars) OR 
+          translate(LOWER(product.descripcion), :fromChars, :toChars) LIKE translate(LOWER(:search), :fromChars, :toChars))`,
+        { search: `%${search}%`, fromChars, toChars }
       );
     }
 
