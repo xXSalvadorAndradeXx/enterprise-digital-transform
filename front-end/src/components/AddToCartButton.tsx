@@ -62,7 +62,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
 
     try {
       await addToCart(product, quantity);
-      router.push("/carrito");
+      router.push("/carrito?added=1");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -140,6 +140,8 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
     </div>
   );
 }
+
+
 
 
 

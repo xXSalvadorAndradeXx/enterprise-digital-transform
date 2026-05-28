@@ -275,7 +275,7 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
               Productos
             </h1>
             <p className="mt-3 max-w-2xl break-words text-sm leading-6 text-slate-600 sm:text-base">
-              Elige tecnologia de las mejores marcas, encuentra productos modernos y de la mas alta calidad.
+              Elige tecnología de las mejores marcas, encuentra productos modernos y de la más alta calidad.
             </p>
           </div>
 
@@ -288,7 +288,7 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
                 {total}
               </span>
               <span className="col-span-2 text-xs font-semibold text-slate-500 sm:col-span-1 sm:whitespace-nowrap">
-                Pagina {page} de {totalPages} - {limit} por pagina
+                Página {page} de {totalPages} - {limit} por página
               </span>
             </div>
           ) : null}
@@ -313,7 +313,7 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
               No se encontraron coincidencias...
             </h2>
             <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
-              Prueba con otra busqueda o ajusta los filtros para descubrir mas productos.
+              Prueba con otra búsqueda o ajusta los filtros para descubrir más productos.
             </p>
           </div>
         ) : products.length === 0 ? (
@@ -334,7 +334,7 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
             className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-xl border border-[#D9E2EC] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(0,55,145,0.08)] sm:flex-row sm:items-center"
           >
             <p className="text-center text-sm font-semibold text-slate-600 sm:text-left">
-              Pagina <span className="text-[#003791]">{page}</span> de{" "}
+              Página <span className="text-[#003791]">{page}</span> de{" "}
               <span className="text-[#003791]">{totalPages}</span>
             </p>
 
