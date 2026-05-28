@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo } from "react";
 import {
@@ -15,6 +15,9 @@ export interface UseCartValue {
   clearCart: () => Promise<void>;
   totalItems: number;
   totalPrice: number;
+  isSyncing: boolean;
+  syncError: string | null;
+  refreshCart: () => Promise<void>;
 }
 
 export function useCart(): UseCartValue {
@@ -26,6 +29,9 @@ export function useCart(): UseCartValue {
     clearCart,
     totalItems,
     totalPrice,
+    isSyncing,
+    syncError,
+    refreshCart,
   } = useCartContext();
 
   return useMemo(
@@ -37,6 +43,9 @@ export function useCart(): UseCartValue {
       clearCart,
       totalItems,
       totalPrice,
+      isSyncing,
+      syncError,
+      refreshCart,
     }),
     [
       items,
@@ -46,6 +55,9 @@ export function useCart(): UseCartValue {
       clearCart,
       totalItems,
       totalPrice,
+      isSyncing,
+      syncError,
+      refreshCart,
     ],
   );
 }

@@ -1,10 +1,12 @@
-"use client";
+﻿"use client";
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -48,6 +50,12 @@ export interface CartContextValue {
   totalItems: number;
   // totalPrice: suma de precio por cantidad de todos los items.
   totalPrice: number;
+  // isSyncing: indica si el carrito se esta sincronizando con backend.
+  isSyncing: boolean;
+  // syncError: ultimo error de sincronizacion u operacion del carrito.
+  syncError: string | null;
+  // refreshCart: fuerza una sincronizacion del carrito actual.
+  refreshCart: () => Promise<void>;
 }
 
 type CartProviderProps = {
@@ -66,6 +74,12 @@ function normalizeQuantity(quantity: number) {
 
 function normalizePrice(price: string | number) {
   return Number(price) || 0;
+}
+
+function getCartErrorMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "No se pudo sincronizar el carrito.";
 }
 
 function apiCartItemToCartItem(item: ApiCartItem): CartItem {
@@ -91,41 +105,108 @@ function apiCartToCartItems(cart: ApiCart) {
 
 export function CartProvider({ children }: CartProviderProps) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const refreshPromiseRef = useRef<Promise<void> | null>(null);
+  const refreshRequestIdRef = useRef(0);
+  const isMountedRef = useRef(true);
 
-  useEffect(() => {
-    let isMounted = true;
+  const cancelPendingSync = useCallback(() => {
+    refreshRequestIdRef.current += 1;
+    refreshPromiseRef.current = null;
+    setIsSyncing(false);
+  }, []);
 
-    const syncCart = async () => {
-      if (!readAccessToken()) {
-        if (isMounted) {
-          setItems([]);
-        }
-        return;
-      }
+  const clearCartState = useCallback(() => {
+    cancelPendingSync();
+    setItems([]);
+    setSyncError(null);
+  }, [cancelPendingSync]);
+
+  const applyCartState = useCallback((cart: ApiCart) => {
+    setItems(apiCartToCartItems(cart));
+    setSyncError(null);
+  }, []);
+
+  const refreshCart = useCallback(async () => {
+    if (!readAccessToken()) {
+      clearCartState();
+      return;
+    }
+
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
+
+    const requestId = refreshRequestIdRef.current + 1;
+    refreshRequestIdRef.current = requestId;
+
+    const syncPromise = (async () => {
+      setIsSyncing(true);
+      setSyncError(null);
 
       try {
         const cart = await getCurrentCart();
 
-        if (isMounted) {
-          setItems(apiCartToCartItems(cart));
+        if (isMountedRef.current && refreshRequestIdRef.current === requestId) {
+          applyCartState(cart);
         }
-      } catch {
-        if (isMounted) {
-          setItems([]);
+      } catch (error) {
+        if (isMountedRef.current && refreshRequestIdRef.current === requestId) {
+          setSyncError(getCartErrorMessage(error));
+        }
+      } finally {
+        if (isMountedRef.current && refreshRequestIdRef.current === requestId) {
+          setIsSyncing(false);
+          refreshPromiseRef.current = null;
         }
       }
+    })();
+
+    refreshPromiseRef.current = syncPromise;
+    return syncPromise;
+  }, [applyCartState, clearCartState]);
+
+  const runCartOperation = useCallback(
+    async (operation: () => Promise<ApiCart>) => {
+      const tokenAtStart = readAccessToken();
+
+      cancelPendingSync();
+      setSyncError(null);
+
+      try {
+        const cart = await operation();
+
+        if (readAccessToken() === tokenAtStart) {
+          applyCartState(cart);
+        }
+      } catch (error) {
+        setSyncError(getCartErrorMessage(error));
+        throw error;
+      }
+    },
+    [applyCartState, cancelPendingSync],
+  );
+
+  useEffect(() => {
+    const initialSyncTimeoutId = window.setTimeout(() => {
+      void refreshCart();
+    }, 0);
+
+    const handleSessionChange = () => {
+      void refreshCart();
     };
 
-    void syncCart();
-    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, syncCart);
-    window.addEventListener("storage", syncCart);
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, handleSessionChange);
+    window.addEventListener("storage", handleSessionChange);
 
     return () => {
-      isMounted = false;
-      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, syncCart);
-      window.removeEventListener("storage", syncCart);
+      isMountedRef.current = false;
+      window.clearTimeout(initialSyncTimeoutId);
+      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, handleSessionChange);
+      window.removeEventListener("storage", handleSessionChange);
     };
-  }, []);
+  }, [refreshCart]);
 
   const value = useMemo<CartContextValue>(() => {
     const addItem = async (product: Product, quantity = 1) => {
@@ -141,18 +222,16 @@ export function CartProvider({ children }: CartProviderProps) {
         return;
       }
 
-      const cart = await addCartItem({
-        productId: product.id,
-        quantity: quantityToAdd,
-      });
-
-      setItems(apiCartToCartItems(cart));
+      await runCartOperation(() =>
+        addCartItem({
+          productId: product.id,
+          quantity: quantityToAdd,
+        }),
+      );
     };
 
     const removeItem = async (itemId: number) => {
-      const cart = await removeCartItem(itemId);
-
-      setItems(apiCartToCartItems(cart));
+      await runCartOperation(() => removeCartItem(itemId));
     };
 
     const updateQuantity = async (itemId: number, quantity: number) => {
@@ -173,17 +252,15 @@ export function CartProvider({ children }: CartProviderProps) {
         return;
       }
 
-      const cart = await updateCartItemQuantity(itemId, {
-        quantity: safeQuantity,
-      });
-
-      setItems(apiCartToCartItems(cart));
+      await runCartOperation(() =>
+        updateCartItemQuantity(itemId, {
+          quantity: safeQuantity,
+        }),
+      );
     };
 
     const clearCart = async () => {
-      const cart = await clearCurrentCart();
-
-      setItems(apiCartToCartItems(cart));
+      await runCartOperation(clearCurrentCart);
     };
 
     const totalItems = items.reduce((total, item) => total + item.quantity, 0);
@@ -200,8 +277,11 @@ export function CartProvider({ children }: CartProviderProps) {
       clearCart,
       totalItems,
       totalPrice,
+      isSyncing,
+      syncError,
+      refreshCart,
     };
-  }, [items]);
+  }, [items, isSyncing, refreshCart, runCartOperation, syncError]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
@@ -215,3 +295,4 @@ export function useCart() {
 
   return context;
 }
+

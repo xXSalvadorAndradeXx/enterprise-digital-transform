@@ -3,11 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  AlertCircle,
   CreditCard,
   Loader2,
   LogIn,
   Minus,
   Plus,
+  RefreshCw,
   ShoppingBag,
   ShoppingCart,
   Trash2,
@@ -69,6 +71,9 @@ function CarritoPageContent() {
     updateQuantity,
     removeFromCart,
     clearCart,
+    isSyncing,
+    syncError,
+    refreshCart,
   } = useCart();
   const [hasSession, setHasSession] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -108,6 +113,21 @@ function CarritoPageContent() {
 
     return () => window.clearTimeout(timeoutId);
   }, [router, searchParams]);
+
+  useEffect(() => {
+    if (!syncError || items.length === 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setNotification({
+        type: "error",
+        message: syncError,
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [items.length, syncError]);
 
   useEffect(() => {
     if (!notification) {
@@ -226,6 +246,61 @@ function CarritoPageContent() {
             >
               Ir a Login
             </Link>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  if (isSyncing && items.length === 0) {
+    return (
+      <>
+        {notificationElement}
+        <section className="min-h-[calc(100vh-10rem)] bg-[#F4F7FB] px-4 py-8 text-[#111111] sm:px-6 sm:py-10 lg:px-8">
+          <div className="mx-auto flex max-w-2xl flex-col items-center rounded-2xl border border-[#D9E2EC] bg-white px-6 py-10 text-center shadow-[0_16px_40px_rgba(0,55,145,0.10)]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#D9E2EC] bg-[#EAF3FF] text-[#003791]">
+              <Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
+            </div>
+            <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-[#111111] sm:text-3xl">
+              Sincronizando carrito...
+            </h1>
+            <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
+              Estamos cargando los productos guardados en tu cuenta.
+            </p>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  if (syncError && items.length === 0) {
+    return (
+      <>
+        {notificationElement}
+        <section className="min-h-[calc(100vh-10rem)] bg-[#F4F7FB] px-4 py-8 text-[#111111] sm:px-6 sm:py-10 lg:px-8">
+          <div className="mx-auto flex max-w-2xl flex-col items-center rounded-2xl border border-[#D9E2EC] bg-white px-6 py-10 text-center shadow-[0_16px_40px_rgba(0,55,145,0.10)]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-red-100 bg-red-50 text-red-500">
+              <AlertCircle className="h-8 w-8" aria-hidden="true" />
+            </div>
+            <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-[#111111] sm:text-3xl">
+              No se pudo sincronizar el carrito
+            </h1>
+            <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
+              {syncError}
+            </p>
+            <button
+              type="button"
+              disabled={isSyncing}
+              onClick={() => void refreshCart()}
+              className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-[#003791] px-6 py-3 text-sm font-bold text-white shadow-[0_16px_35px_rgba(0,55,145,0.22)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSyncing ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              )}
+              Reintentar
+            </button>
           </div>
         </section>
       </>
@@ -497,4 +572,6 @@ export default function CarritoPage() {
     </Suspense>
   );
 }
+
+
 
