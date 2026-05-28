@@ -1,6 +1,7 @@
-import Image from "next/image";
-import { ArrowLeft, ShoppingCart } from "lucide-react";
+﻿import Image from "next/image";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import AddToCartButton from "@/components/AddToCartButton";
 import ProductDetailImage from "@/components/ProductDetailImage";
 import type { Product, ProductDetailResponse } from "@/types/product";
 
@@ -241,18 +242,7 @@ export default async function ProductDetailPage({
                 </div>
               </div>
 
-              <button
-                type="button"
-                disabled={!isAvailable}
-                className={`mt-8 inline-flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold shadow-sm transition-all duration-300 md:w-auto ${
-                  isAvailable
-                    ? "bg-[#003791] text-white shadow-[0_16px_35px_rgba(0,55,145,0.22)] hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-[0_20px_45px_rgba(0,91,255,0.26)]"
-                    : "cursor-not-allowed bg-slate-300 text-slate-500 shadow-none"
-                }`}
-              >
-                <ShoppingCart className="h-5 w-5" aria-hidden="true" />
-                {isAvailable ? "Agregar al carrito" : "Producto agotado"}
-              </button>
+              <AddToCartButton product={product} />
             </div>
           </div>
         </article>

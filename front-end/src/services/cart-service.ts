@@ -15,7 +15,7 @@ function getAuthHeaders() {
   const accessToken = readAccessToken();
 
   if (!accessToken) {
-    throw new ApiRequestError("Debes iniciar sesión para usar el carrito.", 401, null);
+    throw new ApiRequestError("Debes iniciar sesion para usar el carrito.", 401, null);
   }
 
   return {
