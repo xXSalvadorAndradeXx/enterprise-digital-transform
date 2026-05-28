@@ -1,15 +1,21 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
 import { CartService } from './cart.service';
+import { AddToCartDto } from './dto/add-to-cart.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('cart')
-@UseGuards(JwtAuthGuard)  // ← todo el controller requiere JWT
+@UseGuards(JwtAuthGuard) // 🔒 todos los endpoints de cart requieren JWT
 export class CartController {
-  constructor(private readonly service: CartService) {}
+  constructor(private cartService: CartService) {}
 
-  @Get()                    // GET /api/cart
+  @Get()
   getCart(@Request() req) {
-   
-    return this.service.getCart(req.user.id);
+    // req.user lo inyecta JwtStrategy.validate()
+    return this.cartService.getCart(req.user.id);
+  }
+
+  @Post('add')
+  addToCart(@Request() req, @Body() dto: AddToCartDto) {
+    return this.cartService.addToCart(req.user.id, dto);
   }
 }
