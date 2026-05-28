@@ -58,7 +58,7 @@ function getItemSubtotal(item: CartItem) {
 function getActionErrorMessage(error: unknown) {
   return error instanceof Error
     ? error.message
-    : "No se pudo completar la accion del carrito.";
+    : "No se pudo completar la acción del carrito.";
 }
 
 function CarritoPageContent() {

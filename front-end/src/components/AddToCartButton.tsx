@@ -19,14 +19,15 @@ type AddToCartButtonProps = {
 
 export default function AddToCartButton({ product }: AddToCartButtonProps) {
   const router = useRouter();
-  const { addToCart, items } = useCart();
+  const { addToCart, items, isSyncing } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const stock = Math.max(0, product.stock);
   const isAvailable = stock > 0;
   const isInCart = items.some((item) => item.productId === product.id);
-  const shouldShowQuantitySelector = isAvailable && !isInCart;
+  const isCheckingCart = isSyncing && isAvailable;
+  const shouldShowQuantitySelector = isAvailable && !isInCart && !isCheckingCart;
   const canDecreaseQuantity = quantity > 1;
   const canIncreaseQuantity = quantity < stock;
   const buttonWidthClassName = shouldShowQuantitySelector
@@ -49,7 +50,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
       return;
     }
 
-    if (!isAvailable || isAdding) {
+    if (!isAvailable || isAdding || isCheckingCart) {
       return;
     }
 
@@ -105,7 +106,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
 
         <button
           type="button"
-          disabled={!isAvailable || isAdding}
+          disabled={!isAvailable || isAdding || isCheckingCart}
           onClick={() => void handleAddToCart()}
           className={`inline-flex min-h-12 w-full items-center justify-center gap-2.5 rounded-xl px-6 py-4 text-sm font-bold shadow-sm transition-all duration-300 ${buttonWidthClassName} ${
             !isAvailable
@@ -115,7 +116,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
                 : "bg-[#003791] text-white shadow-[0_16px_35px_rgba(0,55,145,0.22)] hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-[0_20px_45px_rgba(0,91,255,0.26)] disabled:cursor-wait disabled:bg-[#005BFF]/80 disabled:hover:translate-y-0"
           }`}
         >
-          {isAdding ? (
+          {isAdding || isCheckingCart ? (
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
           ) : isInCart && isAvailable ? (
             <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
@@ -124,11 +125,13 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
           )}
           {isAdding
             ? "Agregando..."
-            : !isAvailable
-              ? "Agotado"
-              : isInCart
-                ? "En el carrito"
-                : "Agregar al carrito"}
+            : isCheckingCart
+              ? "Sincronizando..."
+              : !isAvailable
+                ? "Agotado"
+                : isInCart
+                  ? "En el carrito"
+                  : "Agregar al carrito"}
         </button>
       </div>
 
@@ -140,9 +143,3 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
     </div>
   );
 }
-
-
-
-
-
-

@@ -68,7 +68,7 @@ function getCartLinkClassName(pathname: string) {
 
 export default function Header() {
   const pathname = usePathname();
-  const { totalItems, totalPrice } = useCart();
+  const { totalItems, totalPrice, isSyncing } = useCart();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -89,6 +89,7 @@ export default function Header() {
   const accountHref = isAuthenticated ? "/cuenta" : "/login";
   const accountLabel = isAuthenticated ? "Mi cuenta" : "Login";
   const AccountIcon = isAuthenticated ? User : LogIn;
+  const shouldShowCartDetails = totalItems > 0 && !isSyncing;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#D9E2EC] bg-white/95 shadow-[0_12px_35px_rgba(0,55,145,0.08)] backdrop-blur-md">
@@ -157,7 +158,7 @@ export default function Header() {
           <Link href="/carrito" className={getCartLinkClassName(pathname)}>
             <span className="relative inline-flex">
               <ShoppingCart className="h-5 w-5" aria-hidden="true" />
-              {totalItems > 0 ? (
+              {shouldShowCartDetails ? (
                 <span className="absolute -right-2.5 -top-2.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#005BFF] px-1 text-[10px] font-extrabold leading-none text-white ring-2 ring-white">
                   {totalItems}
                 </span>
@@ -165,7 +166,11 @@ export default function Header() {
             </span>
             <span className="flex flex-col items-start leading-none">
               <span>Carrito</span>
-              {totalItems > 0 ? (
+              {isSyncing ? (
+                <span className="mt-1 hidden text-[11px] font-semibold text-white/75 lg:block">
+                  Actualizando
+                </span>
+              ) : shouldShowCartDetails ? (
                 <span className="mt-1 hidden text-[11px] font-semibold text-white/75 lg:block">
                   {formatCartTotal(totalPrice)}
                 </span>
@@ -177,5 +182,8 @@ export default function Header() {
     </header>
   );
 }
+
+
+
 
 
