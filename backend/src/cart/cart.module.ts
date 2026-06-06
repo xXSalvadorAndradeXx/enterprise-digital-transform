@@ -17,8 +17,6 @@ import { AuthModule } from '../auth/auth.module';
       CartItem,
       Product,
     ]),
-
-    
     AuthModule,
   ],
 

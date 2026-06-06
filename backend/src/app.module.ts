@@ -37,7 +37,7 @@ import { CategoriesModule } from './categories/categories.module';
   CartModule,
   UsersModule,
   AuthModule,
-     
+  CartModule,
   CategoriesModule,  
       
 ],

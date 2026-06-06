@@ -1,0 +1,22 @@
+
+
+{
+  "name": "Salvador Andrade",
+  "email": "salvador@gmail.com",
+  "password": "12345678",
+  "role": "user"
+}
+
+
+{
+  "name": "Hogar y Cocina",
+  "description": "Productos para el hogar, utensilios de cocina, decoración, limpieza y organización."
+}
+
+{
+    "name": "Balón de Fútbol Profesional",
+    "description": "Balón oficial tamaño 5 para entrenamiento y competición.",
+    "price": 35.99,
+    "stock": 50,
+    "categoryId": "8b1727b8-5db9-4e11-8216-f2e2f0671e5c"
+  }
