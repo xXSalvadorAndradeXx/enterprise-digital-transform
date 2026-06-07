@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -28,14 +29,12 @@ export class CartService {
   ) {}
 
   // =====================================================
-  // Obtener carrito del usuario autenticado
+  // Obtener carrito del usuario
   // =====================================================
   async getCart(userId: string): Promise<Cart> {
     const cart = await this.cartRepo.findOne({
       where: {
-        user: {
-          id: userId,
-        },
+        user: { id: userId },
       },
       relations: [
         'items',
@@ -49,18 +48,13 @@ export class CartService {
     }
 
     cart.items = cart.items ?? [];
-
     return cart;
   }
 
   // =====================================================
   // Agregar producto al carrito
   // =====================================================
-  async addToCart(
-    userId: string,
-    dto: AddToCartDto,
-  ): Promise<Cart> {
-    // Buscar producto
+  async addToCart(userId: string, dto: AddToCartDto): Promise<Cart> {
     const product = await this.productRepo.findOne({
       where: {
         id: dto.productId,
@@ -74,24 +68,17 @@ export class CartService {
       );
     }
 
-    // Validar stock
     if (product.stock < dto.quantity) {
       throw new BadRequestException(
         `Stock insuficiente. Disponible: ${product.stock}`,
       );
     }
 
-    // Buscar carrito
     const cart = await this.cartRepo.findOne({
       where: {
-        user: {
-          id: userId,
-        },
+        user: { id: userId },
       },
-      relations: [
-        'items',
-        'items.product',
-      ],
+      relations: ['items', 'items.product'],
     });
 
     if (!cart) {
@@ -100,14 +87,12 @@ export class CartService {
 
     cart.items = cart.items ?? [];
 
-    // Buscar si ya existe el producto
     const existingItem = cart.items.find(
       (item) => item.product.id === dto.productId,
     );
 
     if (existingItem) {
-      const newQuantity =
-        existingItem.quantity + dto.quantity;
+      const newQuantity = existingItem.quantity + dto.quantity;
 
       if (newQuantity > product.stock) {
         throw new BadRequestException(
@@ -127,8 +112,7 @@ export class CartService {
         product,
         quantity: dto.quantity,
         unitPrice: Number(product.price),
-        subtotal:
-          Number(product.price) * dto.quantity,
+        subtotal: Number(product.price) * dto.quantity,
       });
 
       await this.cartItemRepo.save(newItem);
@@ -138,7 +122,7 @@ export class CartService {
   }
 
   // =====================================================
-  // Actualizar cantidad de un ítem del carrito
+  // Actualizar cantidad de ítem
   // =====================================================
   async updateItemQuantity(
     userId: string,
@@ -146,36 +130,16 @@ export class CartService {
     dto: UpdateCartItemDto,
   ) {
     const item = await this.cartItemRepo.findOne({
-      where: {
-        id: itemId,
-      },
-      relations: [
-        'cart',
-        'cart.user',
-        'product',
-      ],
+      where: { id: itemId },
+      relations: ['cart', 'cart.user', 'product'],
     });
 
     if (!item) {
-      throw new NotFoundException(
-        `Ítem con id "${itemId}" no encontrado`,
-      );
+      throw new NotFoundException(`Ítem "${itemId}" no encontrado`);
     }
 
-    // =====================================================
-    // Validar que el ítem pertenece al usuario autenticado
-    // =====================================================
-
-    console.log('Usuario JWT:', userId);
-    console.log(
-      'Usuario dueño del carrito:',
-      item.cart.user?.id,
-    );
-
     if (!item.cart.user) {
-      throw new NotFoundException(
-        'El carrito no tiene usuario asociado',
-      );
+      throw new NotFoundException('El carrito no tiene usuario asociado');
     }
 
     if (item.cart.user.id !== userId) {
@@ -184,19 +148,9 @@ export class CartService {
       );
     }
 
-    // =====================================================
-    // Validar cantidad
-    // =====================================================
-
     if (dto.quantity < 1) {
-      throw new BadRequestException(
-        'La cantidad mínima es 1',
-      );
+      throw new BadRequestException('La cantidad mínima es 1');
     }
-
-    // =====================================================
-    // Validar stock
-    // =====================================================
 
     const stockDisponible = item.product.stock;
 
@@ -206,10 +160,6 @@ export class CartService {
       );
     }
 
-    // =====================================================
-    // Actualizar cantidad
-    // =====================================================
-
     item.quantity = dto.quantity;
     item.unitPrice = Number(item.product.price);
     item.subtotal =
@@ -217,31 +167,98 @@ export class CartService {
 
     await this.cartItemRepo.save(item);
 
-    // =====================================================
-    // Devolver carrito actualizado
-    // =====================================================
-
     return this.getCartWithTotals(item.cart.id!);
   }
 
   // =====================================================
-  // Obtener carrito con subtotales y total
+  // ELIMINAR ITEM
   // =====================================================
-  async getCartWithTotals(cartId: string) {
+  async removeItem(userId: string, itemId: string) {
+    const item = await this.cartItemRepo.findOne({
+      where: { id: itemId },
+      relations: ['cart', 'cart.user', 'product'],
+    });
+
+    if (!item) {
+      throw new NotFoundException(`Ítem "${itemId}" no encontrado`);
+    }
+
+    if (!item.cart.user) {
+      throw new NotFoundException('El carrito no tiene usuario asociado');
+    }
+
+    if (item.cart.user.id !== userId) {
+      throw new ForbiddenException(
+        'No tienes permiso para eliminar este ítem',
+      );
+    }
+
+    const cartId = item.cart.id!;
+
+    await this.cartItemRepo.remove(item);
+
+    return this.getCartWithTotals(cartId);
+  }
+
+  // =====================================================
+  // VACÍAR CARRITO
+  // =====================================================
+  async clearCart(userId: string) {
     const cart = await this.cartRepo.findOne({
       where: {
-        id: cartId,
+        user: { id: userId },
       },
-      relations: [
-        'items',
-        'items.product',
-      ],
+      relations: ['items', 'items.product', 'user'],
     });
 
     if (!cart) {
-      throw new NotFoundException(
-        'Carrito no encontrado',
+      throw new NotFoundException('Carrito no encontrado');
+    }
+
+    if (!cart.user) {
+      throw new NotFoundException('El carrito no tiene usuario asociado');
+    }
+
+    if (cart.user.id !== userId) {
+      throw new ForbiddenException(
+        'No tienes permiso para vaciar este carrito',
       );
+    }
+
+    cart.items = cart.items ?? [];
+
+    if (cart.items.length === 0) {
+      return {
+        cartId: cart.id,
+        items: [],
+        total: 0,
+        itemCount: 0,
+        message: 'El carrito ya estaba vacío',
+      };
+    }
+
+    await this.cartItemRepo.remove(cart.items);
+
+    return {
+      cartId: cart.id,
+      items: [],
+      total: 0,
+      itemCount: 0,
+      message: 'Carrito vaciado correctamente',
+    };
+  }
+
+  // =====================================================
+  // CARRO CON TOTALES
+  // =====================================================
+  async getCartWithTotals(cartId: string) {
+    const cart = await this.cartRepo.findOne({
+      where: { id: cartId },
+      relations: ['items', 'items.product'],
+    });
+
+    if (!cart) {
+      throw new NotFoundException('Carrito no encontrado');
     }
 
     cart.items = cart.items ?? [];
@@ -255,19 +272,12 @@ export class CartService {
         price: Number(item.product.price),
         imageUrl: item.product.imageUrl,
       },
-      subtotal:
-        Number(item.product.price) * item.quantity,
+      subtotal: Number(item.product.price) * item.quantity,
     }));
 
-    const total = items.reduce(
-      (sum, item) => sum + item.subtotal,
-      0,
-    );
+    const total = items.reduce((sum, i) => sum + i.subtotal, 0);
 
-    const itemCount = items.reduce(
-      (sum, item) => sum + item.quantity,
-      0,
-    );
+    const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
 
     return {
       cartId: cart.id,
