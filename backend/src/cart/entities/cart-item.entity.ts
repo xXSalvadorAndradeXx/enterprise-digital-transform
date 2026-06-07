@@ -6,6 +6,8 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  BeforeInsert,
+  BeforeUpdate,
 } from 'typeorm';
 
 import { Cart } from './cart.entity';
@@ -22,6 +24,8 @@ export class CartItem {
   })
   quantity!: number;
 
+  // Precio unitario en el momento de agregar al carrito
+  // (no cambia aunque cambie el producto)
   @Column({
     type: 'decimal',
     precision: 10,
@@ -29,10 +33,12 @@ export class CartItem {
   })
   unitPrice!: number;
 
+  // Subtotal persistido en base de datos
   @Column({
     type: 'decimal',
     precision: 10,
     scale: 2,
+    default: 0,
   })
   subtotal!: number;
 
@@ -54,4 +60,14 @@ export class CartItem {
   })
   @JoinColumn({ name: 'product_id' })
   product!: Product;
+
+  // =========================
+  // AUTOMATIZACIÓN DEL SUBTOTAL
+  // =========================
+  @BeforeInsert()
+  @BeforeUpdate()
+  calculateSubtotal() {
+    this.subtotal =
+      Number(this.unitPrice) * Number(this.quantity);
+  }
 }

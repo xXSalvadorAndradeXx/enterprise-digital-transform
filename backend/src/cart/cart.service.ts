@@ -1,3 +1,5 @@
+// src/cart/cart.service.ts
+
 import {
   Injectable,
   NotFoundException,
@@ -29,18 +31,12 @@ export class CartService {
   ) {}
 
   // =====================================================
-  // Obtener carrito del usuario
+  // GET CART
   // =====================================================
   async getCart(userId: string): Promise<Cart> {
     const cart = await this.cartRepo.findOne({
-      where: {
-        user: { id: userId },
-      },
-      relations: [
-        'items',
-        'items.product',
-        'items.product.category',
-      ],
+      where: { user: { id: userId } },
+      relations: ['items', 'items.product', 'items.product.category'],
     });
 
     if (!cart) {
@@ -52,20 +48,65 @@ export class CartService {
   }
 
   // =====================================================
-  // Agregar producto al carrito
+  // MÉTODO CENTRAL (TOTALES)
   // =====================================================
-  async addToCart(userId: string, dto: AddToCartDto): Promise<Cart> {
-    const product = await this.productRepo.findOne({
-      where: {
-        id: dto.productId,
-        isActive: true,
+  async getCartWithTotals(cartIdOrUserId: string, isUserId = false) {
+    const cart = await this.cartRepo.findOne({
+      where: isUserId
+        ? { user: { id: cartIdOrUserId } }
+        : { id: cartIdOrUserId },
+      relations: ['items', 'items.product', 'user'],
+    });
+
+    if (!cart) {
+      throw new NotFoundException('Carrito no encontrado');
+    }
+
+    const items = (cart.items ?? []).map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      unitPrice: Number(item.unitPrice),
+      subtotal: Number(item.unitPrice) * item.quantity,
+      product: {
+        id: item.product.id,
+        name: item.product.name,
+        price: Number(item.product.price),
+        imageUrl: item.product.imageUrl ?? null,
+        stock: item.product.stock,
       },
+    }));
+
+    const total = items.reduce(
+      (sum, item) => sum + item.subtotal,
+      0,
+    );
+
+    const itemCount = items.reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    );
+
+    return {
+      cartId: cart.id,
+      items,
+      summary: {
+        itemCount,
+        distinctItems: items.length,
+        total: Number(total.toFixed(2)),
+      },
+    };
+  }
+
+  // =====================================================
+  // ADD TO CART
+  // =====================================================
+  async addToCart(userId: string, dto: AddToCartDto) {
+    const product = await this.productRepo.findOne({
+      where: { id: dto.productId, isActive: true },
     });
 
     if (!product) {
-      throw new NotFoundException(
-        `Producto con id "${dto.productId}" no encontrado`,
-      );
+      throw new NotFoundException('Producto no encontrado');
     }
 
     if (product.stock < dto.quantity) {
@@ -75,9 +116,7 @@ export class CartService {
     }
 
     const cart = await this.cartRepo.findOne({
-      where: {
-        user: { id: userId },
-      },
+      where: { user: { id: userId } },
       relations: ['items', 'items.product'],
     });
 
@@ -87,42 +126,37 @@ export class CartService {
 
     cart.items = cart.items ?? [];
 
-    const existingItem = cart.items.find(
-      (item) => item.product.id === dto.productId,
+    const existing = cart.items.find(
+      (i) => i.product.id === dto.productId,
     );
 
-    if (existingItem) {
-      const newQuantity = existingItem.quantity + dto.quantity;
+    if (existing) {
+      const newQty = existing.quantity + dto.quantity;
 
-      if (newQuantity > product.stock) {
-        throw new BadRequestException(
-          `Stock insuficiente. Ya tienes ${existingItem.quantity} en el carrito`,
-        );
+      if (newQty > product.stock) {
+        throw new BadRequestException('Stock insuficiente');
       }
 
-      existingItem.quantity = newQuantity;
-      existingItem.unitPrice = Number(product.price);
-      existingItem.subtotal =
-        Number(product.price) * newQuantity;
+      existing.quantity = newQty;
+      existing.unitPrice = Number(product.price);
 
-      await this.cartItemRepo.save(existingItem);
+      await this.cartItemRepo.save(existing);
     } else {
       const newItem = this.cartItemRepo.create({
         cart,
         product,
         quantity: dto.quantity,
         unitPrice: Number(product.price),
-        subtotal: Number(product.price) * dto.quantity,
       });
 
       await this.cartItemRepo.save(newItem);
     }
 
-    return this.getCart(userId);
+    return this.getCartWithTotals(userId, true);
   }
 
   // =====================================================
-  // Actualizar cantidad de ítem
+  // UPDATE ITEM
   // =====================================================
   async updateItemQuantity(
     userId: string,
@@ -135,65 +169,55 @@ export class CartService {
     });
 
     if (!item) {
-      throw new NotFoundException(`Ítem "${itemId}" no encontrado`);
+      throw new NotFoundException('Ítem no encontrado');
     }
 
-    if (!item.cart.user) {
-      throw new NotFoundException('El carrito no tiene usuario asociado');
-    }
-
-    if (item.cart.user.id !== userId) {
-      throw new ForbiddenException(
-        'No tienes permiso para modificar este ítem',
-      );
+    if (!item.cart.user || item.cart.user.id !== userId) {
+      throw new ForbiddenException('No autorizado');
     }
 
     if (dto.quantity < 1) {
-      throw new BadRequestException('La cantidad mínima es 1');
+      throw new BadRequestException('Cantidad mínima 1');
     }
 
-    const stockDisponible = item.product.stock;
-
-    if (dto.quantity > stockDisponible) {
-      throw new BadRequestException(
-        `Stock insuficiente. Disponible: ${stockDisponible}, solicitado: ${dto.quantity}`,
-      );
+    if (dto.quantity > item.product.stock) {
+      throw new BadRequestException('Stock insuficiente');
     }
 
     item.quantity = dto.quantity;
     item.unitPrice = Number(item.product.price);
-    item.subtotal =
-      Number(item.product.price) * dto.quantity;
 
     await this.cartItemRepo.save(item);
 
-    return this.getCartWithTotals(item.cart.id!);
+    if (!item.cart.id) {
+      throw new NotFoundException('Carrito inválido');
+    }
+
+    return this.getCartWithTotals(item.cart.id);
   }
 
   // =====================================================
-  // ELIMINAR ITEM
+  // REMOVE ITEM
   // =====================================================
   async removeItem(userId: string, itemId: string) {
     const item = await this.cartItemRepo.findOne({
       where: { id: itemId },
-      relations: ['cart', 'cart.user', 'product'],
+      relations: ['cart', 'cart.user'],
     });
 
     if (!item) {
-      throw new NotFoundException(`Ítem "${itemId}" no encontrado`);
+      throw new NotFoundException('Ítem no encontrado');
     }
 
-    if (!item.cart.user) {
-      throw new NotFoundException('El carrito no tiene usuario asociado');
+    if (!item.cart.user || item.cart.user.id !== userId) {
+      throw new ForbiddenException('No autorizado');
     }
 
-    if (item.cart.user.id !== userId) {
-      throw new ForbiddenException(
-        'No tienes permiso para eliminar este ítem',
-      );
-    }
+    const cartId = item.cart.id;
 
-    const cartId = item.cart.id!;
+    if (!cartId) {
+      throw new NotFoundException('Carrito inválido');
+    }
 
     await this.cartItemRepo.remove(item);
 
@@ -201,89 +225,44 @@ export class CartService {
   }
 
   // =====================================================
-  // VACÍAR CARRITO
+  // CLEAR CART
   // =====================================================
   async clearCart(userId: string) {
     const cart = await this.cartRepo.findOne({
-      where: {
-        user: { id: userId },
-      },
-      relations: ['items', 'items.product', 'user'],
+      where: { user: { id: userId } },
+      relations: ['items'],
     });
 
     if (!cart) {
       throw new NotFoundException('Carrito no encontrado');
     }
 
-    if (!cart.user) {
-      throw new NotFoundException('El carrito no tiene usuario asociado');
-    }
+    const items = cart.items ?? [];
 
-    if (cart.user.id !== userId) {
-      throw new ForbiddenException(
-        'No tienes permiso para vaciar este carrito',
-      );
-    }
-
-    cart.items = cart.items ?? [];
-
-    if (cart.items.length === 0) {
+    if (items.length === 0) {
       return {
         cartId: cart.id,
         items: [],
-        total: 0,
-        itemCount: 0,
-        message: 'El carrito ya estaba vacío',
+        summary: {
+          itemCount: 0,
+          distinctItems: 0,
+          total: 0,
+        },
+        message: 'Carrito ya estaba vacío',
       };
     }
 
-    await this.cartItemRepo.remove(cart.items);
+    await this.cartItemRepo.remove(items);
 
     return {
       cartId: cart.id,
       items: [],
-      total: 0,
-      itemCount: 0,
-      message: 'Carrito vaciado correctamente',
-    };
-  }
-
-  // =====================================================
-  // CARRO CON TOTALES
-  // =====================================================
-  async getCartWithTotals(cartId: string) {
-    const cart = await this.cartRepo.findOne({
-      where: { id: cartId },
-      relations: ['items', 'items.product'],
-    });
-
-    if (!cart) {
-      throw new NotFoundException('Carrito no encontrado');
-    }
-
-    cart.items = cart.items ?? [];
-
-    const items = cart.items.map((item) => ({
-      id: item.id,
-      quantity: item.quantity,
-      product: {
-        id: item.product.id,
-        name: item.product.name,
-        price: Number(item.product.price),
-        imageUrl: item.product.imageUrl,
+      summary: {
+        itemCount: 0,
+        distinctItems: 0,
+        total: 0,
       },
-      subtotal: Number(item.product.price) * item.quantity,
-    }));
-
-    const total = items.reduce((sum, i) => sum + i.subtotal, 0);
-
-    const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
-
-    return {
-      cartId: cart.id,
-      items,
-      total: Number(total.toFixed(2)),
-      itemCount,
+      message: 'Carrito vaciado correctamente',
     };
   }
 }

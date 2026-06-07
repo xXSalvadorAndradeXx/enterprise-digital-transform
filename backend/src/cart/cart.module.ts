@@ -1,3 +1,5 @@
+// src/cart/cart.module.ts
+
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -19,11 +21,8 @@ import { AuthModule } from '../auth/auth.module';
     ]),
     AuthModule,
   ],
-
   controllers: [CartController],
-
   providers: [CartService],
-
-  exports: [CartService],
+  exports: [CartService], // 
 })
 export class CartModule {}
