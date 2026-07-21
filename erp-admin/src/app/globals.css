@@ -1,26 +1,133 @@
 @import "tailwindcss";
 
+/* ==========================================================
+   VARIABLES GLOBALES
+========================================================== */
+
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #ffffff;
+
+  /* Tipografías */
+  --font-title: var(--font-montserrat);
+  --font-body: var(--font-poppins);
 }
+
+/* ==========================================================
+   TAILWIND THEME
+========================================================== */
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  /* Fuente principal de Tailwind */
+  --font-sans: var(--font-poppins);
 }
+
+/* ==========================================================
+   MODO OSCURO (Opcional)
+========================================================== */
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #ffffff;
     --foreground: #ededed;
   }
 }
 
+/* ==========================================================
+   ESTILOS GLOBALES
+========================================================== */
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+}
+
+/* ==========================================================
+   TIPOGRAFÍA - MONTSERRAT
+========================================================== */
+
+.display {
+  font-family: var(--font-title);
+  font-size: 48px;
+  font-weight: 700;
+}
+
+.h1 {
+  font-family: var(--font-title);
+  font-size: 38px;
+  font-weight: 400;
+}
+
+.h2 {
+  font-family: var(--font-title);
+  font-size: 28px;
+  font-weight: 400;
+}
+
+.h3 {
+  font-family: var(--font-title);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.h4 {
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.h5 {
+  font-family: var(--font-title);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.h6 {
+  font-family: var(--font-title);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ==========================================================
+   TIPOGRAFÍA - POPPINS
+========================================================== */
+
+.body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.body-2 {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.small {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.caption {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* ==========================================================
+   SIDEBAR
+========================================================== */
+
+.sidebar-text {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 175%;
+  color: #4A4A4A;
 }
