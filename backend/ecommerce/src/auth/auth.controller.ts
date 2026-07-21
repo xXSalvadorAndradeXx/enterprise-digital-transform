@@ -1,7 +1,7 @@
 import { Controller, Post, Body, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { JwtService } from '@nestjs/jwt'; 
+import { JwtService } from '@nestjs/jwt';
 import { User } from '../users/entities/user.entity';
 import { Cart } from '../cart/entities/cart.entity';
 import { HashService } from './hash.service';
@@ -16,13 +16,13 @@ export class AuthController {
     @InjectRepository(Cart)
     private readonly cartRepository: Repository<Cart>,
     private readonly hashService: HashService,
-    private readonly jwtService: JwtService, 
-  ) {}
+    private readonly jwtService: JwtService,
+  ) { }
 
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
     const existingUser = await this.userRepository.findOneBy({ email: registerDto.email });
-    
+
     if (existingUser) {
       throw new ConflictException('El correo electrónico ya está registrado');
     }
@@ -30,12 +30,12 @@ export class AuthController {
     const hashedPassword = await this.hashService.hashPassword(registerDto.password);
 
     const newUser = this.userRepository.create({
-      ...registerDto, 
+      ...registerDto,
       password: hashedPassword,
     });
 
     const savedUser = await this.userRepository.save(newUser);
-    
+
     const newCart = this.cartRepository.create({ user: savedUser });
     await this.cartRepository.save(newCart);
 
@@ -65,19 +65,19 @@ export class AuthController {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    
-    const payload = { 
-      sub: user.id,  
+
+    const payload = {
+      sub: user.id,
       email: user.email,
-      rol: user.rol 
+      rol: user.rol
     };
 
     // Emision el JWT firmado de forma asíncrona
     const token = await this.jwtService.signAsync(payload);
 
-    
-    return { 
-      message: 'Login exitoso', 
+
+    return {
+      message: 'Login exitoso',
       access_token: token,
       user: {
         id: user.id,

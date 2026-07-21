@@ -8,12 +8,14 @@ import { ProductsModule } from './products/products.module';
 import { CartModule } from './cart/cart.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
+import { validate } from './env.validation';
 
 @Module({
   imports: [
     // Configuración de Variables de Entorno
     ConfigModule.forRoot({
       isGlobal: true,
+      validate,
     }),
 
     // Configuración de Conexión a PostgreSQL (T-03)
