@@ -1,7 +1,8 @@
-import { Controller, Get, UseGuards, Request, Query, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, UseGuards, Request, Query, Param, Body, ParseUUIDPipe } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; 
 import { UsersService } from './users.service';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
+import { AssignRolesDto } from './dto/assign-roles.dto';
 import { plainToInstance } from 'class-transformer';
 import { UserResponseDto } from './dto/user-response.dto';
 
@@ -42,6 +43,33 @@ export class UsersController {
     return {
       status: 'success',
       message: 'Usuario obtenido exitosamente',
+      data: serializedUser,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/roles')
+  async assignRoles(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() assignRolesDto: AssignRolesDto,
+  ) {
+    const result = await this.usersService.assignRoles(id, assignRolesDto);
+    const serializedUser = plainToInstance(UserResponseDto, result, { excludeExtraneousValues: true });
+    return {
+      status: 'success',
+      message: 'Roles asignados exitosamente',
+      data: serializedUser,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    const result = await this.usersService.remove(id);
+    const serializedUser = plainToInstance(UserResponseDto, result, { excludeExtraneousValues: true });
+    return {
+      status: 'success',
+      message: 'Usuario eliminado exitosamente',
       data: serializedUser,
     };
   }
