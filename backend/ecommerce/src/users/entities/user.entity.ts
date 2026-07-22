@@ -24,6 +24,7 @@ export class User {
   @Column({ name: 'is_active', type: 'boolean', default: true, nullable: false })
   isActive!: boolean;
 
+<<<<<<< HEAD
   @Column({ name: 'must_change_password', type: 'boolean', default: true, nullable: false })
   mustChangePassword!: boolean;
 
@@ -34,6 +35,15 @@ export class User {
   lockedUntil!: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
+=======
+  @Column({ default: true })
+  isActive!: boolean;
+
+  @Column({ default: false })
+  isBlocked!: boolean;
+
+  @CreateDateColumn()
+>>>>>>> Feature/BE-auth-module
   createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
