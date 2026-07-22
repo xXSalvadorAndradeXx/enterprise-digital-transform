@@ -1,9 +1,12 @@
 import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class RegisterDto {
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
   nombre!: string;
 
+  @Transform(({ value }) => typeof value === 'string' ? value.trim().toLowerCase() : value)
   @IsEmail({}, { message: 'El formato del correo es inválido' })
   email!: string;
 
