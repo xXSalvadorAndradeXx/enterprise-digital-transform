@@ -1,12 +1,24 @@
 import { Controller, Get, Post, Patch, Delete, UseGuards, Request, Query, Param, Body, ParseUUIDPipe } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; 
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { UsersService } from './users.service';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AssignRolesDto } from './dto/assign-roles.dto';
 import { plainToInstance } from 'class-transformer';
 import { UserResponseDto } from './dto/user-response.dto';
+import { 
+  ApiTags, 
+  ApiBearerAuth, 
+  ApiQuery, 
+  ApiOkResponse, 
+  ApiUnauthorizedResponse, 
+  ApiForbiddenResponse 
+} from '@nestjs/swagger';
 
+@ApiTags('users')
+@ApiBearerAuth()
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -35,8 +47,65 @@ export class UsersController {
     };
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users:read')
   @Get()
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Número de página (paginación basada en offset)', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Cantidad de elementos por página', example: 10 })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Término de búsqueda parcial sobre first_name, last_name o email (case-insensitive)' })
+  @ApiQuery({ name: 'email', required: false, type: String, description: 'Búsqueda parcial/coincidencia sobre email usando ILIKE' })
+  @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filtrar por estado activo o inactivo' })
+  @ApiQuery({ name: 'roleId', required: false, type: String, description: 'Filtrar por ID de rol asociado (UUID)' })
+  @ApiOkResponse({
+    description: 'Listado de usuarios obtenido exitosamente.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        message: { type: 'string', example: 'Usuarios obtenidos exitosamente' },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' },
+              firstName: { type: 'string', example: 'Super' },
+              lastName: { type: 'string', example: 'Admin' },
+              email: { type: 'string', example: 'superadmin@ecommerce.local' },
+              isActive: { type: 'boolean', example: true },
+              mustChangePassword: { type: 'boolean', example: true },
+              failedLoginAttempts: { type: 'integer', example: 0 },
+              lockedUntil: { type: 'string', format: 'date-time', example: null, nullable: true },
+              createdAt: { type: 'string', format: 'date-time', example: '2026-07-22T00:20:17.000Z' },
+              updatedAt: { type: 'string', format: 'date-time', example: '2026-07-22T00:20:17.000Z' },
+              roles: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', example: 'a2b16384-c113-49cd-b5d6-8c4d5865dec1' },
+                    name: { type: 'string', example: 'SUPERADMIN' },
+                    description: { type: 'string', example: 'Super Administrador del Sistema' },
+                  }
+                }
+              }
+            }
+          }
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            total: { type: 'integer', example: 1 },
+            page: { type: 'integer', example: 1 },
+            limit: { type: 'integer', example: 10 },
+            totalPages: { type: 'integer', example: 1 },
+          }
+        }
+      }
+    }
+  })
+  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado en el encabezado Authorization.' })
+  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:read requerido.' })
   async findAll(@Query() query: FindUsersQueryDto) {
     const { page, limit, ...filters } = query;
     const { users, meta } = await this.usersService.findAll(page, limit, filters);
@@ -44,10 +113,8 @@ export class UsersController {
     return {
       status: 'success',
       message: 'Usuarios obtenidos exitosamente',
-      data: {
-        users: serializedUsers,
-        meta,
-      },
+      data: serializedUsers,
+      meta,
     };
   }
 
