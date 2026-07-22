@@ -216,6 +216,101 @@ describe('UsersService', () => {
     });
   });
 
+  describe('update', () => {
+    it('debe actualizar los datos básicos del usuario exitosamente', async () => {
+      const mockUser = {
+        id: 'user-uuid',
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john@example.com',
+        roles: [{ name: 'CLIENTE' }],
+      } as User;
+
+      mockUserRepository.findOne.mockImplementation(({ where }) => {
+        if (where.id === 'user-uuid') return Promise.resolve(mockUser);
+        return Promise.resolve(null);
+      });
+      mockUserRepository.save.mockImplementation((user) => Promise.resolve(user));
+
+      const result = await service.update('user-uuid', {
+        firstName: 'Johnny',
+        lastName: 'Smith',
+        email: 'johnny@example.com',
+      });
+
+      expect(result.firstName).toBe('Johnny');
+      expect(result.lastName).toBe('Smith');
+      expect(result.email).toBe('johnny@example.com');
+      expect(mockUserRepository.save).toHaveBeenCalled();
+    });
+
+    it('debe lanzar ConflictException si el email a actualizar ya existe', async () => {
+      const mockUser = {
+        id: 'user-uuid',
+        email: 'john@example.com',
+      } as User;
+
+      mockUserRepository.findOne.mockImplementation(({ where }) => {
+        if (where.id === 'user-uuid') return Promise.resolve(mockUser);
+        if (where.email === 'duplicate@example.com') return Promise.resolve({ id: 'other-uuid' } as User);
+        return Promise.resolve(null);
+      });
+
+      await expect(
+        service.update('user-uuid', { email: 'duplicate@example.com' }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe lanzar ConflictException si la actualización remueve el rol SUPERADMIN del último administrador activo', async () => {
+      const mockUser = {
+        id: 'user-uuid',
+        isActive: true,
+        roles: [{ name: 'SUPERADMIN' }],
+      } as User;
+
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockQueryBuilder.getCount.mockResolvedValue(1); // Es el último activo
+
+      const newRoles = [{ id: 'role-client-uuid', name: 'CLIENTE' }] as Role[];
+      mockRoleRepository.findBy.mockResolvedValue(newRoles);
+
+      await expect(
+        service.update('user-uuid', { roleIds: ['role-client-uuid'] }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe desactivar un usuario si no viola la protección del último SUPERADMIN', async () => {
+      const mockUser = {
+        id: 'user-uuid',
+        isActive: true,
+        roles: [{ name: 'CLIENTE' }],
+      } as User;
+
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockUserRepository.save.mockImplementation((user) => Promise.resolve(user));
+
+      const result = await service.update('user-uuid', { isActive: false });
+
+      expect(result.isActive).toBe(false);
+      expect(mockUserRepository.save).toHaveBeenCalled();
+    });
+
+    it('debe lanzar ConflictException si se intenta desactivar al último SUPERADMIN activo', async () => {
+      const mockUser = {
+        id: 'user-uuid',
+        isActive: true,
+        roles: [{ name: 'SUPERADMIN' }],
+      } as User;
+
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockQueryBuilder.getCount.mockResolvedValue(1); // Es el último activo
+
+      await expect(
+        service.update('user-uuid', { isActive: false })
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
   describe('remove (protección de SUPERADMIN)', () => {
     it('debe lanzar ConflictException al intentar eliminar al último SUPERADMIN activo', async () => {
       const mockUser = {

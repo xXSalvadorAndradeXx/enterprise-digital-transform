@@ -5,6 +5,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { UsersService } from './users.service';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { AssignRolesDto } from './dto/assign-roles.dto';
 import { plainToInstance } from 'class-transformer';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -215,6 +216,64 @@ export class UsersController {
     return {
       status: 'success',
       message: 'Usuario obtenido exitosamente',
+      data: serializedUser,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users:update')
+  @Patch(':id')
+  @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario a actualizar (UUID versión 4)', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' })
+  @ApiOkResponse({
+    description: 'El usuario ha sido actualizado exitosamente.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        message: { type: 'string', example: 'Usuario actualizado exitosamente' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' },
+            firstName: { type: 'string', example: 'Super' },
+            lastName: { type: 'string', example: 'Modificado' },
+            email: { type: 'string', example: 'superadmin.modificado@ecommerce.local' },
+            isActive: { type: 'boolean', example: true },
+            mustChangePassword: { type: 'boolean', example: true },
+            failedLoginAttempts: { type: 'integer', example: 0 },
+            lockedUntil: { type: 'string', format: 'date-time', example: null, nullable: true },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-07-22T00:20:17.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-07-22T22:04:00.000Z' },
+            roles: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'a2b16384-c113-49cd-b5d6-8c4d5865dec1' },
+                  name: { type: 'string', example: 'SUPERADMIN' },
+                  description: { type: 'string', example: 'Super Administrador del Sistema' },
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
+  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:update requerido.' })
+  @ApiNotFoundResponse({ description: 'No encontrado: El usuario a editar o alguno de los roles especificados no existen.' })
+  @ApiConflictResponse({ description: 'Conflicto: El correo electrónico ya se encuentra registrado por otro usuario, o la operación intenta deactivar/remover el rol SUPERADMIN del último administrador activo.' })
+  @ApiUnprocessableEntityResponse({ description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).' })
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    const result = await this.usersService.update(id, updateUserDto);
+    const serializedUser = plainToInstance(UserResponseDto, result, { excludeExtraneousValues: true });
+    return {
+      status: 'success',
+      message: 'Usuario actualizado exitosamente',
       data: serializedUser,
     };
   }

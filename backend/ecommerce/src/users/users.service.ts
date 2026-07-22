@@ -5,6 +5,7 @@ import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { AssignRolesDto } from './dto/assign-roles.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
 import { generateTemporaryPassword } from '../common/utils/security.util';
 
@@ -199,6 +200,70 @@ export class UsersService {
     }
 
     user.roles = roles;
+    return this.userRepository.save(user);
+  }
+
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['roles'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+
+    // 1. Si se actualiza el email, verificar unicidad
+    if (updateUserDto.email && updateUserDto.email !== user.email) {
+      const existingUser = await this.userRepository.findOne({
+        where: { email: updateUserDto.email },
+      });
+      if (existingUser) {
+        throw new ConflictException('El correo electrónico ya está registrado');
+      }
+      user.email = updateUserDto.email;
+    }
+
+    if (updateUserDto.firstName !== undefined) {
+      user.firstName = updateUserDto.firstName;
+    }
+
+    if (updateUserDto.lastName !== undefined) {
+      user.lastName = updateUserDto.lastName;
+    }
+
+    // 2. Si se actualiza el estado activo
+    if (updateUserDto.isActive !== undefined && updateUserDto.isActive !== user.isActive) {
+      if (updateUserDto.isActive === false) {
+        const isLastSuper = await this.isLastActiveSuperadmin(id);
+        if (isLastSuper) {
+          throw new ConflictException(
+            'Operación rechazada: No se puede desactivar al último administrador activo en el sistema.'
+          );
+        }
+      }
+      user.isActive = updateUserDto.isActive;
+    }
+
+    // 3. Si se actualizan los roles, verificar la protección del último SUPERADMIN activo
+    if (updateUserDto.roleIds) {
+      const roles = await this.roleRepository.findBy({ id: In(updateUserDto.roleIds) });
+      if (roles.length !== updateUserDto.roleIds.length) {
+        throw new NotFoundException('Uno o más roles especificados no fueron encontrados');
+      }
+
+      const isLastSuper = await this.isLastActiveSuperadmin(id);
+      if (isLastSuper) {
+        const containsSuperAdmin = roles.some((role) => role.name === 'SUPERADMIN');
+        if (!containsSuperAdmin) {
+          throw new ConflictException(
+            'Operación rechazada: No se puede remover el rol SUPERADMIN del último administrador activo en el sistema.'
+          );
+        }
+      }
+      user.roles = roles;
+    }
+
     return this.userRepository.save(user);
   }
 
