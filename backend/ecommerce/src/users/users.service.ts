@@ -1,18 +1,75 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { AssignRolesDto } from './dto/assign-roles.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import * as bcrypt from 'bcrypt';
+import { generateTemporaryPassword } from '../common/utils/security.util';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
   ) {}
+
+  async create(createUserDto: CreateUserDto) {
+    // 1. Verificar si el email ya está registrado
+    const existingUser = await this.userRepository.findOne({
+      where: { email: createUserDto.email },
+    });
+    if (existingUser) {
+      throw new ConflictException('El correo electrónico ya está registrado');
+    }
+
+    // 2. Buscar los roles correspondientes a los IDs especificados
+    const roles = await this.roleRepository.findBy({ id: In(createUserDto.roleIds) });
+    if (roles.length !== createUserDto.roleIds.length) {
+      throw new NotFoundException('Uno o más roles especificados no fueron encontrados');
+    }
+
+    // 3. Generar contraseña temporal segura
+    const temporaryPassword = generateTemporaryPassword(12);
+
+    // 4. Hashear la contraseña temporal con bcrypt (salt rounds = 10)
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+    // 5. Instanciar y rellenar campos requeridos de User
+    const user = this.userRepository.create({
+      firstName: createUserDto.firstName,
+      lastName: createUserDto.lastName,
+      email: createUserDto.email,
+      passwordHash,
+      isActive: true,
+      mustChangePassword: true,
+      failedLoginAttempts: 0,
+      roles,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    // 6. Crear carrito de compras inicial para el nuevo usuario
+    await this.userRepository.query(
+      `INSERT INTO "carts" ("userId") VALUES ($1) ON CONFLICT ("userId") DO NOTHING`,
+      [savedUser.id],
+    );
+
+    // 7. Punto de integración Mock para envío de notificación al usuario
+    this.logger.log(
+      `[NOTIFICACIÓN MOCK] Enviar contraseña temporal a ${savedUser.email}. Contraseña temporal: ${temporaryPassword}`
+    );
+
+    return {
+      user: savedUser,
+      temporaryPassword,
+    };
+  }
 
   async findAll(
     page: number = 1,

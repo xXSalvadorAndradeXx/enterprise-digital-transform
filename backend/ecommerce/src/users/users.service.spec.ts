@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
+import * as bcrypt from 'bcrypt';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -22,6 +23,8 @@ describe('UsersService', () => {
     createQueryBuilder: jest.fn(() => mockQueryBuilder),
     save: jest.fn(),
     softRemove: jest.fn(),
+    create: jest.fn((data) => ({ ...data })),
+    query: jest.fn(),
   };
 
   const mockRoleRepository = {
@@ -48,6 +51,68 @@ describe('UsersService', () => {
     roleRepository = module.get<Repository<Role>>(getRepositoryToken(Role));
 
     jest.clearAllMocks();
+  });
+
+  describe('create', () => {
+    it('debe crear un usuario exitosamente con contraseña temporal hasheada', async () => {
+      const createUserDto = {
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'john@example.com',
+        roleIds: ['role-uuid'],
+      };
+
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockRoleRepository.findBy.mockResolvedValue([{ id: 'role-uuid', name: 'CLIENTE' }]);
+      mockUserRepository.save.mockImplementation((user) => Promise.resolve({ id: 'new-user-uuid', ...user }));
+      mockUserRepository.query.mockResolvedValue([]);
+
+      const result = await service.create(createUserDto);
+
+      expect(result.user.email).toBe(createUserDto.email);
+      expect(result.user.firstName).toBe(createUserDto.firstName);
+      expect(result.user.lastName).toBe(createUserDto.lastName);
+      expect(result.user.mustChangePassword).toBe(true);
+      expect(result.temporaryPassword).toBeDefined();
+      expect(result.temporaryPassword.length).toBeGreaterThanOrEqual(12);
+
+      // Verificar que se hasheó con bcrypt
+      const isMatch = await bcrypt.compare(result.temporaryPassword, result.user.passwordHash);
+      expect(isMatch).toBe(true);
+
+      expect(mockUserRepository.save).toHaveBeenCalled();
+      expect(mockUserRepository.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO "carts"'),
+        ['new-user-uuid']
+      );
+    });
+
+    it('debe lanzar ConflictException si el correo electrónico ya existe', async () => {
+      mockUserRepository.findOne.mockResolvedValue({ id: 'existing-id' } as User);
+
+      await expect(
+        service.create({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john@example.com',
+          roleIds: ['role-uuid'],
+        })
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe lanzar NotFoundException si algún rol especificado no existe', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockRoleRepository.findBy.mockResolvedValue([]); // No se encuentra el rol
+
+      await expect(
+        service.create({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john@example.com',
+          roleIds: ['role-uuid'],
+        })
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe('isLastActiveSuperadmin', () => {

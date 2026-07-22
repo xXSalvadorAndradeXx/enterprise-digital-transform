@@ -1,7 +1,8 @@
-import { Controller, Get, Patch, Delete, UseGuards, Request, Query, Param, Body, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, UseGuards, Request, Query, Param, Body, ParseUUIDPipe } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; 
 import { UsersService } from './users.service';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { AssignRolesDto } from './dto/assign-roles.dto';
 import { plainToInstance } from 'class-transformer';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -9,6 +10,21 @@ import { UserResponseDto } from './dto/user-response.dto';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @UseGuards(JwtAuthGuard)
+  @Post()
+  async create(@Body() createUserDto: CreateUserDto) {
+    const { user, temporaryPassword } = await this.usersService.create(createUserDto);
+    const serializedUser = plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true });
+    return {
+      status: 'success',
+      message: 'Usuario creado exitosamente',
+      data: {
+        user: serializedUser,
+        temporaryPassword,
+      },
+    };
+  }
 
   @UseGuards(JwtAuthGuard) 
   @Get('profile')
