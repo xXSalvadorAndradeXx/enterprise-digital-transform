@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Req, UseGuards, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -7,6 +7,7 @@ import { Cart } from '../cart/entities/cart.entity';
 import { HashService } from './hash.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -65,16 +66,14 @@ export class AuthController {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-
     const payload = {
       sub: user.id,
       email: user.email,
       rol: user.rol
     };
 
-    // Emision el JWT firmado de forma asíncrona
+    // Emisión del JWT firmado de forma asíncrona
     const token = await this.jwtService.signAsync(payload);
-
 
     return {
       message: 'Login exitoso',
@@ -86,5 +85,11 @@ export class AuthController {
         rol: user.rol
       }
     };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  getProfile(@Req() req: any) {
+    return req.user;
   }
 }
