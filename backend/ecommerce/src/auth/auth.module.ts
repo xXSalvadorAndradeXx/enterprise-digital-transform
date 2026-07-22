@@ -7,6 +7,8 @@ import { HashService } from './hash.service';
 import { User } from '../users/entities/user.entity';
 import { Cart } from '../cart/entities/cart.entity';
 import { JwtStrategy } from './jwt.strategy'; // 1. Importación de la estrategia
+import { LocalStrategy } from './local.strategy';
+import { AuthService } from './auth.service';
 
 @Module({
   imports: [
@@ -31,7 +33,7 @@ import { JwtStrategy } from './jwt.strategy'; // 1. Importación de la estrategi
     }),
   ],
   controllers: [AuthController],
-  providers: [HashService, JwtStrategy], // 2. Registro de la estrategia como proveedor
-  exports: [HashService, JwtModule, JwtStrategy], // 3. Exportación para otros módulos
+  providers: [AuthService, HashService, JwtStrategy, LocalStrategy], // 2. Registro de servicios y estrategias como proveedores
+  exports: [AuthService, HashService, JwtModule, JwtStrategy, LocalStrategy], // 3. Exportación para otros módulos
 })
 export class AuthModule {}

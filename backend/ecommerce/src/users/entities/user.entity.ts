@@ -20,6 +20,12 @@ export class User {
   @Column({ default: 'cliente' }) // cliente o administrador
   rol!: string;
 
+  @Column({ default: true })
+  isActive!: boolean;
+
+  @Column({ default: false })
+  isBlocked!: boolean;
+
   @CreateDateColumn()
   createdAt!: Date;
 
