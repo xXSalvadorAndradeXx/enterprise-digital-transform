@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { HashService } from './hash.service';
 import { User } from '../users/entities/user.entity';
 import { Cart } from '../cart/entities/cart.entity';
+import { RefreshToken } from '../users/entities/refresh-token.entity';
 import { JwtStrategy } from './jwt.strategy'; // 1. Importación de la estrategia
 import { LocalStrategy } from './local.strategy';
 import { AuthService } from './auth.service';
@@ -14,7 +15,8 @@ import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './guards';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Cart]),
+    TypeOrmModule.forFeature([User, Cart, RefreshToken]),
+
     
     JwtModule.registerAsync({
       imports: [ConfigModule],
