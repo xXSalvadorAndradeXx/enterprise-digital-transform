@@ -93,38 +93,47 @@ export default function ProveedorPage() {
       </div>
 
       <div
-        className="
-          mt-10
-          rounded-lg
-          border
-          border-gray-400
-          bg-white
-          p-5
-        "
-      >
+    className={`
+    mt-10
+    bg-white
+    p-5
+    ${
+      view === "table"
+        ? "rounded-lg border border-gray-400"
+        : ""
+    }
+  `}
+>
 
-        <div className="mb-5 flex items-center gap-4">
+        {view === "table" ? (
+       <div className="mb-5 flex items-center gap-4">
+       <button
+      className="
+        h-[42px]
+        rounded-md
+        bg-[#2F3CE9]
+        px-6
+        text-sm
+        font-medium
+        text-white
+      "
+    >
+      Agregar proveedor
+    </button>
 
-          <button
-            className="
-              h-[42px]
-              rounded-md
-              bg-[#2F3CE9]
-              px-6
-              text-sm
-              font-medium
-              text-white
-            "
-          >
-            Agregar proveedor
-          </button>
-
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-          />
-
-        </div>
+    <SearchBar
+      value={search}
+      onChange={setSearch}
+    />
+  </div>
+) : (
+  <div className="mb-5">
+    <SearchBar
+      value={search}
+      onChange={setSearch}
+    />
+  </div>
+)}
 
        {view === "table" && (
   <>
@@ -145,37 +154,37 @@ export default function ProveedorPage() {
 
 {view === "empty" && (
   <EmptyState
-    image={
-      <Image
-        src={EmptyIcon}
-        alt="Sin proveedores"
-        width={120}
-        height={120}
-      />
-    }
-    title="No hay proveedores"
-    description="Aún no existen proveedores registrados."
-    helperText="Presiona el botón Agregar proveedor para comenzar."
-    buttonText="Agregar proveedor"
-    onButtonClick={() => {}}
-  />
+  image={
+    <Image
+      src={EmptyIcon}
+      alt="Sin proveedores"
+      width={120}
+      height={120}
+    />
+  }
+  title="No hay proveedores aún"
+  description="Cuando agregues alguna proveedor, apareceran aquí."
+  helperText="Puedes agregar tu primera Provedor para comenzar."
+  buttonText="Agregar proveedor"
+  onButtonClick={() => {}}
+/>
 )}
 
 {view === "error" && (
   <ErrorState
-    image={
-      <Image
-        src={ErrorIcon}
-        alt="Error"
-        width={120}
-        height={120}
-      />
-    }
-    title="Ocurrió un error"
-    description="No fue posible cargar los proveedores."
-    buttonText="Reintentar"
-    onRetry={() => {}}
-  />
+  image={
+    <Image
+      src={ErrorIcon}
+      alt="Error"
+      width={120}
+      height={120}
+    />
+  }
+  title="No se pudieron cargar los proveedores"
+  description="Ocurrió un error al intentar cargar la información. Por favor, intenta nuevamente."
+  buttonText="Reintentar"
+  onRetry={() => {}}
+/>
 )}
 
       </div>
