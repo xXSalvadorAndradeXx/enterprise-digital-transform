@@ -1,4 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
+import * as bcrypt from "bcrypt";
+import { PERMISSIONS_CATALOG } from "../common/constants/permissions.constant";
 
 export class ModelUserRolePermission1779770321092 implements MigrationInterface {
     name = 'ModelUserRolePermission1779770321092'
@@ -92,6 +94,71 @@ export class ModelUserRolePermission1779770321092 implements MigrationInterface 
         await queryRunner.query(`CREATE INDEX "IDX_role_permissions_role" ON "role_permissions" ("role_id")`);
         await queryRunner.query(`ALTER TABLE "role_permissions" ADD CONSTRAINT "FK_role_permissions_permission" FOREIGN KEY ("permission_id") REFERENCES "permissions"("id") ON DELETE CASCADE ON UPDATE CASCADE`);
         await queryRunner.query(`ALTER TABLE "role_permissions" ADD CONSTRAINT "FK_role_permissions_role" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE CASCADE ON UPDATE CASCADE`);
+
+        // 10. Sembrar catálogo de permisos (upsert por code)
+        for (const perm of PERMISSIONS_CATALOG) {
+            await queryRunner.query(
+                `INSERT INTO "permissions" ("code", "description") VALUES ($1, $2) ON CONFLICT ("code") DO UPDATE SET "description" = EXCLUDED."description"`,
+                [perm.code, perm.description]
+            );
+        }
+
+        // 11. Sembrar el rol SUPERADMIN (is_system = true)
+        const superAdminRoleResult = await queryRunner.query(
+            `INSERT INTO "roles" ("name", "description", "is_system")
+             VALUES ('SUPERADMIN', 'Super administrador con acceso total a todos los módulos', true)
+             ON CONFLICT ("name") DO UPDATE SET "description" = EXCLUDED."description", "is_system" = EXCLUDED."is_system"
+             RETURNING "id"`
+        );
+        const superAdminRoleId = superAdminRoleResult[0].id;
+
+        // 12. Vincular la totalidad de permisos al rol SUPERADMIN
+        const dbPermissions = await queryRunner.query(`SELECT "id" FROM "permissions"`);
+        for (const perm of dbPermissions) {
+            await queryRunner.query(
+                `INSERT INTO "role_permissions" ("role_id", "permission_id")
+                 VALUES ($1, $2)
+                 ON CONFLICT ("permission_id", "role_id") DO NOTHING`,
+                [superAdminRoleId, perm.id]
+            );
+        }
+
+        // 13. Sembrar usuario inicial Super Admin (opcional para desarrollo)
+        const defaultEmail = 'superadmin@ecommerce.local';
+        const existingSuperAdmin = await queryRunner.query(
+            `SELECT "id" FROM "users" WHERE "email" = $1`,
+            [defaultEmail]
+        );
+
+        if (existingSuperAdmin.length === 0) {
+            const passwordHash = await bcrypt.hash('superadmin123', 10);
+            const userResult = await queryRunner.query(
+                `INSERT INTO "users" (
+                    "first_name", 
+                    "last_name", 
+                    "email", 
+                    "password_hash", 
+                    "is_active", 
+                    "must_change_password", 
+                    "failed_login_attempts"
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING "id"`,
+                ['Super', 'Admin', defaultEmail, passwordHash, true, true, 0]
+            );
+            const newUserId = userResult[0].id;
+
+            // Vincular el rol SUPERADMIN al nuevo usuario
+            await queryRunner.query(
+                `INSERT INTO "user_roles" ("user_id", "role_id") VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                [newUserId, superAdminRoleId]
+            );
+            
+            // También crear un carrito vacío asociado al nuevo usuario
+            await queryRunner.query(
+                `INSERT INTO "carts" ("userId") VALUES ($1) ON CONFLICT ("userId") DO NOTHING`,
+                [newUserId]
+            );
+        }
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
