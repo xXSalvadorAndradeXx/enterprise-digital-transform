@@ -107,9 +107,31 @@ npm run build
 # Generar el archivo de migración inicial
 npm run migration:generate src/migrations/InitialSchema
 
-# Aplicar los cambios a la base de datos
+# Aplicar los cambios a la base de datos (Ejecuta automáticamente el sembrado de permisos y usuario Super Admin)
 npm run migration:run
 ```
+
+### Paso 3: Sembrado de Datos e Idempotencia
+
+El proyecto incluye dos mecanismos de sembrado de datos para agilizar el arranque del sistema en ambientes de desarrollo:
+
+#### A. Permisos, Roles y Usuario Super Admin (Sembrado por Migración)
+Este proceso es **idempotente** y se ejecuta automáticamente al correr `npm run migration:run`:
+*   **Catálogo de Permisos**: Inserta o actualiza todos los permisos mediante `recurso:accion` (upsert por `code`).
+*   **Rol SUPERADMIN**: Se crea el rol con `is_system = true` y se le asocian la totalidad de los permisos.
+*   **Usuario Super Admin Inicial**: Si no existe, se crea la cuenta con credenciales:
+    *   **Email**: `superadmin@ecommerce.local`
+    *   **Contraseña**: `superadmin123` (encriptada dinámicamente usando Bcrypt)
+    *   **Carrito**: Se crea automáticamente un registro en la tabla `carts` asociado al usuario.
+
+#### B. Productos y Categorías de Prueba (Sembrado por Script)
+Para poblar el catálogo de productos y categorías de prueba para desarrollo, puedes ejecutar el siguiente script:
+
+```bash
+npm run seed
+```
+
+> ⚠️ **Atención:** El comando de seed para productos/categorías realiza una limpieza previa de tablas (`TRUNCATE ... CASCADE`), por lo que no debe ejecutarse en producción.
 
 ---
 
