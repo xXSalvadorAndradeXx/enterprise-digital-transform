@@ -17,7 +17,7 @@ export class CartService {
     private readonly productRepository: Repository<Product>,
   ) {}
 
-  async findUserCart(userId: number) {
+  async findUserCart(userId: string) {
     const cart = await this.cartRepository.findOne({
       where: { user: { id: userId } },
       relations: ['items', 'items.product'],
@@ -32,7 +32,7 @@ export class CartService {
     return cart;
   }
 
-  async addItemToCart(userId: number, dto: AddCartItemDto) {
+  async addItemToCart(userId: string, dto: AddCartItemDto) {
     const cart = await this.findUserCart(userId);
     
     const product = await this.productRepository.findOne({ where: { id: dto.productId } });
@@ -69,7 +69,7 @@ export class CartService {
     return this.findUserCart(userId);
   }
 
-  async updateItemQuantity(userId: number, itemId: number, quantity: number) {
+  async updateItemQuantity(userId: string, itemId: number, quantity: number) {
     const cartItem = await this.cartItemRepository.findOne({
       where: { id: itemId },
       relations: ['cart', 'cart.user', 'product'],
@@ -95,7 +95,7 @@ export class CartService {
     return this.findUserCart(userId);
   }
 
-  async removeItem(userId: number, itemId: number) {
+  async removeItem(userId: string, itemId: number) {
     const cartItem = await this.cartItemRepository.findOne({
       where: { id: itemId },
       relations: ['cart', 'cart.user'],
@@ -115,7 +115,7 @@ export class CartService {
     return this.findUserCart(userId);
   }
 
-  async clearCart(userId: number) {
+  async clearCart(userId: string) {
     const cart = await this.findUserCart(userId);
 
     // Eliminamos todos los items asociados a este carrito
