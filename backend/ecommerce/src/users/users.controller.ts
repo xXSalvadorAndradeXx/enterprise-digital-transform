@@ -278,8 +278,56 @@ export class UsersController {
     };
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users:assign-roles')
   @Patch(':id/roles')
+  @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario a reasignar roles (UUID versión 4)', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' })
+  @ApiOkResponse({
+    description: 'Los roles han sido reasignados exitosamente de forma transaccional y los permisos recalificados.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        message: { type: 'string', example: 'Roles asignados exitosamente' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' },
+            firstName: { type: 'string', example: 'Juan' },
+            lastName: { type: 'string', example: 'Pérez' },
+            email: { type: 'string', example: 'juan.perez@ecommerce.local' },
+            isActive: { type: 'boolean', example: true },
+            mustChangePassword: { type: 'boolean', example: true },
+            failedLoginAttempts: { type: 'integer', example: 0 },
+            lockedUntil: { type: 'string', format: 'date-time', example: null, nullable: true },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-07-22T00:20:17.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-07-22T22:15:00.000Z' },
+            roles: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'b3b16384-c113-49cd-b5d6-8c4d5865dec2' },
+                  name: { type: 'string', example: 'CLIENTE' },
+                  description: { type: 'string', example: 'Cliente de la tienda' },
+                }
+              }
+            },
+            permissions: {
+              type: 'array',
+              items: { type: 'string' },
+              example: ['products:read', 'orders:create']
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
+  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:assign-roles requerido.' })
+  @ApiNotFoundResponse({ description: 'No encontrado: El usuario o alguno de los roles provistos en la lista no existen.' })
+  @ApiConflictResponse({ description: 'Conflicto: La operación violaría la regla del último SUPERADMIN activo, dejando al sistema sin administradores.' })
+  @ApiUnprocessableEntityResponse({ description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).' })
   async assignRoles(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() assignRolesDto: AssignRolesDto,

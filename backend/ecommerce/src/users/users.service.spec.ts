@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
@@ -31,6 +31,18 @@ describe('UsersService', () => {
     findBy: jest.fn(),
   };
 
+  const mockEntityManager = {
+    getRepository: jest.fn((entity) => {
+      if (entity === User) return mockUserRepository;
+      if (entity === Role) return mockRoleRepository;
+      return null;
+    }),
+  };
+
+  const mockDataSource = {
+    transaction: jest.fn((cb) => cb(mockEntityManager)),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -42,6 +54,10 @@ describe('UsersService', () => {
         {
           provide: getRepositoryToken(Role),
           useValue: mockRoleRepository,
+        },
+        {
+          provide: DataSource,
+          useValue: mockDataSource,
         },
       ],
     }).compile();
@@ -202,12 +218,16 @@ describe('UsersService', () => {
         roles: [{ name: 'SUPERADMIN' }],
       } as User;
 
-      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      let userState = { ...mockUser };
+      mockUserRepository.findOne.mockImplementation(() => Promise.resolve(userState));
       mockQueryBuilder.getCount.mockResolvedValue(2); // Hay otro activo, por ende se le permite cambiar
 
-      const newRoles = [{ id: 'role-client-uuid', name: 'CLIENTE' }] as Role[];
+      const newRoles = [{ id: 'role-client-uuid', name: 'CLIENTE', permissions: [] }] as unknown as Role[];
       mockRoleRepository.findBy.mockResolvedValue(newRoles);
-      mockUserRepository.save.mockResolvedValue({ ...mockUser, roles: newRoles });
+      mockUserRepository.save.mockImplementation((user) => {
+        userState = { ...user };
+        return Promise.resolve(userState);
+      });
 
       const result = await service.assignRoles('user-uuid', { roleIds: ['role-client-uuid'] });
 

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, DataSource } from 'typeorm';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { AssignRolesDto } from './dto/assign-roles.dto';
@@ -18,6 +18,7 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -29,7 +30,7 @@ export class UsersService {
       throw new ConflictException('El correo electrónico ya está registrado');
     }
 
-    // 2. Buscar los roles correspondientes a los IDs especificados
+    // 2. Buscar los roles correspondientes a los IDs del DTO
     const roles = await this.roleRepository.findBy({ id: In(createUserDto.roleIds) });
     if (roles.length !== createUserDto.roleIds.length) {
       throw new NotFoundException('Uno o más roles especificados no fueron encontrados');
@@ -173,34 +174,41 @@ export class UsersService {
   }
 
   async assignRoles(userId: string, assignRolesDto: AssignRolesDto) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      relations: ['roles'],
+    await this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const roleRepo = manager.getRepository(Role);
+
+      const user = await userRepo.findOne({
+        where: { id: userId },
+        relations: ['roles'],
+      });
+
+      if (!user) {
+        throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+      }
+
+      // Buscar los roles correspondientes a los IDs del DTO
+      const roles = await roleRepo.findBy({ id: In(assignRolesDto.roleIds) });
+      if (roles.length !== assignRolesDto.roleIds.length) {
+        throw new NotFoundException('Uno o más roles especificados no fueron encontrados');
+      }
+
+      // Verificar si es el último SUPERADMIN activo en el sistema
+      const isLastSuper = await this.isLastActiveSuperadmin(userId);
+      if (isLastSuper) {
+        const containsSuperAdmin = roles.some((role) => role.name === 'SUPERADMIN');
+        if (!containsSuperAdmin) {
+          throw new ConflictException(
+            'Operación rechazada: No se puede remover el rol SUPERADMIN del último administrador activo en el sistema.'
+          );
+        }
+      }
+
+      user.roles = roles;
+      await userRepo.save(user);
     });
 
-    if (!user) {
-      throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
-    }
-
-    // Buscar los roles correspondientes a los IDs del DTO
-    const roles = await this.roleRepository.findBy({ id: In(assignRolesDto.roleIds) });
-    if (roles.length !== assignRolesDto.roleIds.length) {
-      throw new NotFoundException('Uno o más roles especificados no fueron encontrados');
-    }
-
-    // Verificar si es el último SUPERADMIN activo en el sistema
-    const isLastSuper = await this.isLastActiveSuperadmin(userId);
-    if (isLastSuper) {
-      const containsSuperAdmin = roles.some((role) => role.name === 'SUPERADMIN');
-      if (!containsSuperAdmin) {
-        throw new ConflictException(
-          'Operación rechazada: No se puede remover el rol SUPERADMIN del último administrador activo en el sistema.'
-        );
-      }
-    }
-
-    user.roles = roles;
-    return this.userRepository.save(user);
+    return this.findOne(userId);
   }
 
   async update(id: string, updateUserDto: UpdateUserDto) {
