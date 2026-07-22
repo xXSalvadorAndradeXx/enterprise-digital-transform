@@ -10,6 +10,8 @@ import { JwtStrategy } from './jwt.strategy'; // 1. Importación de la estrategi
 import { LocalStrategy } from './local.strategy';
 import { AuthService } from './auth.service';
 
+import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './guards';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Cart]),
@@ -33,7 +35,7 @@ import { AuthService } from './auth.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, HashService, JwtStrategy, LocalStrategy], // 2. Registro de servicios y estrategias como proveedores
-  exports: [AuthService, HashService, JwtModule, JwtStrategy, LocalStrategy], // 3. Exportación para otros módulos
+  providers: [AuthService, HashService, JwtStrategy, LocalStrategy, JwtAuthGuard, RolesGuard, PermissionsGuard],
+  exports: [AuthService, HashService, JwtModule, JwtStrategy, LocalStrategy, JwtAuthGuard, RolesGuard, PermissionsGuard],
 })
-export class AuthModule {}
+export class AuthModule {}
