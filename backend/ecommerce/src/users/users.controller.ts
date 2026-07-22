@@ -12,10 +12,12 @@ import {
   ApiTags, 
   ApiBearerAuth, 
   ApiQuery, 
+  ApiParam,
   ApiOkResponse, 
   ApiCreatedResponse,
   ApiUnauthorizedResponse, 
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiConflictResponse,
   ApiUnprocessableEntityResponse
 } from '@nestjs/swagger';
@@ -159,8 +161,54 @@ export class UsersController {
     };
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users:read')
   @Get(':id')
+  @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario (UUID versión 4)', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' })
+  @ApiOkResponse({
+    description: 'Detalle del usuario obtenido exitosamente.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        message: { type: 'string', example: 'Usuario obtenido exitosamente' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' },
+            firstName: { type: 'string', example: 'Super' },
+            lastName: { type: 'string', example: 'Admin' },
+            email: { type: 'string', example: 'superadmin@ecommerce.local' },
+            isActive: { type: 'boolean', example: true },
+            mustChangePassword: { type: 'boolean', example: true },
+            failedLoginAttempts: { type: 'integer', example: 0 },
+            lockedUntil: { type: 'string', format: 'date-time', example: null, nullable: true },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-07-22T00:20:17.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-07-22T00:20:17.000Z' },
+            roles: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'a2b16384-c113-49cd-b5d6-8c4d5865dec1' },
+                  name: { type: 'string', example: 'SUPERADMIN' },
+                  description: { type: 'string', example: 'Super Administrador del Sistema' },
+                }
+              }
+            },
+            permissions: {
+              type: 'array',
+              items: { type: 'string' },
+              example: ['users:read', 'users:create', 'products:read']
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
+  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:read requerido.' })
+  @ApiNotFoundResponse({ description: 'No encontrado: El usuario especificado no existe o ha sido eliminado lógicamente (soft deleted).' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     const result = await this.usersService.findOne(id);
     const serializedUser = plainToInstance(UserResponseDto, result, { excludeExtraneousValues: true });
