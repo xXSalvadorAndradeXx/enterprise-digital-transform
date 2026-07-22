@@ -4,10 +4,12 @@ import { Transform } from 'class-transformer';
 export class RegisterDto {
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   nombre!: string;
 
   @Transform(({ value }) => typeof value === 'string' ? value.trim().toLowerCase() : value)
   @IsEmail({}, { message: 'El formato del correo es inválido' })
+  @Transform(({ value }) => typeof value === 'string' ? value.toLowerCase().trim() : value)
   email!: string;
 
   @IsString({ message: 'La contraseña debe ser una cadena de texto' })
