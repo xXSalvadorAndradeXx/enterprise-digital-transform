@@ -13,8 +13,11 @@ import {
   ApiBearerAuth, 
   ApiQuery, 
   ApiOkResponse, 
+  ApiCreatedResponse,
   ApiUnauthorizedResponse, 
-  ApiForbiddenResponse 
+  ApiForbiddenResponse,
+  ApiConflictResponse,
+  ApiUnprocessableEntityResponse
 } from '@nestjs/swagger';
 
 @ApiTags('users')
@@ -23,18 +26,56 @@ import {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users:create')
   @Post()
+  @ApiCreatedResponse({
+    description: 'El usuario ha sido creado exitosamente.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        message: { type: 'string', example: 'Usuario creado exitosamente' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'f8d3848b-d113-49cd-a5d6-8c4d5865dec9' },
+            firstName: { type: 'string', example: 'Juan' },
+            lastName: { type: 'string', example: 'Pérez' },
+            email: { type: 'string', example: 'juan.perez@ecommerce.local' },
+            isActive: { type: 'boolean', example: true },
+            mustChangePassword: { type: 'boolean', example: true },
+            failedLoginAttempts: { type: 'integer', example: 0 },
+            lockedUntil: { type: 'string', format: 'date-time', example: null, nullable: true },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-07-22T21:29:03.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-07-22T21:29:03.000Z' },
+            roles: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'b3b16384-c113-49cd-b5d6-8c4d5865dec2' },
+                  name: { type: 'string', example: 'CLIENTE' },
+                  description: { type: 'string', example: 'Cliente de la tienda' },
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
+  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:create requerido.' })
+  @ApiConflictResponse({ description: 'Conflicto: El correo electrónico especificado ya se encuentra registrado.' })
+  @ApiUnprocessableEntityResponse({ description: 'Entidad no procesable: Datos de entrada inválidos (errores de validación del DTO).' })
   async create(@Body() createUserDto: CreateUserDto) {
-    const { user, temporaryPassword } = await this.usersService.create(createUserDto);
+    const { user } = await this.usersService.create(createUserDto);
     const serializedUser = plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true });
     return {
       status: 'success',
       message: 'Usuario creado exitosamente',
-      data: {
-        user: serializedUser,
-        temporaryPassword,
-      },
+      data: serializedUser,
     };
   }
 
