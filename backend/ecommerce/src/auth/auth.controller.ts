@@ -29,9 +29,15 @@ export class AuthController {
 
     const hashedPassword = await this.hashService.hashPassword(registerDto.password);
 
+    // Separar el nombre completo para firstName y lastName
+    const [firstName, ...lastNameParts] = registerDto.nombre.split(' ');
+    const lastName = lastNameParts.join(' ') || '';
+
     const newUser = this.userRepository.create({
-      ...registerDto,
-      password: hashedPassword,
+      firstName,
+      lastName,
+      email: registerDto.email,
+      passwordHash: hashedPassword,
     });
 
     const savedUser = await this.userRepository.save(newUser);
@@ -39,7 +45,7 @@ export class AuthController {
     const newCart = this.cartRepository.create({ user: savedUser });
     await this.cartRepository.save(newCart);
 
-    const { password: _, ...result } = savedUser;
+    const { passwordHash: _, ...result } = savedUser;
     return result;
   }
 
@@ -48,7 +54,8 @@ export class AuthController {
     const { email, password } = loginDto;
 
     const user = await this.userRepository.createQueryBuilder('user')
-      .addSelect('user.password')
+      .leftJoinAndSelect('user.roles', 'roles')
+      .addSelect('user.password_hash') // Utiliza el nombre de la columna física
       .where('user.email = :email', { email })
       .getOne();
 
@@ -58,32 +65,32 @@ export class AuthController {
 
     const isPasswordMatching = await this.hashService.comparePassword(
       password,
-      user.password,
+      user.passwordHash,
     );
 
     if (!isPasswordMatching) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    const rol = user.roles && user.roles.length > 0 ? user.roles[0].name : 'cliente';
 
     const payload = {
       sub: user.id,
       email: user.email,
-      rol: user.rol
+      rol: rol
     };
 
-    // Emision el JWT firmado de forma asíncrona
+    // Emisión del JWT firmado de forma asíncrona
     const token = await this.jwtService.signAsync(payload);
-
 
     return {
       message: 'Login exitoso',
       access_token: token,
       user: {
         id: user.id,
-        nombre: user.nombre,
+        nombre: `${user.firstName} ${user.lastName}`.trim(),
         email: user.email,
-        rol: user.rol
+        rol: rol
       }
     };
   }
