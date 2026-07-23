@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Inbox, Pencil, Plus, Trash2 } from "lucide-react";
 
 import {
@@ -22,6 +22,24 @@ type PurchaseListRow = {
   invoiceUrl: string;
   invoiceType: "image" | "pdf";
 };
+
+const SEARCH_DEBOUNCE_MS = 300;
+
+// Tamaño temporal para la paginación local; TASK 684 lo sustituirá con datos reales.
+const LOCAL_PAGE_SIZE = 2;
+
+const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"]);
+
+const normalizeSearchTerm = (value: string) => value.trim().toLocaleLowerCase();
+
+function resolveInvoiceType(row: PurchaseListRow): "pdf" | "image" {
+  const cleanUrl = row.invoiceUrl.split(/[?#]/, 1)[0].toLocaleLowerCase();
+
+  if (cleanUrl.endsWith(".pdf")) return "pdf";
+  if ([...IMAGE_EXTENSIONS].some((extension) => cleanUrl.endsWith(extension))) return "image";
+
+  return row.invoiceType;
+}
 
 // Datos temporales exclusivamente visuales; serán reemplazados por la integración de TASK 684.
 const TEMPORARY_PRESENTATION_ROWS: readonly PurchaseListRow[] = [
@@ -95,7 +113,7 @@ const columns: readonly TableColumn<PurchaseListRow>[] = [
       <InvoiceThumbnail
         src={row.invoiceUrl}
         alt={`Factura de la compra ${row.id}`}
-        fileType={row.invoiceType}
+        fileType={resolveInvoiceType(row)}
         className="mx-auto"
       />
     ),
@@ -136,8 +154,43 @@ export default function ComprasListView({
   showEmptyState = false,
 }: ComprasListViewProps) {
   const [searchValue, setSearchValue] = useState("");
+  const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const hasRows = !showEmptyState && TEMPORARY_PRESENTATION_ROWS.length > 0;
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchValue(searchValue);
+      setCurrentPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchValue]);
+
+  const normalizedSearchTerm = useMemo(
+    () => normalizeSearchTerm(debouncedSearchValue),
+    [debouncedSearchValue],
+  );
+
+  const filteredRows = useMemo(() => {
+    if (!normalizedSearchTerm) return TEMPORARY_PRESENTATION_ROWS;
+
+    return TEMPORARY_PRESENTATION_ROWS.filter(
+      (row) =>
+        normalizeSearchTerm(row.id).includes(normalizedSearchTerm) ||
+        normalizeSearchTerm(row.supplier).includes(normalizedSearchTerm),
+    );
+  }, [normalizedSearchTerm]);
+
+  const totalPages = Math.ceil(filteredRows.length / LOCAL_PAGE_SIZE);
+  const validCurrentPage =
+    totalPages === 0 ? 1 : Math.min(Math.max(currentPage, 1), totalPages);
+
+  const paginatedRows = useMemo(() => {
+    const startIndex = (validCurrentPage - 1) * LOCAL_PAGE_SIZE;
+    return filteredRows.slice(startIndex, startIndex + LOCAL_PAGE_SIZE);
+  }, [filteredRows, validCurrentPage]);
+
+  const hasRows = !showEmptyState && filteredRows.length > 0;
 
   return (
     <div className="w-full max-w-[1035px] min-w-0 text-black">
@@ -169,14 +222,14 @@ export default function ComprasListView({
 
           <Table
             columns={columns}
-            data={TEMPORARY_PRESENTATION_ROWS}
+            data={paginatedRows}
             getRowKey={(row) => row.id}
           />
 
           <div className="mt-auto flex justify-end px-5 pt-3 pb-[21px]">
             <Pagination
-              currentPage={currentPage}
-              totalPages={24}
+              currentPage={validCurrentPage}
+              totalPages={totalPages}
               onPageChange={setCurrentPage}
             />
           </div>
