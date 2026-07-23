@@ -1,71 +1,12 @@
+import { mockProviders } from "./mockProveedores";
+
 export interface GetProveedoresParams {
   search: string;
   page: number;
   limit: number;
 }
 
-const mockProviders = [
-  {
-    id: 1,
-    provider: "Nike SV",
-    phone: "7777-1111",
-  },
-  {
-    id: 2,
-    provider: "Pull&Bear",
-    phone: "7777-1221",
-  },
-  {
-    id: 3,
-    provider: "Zara",
-    phone: "7477-1357",
-  },
-  {
-    id: 1,
-    provider: "Nike SV",
-    phone: "7777-1111",
-  },
-  {
-    id: 2,
-    provider: "Pull&Bear",
-    phone: "7777-1221",
-  },
-  {
-    id: 3,
-    provider: "Zara",
-    phone: "7477-1357",
-  },
-  {
-    id: 1,
-    provider: "Nike SV",
-    phone: "7777-1111",
-  },
-  {
-    id: 2,
-    provider: "Pull&Bear",
-    phone: "7777-1221",
-  },
-  {
-    id: 3,
-    provider: "Zara",
-    phone: "7477-1357",
-  },
-  {
-    id: 1,
-    provider: "Nike SV",
-    phone: "7777-1111",
-  },
-  {
-    id: 2,
-    provider: "Pull&Bear",
-    phone: "7777-1221",
-  },
-  {
-    id: 3,
-    provider: "Zara",
-    phone: "7477-1357",
-  },
-];
+
 
 export async function getProveedores({
   search,

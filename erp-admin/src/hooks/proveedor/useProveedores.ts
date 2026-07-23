@@ -17,30 +17,30 @@ export function useProveedores(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    async function loadProviders() {
-      try {
-        setLoading(true);
-        setError(false);
+  async function loadProviders() {
+  try {
+    setLoading(true);
+    setError(false);
 
-        const response = await getProveedores({
-          search,
-          page,
-          limit,
-        });
+    const response = await getProveedores({
+      search,
+      page,
+      limit,
+    });
 
-        setProviders(response.data);
-        setPagination(response.pagination);
-      } catch (err) {
-        console.error(err);
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    }
+    setProviders(response.data);
+    setPagination(response.pagination);
+  } catch (err) {
+    console.error(err);
+    setError(true);
+  } finally {
+    setLoading(false);
+  }
+}
 
-    loadProviders();
-  }, [search, page, limit]);
+useEffect(() => {
+  loadProviders();
+}, [search, page, limit]);
 
   const isEmpty =
   !loading &&
@@ -58,5 +58,6 @@ const isNoResults =
   error,
   isEmpty,
   isNoResults,
+  refresh: loadProviders,
 };
 }

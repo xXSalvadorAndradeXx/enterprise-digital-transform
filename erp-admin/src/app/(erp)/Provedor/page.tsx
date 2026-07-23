@@ -9,6 +9,7 @@ import ModalSuccess from "@/components/ui/ModalSuccess";
 import Input from "@/components/ui/Input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useCreateProveedor } from "./hooks/useCreateProveedor";
 
 import {
   supplierSchema,
@@ -45,11 +46,17 @@ export default function ProveedorPage() {
   register,
   handleSubmit,
   trigger,
+  setError,
   formState: { errors, isValid },
 } = useForm<SupplierForm>({
   resolver: zodResolver(supplierSchema),
   mode: "onChange",
 });
+
+const {
+  create,
+  loading: creatingProvider,
+} = useCreateProveedor();
   
 
 
@@ -104,6 +111,7 @@ useEffect(() => {
   error,
   isEmpty,
   isNoResults,
+  refresh,
 } = useProveedores(debouncedSearch, currentPage, 10);
 
   return (
@@ -229,11 +237,25 @@ useEffect(() => {
   onClose={() => setOpenModal(false)}
 >
   <form
-  onSubmit={handleSubmit(() => {
-    setOpenModal(false);
-    setOpenSuccess(true);
+  onSubmit={handleSubmit(async (data) => {
+    const response = await create(data);
+
+    if (response.status === 409) {
+  setError("companyName", {
+    type: "server",
+    message: response.errors.companyName,
+  });
+
+  return;
+}
+
+   if (response.status === 201) {
+  await refresh();
+  setOpenModal(false);
+  setOpenSuccess(true);
+  }
+  
   })}
-  className="space-y-6"
 >
     <p className="text-gray-600">
       Registra un nuevo proveedor para gestionar tus productos.
@@ -257,6 +279,7 @@ useEffect(() => {
 
     <div className="mt-8 flex items-center gap-4">
   <button
+    type="button"
     onClick={() => setOpenModal(false)}
     className="min-w-[120px] rounded-md border border-[#2F3CE9] px-6 py-2 text-[#2F3CE9] transition hover:bg-[#2F3CE9] hover:text-white"
   >
@@ -265,7 +288,7 @@ useEffect(() => {
 
  <button
   type="submit"
-  disabled={!isValid}
+  disabled={!isValid || creatingProvider}
   className={`
     min-w-[180px]
     rounded-md
@@ -280,7 +303,7 @@ useEffect(() => {
     }
   `}
 >
-  Guardar proveedor
+  {creatingProvider ? "Guardando..." : "Guardar proveedor"}
 </button>
 </div>
   </form>
