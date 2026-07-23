@@ -4,7 +4,6 @@ import { Repository, DataSource, In } from 'typeorm';
 import { Role } from '../users/entities/role.entity';
 import { Permission } from '../users/entities/permission.entity';
 import { CreateRoleDto } from './dto/create-role.dto';
-import { UpdateRoleDto } from './dto/update-role.dto';
 
 @Injectable()
 export class RolesService {
@@ -73,7 +72,7 @@ export class RolesService {
     });
   }
 
-  async update(id: string, updateRoleDto: UpdateRoleDto): Promise<Role> {
+  async update(id: string, updateRoleDto: CreateRoleDto): Promise<Role> {
     return this.dataSource.transaction(async (manager) => {
       const roleRepo = manager.getRepository(Role);
       const permissionRepo = manager.getRepository(Permission);

@@ -4,7 +4,6 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
-import { UpdateRoleDto } from './dto/update-role.dto';
 import { plainToInstance } from 'class-transformer';
 import { RoleResponseDto } from './dto/role-response.dto';
 import { 
@@ -172,7 +171,7 @@ export class RolesController {
   @ApiUnprocessableEntityResponse({ description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateRoleDto: UpdateRoleDto,
+    @Body() updateRoleDto: CreateRoleDto,
   ) {
     const result = await this.rolesService.update(id, updateRoleDto);
     return {
