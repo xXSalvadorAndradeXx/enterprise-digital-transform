@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Query, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -6,6 +6,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { SuppliersService } from './suppliers.service';
 import { SupplierQueryDto } from './dto/supplier-query.dto';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { SupplierResponseDto } from './dto/supplier-response.dto';
 
 @ApiTags('suppliers')
@@ -111,5 +112,37 @@ export class SuppliersController {
   })
   async create(@Body() createSupplierDto: CreateSupplierDto): Promise<SupplierResponseDto> {
     return await this.suppliersService.create(createSupplierDto);
+  }
+
+  @Patch(':id')
+  @Permissions('suppliers:update')
+  @ApiOperation({ summary: 'Actualizar parcialmente los datos de un proveedor' })
+  @ApiParam({ name: 'id', description: 'UUID del proveedor a actualizar', type: String, example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiResponse({
+    status: 200,
+    description: 'Proveedor actualizado exitosamente',
+    type: SupplierResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Proveedor no encontrado o eliminado',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflicto: Ya existe otro proveedor con ese nombre',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Error de validación en los datos de entrada o formato de UUID inválido',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acceso prohibido: usuario no posee el permiso suppliers:update',
+  })
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateSupplierDto: UpdateSupplierDto,
+  ): Promise<SupplierResponseDto> {
+    return await this.suppliersService.update(id, updateSupplierDto);
   }
 }
