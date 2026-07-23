@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Supplier } from './entities/supplier.entity';
+import { SupplierPurchase, PurchaseStatus } from './entities/supplier-purchase.entity';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { SupplierQueryDto } from './dto/supplier-query.dto';
@@ -20,6 +21,8 @@ export class SuppliersService {
   constructor(
     @InjectRepository(Supplier)
     private readonly supplierRepository: Repository<Supplier>,
+    @InjectRepository(SupplierPurchase)
+    private readonly purchaseRepository: Repository<SupplierPurchase>,
   ) {}
 
   async findAll(queryDto: SupplierQueryDto): Promise<PaginatedSuppliersResult> {
@@ -94,10 +97,27 @@ export class SuppliersService {
     return SupplierResponseDto.fromEntity(updated);
   }
 
+  async hasActivePurchases(supplierId: string): Promise<boolean> {
+    const activeCount = await this.purchaseRepository.count({
+      where: {
+        supplierId,
+        status: In([PurchaseStatus.PENDING, PurchaseStatus.RECEIVED]),
+      },
+    });
+    return activeCount > 0;
+  }
+
   async remove(id: string): Promise<SupplierResponseDto> {
     const supplier = await this.supplierRepository.findOne({ where: { id } });
     if (!supplier) {
       throw new NotFoundException(`Proveedor con id ${id} no encontrado`);
+    }
+
+    const activePurchases = await this.hasActivePurchases(id);
+    if (activePurchases) {
+      throw new ConflictException(
+        'No se puede eliminar el proveedor porque tiene compras activas en estado Pendiente o Recibida',
+      );
     }
 
     const softRemoved = await this.supplierRepository.softRemove(supplier);

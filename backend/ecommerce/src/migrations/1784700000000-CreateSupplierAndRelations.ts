@@ -57,6 +57,7 @@ export class CreateSupplierAndRelations1784700000000 implements MigrationInterfa
       CREATE TABLE IF NOT EXISTS "supplier_purchases" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "supplier_id" uuid NOT NULL,
+        "status" character varying(50) NOT NULL DEFAULT 'PENDIENTE',
         "created_at" TIMESTAMP NOT NULL DEFAULT now(),
         "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "PK_supplier_purchases_id" PRIMARY KEY ("id"),
