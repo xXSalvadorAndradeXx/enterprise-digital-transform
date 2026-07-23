@@ -27,13 +27,20 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       .getOne();
 
     if (user) {
-      // Delegar la verificación del estado de cuenta/lockout a AuthService
+      // Delegar la verificación del estado de cuenta/lockout (lanza HTTP 423 si está bloqueada)
       this.authService.checkLockout(user);
 
       const isPasswordMatching = await bcrypt.compare(password, user.password);
+
       if (isPasswordMatching) {
+        // Reiniciar contador de intentos fallidos a 0
+        await this.authService.handleSuccessfulLogin(user);
+
         const { password: _, ...result } = user;
         return result;
+      } else {
+        // Incrementar contador de intentos fallidos (+1) y bloquear si alcanza 3
+        await this.authService.handleFailedLogin(user);
       }
     }
 

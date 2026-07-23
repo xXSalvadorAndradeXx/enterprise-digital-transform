@@ -31,12 +31,12 @@ export class AuthService {
   }
 
   /**
-   * Verifica el estado de la cuenta (activa / bloqueada).
+   * Verifica el estado de la cuenta (activa / bloqueada por lockout).
    */
   checkAccountStatus(user: User): void {
-    if (user.isBlocked) {
+    if (user.isBlocked || user.lockedUntil !== null) {
       throw new HttpException(
-        'La cuenta se encuentra bloqueada',
+        'La cuenta se encuentra bloqueada por múltiples intentos fallidos',
         HttpStatus.LOCKED,
       );
     }
@@ -50,6 +50,37 @@ export class AuthService {
    */
   checkLockout(user: User): void {
     this.checkAccountStatus(user);
+  }
+
+  /**
+   * Incrementa el contador de intentos fallidos. Al alcanzar 3 fallos, setea locked_until = now() y bloquea la cuenta.
+   */
+  async handleFailedLogin(user: User): Promise<void> {
+    const attempts = (user.failedLoginAttempts || 0) + 1;
+    user.failedLoginAttempts = attempts;
+
+    if (attempts >= 3) {
+      user.lockedUntil = new Date();
+      user.isBlocked = true;
+    }
+
+    await this.userRepository.save(user);
+  }
+
+  /**
+   * Reinicia el contador failed_login_attempts a 0 y desmarca el bloqueo tras un login exitoso.
+   */
+  async handleSuccessfulLogin(user: User): Promise<void> {
+    if (
+      user.failedLoginAttempts > 0 ||
+      user.lockedUntil !== null ||
+      user.isBlocked
+    ) {
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+      user.isBlocked = false;
+      await this.userRepository.save(user);
+    }
   }
 
   /**

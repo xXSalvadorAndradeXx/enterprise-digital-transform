@@ -23,6 +23,8 @@ describe('LocalStrategy', () => {
     isActive: true,
     isBlocked: false,
     mustChangePassword: false,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
     createdAt: new Date(),
     cart: null as any,
     refreshTokens: [],
@@ -40,13 +42,15 @@ describe('LocalStrategy', () => {
 
     authService = {
       checkLockout: jest.fn().mockImplementation((user: User) => {
-        if (user.isBlocked) {
-          throw new HttpException('La cuenta se encuentra bloqueada', HttpStatus.LOCKED);
+        if (user.isBlocked || user.lockedUntil !== null) {
+          throw new HttpException('La cuenta se encuentra bloqueada por múltiples intentos fallidos', HttpStatus.LOCKED);
         }
         if (!user.isActive) {
           throw new UnauthorizedException('La cuenta se encuentra inactiva');
         }
       }),
+      handleFailedLogin: jest.fn().mockResolvedValue(undefined),
+      handleSuccessfulLogin: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -60,7 +64,7 @@ describe('LocalStrategy', () => {
     strategy = module.get<LocalStrategy>(LocalStrategy);
   });
 
-  it('debe autenticar correctamente con credenciales válidas', async () => {
+  it('debe autenticar correctamente con credenciales válidas e invocar handleSuccessfulLogin', async () => {
     const qb = userRepository.createQueryBuilder();
     qb.getOne.mockResolvedValue(mockUser);
 
@@ -70,6 +74,7 @@ describe('LocalStrategy', () => {
     expect(result.email).toBe('juan@example.com');
     expect(result.password).toBeUndefined();
     expect(authService.checkLockout).toHaveBeenCalledWith(mockUser);
+    expect(authService.handleSuccessfulLogin).toHaveBeenCalledWith(mockUser);
   });
 
   it('debe lanzar UnauthorizedException (401) si el usuario no existe', async () => {
@@ -81,17 +86,18 @@ describe('LocalStrategy', () => {
     );
   });
 
-  it('debe lanzar UnauthorizedException (401) si la contraseña es incorrecta', async () => {
+  it('debe lanzar UnauthorizedException (401) e invocar handleFailedLogin si la contraseña es incorrecta', async () => {
     const qb = userRepository.createQueryBuilder();
     qb.getOne.mockResolvedValue(mockUser);
 
     await expect(strategy.validate('juan@example.com', 'wrongpassword')).rejects.toThrow(
       UnauthorizedException,
     );
+    expect(authService.handleFailedLogin).toHaveBeenCalledWith(mockUser);
   });
 
   it('debe lanzar HttpException (423 - Locked) si la cuenta del usuario está bloqueada', async () => {
-    const blockedUser = { ...mockUser, isBlocked: true };
+    const blockedUser = { ...mockUser, isBlocked: true, lockedUntil: new Date() };
     const qb = userRepository.createQueryBuilder();
     qb.getOne.mockResolvedValue(blockedUser);
 

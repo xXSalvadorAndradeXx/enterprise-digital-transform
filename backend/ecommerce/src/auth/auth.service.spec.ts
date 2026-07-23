@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from '../users/entities/refresh-token.entity';
@@ -23,6 +23,8 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
     isActive: true,
     isBlocked: false,
     mustChangePassword: false,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
     createdAt: new Date(),
     cart: null as any,
     refreshTokens: [],
@@ -32,6 +34,7 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
   beforeEach(async () => {
     userRepository = {
       findOneBy: jest.fn(),
+      save: jest.fn().mockImplementation(async (u) => u),
     };
 
     refreshTokenRepository = {
@@ -74,6 +77,62 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
     service = module.get<AuthService>(AuthService);
     jwtService = module.get(JwtService);
     configService = module.get(ConfigService);
+  });
+
+  describe('checkAccountStatus', () => {
+    it('debe lanzar HttpException (423) si la cuenta está bloqueada por isBlocked o lockedUntil', () => {
+      const user = { ...mockUser, isBlocked: true, lockedUntil: new Date() };
+      expect(() => service.checkAccountStatus(user)).toThrow(HttpException);
+
+      try {
+        service.checkAccountStatus(user);
+      } catch (err: any) {
+        expect(err.getStatus()).toBe(HttpStatus.LOCKED);
+      }
+    });
+
+    it('debe permitir la ejecución si la cuenta está activa y no bloqueada', () => {
+      expect(() => service.checkAccountStatus(mockUser)).not.toThrow();
+    });
+  });
+
+  describe('handleFailedLogin', () => {
+    it('debe incrementar el contador de intentos fallidos en 1', async () => {
+      const user = { ...mockUser, failedLoginAttempts: 0 };
+      await service.handleFailedLogin(user);
+
+      expect(user.failedLoginAttempts).toBe(1);
+      expect(user.isBlocked).toBe(false);
+      expect(userRepository.save).toHaveBeenCalledWith(user);
+    });
+
+    it('debe bloquear la cuenta (lockedUntil = now, isBlocked = true) al alcanzar 3 intentos fallidos', async () => {
+      const user = { ...mockUser, failedLoginAttempts: 2 };
+      await service.handleFailedLogin(user);
+
+      expect(user.failedLoginAttempts).toBe(3);
+      expect(user.isBlocked).toBe(true);
+      expect(user.lockedUntil).toBeInstanceOf(Date);
+      expect(userRepository.save).toHaveBeenCalledWith(user);
+    });
+  });
+
+  describe('handleSuccessfulLogin', () => {
+    it('debe reiniciar failedLoginAttempts a 0 y limpiar lockedUntil e isBlocked', async () => {
+      const user = {
+        ...mockUser,
+        failedLoginAttempts: 2,
+        isBlocked: true,
+        lockedUntil: new Date(),
+      };
+
+      await service.handleSuccessfulLogin(user);
+
+      expect(user.failedLoginAttempts).toBe(0);
+      expect(user.lockedUntil).toBeNull();
+      expect(user.isBlocked).toBe(false);
+      expect(userRepository.save).toHaveBeenCalledWith(user);
+    });
   });
 
   describe('issueRefreshToken', () => {
