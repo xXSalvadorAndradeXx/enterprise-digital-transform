@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Query, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, HttpCode, HttpStatus, Body, Query, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -144,5 +144,34 @@ export class SuppliersController {
     @Body() updateSupplierDto: UpdateSupplierDto,
   ): Promise<SupplierResponseDto> {
     return await this.suppliersService.update(id, updateSupplierDto);
+  }
+
+  @Delete(':id')
+  @Permissions('suppliers:delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar un proveedor (soft delete) por ID' })
+  @ApiParam({ name: 'id', description: 'UUID del proveedor a eliminar', type: String, example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiResponse({
+    status: 204,
+    description: 'Proveedor eliminado exitosamente (sin contenido en la respuesta)',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflicto: No se puede eliminar el proveedor porque tiene compras activas en estado Pendiente o Recibida',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Proveedor no encontrado o ya eliminado',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Formato de UUID inválido',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acceso prohibido: usuario no posee el permiso suppliers:delete',
+  })
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.suppliersService.remove(id);
   }
 }
