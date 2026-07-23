@@ -22,6 +22,7 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
     rol: 'cliente',
     isActive: true,
     isBlocked: false,
+    mustChangePassword: false,
     createdAt: new Date(),
     cart: null as any,
     refreshTokens: [],

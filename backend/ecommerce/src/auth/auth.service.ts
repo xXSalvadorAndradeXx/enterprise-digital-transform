@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -29,8 +34,14 @@ export class AuthService {
    * Verifica el estado de la cuenta (activa / bloqueada).
    */
   checkAccountStatus(user: User): void {
-    if (!user.isActive || user.isBlocked) {
-      throw new UnauthorizedException('La cuenta está bloqueada o inactiva');
+    if (user.isBlocked) {
+      throw new HttpException(
+        'La cuenta se encuentra bloqueada',
+        HttpStatus.LOCKED,
+      );
+    }
+    if (!user.isActive) {
+      throw new UnauthorizedException('La cuenta se encuentra inactiva');
     }
   }
 

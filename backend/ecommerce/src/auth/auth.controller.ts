@@ -5,11 +5,16 @@ import {
   Body,
   Req,
   UseGuards,
-  UnauthorizedException,
   ConflictException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+} from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
@@ -20,7 +25,9 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LocalAuthGuard } from './guards/local-auth.guard';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -60,45 +67,81 @@ export class AuthController {
     return result;
   }
 
+  @ApiOperation({
+    summary: 'Iniciar sesión de usuario con credenciales (LocalStrategy)',
+    description:
+      'Valida credenciales utilizando LocalStrategy. Retorna 200 con tokens y el flag mustChangePassword. Retorna 401 si las credenciales son inválidas y 423 si la cuenta está bloqueada.',
+  })
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Autenticación exitosa',
+    schema: {
+      type: 'object',
+      properties: {
+        accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+        refreshToken: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'd3b07384-d113-4603-9d4f-40291410d5e6' },
+            nombre: { type: 'string', example: 'Juan Pérez' },
+            email: { type: 'string', example: 'juan@example.com' },
+            rol: { type: 'string', example: 'cliente' },
+            mustChangePassword: { type: 'boolean', example: false },
+          },
+        },
+        mustChangePassword: { type: 'boolean', example: false },
+        must_change_password: { type: 'boolean', example: false },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Credenciales inválidas o cuenta inactiva',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 401,
+        message: 'Credenciales inválidas',
+        error: 'Unauthorized',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 423,
+    description: 'Cuenta bloqueada (Lockout)',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 423,
+        message: 'La cuenta se encuentra bloqueada',
+        error: 'Locked',
+      },
+    },
+  })
+  @UseGuards(LocalAuthGuard)
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto) {
-    const { email, password } = loginDto;
-
-    const user = await this.userRepository
-      .createQueryBuilder('user')
-      .addSelect('user.password')
-      .where('user.email = :email', { email })
-      .getOne();
-
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
-
-    const isPasswordMatching = await this.hashService.comparePassword(
-      password,
-      user.password,
-    );
-
-    if (!isPasswordMatching) {
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
-
-    this.authService.checkAccountStatus(user);
+  async login(@Req() req: any, @Body() _loginDto: LoginDto) {
+    const user: User = req.user;
 
     const accessToken = await this.authService.issueAccessToken(user);
     const refreshToken = await this.authService.issueRefreshToken(user.id);
+    const mustChangePassword = !!user.mustChangePassword;
 
     return {
-      message: 'Login exitoso',
-      access_token: accessToken,
-      refresh_token: refreshToken,
+      accessToken,
+      refreshToken,
       user: {
         id: user.id,
         nombre: user.nombre,
         email: user.email,
         rol: user.rol,
+        mustChangePassword,
       },
+      mustChangePassword,
+      must_change_password: mustChangePassword,
     };
   }
 

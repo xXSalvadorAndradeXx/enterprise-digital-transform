@@ -26,6 +26,9 @@ export class User {
   @Column({ default: false })
   isBlocked!: boolean;
 
+  @Column({ name: 'must_change_password', default: false })
+  mustChangePassword!: boolean;
+
   @CreateDateColumn()
   createdAt!: Date;
 
