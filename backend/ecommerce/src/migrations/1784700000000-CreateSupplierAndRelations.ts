@@ -12,7 +12,10 @@ export class CreateSupplierAndRelations1784700000000 implements MigrationInterfa
       CREATE TABLE IF NOT EXISTS "suppliers" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "name" character varying(150) NOT NULL,
+        "contact_name" character varying(150),
         "phone" character varying(30),
+        "email" character varying(150),
+        "address" text,
         "created_at" TIMESTAMP NOT NULL DEFAULT now(),
         "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
         "deleted_at" TIMESTAMP,
