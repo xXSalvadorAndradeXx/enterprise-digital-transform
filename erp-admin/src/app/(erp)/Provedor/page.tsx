@@ -4,6 +4,9 @@ import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import NoSearchResults from "@/components/ui/NoSearchResults";
 import LoadingState from "@/components/ui/LoadingState";
+import Modal from "@/components/ui/Modal";
+import ModalSuccess from "@/components/ui/ModalSuccess";
+import Input from "@/components/ui/Input";
 
 
 
@@ -29,6 +32,11 @@ export default function ProveedorPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isSearching, setIsSearching] = useState(false);
+  const [openModal, setOpenModal] = useState(false);
+  const [openSuccess, setOpenSuccess] = useState(false);
+  const [companyName, setCompanyName] = useState("");
+  const [phone, setPhone] = useState("");
+
 
   const view = "table"; // Cambia esto según la vista que quieras mostrar
 
@@ -104,7 +112,8 @@ export default function ProveedorPage() {
 >
        <div className="mb-5 flex items-center gap-4">
   <button
-    className="
+  onClick={() => setOpenModal(true)}
+  className="
       h-[42px]
       rounded-md
       bg-[#2F3CE9]
@@ -112,10 +121,10 @@ export default function ProveedorPage() {
       text-sm
       font-medium
       text-white
-    "
-  >
-    Agregar proveedor
-  </button>
+  "
+>
+  Agregar proveedor
+</button>
 
   <SearchBar
     value={search}
@@ -192,6 +201,58 @@ export default function ProveedorPage() {
   </>
 )}
       </div>
+      <Modal
+  isOpen={openModal}
+  title="Agregar proveedor"
+  onClose={() => setOpenModal(false)}
+>
+  <div className="space-y-6">
+    <p className="text-gray-600">
+      Registra un nuevo proveedor para gestionar tus productos.
+    </p>
+
+    <Input
+      label="Nombre de empresa"
+      required
+      placeholder=""
+      value={companyName}
+      onChange={(e) => setCompanyName(e.target.value)}
+    />
+
+    <Input
+      label="Teléfono"
+      required
+      placeholder=""
+      value={phone}
+      onChange={(e) => setPhone(e.target.value)}
+    />
+
+    <div className="mt-8 flex items-center gap-4">
+  <button
+    onClick={() => setOpenModal(false)}
+    className="min-w-[120px] rounded-md border border-[#2F3CE9] px-6 py-2 text-[#2F3CE9] transition hover:bg-[#2F3CE9] hover:text-white"
+  >
+    Cancelar
+  </button>
+
+  <button
+    onClick={() => {
+      setOpenModal(false);
+      setOpenSuccess(true);
+    }}
+    className="min-w-[180px] rounded-md bg-[#2F3CE9] px-6 py-2 text-white transition hover:bg-[#2432d4]"
+  >
+    Guardar proveedor
+  </button>
+</div>
+  </div>
+</Modal>
+
+<ModalSuccess
+  isOpen={openSuccess}
+  message="¡Proveedor agregado con éxito!"
+  onAccept={() => setOpenSuccess(false)}
+/>
     </main>
   );
 }

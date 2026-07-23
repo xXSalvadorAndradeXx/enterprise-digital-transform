@@ -28,6 +28,7 @@ export default function Input({
           border
           px-4
           py-3
+          text-black
           outline-none
           transition
           ${
