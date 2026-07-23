@@ -46,10 +46,28 @@ export default function ProveedorPage() {
   const [openEditModal, setOpenEditModal] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   const [successMessage, setSuccessMessage] = useState("");
+  const {
+  register: registerEdit,
+  handleSubmit: handleSubmitEdit,
+  reset,
+  formState: {
+    errors: editErrors,
+    isValid: isEditValid,
+  },
+} = useForm<SupplierForm>({
+  resolver: zodResolver(supplierSchema),
+  mode: "onChange",
+});
   const handleEdit = (provider: any) => {
   setSelectedProvider(provider);
+
+  reset({
+    companyName: provider.provider,
+    phone: provider.phone,
+  });
+
   setOpenEditModal(true);
-  };
+};
   const {
   register,
   handleSubmit,
@@ -322,17 +340,15 @@ useEffect(() => {
    <Input
   label="Nombre de empresa"
   required
-  placeholder=""
-  error={errors.companyName?.message}
-  {...register("companyName")}
-/>   
+  error={editErrors.companyName?.message}
+  {...registerEdit("companyName")}
+/>
 
-    <Input
+<Input
   label="Teléfono"
   required
-  placeholder=""
-  error={errors.phone?.message}
-  {...register("phone")}
+  error={editErrors.phone?.message}
+  {...registerEdit("phone")}
 />
 
     <div className="mt-8 flex items-center gap-4">
@@ -378,22 +394,27 @@ useEffect(() => {
   title="Editar proveedor"
   onClose={() => setOpenEditModal(false)}
 >
-  <form>
-  <p className="text-gray-600">
-    Modifica la información del proveedor.
-  </p>
+  <form
+  onSubmit={handleSubmitEdit(() => {
+    setSuccessMessage("¡Información actualizada correctamente!");
+    setOpenEditModal(false);
+    setOpenSuccess(true);
+  })}
+>
 
   <Input
-    label="Nombre de empresa"
-    required
-    defaultValue={selectedProvider?.provider}
+  label="Nombre de empresa"
+  required
+  error={editErrors.companyName?.message}
+  {...registerEdit("companyName")}
   />
 
   <Input
-    label="Teléfono"
-    required
-    defaultValue={selectedProvider?.phone}
-  />
+  label="Teléfono"
+  required
+  error={editErrors.phone?.message}
+  {...registerEdit("phone")}
+/>
 
   <div className="mt-8 flex items-center gap-4">
     <button
@@ -405,16 +426,24 @@ useEffect(() => {
     </button>
 
     <button
-      type="button"
-      onClick={() => {
-        setSuccessMessage("¡Información actualizada correctamente!");
-        setOpenEditModal(false);
-        setOpenSuccess(true);
-      }}
-      className="min-w-[180px] rounded-md bg-[#2F3CE9] px-6 py-2 text-white transition hover:bg-[#2432d4]"
-    >
-      Guardar proveedor
-    </button>
+  type="submit"
+  disabled={!isEditValid}
+  className={`
+    min-w-[180px]
+    rounded-md
+    px-6
+    py-2
+    text-white
+    transition
+    ${
+      isEditValid
+        ? "bg-[#2F3CE9] hover:bg-[#2432d4]"
+        : "cursor-not-allowed bg-gray-400"
+    }
+  `}
+>
+  Guardar proveedor
+</button>
   </div>
 </form>
 </Modal>
