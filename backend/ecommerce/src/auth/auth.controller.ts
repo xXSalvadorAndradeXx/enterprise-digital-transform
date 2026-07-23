@@ -391,9 +391,73 @@ export class AuthController {
     );
   }
 
+  @ApiOperation({
+    summary: 'Obtener perfil del usuario autenticado (Me)',
+    description:
+      'Retorna los datos del usuario autenticado a partir del Bearer Token JWT, incluyendo su información de perfil, roles y permisos asignados.',
+  })
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: 200,
+    description: 'Perfil del usuario autenticado',
+    schema: {
+      type: 'object',
+      properties: {
+        user: {
+          type: 'object',
+          example: {
+            id: 'uuid-xxxx-yyyy',
+            userId: 'uuid-xxxx-yyyy',
+            nombre: 'Juan Pérez',
+            email: 'juan@example.com',
+            rol: 'cliente',
+            isActive: true,
+            isBlocked: false,
+            mustChangePassword: false,
+          },
+        },
+        roles: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['cliente'],
+        },
+        permissions: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['read', 'create:order'],
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Acceso no autorizado - Bearer Token JWT ausente o inválido',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 401,
+        message: 'Acceso no autorizado. Token inválido o cuenta inactiva.',
+        error: 'Unauthorized',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'El usuario debe cambiar su contraseña antes de acceder',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 403,
+        message:
+          'Debe cambiar su contraseña antes de realizar cualquier otra operación en la plataforma',
+        error: 'Forbidden',
+      },
+    },
+  })
   @Get('me')
   @UseGuards(JwtAuthGuard, MustChangePasswordGuard)
   getProfile(@Req() req: any) {
-    return req.user;
+    const { roles, permissions, ...user } = req.user;
+    return { user, roles, permissions };
   }
 }

@@ -177,4 +177,40 @@ describe('AuthController', () => {
       );
     });
   });
+
+  describe('getProfile (GET /auth/me)', () => {
+    it('debe retornar 200 con { user, roles, permissions } resueltos del token JWT', () => {
+      const req = {
+        user: {
+          id: 'user-uuid-123',
+          userId: 'user-uuid-123',
+          nombre: 'Juan Pérez',
+          email: 'juan@example.com',
+          rol: 'cliente',
+          isActive: true,
+          isBlocked: false,
+          mustChangePassword: false,
+          roles: ['cliente'],
+          permissions: ['read', 'create:order'],
+        },
+      };
+
+      const result = controller.getProfile(req);
+
+      expect(result).toEqual({
+        user: {
+          id: 'user-uuid-123',
+          userId: 'user-uuid-123',
+          nombre: 'Juan Pérez',
+          email: 'juan@example.com',
+          rol: 'cliente',
+          isActive: true,
+          isBlocked: false,
+          mustChangePassword: false,
+        },
+        roles: ['cliente'],
+        permissions: ['read', 'create:order'],
+      });
+    });
+  });
 });
