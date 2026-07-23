@@ -1,10 +1,12 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { SuppliersService } from './suppliers.service';
 import { SupplierQueryDto } from './dto/supplier-query.dto';
+import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { SupplierResponseDto } from './dto/supplier-response.dto';
 
 @ApiTags('suppliers')
 @ApiBearerAuth()
@@ -60,5 +62,29 @@ export class SuppliersController {
         totalPages: result.totalPages,
       },
     };
+  }
+
+  @Post()
+  @Permissions('suppliers:create')
+  @ApiOperation({ summary: 'Crear un nuevo proveedor' })
+  @ApiResponse({
+    status: 201,
+    description: 'Proveedor creado exitosamente',
+    type: SupplierResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflicto: Ya existe un proveedor con ese nombre',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Error de validación en los datos de entrada',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acceso prohibido: usuario no posee el permiso suppliers:create',
+  })
+  async create(@Body() createSupplierDto: CreateSupplierDto): Promise<SupplierResponseDto> {
+    return await this.suppliersService.create(createSupplierDto);
   }
 }
