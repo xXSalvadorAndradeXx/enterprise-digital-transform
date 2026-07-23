@@ -30,4 +30,7 @@ export class Role {
 
   @ManyToMany(() => Permission, (permission) => permission.roles)
   permissions!: Permission[];
+
+  userCount?: number;
+  permissionCount?: number;
 }
