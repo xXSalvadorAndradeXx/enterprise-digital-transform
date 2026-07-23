@@ -21,7 +21,7 @@ export function SearchBar({
 }: SearchBarProps) {
   return (
     <label
-      className={`flex h-11 items-center gap-2 rounded-md border border-[#878A92] bg-white px-4 text-black focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#1C21D1] has-disabled:cursor-not-allowed has-disabled:opacity-50 ${className}`}
+      className={`flex h-11 items-center gap-2 rounded-[5px] border border-[#878A92] bg-white px-[14px] text-black focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#1C21D1] has-disabled:cursor-not-allowed has-disabled:opacity-50 ${className}`}
     >
       <Search aria-hidden="true" className="shrink-0" size={20} strokeWidth={2} />
       <input
@@ -31,7 +31,7 @@ export function SearchBar({
         aria-label={ariaLabel ?? placeholder}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#4A4A4A] disabled:cursor-not-allowed"
+        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#878A92] disabled:cursor-not-allowed"
       />
     </label>
   );

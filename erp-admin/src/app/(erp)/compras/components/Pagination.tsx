@@ -9,6 +9,7 @@ export interface PaginationProps {
   disabled?: boolean;
   className?: string;
   siblingCount?: number;
+  boundaryCount?: number;
 }
 
 type PaginationItem = number | "ellipsis-start" | "ellipsis-end";
@@ -17,17 +18,31 @@ function getPaginationItems(
   currentPage: number,
   totalPages: number,
   siblingCount: number,
+  boundaryCount: number,
 ): PaginationItem[] {
   if (totalPages === 0) return [];
 
   const safeSiblingCount = Math.max(0, Math.floor(siblingCount));
-  const maxPagesWithoutEllipsis = safeSiblingCount * 2 + 3;
+  const safeBoundaryCount = Math.max(1, Math.floor(boundaryCount));
+  const maxPagesWithoutEllipsis = safeBoundaryCount * 2 + safeSiblingCount * 2 + 1;
 
   if (totalPages <= maxPagesWithoutEllipsis) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
   }
 
-  const visiblePages = new Set<number>([1, totalPages]);
+  const visiblePages = new Set<number>();
+
+  for (let page = 1; page <= Math.min(safeBoundaryCount, totalPages); page += 1) {
+    visiblePages.add(page);
+  }
+
+  for (
+    let page = Math.max(1, totalPages - safeBoundaryCount + 1);
+    page <= totalPages;
+    page += 1
+  ) {
+    visiblePages.add(page);
+  }
 
   for (
     let page = Math.max(1, currentPage - safeSiblingCount);
@@ -43,7 +58,9 @@ function getPaginationItems(
   pages.forEach((page, index) => {
     const previousPage = pages[index - 1];
     if (previousPage && page - previousPage > 1) {
-      items.push(index === 1 ? "ellipsis-start" : "ellipsis-end");
+      items.push(
+        items.includes("ellipsis-start") ? "ellipsis-end" : "ellipsis-start",
+      );
     }
     items.push(page);
   });
@@ -58,13 +75,19 @@ export function Pagination({
   disabled = false,
   className = "",
   siblingCount = 1,
+  boundaryCount = 2,
 }: PaginationProps) {
   const safeTotalPages = Math.max(0, Math.floor(totalPages));
   const safeCurrentPage =
     safeTotalPages === 0
       ? 0
       : Math.min(safeTotalPages, Math.max(1, Math.floor(currentPage)));
-  const items = getPaginationItems(safeCurrentPage, safeTotalPages, siblingCount);
+  const items = getPaginationItems(
+    safeCurrentPage,
+    safeTotalPages,
+    siblingCount,
+    boundaryCount,
+  );
 
   const changePage = (page: number) => {
     if (disabled || page < 1 || page > safeTotalPages || page === safeCurrentPage) return;
@@ -95,7 +118,7 @@ export function Pagination({
             aria-current={item === safeCurrentPage ? "page" : undefined}
             disabled={disabled}
             onClick={() => changePage(item)}
-            className="flex size-8 items-center justify-center rounded-sm aria-[current=page]:bg-[#F7F7F8] aria-[current=page]:font-semibold disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1]"
+            className="flex h-8 w-10 items-center justify-center rounded aria-[current=page]:bg-[#F7F7F8] aria-[current=page]:font-semibold disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1]"
           >
             {item}
           </button>

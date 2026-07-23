@@ -31,7 +31,7 @@ export function Table<T>({
 }: TableProps<T>) {
   return (
     <div className={`w-full overflow-x-auto ${className}`}>
-      <table className="w-full border-collapse bg-white text-sm text-black">
+      <table className="w-full min-w-[760px] table-fixed border-collapse bg-white text-sm text-[#4A4A4A]">
         <thead className="bg-[#ECECFD]">
           <tr className="h-[42px]">
             {columns.map((column) => {
@@ -41,7 +41,7 @@ export function Table<T>({
                 <th
                   key={column.id}
                   scope="col"
-                  className={`px-4 font-semibold ${alignment} ${column.className ?? ""}`}
+                  className={`px-3 text-sm font-normal ${alignment} ${column.className ?? ""}`}
                 >
                   {column.header}
                 </th>
@@ -51,14 +51,14 @@ export function Table<T>({
         </thead>
         <tbody>
           {data.map((row) => (
-            <tr key={getRowKey(row)} className="h-[75px] border-b border-[#878A92]/30">
+            <tr key={getRowKey(row)} className="h-[76px] border-b border-[#878A92]/20 bg-white">
               {columns.map((column) => {
                 const alignment = alignmentClasses[column.align ?? "left"];
 
                 return (
                   <td
                     key={column.id}
-                    className={`px-4 align-middle ${alignment} ${column.className ?? ""}`}
+                    className={`px-3 align-middle text-sm font-normal ${alignment} ${column.className ?? ""}`}
                   >
                     {column.render(row)}
                   </td>
