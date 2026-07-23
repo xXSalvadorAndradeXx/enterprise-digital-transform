@@ -9,6 +9,7 @@ import { CartModule } from './cart/cart.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { RolesModule } from './roles/roles.module';
+import { PermissionsModule } from './permissions/permissions.module';
 import { validate } from './env.validation';
 
 
@@ -42,6 +43,7 @@ import { validate } from './env.validation';
     AuthModule,
     CategoriesModule,
     RolesModule,
+    PermissionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
