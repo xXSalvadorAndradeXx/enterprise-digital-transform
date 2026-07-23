@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Query, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -62,6 +62,31 @@ export class SuppliersController {
         totalPages: result.totalPages,
       },
     };
+  }
+
+  @Get(':id')
+  @Permissions('suppliers:read')
+  @ApiOperation({ summary: 'Obtener el detalle completo de un proveedor por ID' })
+  @ApiParam({ name: 'id', description: 'UUID del proveedor', type: String, example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiResponse({
+    status: 200,
+    description: 'Detalle del proveedor retornado con éxito',
+    type: SupplierResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Proveedor no encontrado o eliminado (soft delete)',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Formato de UUID inválido',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Acceso prohibido: usuario no posee el permiso suppliers:read',
+  })
+  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<SupplierResponseDto> {
+    return await this.suppliersService.findOne(id);
   }
 
   @Post()
