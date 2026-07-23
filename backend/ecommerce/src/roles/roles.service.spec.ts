@@ -84,6 +84,34 @@ describe('RolesService', () => {
     });
   });
 
+  describe('findOneWithCounts', () => {
+    it('debe retornar el rol con relaciones y conteos si existe', async () => {
+      const mockRole = {
+        id: 'role-uuid',
+        name: 'EDITOR',
+        userCount: 0,
+        permissionCount: 2,
+        permissions: [],
+      };
+
+      mockQueryBuilder.getOne.mockResolvedValue(mockRole);
+
+      const result = await service.findOneWithCounts('role-uuid');
+
+      expect(result).toEqual(mockRole);
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('role.id = :id', { id: 'role-uuid' });
+      expect(mockQueryBuilder.getOne).toHaveBeenCalled();
+    });
+
+    it('debe lanzar NotFoundException si el rol no existe', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(null);
+
+      await expect(
+        service.findOneWithCounts('non-existent-uuid')
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('create', () => {
     it('debe crear un rol exitosamente con permisos asociados', async () => {
       const createRoleDto = {
@@ -182,6 +210,69 @@ describe('RolesService', () => {
       expect(mockRoleRepository.save).toHaveBeenCalled();
     });
 
+    it('debe actualizar los permisos de un rol exitosamente', async () => {
+      const mockRole = {
+        id: 'role-uuid',
+        name: 'EDITOR',
+        isSystem: false,
+        permissions: [],
+      } as unknown as Role;
+
+      const mockPermissions = [
+        { id: 'perm-1', code: 'users:read' },
+      ];
+
+      const expectedRole = {
+        id: 'role-uuid',
+        name: 'EDITOR',
+        isSystem: false,
+        permissions: mockPermissions,
+      };
+
+      mockRoleRepository.findOne.mockImplementation(({ where }) => {
+        if (where.id === 'role-uuid') return Promise.resolve(mockRole);
+        return Promise.resolve(null);
+      });
+      mockPermissionRepository.findBy.mockResolvedValue(mockPermissions);
+      mockRoleRepository.save.mockImplementation((role) => Promise.resolve(role));
+      mockQueryBuilder.getOne.mockResolvedValue(expectedRole);
+
+      const result = await service.update('role-uuid', {
+        name: 'EDITOR',
+        permissionIds: ['perm-1'],
+      });
+
+      expect(result.permissions).toEqual(mockPermissions);
+      expect(mockRoleRepository.save).toHaveBeenCalled();
+    });
+
+    it('debe lanzar NotFoundException al intentar actualizar un rol con permisos que no existen', async () => {
+      const mockRole = {
+        id: 'role-uuid',
+        name: 'EDITOR',
+        isSystem: false,
+        permissions: [],
+      } as unknown as Role;
+
+      mockRoleRepository.findOne.mockImplementation(({ where }) => {
+        if (where.id === 'role-uuid') return Promise.resolve(mockRole);
+        return Promise.resolve(null);
+      });
+      mockPermissionRepository.findBy.mockResolvedValue([]); // No se encuentra el permiso
+
+      await expect(
+        service.update('role-uuid', { name: 'EDITOR', permissionIds: ['non-existent'] })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar NotFoundException si el rol a actualizar no existe', async () => {
+      mockRoleRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.update('non-existent-uuid', { name: 'EDITOR' })
+      ).rejects.toThrow(NotFoundException);
+    });
+
     it('debe lanzar ForbiddenException al intentar editar un rol de sistema', async () => {
       const mockRole = {
         id: 'role-uuid',
@@ -231,6 +322,14 @@ describe('RolesService', () => {
 
       expect(result.deletedAt).toBeDefined();
       expect(mockRoleRepository.softRemove).toHaveBeenCalledWith(mockRole);
+    });
+
+    it('debe lanzar NotFoundException si el rol a eliminar no existe', async () => {
+      mockRoleRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.remove('non-existent-uuid')
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('debe lanzar ConflictException si el rol es de sistema', async () => {
