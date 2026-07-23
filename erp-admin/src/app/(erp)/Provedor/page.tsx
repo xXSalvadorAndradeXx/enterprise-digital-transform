@@ -7,6 +7,13 @@ import LoadingState from "@/components/ui/LoadingState";
 import Modal from "@/components/ui/Modal";
 import ModalSuccess from "@/components/ui/ModalSuccess";
 import Input from "@/components/ui/Input";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+import {
+  supplierSchema,
+  type SupplierForm,
+} from "@/lib/validations/supplierSchema";
 
 
 
@@ -34,11 +41,26 @@ export default function ProveedorPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [openModal, setOpenModal] = useState(false);
   const [openSuccess, setOpenSuccess] = useState(false);
-  const [companyName, setCompanyName] = useState("");
-  const [phone, setPhone] = useState("");
+  const {
+  register,
+  handleSubmit,
+  trigger,
+  formState: { errors, isValid },
+} = useForm<SupplierForm>({
+  resolver: zodResolver(supplierSchema),
+  mode: "onChange",
+});
+  
 
 
   const view = "table"; // Cambia esto según la vista que quieras mostrar
+  
+useEffect(() => {
+  if (openModal) {
+    trigger();
+  }
+}, [openModal, trigger]);
+
 
   useEffect(() => {
   setIsSearching(true);
@@ -206,26 +228,32 @@ export default function ProveedorPage() {
   title="Agregar proveedor"
   onClose={() => setOpenModal(false)}
 >
-  <div className="space-y-6">
+  <form
+  onSubmit={handleSubmit(() => {
+    setOpenModal(false);
+    setOpenSuccess(true);
+  })}
+  className="space-y-6"
+>
     <p className="text-gray-600">
       Registra un nuevo proveedor para gestionar tus productos.
     </p>
 
-    <Input
-      label="Nombre de empresa"
-      required
-      placeholder=""
-      value={companyName}
-      onChange={(e) => setCompanyName(e.target.value)}
-    />
+   <Input
+  label="Nombre de empresa"
+  required
+  placeholder=""
+  error={errors.companyName?.message}
+  {...register("companyName")}
+/>   
 
     <Input
-      label="Teléfono"
-      required
-      placeholder=""
-      value={phone}
-      onChange={(e) => setPhone(e.target.value)}
-    />
+  label="Teléfono"
+  required
+  placeholder=""
+  error={errors.phone?.message}
+  {...register("phone")}
+/>
 
     <div className="mt-8 flex items-center gap-4">
   <button
@@ -235,17 +263,27 @@ export default function ProveedorPage() {
     Cancelar
   </button>
 
-  <button
-    onClick={() => {
-      setOpenModal(false);
-      setOpenSuccess(true);
-    }}
-    className="min-w-[180px] rounded-md bg-[#2F3CE9] px-6 py-2 text-white transition hover:bg-[#2432d4]"
-  >
-    Guardar proveedor
-  </button>
+ <button
+  type="submit"
+  disabled={!isValid}
+  className={`
+    min-w-[180px]
+    rounded-md
+    px-6
+    py-2
+    text-white
+    transition
+    ${
+      isValid
+        ? "bg-[#2F3CE9] hover:bg-[#2432d4]"
+        : "cursor-not-allowed bg-gray-400"
+    }
+  `}
+>
+  Guardar proveedor
+</button>
 </div>
-  </div>
+  </form>
 </Modal>
 
 <ModalSuccess

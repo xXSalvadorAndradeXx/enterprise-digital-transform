@@ -23,21 +23,19 @@ export default function Input({
 
       <input
         className={`
-          w-full
-          rounded-md
-          border
-          px-4
-          py-3
-          text-black
-          outline-none
-          transition
-          ${
-            error
-              ? "border-red-500 focus:border-red-500"
-              : "border-gray-400 focus:border-[#2E37D3]"
-          }
-          ${className}
-        `}
+  w-full
+  rounded-md
+  border
+  border-black
+  px-4
+  py-3
+  text-black
+  caret-black
+  outline-none
+  transition
+  focus:border-black
+  ${className}
+`}
         {...props}
       />
 
