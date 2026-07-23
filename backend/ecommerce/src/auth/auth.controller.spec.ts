@@ -137,4 +137,44 @@ describe('AuthController', () => {
       );
     });
   });
+
+  describe('forgotPassword', () => {
+    it('debe invocar authService.forgotPassword y retornar mensaje de confirmación', async () => {
+      authService.forgotPassword = jest.fn().mockResolvedValue({
+        message: 'Si el correo electrónico existe en nuestro sistema...',
+      });
+      const req = { ip: '127.0.0.1' };
+      const dto = { email: 'juan@example.com' };
+
+      const result = await controller.forgotPassword(req, dto);
+
+      expect(result).toEqual({
+        message: 'Si el correo electrónico existe en nuestro sistema...',
+      });
+      expect(authService.forgotPassword).toHaveBeenCalledWith(
+        'juan@example.com',
+        '127.0.0.1',
+      );
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('debe invocar authService.resetPassword y retornar mensaje de éxito', async () => {
+      authService.resetPassword = jest.fn().mockResolvedValue({
+        message: 'Contraseña restablecida exitosamente',
+      });
+      const dto = {
+        token: 'raw_reset_token',
+        newPassword: 'NewSecurePass456!',
+      };
+
+      const result = await controller.resetPassword(dto);
+
+      expect(result).toEqual({ message: 'Contraseña restablecida exitosamente' });
+      expect(authService.resetPassword).toHaveBeenCalledWith(
+        'raw_reset_token',
+        'NewSecurePass456!',
+      );
+    });
+  });
 });

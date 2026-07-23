@@ -6,6 +6,7 @@ import { UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common
 import { AuthService } from './auth.service';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from '../users/entities/refresh-token.entity';
+import { PasswordResetToken } from '../users/entities/password-reset-token.entity';
 
 describe('AuthService - Refresh Tokens & Rotation', () => {
   let service: AuthService;
@@ -13,6 +14,7 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
   let configService: jest.Mocked<ConfigService>;
   let userRepository: any;
   let refreshTokenRepository: any;
+  let passwordResetTokenRepository: any;
 
   const mockUser: User = {
     id: 'user-uuid-123',
@@ -44,6 +46,12 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
 
+    passwordResetTokenRepository = {
+      create: jest.fn().mockImplementation((dto) => dto),
+      save: jest.fn().mockImplementation(async (record) => record),
+      findOneBy: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -51,6 +59,10 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
         {
           provide: getRepositoryToken(RefreshToken),
           useValue: refreshTokenRepository,
+        },
+        {
+          provide: getRepositoryToken(PasswordResetToken),
+          useValue: passwordResetTokenRepository,
         },
         {
           provide: JwtService,
@@ -345,6 +357,97 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
       ).rejects.toThrow(
         require('@nestjs/common').UnprocessableEntityException,
       );
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('debe generar un token, guardarlo con expiración a 30 min y retornar mensaje genérico (200) si el usuario existe', async () => {
+      userRepository.findOneBy.mockResolvedValue(mockUser);
+
+      const result = await service.forgotPassword('test@example.com', '127.0.0.1');
+
+      expect(result).toEqual({
+        message:
+          'Si el correo electrónico existe en nuestro sistema, se ha enviado un enlace para restablecer la contraseña.',
+      });
+      expect(passwordResetTokenRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUser.id,
+          used: false,
+        }),
+      );
+      expect(passwordResetTokenRepository.save).toHaveBeenCalled();
+    });
+
+    it('debe retornar mensaje genérico (200) sin guardar token si el usuario no existe', async () => {
+      userRepository.findOneBy.mockResolvedValue(null);
+
+      const result = await service.forgotPassword('unknown@example.com', '127.0.0.2');
+
+      expect(result).toEqual({
+        message:
+          'Si el correo electrónico existe en nuestro sistema, se ha enviado un enlace para restablecer la contraseña.',
+      });
+      expect(passwordResetTokenRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar HttpException (429 - Too Many Requests) si se excede el rate limit', async () => {
+      userRepository.findOneBy.mockResolvedValue(mockUser);
+      const email = 'rate@example.com';
+      const ip = '192.168.1.100';
+
+      await service.forgotPassword(email, ip);
+      await service.forgotPassword(email, ip);
+      await service.forgotPassword(email, ip);
+
+      await expect(service.forgotPassword(email, ip)).rejects.toThrow(
+        HttpException,
+      );
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('debe restablecer la contraseña, marcar token como used=true y revocar los refresh tokens del usuario', async () => {
+      const rawToken = 'valid_raw_reset_token';
+      const tokenHash = service.hashToken(rawToken);
+      const newPassword = 'NewSecretPass123!';
+
+      const tokenRecord = {
+        id: 'reset-uuid-1',
+        userId: mockUser.id,
+        tokenHash,
+        used: false,
+        expiresAt: new Date(Date.now() + 100000),
+      };
+
+      passwordResetTokenRepository.findOneBy.mockResolvedValue(tokenRecord);
+      userRepository.findOneBy.mockResolvedValue({ ...mockUser });
+
+      const result = await service.resetPassword(rawToken, newPassword);
+
+      expect(result).toEqual({ message: 'Contraseña restablecida exitosamente' });
+      expect(tokenRecord.used).toBe(true);
+      expect(passwordResetTokenRepository.save).toHaveBeenCalledWith(tokenRecord);
+      expect(refreshTokenRepository.update).toHaveBeenCalledWith(
+        { userId: mockUser.id, revoked: false },
+        { revoked: true },
+      );
+    });
+
+    it('debe lanzar BadRequestException (400) si el token ya fue utilizado o ha expirado', async () => {
+      const expiredRecord = {
+        id: 'reset-uuid-2',
+        userId: mockUser.id,
+        tokenHash: 'expired_hash',
+        used: true, // Ya utilizado!
+        expiresAt: new Date(Date.now() - 1000),
+      };
+
+      passwordResetTokenRepository.findOneBy.mockResolvedValue(expiredRecord);
+
+      await expect(
+        service.resetPassword('used_token', 'NewSecretPass123!'),
+      ).rejects.toThrow(require('@nestjs/common').BadRequestException);
     });
   });
 });

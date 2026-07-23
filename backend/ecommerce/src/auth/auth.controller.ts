@@ -26,6 +26,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { MustChangePasswordGuard } from './guards/must-change-password.guard';
@@ -299,6 +301,94 @@ export class AuthController {
       changePasswordDto.newPassword,
     );
     return { message: 'Contraseña actualizada exitosamente' };
+  }
+
+  @ApiOperation({
+    summary: 'Solicitar enlace de recuperación de contraseña (Forgot Password)',
+    description:
+      'Genera un token de un solo uso con vigencia de 30 minutos guardado como hash SHA-256. Responde SIEMPRE con HTTP 200 y mensaje genérico para evitar filtración de existencia de cuentas. Aplica Rate Limiting (HTTP 429).',
+  })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Mensaje genérico de confirmación',
+    schema: {
+      type: 'object',
+      example: {
+        message:
+          'Si el correo electrónico existe en nuestro sistema, se ha enviado un enlace para restablecer la contraseña.',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Demasiadas solicitudes para el correo o IP (Rate Limiting)',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 429,
+        message:
+          'Demasiadas solicitudes de recuperación de contraseña para este correo o IP. Por favor intente más tarde.',
+        error: 'Too Many Requests',
+      },
+    },
+  })
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(
+    @Req() req: any,
+    @Body() forgotPasswordDto: ForgotPasswordDto,
+  ) {
+    const ipAddress = req.ip || req.connection?.remoteAddress;
+    return this.authService.forgotPassword(forgotPasswordDto.email, ipAddress);
+  }
+
+  @ApiOperation({
+    summary: 'Restablecer contraseña con token de un solo uso (Reset Password)',
+    description:
+      'Valida el token contra password_reset_tokens (no usado, no expirado, hash SHA-256 coincidente). Encripta la nueva clave con bcrypt (salt=10), marca el token como used=true y revoca todos los refresh tokens activos del usuario.',
+  })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Contraseña restablecida exitosamente',
+    schema: {
+      type: 'object',
+      example: { message: 'Contraseña restablecida exitosamente' },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Token de recuperación inválido, revocado o expirado',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 400,
+        message: 'Token de recuperación inválido, revocado o expirado',
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'La nueva contraseña no cumple con la política de complejidad',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 422,
+        message:
+          'La nueva contraseña no cumple con la política de complejidad (mínimo 8 caracteres, mayúscula, minúscula, número y carácter especial)',
+        error: 'Unprocessable Entity',
+      },
+    },
+  })
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(
+      resetPasswordDto.token,
+      resetPasswordDto.newPassword,
+    );
   }
 
   @Get('me')

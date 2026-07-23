@@ -5,6 +5,7 @@ import {
   UnprocessableEntityException,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,15 +15,24 @@ import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from '../users/entities/refresh-token.entity';
+import { PasswordResetToken } from '../users/entities/password-reset-token.entity';
 import { PASSWORD_COMPLEXITY_REGEX } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+  private forgotPasswordRateLimitMap = new Map<
+    string,
+    { count: number; resetAt: number }
+  >();
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
+    @InjectRepository(PasswordResetToken)
+    private readonly passwordResetTokenRepository: Repository<PasswordResetToken>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
@@ -292,5 +302,133 @@ export class AuthService {
     user.mustChangePassword = false;
 
     await this.userRepository.save(user);
+  }
+
+  /**
+   * Verifica el rate limit para solicitudes de recuperación de contraseña (máximo 3 solicitudes por 15 min).
+   */
+  private checkForgotPasswordRateLimit(identifier: string): void {
+    const now = Date.now();
+    const windowMs = 15 * 60 * 1000;
+    const maxRequests = 3;
+
+    const record = this.forgotPasswordRateLimitMap.get(identifier);
+    if (!record || now > record.resetAt) {
+      this.forgotPasswordRateLimitMap.set(identifier, {
+        count: 1,
+        resetAt: now + windowMs,
+      });
+      return;
+    }
+
+    if (record.count >= maxRequests) {
+      throw new HttpException(
+        'Demasiadas solicitudes de recuperación de contraseña para este correo o IP. Por favor intente más tarde.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    record.count += 1;
+  }
+
+  /**
+   * Solicitud de recuperación de contraseña (Forgot Password):
+   * 1. Aplica Rate Limiting por email e IP (HTTP 429).
+   * 2. Si el email existe, genera un token aleatorio, calcula su hash SHA-256 y lo guarda con expires_at = now() + 30 min.
+   * 3. Registra en log el mock del servicio de correo.
+   * 4. Retorna respuesta genérica HTTP 200 (anti-enumeración de cuentas).
+   */
+  async forgotPassword(
+    email: string,
+    ipAddress?: string,
+  ): Promise<{ message: string }> {
+    const normalizedEmail = email ? email.trim().toLowerCase() : '';
+    if (ipAddress) {
+      this.checkForgotPasswordRateLimit(`ip:${ipAddress}`);
+    }
+    if (normalizedEmail) {
+      this.checkForgotPasswordRateLimit(`email:${normalizedEmail}`);
+    }
+
+    const user = await this.userRepository.findOneBy({
+      email: normalizedEmail,
+    });
+    if (user) {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = this.hashToken(rawToken);
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
+
+      const resetTokenRecord = this.passwordResetTokenRepository.create({
+        userId: user.id,
+        tokenHash,
+        used: false,
+        expiresAt,
+      });
+      await this.passwordResetTokenRepository.save(resetTokenRecord);
+
+      this.logger.log(
+        `[MOCK EMAIL SERVICE] Enlace de recuperación para ${user.email}: http://localhost:3000/auth/reset-password?token=${rawToken} | Expira: ${expiresAt.toISOString()}`,
+      );
+    }
+
+    return {
+      message:
+        'Si el correo electrónico existe en nuestro sistema, se ha enviado un enlace para restablecer la contraseña.',
+    };
+  }
+
+  /**
+   * Restablecimiento de contraseña (Reset Password):
+   * 1. Valida el token (hash SHA-256) contra password_reset_tokens: no usado, no expirado (HTTP 400).
+   * 2. Valida la complejidad de la nueva contraseña (HTTP 422).
+   * 3. Encripta la nueva clave con bcrypt (salt rounds = 10) y actualiza al usuario.
+   * 4. Marca el token como usado (used = true).
+   * 5. Revoca todas las sesiones / refresh tokens activos del usuario por seguridad.
+   */
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const tokenHash = this.hashToken(token);
+    const tokenRecord = await this.passwordResetTokenRepository.findOneBy({
+      tokenHash,
+    });
+
+    if (
+      !tokenRecord ||
+      tokenRecord.used ||
+      new Date() > tokenRecord.expiresAt
+    ) {
+      throw new BadRequestException(
+        'Token de recuperación inválido, revocado o expirado',
+      );
+    }
+
+    const user = await this.userRepository.findOneBy({
+      id: tokenRecord.userId,
+    });
+    if (!user) {
+      throw new BadRequestException(
+        'Usuario asociado al token no encontrado',
+      );
+    }
+
+    if (!PASSWORD_COMPLEXITY_REGEX.test(newPassword)) {
+      throw new UnprocessableEntityException(
+        'La nueva contraseña no cumple con la política de complejidad (mínimo 8 caracteres, mayúscula, minúscula, número y carácter especial)',
+      );
+    }
+
+    const newHashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = newHashedPassword;
+    user.mustChangePassword = false;
+    await this.userRepository.save(user);
+
+    tokenRecord.used = true;
+    await this.passwordResetTokenRepository.save(tokenRecord);
+
+    await this.revokeAllUserTokens(user.id);
+
+    return { message: 'Contraseña restablecida exitosamente' };
   }
 }
