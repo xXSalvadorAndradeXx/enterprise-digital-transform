@@ -9,6 +9,50 @@ export class ModelUserRolePermission1779770321092 implements MigrationInterface 
         // 1. Habilitar la extensión para UUID si no existe
         await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
+        // Baseline: Crear tablas base si no existen aún en una base de datos limpia
+        await queryRunner.query(`
+            CREATE TABLE IF NOT EXISTS "categories" (
+                "id" SERIAL NOT NULL, 
+                "nombre" character varying NOT NULL, 
+                "descripcion" text, 
+                CONSTRAINT "PK_24dbc6126a28ff948da33e97d3b" PRIMARY KEY ("id")
+            )
+        `);
+        await queryRunner.query(`
+            CREATE TABLE IF NOT EXISTS "products" (
+                "id" SERIAL NOT NULL, 
+                "nombre" character varying NOT NULL, 
+                "descripcion" text NOT NULL, 
+                "precio" numeric(10,2) NOT NULL, 
+                "stock" integer NOT NULL, 
+                "imagenUrl" character varying NOT NULL, 
+                "createdAt" TIMESTAMP NOT NULL DEFAULT now(), 
+                "deletedAt" TIMESTAMP, 
+                "categoryId" integer, 
+                CONSTRAINT "PK_0806c755e0aca124e67c0cf6d7d" PRIMARY KEY ("id")
+            )
+        `);
+        await queryRunner.query(`
+            CREATE TABLE IF NOT EXISTS "carts" (
+                "id" SERIAL NOT NULL, 
+                "createdAt" TIMESTAMP NOT NULL DEFAULT now(), 
+                "userId" integer, 
+                CONSTRAINT "REL_69828a178f152f157dcf2f70a8" UNIQUE ("userId"), 
+                CONSTRAINT "PK_b5f695a59f5ebb50af3c8160816" PRIMARY KEY ("id")
+            )
+        `);
+        await queryRunner.query(`
+            CREATE TABLE IF NOT EXISTS "cart_items" (
+                "id" SERIAL NOT NULL, 
+                "quantity" integer NOT NULL DEFAULT '1', 
+                "unitPrice" numeric(10,2) NOT NULL, 
+                "subtotal" numeric(10,2) NOT NULL, 
+                "cartId" integer, 
+                "productId" integer, 
+                CONSTRAINT "PK_6fccf5ec03c172d27a28a82928b" PRIMARY KEY ("id")
+            )
+        `);
+
         // 2. Eliminar la restricción de llave foránea existente en la tabla carts que apunta a users
         await queryRunner.query(`ALTER TABLE "carts" DROP CONSTRAINT IF EXISTS "FK_69828a178f152f157dcf2f70a89"`);
 

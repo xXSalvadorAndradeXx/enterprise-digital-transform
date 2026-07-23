@@ -22,7 +22,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
   async validate(email: string, password: string): Promise<any> {
     const user = await this.userRepository
       .createQueryBuilder('user')
-      .addSelect('user.password')
+      .addSelect('user.password_hash')
       .where('user.email = :email', { email })
       .getOne();
 
@@ -30,9 +30,9 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       // Delegar la verificación del estado de cuenta/lockout a AuthService
       this.authService.checkLockout(user);
 
-      const isPasswordMatching = await bcrypt.compare(password, user.password);
+      const isPasswordMatching = await bcrypt.compare(password, user.passwordHash);
       if (isPasswordMatching) {
-        const { password: _, ...result } = user;
+        const { passwordHash: _, ...result } = user;
         return result;
       }
     }
