@@ -75,7 +75,7 @@ export async function getProveedores({
   // Simulamos el tiempo que tardaría una API
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  throw new Error("Prueba");
+
 
   const filtered = mockProviders.filter((provider) =>
     provider.provider.toLowerCase().includes(search.toLowerCase())
