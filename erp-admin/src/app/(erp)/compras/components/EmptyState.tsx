@@ -27,17 +27,22 @@ export function EmptyState({
   return (
     <div className={`flex flex-col items-center bg-transparent text-center text-black ${className}`}>
       {icon && (
-        <div aria-hidden="true" className="mb-6 flex size-[120px] items-center justify-center text-[#1C21D1] [&>svg]:size-full">
+        <div
+          aria-hidden="true"
+          className="mb-6 flex h-[110px] w-[126px] items-center justify-center text-[#1C21D1] [&>svg]:size-full"
+        >
           {icon}
         </div>
       )}
 
-      <h2 className="font-[var(--font-title)] text-3xl font-bold">{title}</h2>
+      <h2 className="font-[var(--font-title)] text-[32px] leading-10 font-bold">{title}</h2>
 
-      {description && <p className="mt-3 text-2xl text-[#4A4A4A]">{description}</p>}
+      {description && (
+        <p className="mt-2 text-center text-2xl leading-8 text-black">{description}</p>
+      )}
 
       {infoMessage && (
-        <div className="mt-6 flex items-center gap-3 rounded-xl bg-[#F2F5FC] px-5 py-3 text-left text-base text-[#4A4A4A]">
+        <div className="mt-10 flex min-h-[39px] w-full max-w-[510px] items-center justify-center gap-3 rounded-[15px] bg-[#F2F5FC] px-[14px] py-2 text-center text-base text-[#4A4A4A]">
           <CircleAlert
             aria-hidden="true"
             className="shrink-0 text-[#1C21D1]"
@@ -52,7 +57,7 @@ export function EmptyState({
         <button
           type="button"
           onClick={onAction}
-          className="mt-6 flex h-11 items-center justify-center gap-2 rounded bg-[#1C21D1] px-5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1]"
+          className="mt-5 inline-flex h-[45px] w-[260px] shrink-0 items-center justify-center gap-2.5 whitespace-nowrap rounded-[4px] bg-[#1C21D1] px-4 text-xl font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1] [&_svg]:size-6"
         >
           {actionIcon && <span aria-hidden="true">{actionIcon}</span>}
           {actionLabel}
