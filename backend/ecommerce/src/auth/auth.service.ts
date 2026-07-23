@@ -124,6 +124,17 @@ export class AuthService {
   }
 
   /**
+   * Revoca un Refresh Token específico marcando revoked=true en la BD.
+   */
+  async revokeToken(rawToken: string): Promise<void> {
+    const tokenHash = this.hashToken(rawToken);
+    await this.refreshTokenRepository.update(
+      { tokenHash, revoked: false },
+      { revoked: true },
+    );
+  }
+
+  /**
    * Valida un Refresh Token y realiza la rotación:
    * (a) Verificación de firma y expiración
    * (b) Búsqueda del hash en BD

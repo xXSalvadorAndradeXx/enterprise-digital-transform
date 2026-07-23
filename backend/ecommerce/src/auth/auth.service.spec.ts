@@ -111,6 +111,20 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
     });
   });
 
+  describe('revokeToken', () => {
+    it('debe revocar un token específico por su hash en BD', async () => {
+      const rawToken = 'specific.refresh.token';
+      const expectedHash = service.hashToken(rawToken);
+
+      await service.revokeToken(rawToken);
+
+      expect(refreshTokenRepository.update).toHaveBeenCalledWith(
+        { tokenHash: expectedHash, revoked: false },
+        { revoked: true },
+      );
+    });
+  });
+
   describe('validateAndRotate', () => {
     it('debe rotar el token exitosamente marcando el previo como revocado y asignando replacedByTokenHash', async () => {
       const oldRawToken = 'old.refresh.token';

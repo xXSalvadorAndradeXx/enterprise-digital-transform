@@ -14,6 +14,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBody,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -193,13 +194,40 @@ export class AuthController {
     };
   }
 
-  @Post('logout')
-  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Cerrar sesión de usuario (Logout)',
+    description:
+      'Revoca el Refresh Token activo provisto (o todas las sesiones del usuario) marcando revoked=true en la base de datos. Requiere estar autenticado con Bearer Token JWT.',
+  })
+  @ApiBearerAuth()
+  @ApiBody({ type: RefreshTokenDto, required: false })
+  @ApiResponse({
+    status: 204,
+    description: 'Cierre de sesión exitoso (Sin contenido)',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Acceso no autorizado - Bearer Token JWT ausente o inválido',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 401,
+        message: 'Acceso no autorizado. Token inválido o inexistente.',
+        error: 'Unauthorized',
+      },
+    },
+  })
   @UseGuards(JwtAuthGuard)
-  async logout(@Req() req: any) {
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async logout(@Req() req: any, @Body() refreshTokenDto?: RefreshTokenDto) {
     const userId = req.user.userId || req.user.id;
-    await this.authService.revokeAllUserTokens(userId);
-    return { message: 'Sesión cerrada exitosamente en todos los dispositivos' };
+
+    if (refreshTokenDto && refreshTokenDto.refreshToken) {
+      await this.authService.revokeToken(refreshTokenDto.refreshToken);
+    } else {
+      await this.authService.revokeAllUserTokens(userId);
+    }
   }
 
   @Get('me')

@@ -35,6 +35,7 @@ describe('AuthController', () => {
         refresh_token: 'new_refresh_token',
       }),
       revokeAllUserTokens: jest.fn().mockResolvedValue(undefined),
+      revokeToken: jest.fn().mockResolvedValue(undefined),
       checkAccountStatus: jest.fn(),
     };
 
@@ -97,14 +98,22 @@ describe('AuthController', () => {
   });
 
   describe('logout', () => {
-    it('debe invocar revokeAllUserTokens y retornar mensaje de éxito', async () => {
+    it('debe invocar revokeToken y retornar HTTP 204 sin contenido cuando se envía RefreshTokenDto', async () => {
+      const req = { user: { userId: 'user-uuid-123' } };
+      const dto = { refreshToken: 'active_refresh_token' };
+
+      const result = await controller.logout(req, dto);
+
+      expect(result).toBeUndefined(); // 204 No Content
+      expect(authService.revokeToken).toHaveBeenCalledWith('active_refresh_token');
+    });
+
+    it('debe invocar revokeAllUserTokens y retornar HTTP 204 sin contenido cuando no se envía DTO', async () => {
       const req = { user: { userId: 'user-uuid-123' } };
 
       const result = await controller.logout(req);
 
-      expect(result).toEqual({
-        message: 'Sesión cerrada exitosamente en todos los dispositivos',
-      });
+      expect(result).toBeUndefined(); // 204 No Content
       expect(authService.revokeAllUserTokens).toHaveBeenCalledWith('user-uuid-123');
     });
   });
