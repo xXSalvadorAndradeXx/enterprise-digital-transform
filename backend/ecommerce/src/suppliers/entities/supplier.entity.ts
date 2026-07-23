@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany, BeforeInsert, BeforeUpdate } from 'typeorm';
 import { Product } from '../../products/entities/product.entity';
 import { SupplierPurchase } from './supplier-purchase.entity';
 
@@ -36,4 +36,17 @@ export class Supplier {
 
   @OneToMany(() => SupplierPurchase, (purchase) => purchase.supplier)
   supplierPurchases!: SupplierPurchase[];
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  normalizePhone(): void {
+    if (!this.phone) {
+      return;
+    }
+    let cleaned = this.phone.replace(/[^\d+]/g, '');
+    if (/^\d{8}$/.test(cleaned)) {
+      cleaned = `+503${cleaned}`;
+    }
+    this.phone = cleaned;
+  }
 }

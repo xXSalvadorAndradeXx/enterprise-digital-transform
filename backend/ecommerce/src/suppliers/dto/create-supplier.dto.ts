@@ -12,7 +12,7 @@ export class CreateSupplierDto {
   contactName?: string;
 
   @IsOptional()
-  @IsPhoneNumber()
+  @IsPhoneNumber('SV')
   phone?: string;
 
   @IsOptional()
