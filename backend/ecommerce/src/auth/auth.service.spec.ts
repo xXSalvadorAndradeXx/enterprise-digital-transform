@@ -280,4 +280,71 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
       );
     });
   });
+
+  describe('changePassword', () => {
+    const oldPass = 'OldPass123!';
+    const hashedOldPass = require('bcrypt').hashSync(oldPass, 10);
+    const validNewPass = 'NewSecurePass456!';
+    const weakNewPass = 'weakpass';
+
+    it('debe actualizar la contraseña y limpiar el flag mustChangePassword a false', async () => {
+      const dbUser = {
+        ...mockUser,
+        password: hashedOldPass,
+        mustChangePassword: true,
+      };
+
+      const qb = {
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(dbUser),
+      };
+      userRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await service.changePassword(mockUser.id, oldPass, validNewPass);
+
+      expect(dbUser.mustChangePassword).toBe(false);
+      expect(userRepository.save).toHaveBeenCalledWith(dbUser);
+    });
+
+    it('debe lanzar BadRequestException (400) si la contraseña actual no coincide', async () => {
+      const dbUser = {
+        ...mockUser,
+        password: hashedOldPass,
+        mustChangePassword: true,
+      };
+
+      const qb = {
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(dbUser),
+      };
+      userRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await expect(
+        service.changePassword(mockUser.id, 'WrongOldPass123!', validNewPass),
+      ).rejects.toThrow(require('@nestjs/common').BadRequestException);
+    });
+
+    it('debe lanzar UnprocessableEntityException (422) si la nueva contraseña no cumple con la complejidad', async () => {
+      const dbUser = {
+        ...mockUser,
+        password: hashedOldPass,
+        mustChangePassword: true,
+      };
+
+      const qb = {
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(dbUser),
+      };
+      userRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await expect(
+        service.changePassword(mockUser.id, oldPass, weakNewPass),
+      ).rejects.toThrow(
+        require('@nestjs/common').UnprocessableEntityException,
+      );
+    });
+  });
 });

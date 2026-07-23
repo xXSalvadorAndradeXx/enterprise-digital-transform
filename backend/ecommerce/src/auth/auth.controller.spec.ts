@@ -117,4 +117,24 @@ describe('AuthController', () => {
       expect(authService.revokeAllUserTokens).toHaveBeenCalledWith('user-uuid-123');
     });
   });
+
+  describe('changePassword', () => {
+    it('debe invocar authService.changePassword y retornar mensaje de éxito (200)', async () => {
+      authService.changePassword = jest.fn().mockResolvedValue(undefined);
+      const req = { user: { id: 'user-uuid-123' } };
+      const dto = {
+        currentPassword: 'OldPass123!',
+        newPassword: 'NewSecurePass456!',
+      };
+
+      const result = await controller.changePassword(req, dto);
+
+      expect(result).toEqual({ message: 'Contraseña actualizada exitosamente' });
+      expect(authService.changePassword).toHaveBeenCalledWith(
+        'user-uuid-123',
+        'OldPass123!',
+        'NewSecurePass456!',
+      );
+    });
+  });
 });

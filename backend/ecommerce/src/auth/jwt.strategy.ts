@@ -45,6 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       permissions,
       isActive: user.isActive,
       isBlocked: user.isBlocked,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 }

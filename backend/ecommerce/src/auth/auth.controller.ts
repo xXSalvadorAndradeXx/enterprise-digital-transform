@@ -25,8 +25,10 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
+import { MustChangePasswordGuard } from './guards/must-change-password.guard';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -230,8 +232,77 @@ export class AuthController {
     }
   }
 
-  @Get('me')
+  @ApiOperation({
+    summary: 'Cambiar contraseña de usuario autenticado',
+    description:
+      'Valida la contraseña actual (HTTP 400), valida la complejidad de la nueva contraseña (HTTP 422), la encripta con bcrypt (salt=10) y limpia el flag must_change_password (HTTP 200).',
+  })
+  @ApiBearerAuth()
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Contraseña actualizada exitosamente',
+    schema: {
+      type: 'object',
+      example: { message: 'Contraseña actualizada exitosamente' },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'La contraseña actual es incorrecta',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 400,
+        message: 'La contraseña actual es incorrecta',
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Debe cambiar su contraseña antes de realizar otra acción',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 403,
+        message:
+          'Debe cambiar su contraseña antes de realizar cualquier otra operación en la plataforma',
+        error: 'Forbidden',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'La nueva contraseña no cumple con la política de complejidad',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 422,
+        message:
+          'La nueva contraseña no cumple con la política de complejidad (mínimo 8 caracteres, mayúscula, minúscula, número y carácter especial)',
+        error: 'Unprocessable Entity',
+      },
+    },
+  })
   @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @Req() req: any,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    const userId = req.user.userId || req.user.id;
+    await this.authService.changePassword(
+      userId,
+      changePasswordDto.currentPassword,
+      changePasswordDto.newPassword,
+    );
+    return { message: 'Contraseña actualizada exitosamente' };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard, MustChangePasswordGuard)
   getProfile(@Req() req: any) {
     return req.user;
   }

@@ -11,13 +11,17 @@ import { JwtStrategy } from './jwt.strategy'; // 1. Importación de la estrategi
 import { LocalStrategy } from './local.strategy';
 import { AuthService } from './auth.service';
 
-import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './guards';
+import {
+  JwtAuthGuard,
+  RolesGuard,
+  PermissionsGuard,
+  MustChangePasswordGuard,
+} from './guards';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Cart, RefreshToken]),
 
-    
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -25,7 +29,10 @@ import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './guards';
         const secret = config.get<string>('JWT_SECRET');
         const expiresIn = config.get<string>('JWT_EXPIRES_IN', '15m');
         const refreshSecret = config.get<string>('JWT_REFRESH_SECRET');
-        const refreshExpiresIn = config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d');
+        const refreshExpiresIn = config.get<string>(
+          'JWT_REFRESH_EXPIRES_IN',
+          '7d',
+        );
 
         return {
           secret,
@@ -37,7 +44,26 @@ import { JwtAuthGuard, RolesGuard, PermissionsGuard } from './guards';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, HashService, JwtStrategy, LocalStrategy, JwtAuthGuard, RolesGuard, PermissionsGuard],
-  exports: [AuthService, HashService, JwtModule, JwtStrategy, LocalStrategy, JwtAuthGuard, RolesGuard, PermissionsGuard],
+  providers: [
+    AuthService,
+    HashService,
+    JwtStrategy,
+    LocalStrategy,
+    JwtAuthGuard,
+    RolesGuard,
+    PermissionsGuard,
+    MustChangePasswordGuard,
+  ],
+  exports: [
+    AuthService,
+    HashService,
+    JwtModule,
+    JwtStrategy,
+    LocalStrategy,
+    JwtAuthGuard,
+    RolesGuard,
+    PermissionsGuard,
+    MustChangePasswordGuard,
+  ],
 })
 export class AuthModule {}

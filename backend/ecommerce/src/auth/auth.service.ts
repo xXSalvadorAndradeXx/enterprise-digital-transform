@@ -1,6 +1,8 @@
 import {
   Injectable,
   UnauthorizedException,
+  BadRequestException,
+  UnprocessableEntityException,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -9,8 +11,10 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from '../users/entities/refresh-token.entity';
+import { PASSWORD_COMPLEXITY_REGEX } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -239,5 +243,54 @@ export class AuthService {
       access_token: newAccessToken,
       refresh_token: newRefreshToken,
     };
+  }
+
+  /**
+   * Cambia la contraseña del usuario autenticado:
+   * 1. Valida currentPassword con bcrypt.compare (retorna HTTP 400 si no coincide)
+   * 2. Valida complejidad de newPassword (retorna HTTP 422 si no cumple)
+   * 3. Hashea la nueva contraseña con bcrypt (salt rounds = 10)
+   * 4. Asigna user.password = newHash y user.mustChangePassword = false
+   * 5. Guarda los cambios en BD
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.id = :userId', { userId })
+      .getOne();
+
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+
+    // 1. Validar currentPassword (HTTP 400 BadRequestException)
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
+    if (!isCurrentPasswordValid) {
+      throw new BadRequestException('La contraseña actual es incorrecta');
+    }
+
+    // 2. Validar complejidad de newPassword (HTTP 422 UnprocessableEntityException)
+    if (!PASSWORD_COMPLEXITY_REGEX.test(newPassword)) {
+      throw new UnprocessableEntityException(
+        'La nueva contraseña no cumple con la política de complejidad (mínimo 8 caracteres, mayúscula, minúscula, número y carácter especial)',
+      );
+    }
+
+    // 3. Hashear la nueva contraseña con bcrypt (salt rounds = 10)
+    const newHashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 4. Actualizar usuario y limpiar mustChangePassword
+    user.password = newHashedPassword;
+    user.mustChangePassword = false;
+
+    await this.userRepository.save(user);
   }
 }
