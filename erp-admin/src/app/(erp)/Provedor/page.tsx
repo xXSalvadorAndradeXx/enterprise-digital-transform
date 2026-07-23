@@ -10,6 +10,7 @@ import Input from "@/components/ui/Input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreateProveedor } from "./hooks/useCreateProveedor";
+import { useUpdateProveedor } from "./hooks/useUpdateProveedor";
 import { Pencil, Trash2 } from "lucide-react";
 
 import {
@@ -50,6 +51,7 @@ export default function ProveedorPage() {
   register: registerEdit,
   handleSubmit: handleSubmitEdit,
   reset,
+  trigger: triggerEdit,
   formState: {
     errors: editErrors,
     isValid: isEditValid,
@@ -58,7 +60,13 @@ export default function ProveedorPage() {
   resolver: zodResolver(supplierSchema),
   mode: "onChange",
 });
-  const handleEdit = (provider: any) => {
+console.log("EDIT FORM", {
+  isEditValid,
+  editErrors,
+});
+ const handleEdit = (provider: any) => {
+  console.log(provider);
+
   setSelectedProvider(provider);
 
   reset({
@@ -83,6 +91,11 @@ const {
   create,
   loading: creatingProvider,
 } = useCreateProveedor();
+
+const {
+  update,
+  loading: updatingProvider,
+} = useUpdateProveedor();
   
 
 
@@ -93,6 +106,12 @@ useEffect(() => {
     trigger();
   }
 }, [openModal, trigger]);
+
+useEffect(() => {
+  if (openEditModal) {
+    triggerEdit();
+  }
+}, [openEditModal, triggerEdit]);
 
 
   useEffect(() => {
@@ -340,15 +359,15 @@ useEffect(() => {
    <Input
   label="Nombre de empresa"
   required
-  error={editErrors.companyName?.message}
-  {...registerEdit("companyName")}
+  error={errors.companyName?.message}
+{...register("companyName")}
 />
 
 <Input
   label="Teléfono"
   required
-  error={editErrors.phone?.message}
-  {...registerEdit("phone")}
+  error={errors.phone?.message}
+  {...register("phone")}
 />
 
     <div className="mt-8 flex items-center gap-4">
@@ -362,7 +381,7 @@ useEffect(() => {
 
  <button
   type="submit"
-  disabled={!isValid || creatingProvider}
+  disabled={creatingProvider}
   className={`
     min-w-[180px]
     rounded-md
@@ -395,10 +414,18 @@ useEffect(() => {
   onClose={() => setOpenEditModal(false)}
 >
   <form
-  onSubmit={handleSubmitEdit(() => {
-    setSuccessMessage("¡Información actualizada correctamente!");
-    setOpenEditModal(false);
-    setOpenSuccess(true);
+  onSubmit={handleSubmitEdit(async (data) => {
+    if (!selectedProvider) return;
+
+    const response = await update(selectedProvider.id, data);
+
+    if (response.status === 200) {
+      await refresh();
+
+      setSuccessMessage("¡Información actualizada correctamente!");
+      setOpenEditModal(false);
+      setOpenSuccess(true);
+    }
   })}
 >
 
@@ -407,9 +434,9 @@ useEffect(() => {
   required
   error={editErrors.companyName?.message}
   {...registerEdit("companyName")}
-  />
+/>
 
-  <Input
+<Input
   label="Teléfono"
   required
   error={editErrors.phone?.message}
@@ -427,7 +454,7 @@ useEffect(() => {
 
     <button
   type="submit"
-  disabled={!isEditValid}
+  disabled={updatingProvider}
   className={`
     min-w-[180px]
     rounded-md
@@ -436,13 +463,13 @@ useEffect(() => {
     text-white
     transition
     ${
-      isEditValid
-        ? "bg-[#2F3CE9] hover:bg-[#2432d4]"
-        : "cursor-not-allowed bg-gray-400"
+  updatingProvider
+    ? "cursor-not-allowed bg-gray-400"
+    : "bg-[#2F3CE9] hover:bg-[#2432d4]"
     }
   `}
 >
-  Guardar proveedor
+ {updatingProvider ? "Guardando..." : "Guardar proveedor"}
 </button>
   </div>
 </form>

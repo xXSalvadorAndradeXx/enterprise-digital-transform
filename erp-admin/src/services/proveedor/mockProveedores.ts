@@ -2,7 +2,7 @@ export const mockProviders = [
   {
     id: 1,
     provider: "Nike SV",
-    phone: "7777-1111",
+    phone: "+503 7777-1111",
   },
   {
     id: 2,
@@ -12,7 +12,7 @@ export const mockProviders = [
   {
     id: 3,
     provider: "Zara",
-    phone: "7477-1357",
+    phone: "+503 7477-1357",
   },
 
   // ...todos los demás
