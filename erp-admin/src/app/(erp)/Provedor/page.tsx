@@ -10,6 +10,7 @@ import Input from "@/components/ui/Input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreateProveedor } from "./hooks/useCreateProveedor";
+import { Pencil, Trash2 } from "lucide-react";
 
 import {
   supplierSchema,
@@ -42,6 +43,13 @@ export default function ProveedorPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [openModal, setOpenModal] = useState(false);
   const [openSuccess, setOpenSuccess] = useState(false);
+  const [openEditModal, setOpenEditModal] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<any>(null);
+  const [successMessage, setSuccessMessage] = useState("");
+  const handleEdit = (provider: any) => {
+  setSelectedProvider(provider);
+  setOpenEditModal(true);
+  };
   const {
   register,
   handleSubmit,
@@ -97,9 +105,56 @@ useEffect(() => {
       accessor: "phone",
     },
     {
-      header: "Acciones",
-      accessor: "actions",
-    },
+  header: "Acciones",
+  accessor: "actions",
+  render: (_, row) => (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => handleEdit(row)}
+        className="
+          flex
+          h-6
+          w-6
+          items-center
+          justify-center
+          rounded
+          border
+          border-[#D1D5DB]
+          bg-white
+          hover:bg-gray-100
+        "
+      >
+        <Pencil
+          size={13}
+          strokeWidth={2}
+          className="text-black"
+        />
+      </button>
+
+      <button
+        type="button"
+        className="
+          flex
+          h-6
+          w-6
+          items-center
+          justify-center
+          rounded
+          border
+          border-[#D1D5DB]
+          bg-white
+          hover:bg-red-50
+        "
+      >
+        <Trash2
+          size={13}
+          className="text-[#FF3B30]"
+        />
+      </button>
+    </div>
+  ),
+},
   ];
 
   
@@ -236,6 +291,8 @@ useEffect(() => {
   title="Agregar proveedor"
   onClose={() => setOpenModal(false)}
 >
+  
+
   <form
   onSubmit={handleSubmit(async (data) => {
     const response = await create(data);
@@ -251,6 +308,7 @@ useEffect(() => {
 
    if (response.status === 201) {
   await refresh();
+  setSuccessMessage("¡Proveedor agregado con éxito!");
   setOpenModal(false);
   setOpenSuccess(true);
   }
@@ -311,9 +369,55 @@ useEffect(() => {
 
 <ModalSuccess
   isOpen={openSuccess}
-  message="¡Proveedor agregado con éxito!"
+  message={successMessage}
   onAccept={() => setOpenSuccess(false)}
 />
+
+<Modal
+  isOpen={openEditModal}
+  title="Editar proveedor"
+  onClose={() => setOpenEditModal(false)}
+>
+  <form>
+  <p className="text-gray-600">
+    Modifica la información del proveedor.
+  </p>
+
+  <Input
+    label="Nombre de empresa"
+    required
+    defaultValue={selectedProvider?.provider}
+  />
+
+  <Input
+    label="Teléfono"
+    required
+    defaultValue={selectedProvider?.phone}
+  />
+
+  <div className="mt-8 flex items-center gap-4">
+    <button
+      type="button"
+      onClick={() => setOpenEditModal(false)}
+      className="min-w-[120px] rounded-md border border-[#2F3CE9] px-6 py-2 text-[#2F3CE9] transition hover:bg-[#2F3CE9] hover:text-white"
+    >
+      Cancelar
+    </button>
+
+    <button
+      type="button"
+      onClick={() => {
+        setSuccessMessage("¡Información actualizada correctamente!");
+        setOpenEditModal(false);
+        setOpenSuccess(true);
+      }}
+      className="min-w-[180px] rounded-md bg-[#2F3CE9] px-6 py-2 text-white transition hover:bg-[#2432d4]"
+    >
+      Guardar proveedor
+    </button>
+  </div>
+</form>
+</Modal>
     </main>
   );
 }
