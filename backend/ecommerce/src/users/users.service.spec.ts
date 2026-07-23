@@ -6,6 +6,7 @@ import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import * as bcrypt from 'bcrypt';
+import { RefreshTokenService } from '../auth/refresh-token.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -43,6 +44,10 @@ describe('UsersService', () => {
     transaction: jest.fn((cb) => cb(mockEntityManager)),
   };
 
+  const mockRefreshTokenService = {
+    revokeAllUserTokens: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -58,6 +63,10 @@ describe('UsersService', () => {
         {
           provide: DataSource,
           useValue: mockDataSource,
+        },
+        {
+          provide: RefreshTokenService,
+          useValue: mockRefreshTokenService,
         },
       ],
     }).compile();
@@ -362,6 +371,7 @@ describe('UsersService', () => {
       expect(result.isActive).toBe(false);
       expect(mockUserRepository.save).toHaveBeenCalled();
       expect(mockUserRepository.softRemove).toHaveBeenCalled();
+      expect(mockRefreshTokenService.revokeAllUserTokens).toHaveBeenCalledWith('user-uuid');
     });
   });
 });

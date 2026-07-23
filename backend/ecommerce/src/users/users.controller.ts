@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, UseGuards, Request, Query, Param, Body, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, UseGuards, Request, Query, Param, Body, ParseUUIDPipe, HttpCode, HttpStatus } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; 
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -16,6 +16,7 @@ import {
   ApiParam,
   ApiOkResponse, 
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiUnauthorizedResponse, 
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -341,15 +342,17 @@ export class UsersController {
     };
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users:delete')
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario a eliminar (UUID versión 4)', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' })
+  @ApiNoContentResponse({ description: 'El usuario ha sido desactivado y eliminado lógicamente de forma transaccional con éxito (sin contenido).' })
+  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
+  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:delete requerido.' })
+  @ApiNotFoundResponse({ description: 'No encontrado: El usuario especificado no existe.' })
+  @ApiConflictResponse({ description: 'Conflicto: No se puede eliminar o desactivar al último administrador SUPERADMIN activo del sistema.' })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
-    const result = await this.usersService.remove(id);
-    const serializedUser = plainToInstance(UserResponseDto, result, { excludeExtraneousValues: true });
-    return {
-      status: 'success',
-      message: 'Usuario eliminado exitosamente',
-      data: serializedUser,
-    };
+    await this.usersService.remove(id);
   }
 }

@@ -8,6 +8,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
 import { generateTemporaryPassword } from '../common/utils/security.util';
+import { RefreshTokenService } from '../auth/refresh-token.service';
 
 @Injectable()
 export class UsersService {
@@ -19,6 +20,7 @@ export class UsersService {
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
     private readonly dataSource: DataSource,
+    private readonly refreshTokenService: RefreshTokenService,
   ) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -276,22 +278,31 @@ export class UsersService {
   }
 
   async remove(id: string) {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
-      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
-    }
+    const removedUser = await this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
 
-    // Bloquear si es el último SUPERADMIN activo
-    const isLastSuper = await this.isLastActiveSuperadmin(id);
-    if (isLastSuper) {
-      throw new ConflictException(
-        'Operación rechazada: No se puede eliminar o desactivar al último administrador activo en el sistema.'
-      );
-    }
+      const user = await userRepo.findOne({ where: { id } });
+      if (!user) {
+        throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+      }
 
-    // Desactivar y aplicar soft-delete
-    user.isActive = false;
-    await this.userRepository.save(user);
-    return this.userRepository.softRemove(user);
+      // Bloquear si es el último SUPERADMIN activo
+      const isLastSuper = await this.isLastActiveSuperadmin(id);
+      if (isLastSuper) {
+        throw new ConflictException(
+          'Operación rechazada: No se puede eliminar o desactivar al último administrador activo en el sistema.'
+        );
+      }
+
+      // Desactivar y aplicar soft-delete
+      user.isActive = false;
+      await userRepo.save(user);
+      return userRepo.softRemove(user);
+    });
+
+    // Invocar revocación de refresh tokens de forma inmediata tras desactivar/eliminar
+    await this.refreshTokenService.revokeAllUserTokens(id);
+
+    return removedUser;
   }
 }
