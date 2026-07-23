@@ -9,6 +9,7 @@ import { RoleResponseDto } from './dto/role-response.dto';
 import { 
   ApiTags, 
   ApiBearerAuth, 
+  ApiBody,
   ApiOkResponse, 
   ApiCreatedResponse,
   ApiNoContentResponse,
@@ -17,10 +18,11 @@ import {
   ApiConflictResponse,
   ApiNotFoundResponse,
   ApiUnprocessableEntityResponse,
-  ApiParam
+  ApiParam,
+  ApiOperation
 } from '@nestjs/swagger';
 
-@ApiTags('roles')
+@ApiTags('Roles')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('roles')
@@ -28,6 +30,10 @@ export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Permissions('roles:read')
+  @ApiOperation({
+    summary: 'Listar roles con contadores y detalle de permisos',
+    description: 'Retorna todos los roles registrados en el sistema, mapeando para cada uno el conteo en tiempo real de usuarios y permisos asignados, además del detalle completo de sus permisos.',
+  })
   @Get()
   @ApiOkResponse({
     description: 'Listado de roles con contadores y detalle de permisos obtenido exitosamente.',
@@ -66,8 +72,27 @@ export class RolesController {
       }
     }
   })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso roles:read requerido.' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso roles:read requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
   async findAll() {
     const result = await this.rolesService.findAll();
     return {
@@ -78,6 +103,10 @@ export class RolesController {
   }
 
   @Permissions('roles:create')
+  @ApiOperation({
+    summary: 'Crear un nuevo rol con permisos',
+    description: 'Registra un nuevo rol no-sistema en la base de datos de forma transaccional, asociándolo a un conjunto de permisos existentes a través de sus IDs.',
+  })
   @Post()
   @ApiCreatedResponse({
     description: 'El rol ha sido creado exitosamente.',
@@ -113,11 +142,65 @@ export class RolesController {
       }
     }
   })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso roles:create requerido.' })
-  @ApiConflictResponse({ description: 'Conflicto: El nombre de rol especificado ya se encuentra registrado.' })
-  @ApiNotFoundResponse({ description: 'No encontrado: Uno o más IDs de permisos especificados no existen.' })
-  @ApiUnprocessableEntityResponse({ description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso roles:create requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiConflictResponse({
+    description: 'Conflicto: El nombre de rol especificado ya se encuentra registrado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 409 },
+        message: { type: 'string', example: 'El rol con nombre "EDITOR" ya existe' },
+        error: { type: 'string', example: 'Conflict' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: Uno o más IDs de permisos especificados no existen.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Uno o más permisos especificados no fueron encontrados' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 422 },
+        message: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['name must be a string', 'name should not be empty']
+        },
+        error: { type: 'string', example: 'Unprocessable Entity' }
+      }
+    }
+  })
+  @ApiBody({ type: CreateRoleDto, description: 'Datos del nuevo rol a crear' })
   async create(@Body() createRoleDto: CreateRoleDto) {
     const result = await this.rolesService.create(createRoleDto);
     return {
@@ -128,6 +211,10 @@ export class RolesController {
   }
 
   @Permissions('roles:update')
+  @ApiOperation({
+    summary: 'Actualizar un rol y sus permisos',
+    description: 'Modifica el nombre, descripción y el conjunto de permisos asociados a un rol de forma transaccional. Bloquea la edición si se trata de un rol preestablecido de sistema.',
+  })
   @Patch(':id')
   @ApiParam({ name: 'id', type: String, description: 'Identificador único del rol (UUID versión 4)', example: 'b3b16384-c113-49cd-b5d6-8c4d5865dec2' })
   @ApiOkResponse({
@@ -164,11 +251,65 @@ export class RolesController {
       }
     }
   })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso roles:update requerido, o intenta editar un rol de sistema.' })
-  @ApiConflictResponse({ description: 'Conflicto: El nombre de rol especificado ya se encuentra registrado por otro rol.' })
-  @ApiNotFoundResponse({ description: 'No encontrado: El rol o alguno de los IDs de permisos especificados no existen.' })
-  @ApiUnprocessableEntityResponse({ description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso roles:update requerido, o intenta editar un rol de sistema.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Los roles de sistema no pueden ser editados' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiConflictResponse({
+    description: 'Conflicto: El nombre de rol especificado ya se encuentra registrado por otro rol.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 409 },
+        message: { type: 'string', example: 'El rol con nombre "CLIENTE" ya existe' },
+        error: { type: 'string', example: 'Conflict' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: El rol o alguno de los IDs de permisos especificados no existen.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Rol con ID b3b16384-c113-49cd-b5d6-8c4d5865dec2 no encontrado' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 422 },
+        message: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['name must be a string']
+        },
+        error: { type: 'string', example: 'Unprocessable Entity' }
+      }
+    }
+  })
+  @ApiBody({ type: CreateRoleDto, description: 'Campos del rol a actualizar' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateRoleDto: CreateRoleDto,
@@ -182,14 +323,57 @@ export class RolesController {
   }
 
   @Permissions('roles:delete')
+  @ApiOperation({
+    summary: 'Eliminar rol de forma lógica (soft delete)',
+    description: 'Aplica un borrado lógico sobre un rol dinámico si no es de sistema y no tiene usuarios activos asignados.',
+  })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiParam({ name: 'id', type: String, description: 'Identificador único del rol a eliminar (UUID versión 4)', example: 'b3b16384-c113-49cd-b5d6-8c4d5865dec2' })
   @ApiNoContentResponse({ description: 'El rol ha sido eliminado lógicamente (soft deleted) exitosamente (sin contenido).' })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso roles:delete requerido.' })
-  @ApiNotFoundResponse({ description: 'No encontrado: El rol especificado no existe.' })
-  @ApiConflictResponse({ description: 'Conflicto: No se puede eliminar un rol de sistema o un rol que tiene usuarios asignados.' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso roles:delete requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: El rol especificado no existe.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Rol con ID b3b16384-c113-49cd-b5d6-8c4d5865dec2 no encontrado' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
+  @ApiConflictResponse({
+    description: 'Conflicto: No se puede eliminar un rol de sistema o un rol que tiene usuarios asignados.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 409 },
+        message: { type: 'string', example: 'No se puede eliminar un rol que tiene usuarios asignados' },
+        error: { type: 'string', example: 'Conflict' }
+      }
+    }
+  })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     await this.rolesService.remove(id);
   }

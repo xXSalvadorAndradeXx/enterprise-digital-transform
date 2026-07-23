@@ -14,6 +14,7 @@ import {
   ApiBearerAuth, 
   ApiQuery, 
   ApiParam,
+  ApiBody,
   ApiOkResponse, 
   ApiCreatedResponse,
   ApiNoContentResponse,
@@ -21,10 +22,11 @@ import {
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiConflictResponse,
-  ApiUnprocessableEntityResponse
+  ApiUnprocessableEntityResponse,
+  ApiOperation
 } from '@nestjs/swagger';
 
-@ApiTags('users')
+@ApiTags('Users')
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController {
@@ -32,6 +34,10 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('users:create')
+  @ApiOperation({
+    summary: 'Crear un nuevo usuario',
+    description: 'Crea un nuevo usuario en el sistema con un conjunto de roles, generando una contraseña temporal compleja de forma transaccional.',
+  })
   @Post()
   @ApiCreatedResponse({
     description: 'El usuario ha sido creado exitosamente.',
@@ -69,10 +75,54 @@ export class UsersController {
       }
     }
   })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:create requerido.' })
-  @ApiConflictResponse({ description: 'Conflicto: El correo electrónico especificado ya se encuentra registrado.' })
-  @ApiUnprocessableEntityResponse({ description: 'Entidad no procesable: Datos de entrada inválidos (errores de validación del DTO).' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso users:create requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiConflictResponse({
+    description: 'Conflicto: El correo electrónico especificado ya se encuentra registrado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 409 },
+        message: { type: 'string', example: 'El correo electrónico "juan.perez@ecommerce.local" ya se encuentra registrado' },
+        error: { type: 'string', example: 'Conflict' }
+      }
+    }
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Entidad no procesable: Datos de entrada inválidos (errores de validación del DTO).',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 422 },
+        message: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['email must be an email', 'firstName should not be empty']
+        },
+        error: { type: 'string', example: 'Unprocessable Entity' }
+      }
+    }
+  })
+  @ApiBody({ type: CreateUserDto, description: 'Datos del nuevo usuario a crear' })
   async create(@Body() createUserDto: CreateUserDto) {
     const { user } = await this.usersService.create(createUserDto);
     const serializedUser = plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true });
@@ -84,7 +134,21 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard) 
+  @ApiOperation({
+    summary: 'Obtener perfil del usuario autenticado',
+    description: 'Retorna los detalles del usuario actual extraídos a partir del token de acceso JWT provisto en la cabecera.',
+  })
   @Get('profile')
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
   getProfile(@Request() req) {
     return {
       message: '¡Acceso exitoso a la ruta protegida!',
@@ -94,6 +158,10 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('users:read')
+  @ApiOperation({
+    summary: 'Listar usuarios con filtros y paginación',
+    description: 'Retorna un listado paginado y filtrado de usuarios en el sistema, permitiendo búsquedas por nombre, email, rol y estado activo.',
+  })
   @Get()
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Número de página (paginación basada en offset)', example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Cantidad de elementos por página', example: 10 })
@@ -149,8 +217,27 @@ export class UsersController {
       }
     }
   })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado en el encabezado Authorization.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:read requerido.' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado en el encabezado Authorization.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso users:read requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
   async findAll(@Query() query: FindUsersQueryDto) {
     const { page, limit, ...filters } = query;
     const { users, meta } = await this.usersService.findAll(page, limit, filters);
@@ -165,6 +252,10 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('users:read')
+  @ApiOperation({
+    summary: 'Obtener detalle de usuario por ID',
+    description: 'Retorna los detalles completos de un usuario a partir de su ID (UUID), incluyendo sus roles y la lista de permisos efectivos unificados.',
+  })
   @Get(':id')
   @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario (UUID versión 4)', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' })
   @ApiOkResponse({
@@ -208,9 +299,38 @@ export class UsersController {
       }
     }
   })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:read requerido.' })
-  @ApiNotFoundResponse({ description: 'No encontrado: El usuario especificado no existe o ha sido eliminado lógicamente (soft deleted).' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso users:read requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: El usuario especificado no existe o ha sido eliminado lógicamente (soft deleted).',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Usuario con ID d3b07384-d113-49cd-a5d6-8c4d5865dec9 no encontrado o inactivo' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     const result = await this.usersService.findOne(id);
     const serializedUser = plainToInstance(UserResponseDto, result, { excludeExtraneousValues: true });
@@ -223,6 +343,10 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('users:update')
+  @ApiOperation({
+    summary: 'Actualizar información de un usuario',
+    description: 'Modifica los datos personales y/o el estado activo de un usuario existente, previniendo desactivar al último SUPERADMIN activo en tiempo real.',
+  })
   @Patch(':id')
   @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario a actualizar (UUID versión 4)', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' })
   @ApiOkResponse({
@@ -261,11 +385,65 @@ export class UsersController {
       }
     }
   })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:update requerido.' })
-  @ApiNotFoundResponse({ description: 'No encontrado: El usuario a editar o alguno de los roles especificados no existen.' })
-  @ApiConflictResponse({ description: 'Conflicto: El correo electrónico ya se encuentra registrado por otro usuario, o la operación intenta deactivar/remover el rol SUPERADMIN del último administrador activo.' })
-  @ApiUnprocessableEntityResponse({ description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso users:update requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: El usuario a editar o alguno de los roles especificados no existen.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Usuario no encontrado o inactivo' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
+  @ApiConflictResponse({
+    description: 'Conflicto: El correo electrónico ya se encuentra registrado por otro usuario, o la operación intenta desactivar/remover el rol SUPERADMIN del último administrador activo.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 409 },
+        message: { type: 'string', example: 'No se puede desactivar al último administrador SUPERADMIN activo' },
+        error: { type: 'string', example: 'Conflict' }
+      }
+    }
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 422 },
+        message: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['email must be an email']
+        },
+        error: { type: 'string', example: 'Unprocessable Entity' }
+      }
+    }
+  })
+  @ApiBody({ type: UpdateUserDto, description: 'Campos del usuario a actualizar (todos opcionales)' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -281,6 +459,10 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('users:assign-roles')
+  @ApiOperation({
+    summary: 'Reasignar roles a un usuario',
+    description: 'Reemplaza de forma transaccional el conjunto de roles asociados a un usuario y recalifica de forma inmediata sus permisos efectivos en el sistema.',
+  })
   @Patch(':id/roles')
   @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario a reasignar roles (UUID versión 4)', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' })
   @ApiOkResponse({
@@ -324,11 +506,65 @@ export class UsersController {
       }
     }
   })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:assign-roles requerido.' })
-  @ApiNotFoundResponse({ description: 'No encontrado: El usuario o alguno de los roles provistos en la lista no existen.' })
-  @ApiConflictResponse({ description: 'Conflicto: La operación violaría la regla del último SUPERADMIN activo, dejando al sistema sin administradores.' })
-  @ApiUnprocessableEntityResponse({ description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso users:assign-roles requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: El usuario o alguno de los roles provistos en la lista no existen.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Usuario no encontrado' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
+  @ApiConflictResponse({
+    description: 'Conflicto: La operación violaría la regla del último SUPERADMIN activo, dejando al sistema sin administradores.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 409 },
+        message: { type: 'string', example: 'No se puede remover el rol de SUPERADMIN al único administrador activo' },
+        error: { type: 'string', example: 'Conflict' }
+      }
+    }
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Entidad no procesable: Formato de datos de entrada inválidos (errores de validación del DTO).',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 422 },
+        message: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['roleIds must be an array']
+        },
+        error: { type: 'string', example: 'Unprocessable Entity' }
+      }
+    }
+  })
+  @ApiBody({ type: AssignRolesDto, description: 'Lista de IDs de roles a asignar al usuario (reemplaza los actuales)' })
   async assignRoles(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() assignRolesDto: AssignRolesDto,
@@ -344,14 +580,57 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('users:delete')
+  @ApiOperation({
+    summary: 'Eliminar usuario de forma lógica (soft delete)',
+    description: 'Desactiva al usuario y aplica un borrado lógico en la base de datos de manera transaccional, revocando inmediatamente todos sus refresh tokens activos.',
+  })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario a eliminar (UUID versión 4)', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec9' })
   @ApiNoContentResponse({ description: 'El usuario ha sido desactivado y eliminado lógicamente de forma transaccional con éxito (sin contenido).' })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso users:delete requerido.' })
-  @ApiNotFoundResponse({ description: 'No encontrado: El usuario especificado no existe.' })
-  @ApiConflictResponse({ description: 'Conflicto: No se puede eliminar o desactivar al último administrador SUPERADMIN activo del sistema.' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso users:delete requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: El usuario especificado no existe.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Usuario con ID d3b07384-d113-49cd-a5d6-8c4d5865dec9 no encontrado' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
+  @ApiConflictResponse({
+    description: 'Conflicto: No se puede eliminar o desactivar al último administrador SUPERADMIN activo del sistema.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 409 },
+        message: { type: 'string', example: 'No se puede eliminar al único administrador SUPERADMIN activo' },
+        error: { type: 'string', example: 'Conflict' }
+      }
+    }
+  })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     await this.usersService.remove(id);
   }

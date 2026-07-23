@@ -3,9 +3,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { PermissionsService } from './permissions.service';
-import { ApiTags, ApiBearerAuth, ApiOkResponse, ApiUnauthorizedResponse, ApiForbiddenResponse } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOkResponse, ApiUnauthorizedResponse, ApiForbiddenResponse, ApiOperation } from '@nestjs/swagger';
 
-@ApiTags('permissions')
+@ApiTags('Permissions')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('permissions')
@@ -13,6 +13,10 @@ export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 
   @Permissions('roles:read')
+  @ApiOperation({
+    summary: 'Listar permisos agrupados por recurso',
+    description: 'Retorna el catálogo completo de permisos disponibles en el sistema agrupados según su recurso de origen (prefijo en el código).',
+  })
   @Get()
   @ApiOkResponse({
     description: 'Catálogo de permisos agrupado por recurso obtenido exitosamente.',
@@ -44,8 +48,27 @@ export class PermissionsController {
       }
     }
   })
-  @ApiUnauthorizedResponse({ description: 'No autorizado: Token de acceso no válido o no enviado.' })
-  @ApiForbiddenResponse({ description: 'Acceso denegado: El usuario no cuenta con el permiso roles:read requerido.' })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso roles:read requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
   async findAll() {
     const result = await this.permissionsService.findAll();
     return {
