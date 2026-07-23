@@ -145,10 +145,52 @@ export class AuthController {
     };
   }
 
+  @ApiOperation({
+    summary: 'Renovar Access Token y Refresh Token (Rotación Segura)',
+    description:
+      'Valida el Refresh Token provisto y efectúa la rotación emitiendo un nuevo par Access Token (15 min) y Refresh Token (7 días). Si se detecta la reutilización de un token revocado previamente, invalida todas las sesiones activas del usuario por seguridad (HTTP 401).',
+  })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Rotación exitosa de tokens',
+    schema: {
+      type: 'object',
+      properties: {
+        accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+        refreshToken: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+        access_token: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+        refresh_token: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description:
+      'Refresh Token inválido, expirado, no encontrado o reutilización detectada',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 401,
+        message:
+          'Se ha detectado la reutilización de un token revocado. Todas las sesiones activas han sido invalidadas por seguridad.',
+        error: 'Unauthorized',
+      },
+    },
+  })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
-    return this.authService.validateAndRotate(refreshTokenDto.refreshToken);
+    const tokens = await this.authService.validateAndRotate(
+      refreshTokenDto.refreshToken,
+    );
+
+    return {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+    };
   }
 
   @Post('logout')
