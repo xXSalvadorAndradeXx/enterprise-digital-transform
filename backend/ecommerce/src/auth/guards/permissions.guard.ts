@@ -1,16 +1,12 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UsersService } from '../../users/users.service';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  constructor(
-    private reflector: Reflector,
-    private usersService: UsersService,
-  ) {}
+  constructor(private reflector: Reflector) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -20,19 +16,25 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
-    if (!user || !user.userId) {
-      throw new ForbiddenException('Acceso denegado: Usuario no autenticado');
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+
+    if (!user) {
+      throw new ForbiddenException('No tienes permisos suficientes para realizar esta acción');
     }
 
-    // Obtener los detalles completos del usuario y sus permisos unificados
-    const userDetail = await this.usersService.findOne(user.userId);
-    const userPermissions = userDetail.permissions || [];
+    const userRole = (user.rol || user.role || '').toUpperCase();
+    if (userRole === 'ADMIN') {
+      return true;
+    }
 
-    // Comprobar si el usuario posee todos los permisos requeridos
-    const hasPermission = requiredPermissions.every((perm) => userPermissions.includes(perm));
-    if (!hasPermission) {
-      throw new ForbiddenException('Acceso denegado: No tienes permisos suficientes para realizar esta acción');
+    const userPermissions: string[] = user.permissions || user.permisos || [];
+    const hasAllPermissions = requiredPermissions.every((permission) =>
+      userPermissions.includes(permission),
+    );
+
+    if (!hasAllPermissions) {
+      throw new ForbiddenException('No tienes permisos suficientes para realizar esta acción');
     }
 
     return true;

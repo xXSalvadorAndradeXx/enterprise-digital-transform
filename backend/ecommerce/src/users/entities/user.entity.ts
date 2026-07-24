@@ -1,5 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToOne, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToOne, OneToMany, ManyToMany, JoinTable } from 'typeorm';
 import { Cart } from '../../cart/entities/cart.entity';
+import { RefreshToken } from './refresh-token.entity';
+import { PasswordResetToken } from './password-reset-token.entity';
 import { Role } from './role.entity';
 
 @Entity('users')
@@ -31,6 +33,9 @@ export class User {
   @Column({ name: 'locked_until', type: 'timestamptz', nullable: true })
   lockedUntil!: Date | null;
 
+  @Column({ name: 'is_blocked', type: 'boolean', default: false, nullable: false })
+  isBlocked!: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
@@ -42,6 +47,12 @@ export class User {
 
   @OneToOne(() => Cart, (cart) => cart.user)
   cart!: Cart;
+
+  @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
+  refreshTokens!: RefreshToken[];
+
+  @OneToMany(() => PasswordResetToken, (resetToken) => resetToken.user)
+  passwordResetTokens!: PasswordResetToken[];
 
   @ManyToMany(() => Role, (role) => role.users)
   @JoinTable({

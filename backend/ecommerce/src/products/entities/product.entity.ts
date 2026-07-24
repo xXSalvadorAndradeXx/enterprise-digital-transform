@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, DeleteDateColumn, ManyToOne, OneToMany } from 'typeorm';
 import { Category } from '../../categories/entities/category.entity';
 import { CartItem } from '../../cart/entities/cart-item.entity';
+import { Supplier } from '../../suppliers/entities/supplier.entity';
 
 @Entity('products')
 export class Product {
@@ -30,6 +31,9 @@ export class Product {
 
   @ManyToOne(() => Category, (category) => category.products, { onDelete: 'CASCADE' })
   category!: Category;
+
+  @ManyToOne(() => Supplier, (supplier) => supplier.products, { nullable: true, onDelete: 'SET NULL' })
+  supplier?: Supplier | null;
 
   @OneToMany(() => CartItem, (cartItem) => cartItem.product)
   cartItems!: CartItem[];

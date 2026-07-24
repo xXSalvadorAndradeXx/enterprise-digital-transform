@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe, HttpStatus } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
@@ -17,13 +17,12 @@ async function bootstrap() {
     whitelist: true, // Elimina campos que no estén en el DTO
     forbidNonWhitelisted: true, // Lanza error si envían campos de más
     transform: true, // Convierte los datos a los tipos del DTO automáticamente
-    errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY, // Retorna 422 (Unprocessable Entity) ante errores de validación
   }));
 
-  // Configuración de Swagger
+  // Configuración de Swagger / OpenAPI
   const config = new DocumentBuilder()
-    .setTitle('Ecommerce API')
-    .setDescription('Backend restful para el sistema de Ecommerce')
+    .setTitle('API Ecommerce & Módulo de Proveedores')
+    .setDescription('Documentación interactiva de la API REST para la gestión de proveedores, compras y autenticación')
     .setVersion('1.0')
     .addBearerAuth()
     .build();

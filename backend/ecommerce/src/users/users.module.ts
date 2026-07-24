@@ -3,17 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { Permission } from './entities/permission.entity';
+import { RefreshToken } from './entities/refresh-token.entity';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { UsersController } from './users.controller';
-import { UsersService } from './users.service';
-import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User, Role, Permission]),
-    AuthModule,
-  ],
+  imports: [TypeOrmModule.forFeature([User, Role, Permission, RefreshToken, PasswordResetToken])],
   controllers: [UsersController], 
-  providers: [UsersService],   
-  exports: [TypeOrmModule, UsersService] 
+  providers: [],   
+  exports: [TypeOrmModule] 
 })
 export class UsersModule {}

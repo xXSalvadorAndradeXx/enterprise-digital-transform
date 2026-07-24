@@ -8,10 +8,8 @@ import { ProductsModule } from './products/products.module';
 import { CartModule } from './cart/cart.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
-import { RolesModule } from './roles/roles.module';
-import { PermissionsModule } from './permissions/permissions.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
 import { validate } from './env.validation';
-
 
 @Module({
   imports: [
@@ -32,7 +30,7 @@ import { validate } from './env.validation';
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
         autoLoadEntities: true, // Carga automáticamente las entidades de tus módulos
-        synchronize: true,      // Sincroniza las tablas con tus entidades (solo para desarrollo)
+        synchronize: false,     // Usar migraciones en lugar de synchronize
       }),
     }),
 
@@ -42,8 +40,7 @@ import { validate } from './env.validation';
     CartModule,
     AuthModule,
     CategoriesModule,
-    RolesModule,
-    PermissionsModule,
+    SuppliersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
