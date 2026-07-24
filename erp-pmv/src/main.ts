@@ -66,7 +66,7 @@ async function bootstrap(): Promise<void> {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('ERP API — PMV')
       .setDescription('API REST del Producto Mínimo Viable del ERP')
-      .setVersion('1.0')
+      .setVersion('Alpha-0.1.0')
       .addBearerAuth(
         {
           type: 'http',

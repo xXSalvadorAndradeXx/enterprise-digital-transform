@@ -61,11 +61,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     ProductsModule,
    
     InventoryModule,
-    // SuppliersModule,
-    // PurchasesModule,
-    // ProductsModule,
-    // ProductCategoriesModule,
-    // InventoryModule,
+    
     // CustomersModule,
   ],
 })
