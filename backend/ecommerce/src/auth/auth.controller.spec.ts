@@ -78,8 +78,6 @@ describe('AuthController', () => {
       expect(result).toEqual({
         accessToken: 'new_access_token',
         refreshToken: 'new_refresh_token',
-        access_token: 'new_access_token',
-        refresh_token: 'new_refresh_token',
       });
       expect(authService.validateAndRotate).toHaveBeenCalledWith('valid_refresh_token');
     });

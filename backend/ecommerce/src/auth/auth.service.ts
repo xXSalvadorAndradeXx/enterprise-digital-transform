@@ -297,9 +297,12 @@ export class AuthService {
     // 3. Hashear la nueva contraseña con bcrypt (salt rounds = 10)
     const newHashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // 4. Actualizar usuario y limpiar mustChangePassword
+    // 4. Actualizar usuario, limpiar mustChangePassword y desbloquear cuenta
     user.password = newHashedPassword;
     user.mustChangePassword = false;
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.isBlocked = false;
 
     await this.userRepository.save(user);
   }
@@ -422,6 +425,9 @@ export class AuthService {
     const newHashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = newHashedPassword;
     user.mustChangePassword = false;
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.isBlocked = false;
     await this.userRepository.save(user);
 
     tokenRecord.used = true;
