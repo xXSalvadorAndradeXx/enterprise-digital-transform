@@ -12,6 +12,8 @@ import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { validate } from './env.validation';
 import { SuppliersModule } from './suppliers/suppliers.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { PurchasesModule } from './purchases/purchases.module';
 
 
 @Module({
@@ -45,7 +47,9 @@ import { SuppliersModule } from './suppliers/suppliers.module';
     CategoriesModule,
     RolesModule,
     PermissionsModule,
-    SuppliersModule
+    SuppliersModule,
+    InventoryModule,
+    PurchasesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
