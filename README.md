@@ -96,9 +96,9 @@ API_PREFIX=api/v1
 
 DB_HOST=localhost
 DB_PORT=5432
-DB_USERNAME=postgres
+DB_USERNAME=user
 DB_PASSWORD=password
-DB_DATABASE=erp_pmv
+DB_DATABASE=name-db
 
 JWT_SECRET=secret
 JWT_EXPIRES_IN=1h
