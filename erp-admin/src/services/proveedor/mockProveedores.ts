@@ -7,7 +7,7 @@ export const mockProviders = [
   {
     id: 2,
     provider: "Pull&Bear",
-    phone: "7777-1221",
+    phone: "+503 7777-1221",
   },
   {
     id: 3,

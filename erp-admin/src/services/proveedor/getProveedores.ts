@@ -15,6 +15,8 @@ export async function getProveedores({
 }: GetProveedoresParams) {
   // Simulamos el tiempo que tardaría una API
   await new Promise((resolve) => setTimeout(resolve, 500));
+  
+  //throw new Error("Error de prueba");
 
 
 
