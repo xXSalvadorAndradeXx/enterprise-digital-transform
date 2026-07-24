@@ -186,4 +186,4 @@ pnpm run test:cov
 
 # 📄 Licencia
 
-Este proyecto se distribuye bajo la licencia **MIT**.
+Este proyecto es de uso privado y su código fuente es confidencial. No está permitida su distribución o reproducción sin autorización.
