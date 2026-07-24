@@ -1,5 +1,9 @@
 import { NestFactory, Reflector } from '@nestjs/core';
-import { ValidationPipe, ClassSerializerInterceptor, Logger } from '@nestjs/common';
+import {
+  ValidationPipe,
+  ClassSerializerInterceptor,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -17,7 +21,8 @@ async function bootstrap(): Promise<void> {
   const port = configService.get<number>('app.port') || 3000;
   const apiPrefix = configService.get<string>('app.apiPrefix') || 'api/v1';
   const corsOrigins = configService.get<string[]>('app.corsOrigins') || [];
-  const nodeEnv = configService.get<string>('app.nodeEnv') || 'development';
+  const nodeEnv =
+    configService.get<string>('app.nodeEnv') || 'development';
 
   // ── Prefijo global de API ────────────────────────────────────────────
   app.setGlobalPrefix(apiPrefix);
@@ -39,7 +44,9 @@ async function bootstrap(): Promise<void> {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: { enableImplicitConversion: true },
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
     }),
   );
 
@@ -66,7 +73,7 @@ async function bootstrap(): Promise<void> {
           scheme: 'bearer',
           bearerFormat: 'JWT',
           name: 'Authorization',
-          description: 'Ingresa el access token JWT',
+          description: 'Ingresa el Access Token JWT',
           in: 'header',
         },
         'access-token',
@@ -84,6 +91,7 @@ async function bootstrap(): Promise<void> {
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);
+
     SwaggerModule.setup('api/docs', app, document, {
       swaggerOptions: {
         persistAuthorization: true,
@@ -91,13 +99,25 @@ async function bootstrap(): Promise<void> {
         operationsSorter: 'alpha',
       },
     });
-
-    logger.log(`📚 Swagger disponible en: http://localhost:${port}/api/docs`);
   }
 
+  // ── Iniciar servidor ─────────────────────────────────────────────────
   await app.listen(port);
-  logger.log(`🚀 Servidor iniciado en: http://localhost:${port}/${apiPrefix}`);
-  logger.log(`🌍 Entorno: ${nodeEnv}`);
+
+  // ── Logs finales (siempre al final de la consola) ────────────────────
+  logger.log('');
+  logger.log('='.repeat(72));
+  logger.log('🚀 ERP API iniciada correctamente');
+  logger.log(`🌍 Entorno      : ${nodeEnv}`);
+  logger.log(`📡 Servidor API : http://localhost:${port}/${apiPrefix}`);
+
+  if (nodeEnv !== 'production') {
+    logger.log(`📚 Swagger      : http://localhost:${port}/api/docs`);
+  }
+
+  logger.log(`🔌 Puerto       : ${port}`);
+  logger.log('='.repeat(72));
+  logger.log('');
 }
 
 bootstrap();
