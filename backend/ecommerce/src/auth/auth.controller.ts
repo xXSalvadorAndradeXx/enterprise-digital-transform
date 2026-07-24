@@ -5,7 +5,6 @@ import {
   Body,
   Req,
   UseGuards,
-  ConflictException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -16,11 +15,7 @@ import {
   ApiBody,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
-import { Cart } from '../cart/entities/cart.entity';
-import { HashService } from './hash.service';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -35,14 +30,7 @@ import { MustChangePasswordGuard } from './guards/must-change-password.guard';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(Cart)
-    private readonly cartRepository: Repository<Cart>,
-    private readonly hashService: HashService,
-    private readonly authService: AuthService,
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   @ApiOperation({
     summary: 'Registrar nuevo usuario en la plataforma',
@@ -94,30 +82,7 @@ export class AuthController {
   })
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
-    const existingUser = await this.userRepository.findOneBy({
-      email: registerDto.email,
-    });
-
-    if (existingUser) {
-      throw new ConflictException('El correo electrónico ya está registrado');
-    }
-
-    const hashedPassword = await this.hashService.hashPassword(
-      registerDto.password,
-    );
-
-    const newUser = this.userRepository.create({
-      ...registerDto,
-      password: hashedPassword,
-    });
-
-    const savedUser = await this.userRepository.save(newUser);
-
-    const newCart = this.cartRepository.create({ user: savedUser });
-    await this.cartRepository.save(newCart);
-
-    const { password: _, ...result } = savedUser;
-    return result;
+    return this.authService.register(registerDto);
   }
 
   @ApiOperation({

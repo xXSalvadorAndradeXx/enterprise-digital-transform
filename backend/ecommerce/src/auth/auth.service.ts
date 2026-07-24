@@ -18,6 +18,11 @@ import { RefreshToken } from '../users/entities/refresh-token.entity';
 import { PasswordResetToken } from '../users/entities/password-reset-token.entity';
 import { PASSWORD_COMPLEXITY_REGEX } from './dto/change-password.dto';
 
+import { Cart } from '../cart/entities/cart.entity';
+import { HashService } from './hash.service';
+import { RegisterDto } from './dto/register.dto';
+import { ConflictException } from '@nestjs/common';
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -29,13 +34,50 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Cart)
+    private readonly cartRepository: Repository<Cart>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     @InjectRepository(PasswordResetToken)
     private readonly passwordResetTokenRepository: Repository<PasswordResetToken>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly hashService: HashService,
   ) {}
+
+  /**
+   * Registro de un nuevo usuario en la plataforma:
+   * 1. Verifica si el email ya se encuentra registrado (HTTP 409 Conflict).
+   * 2. Hashea la contraseña del usuario.
+   * 3. Crea el registro en BD de User y le asigna automáticamente un Cart.
+   * 4. Retorna la entidad del usuario recién creado omitiendo la contraseña.
+   */
+  async register(registerDto: RegisterDto): Promise<Omit<User, 'password'>> {
+    const existingUser = await this.userRepository.findOneBy({
+      email: registerDto.email,
+    });
+
+    if (existingUser) {
+      throw new ConflictException('El correo electrónico ya está registrado');
+    }
+
+    const hashedPassword = await this.hashService.hashPassword(
+      registerDto.password,
+    );
+
+    const newUser = this.userRepository.create({
+      ...registerDto,
+      password: hashedPassword,
+    });
+
+    const savedUser = await this.userRepository.save(newUser);
+
+    const newCart = this.cartRepository.create({ user: savedUser });
+    await this.cartRepository.save(newCart);
+
+    const { password: _, ...result } = savedUser;
+    return result;
+  }
 
   /**
    * Genera el SHA-256 hash de un token para almacenamiento seguro en BD.

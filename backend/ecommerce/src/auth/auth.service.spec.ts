@@ -5,6 +5,8 @@ import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { User } from '../users/entities/user.entity';
+import { Cart } from '../cart/entities/cart.entity';
+import { HashService } from './hash.service';
 import { RefreshToken } from '../users/entities/refresh-token.entity';
 import { PasswordResetToken } from '../users/entities/password-reset-token.entity';
 
@@ -52,10 +54,21 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
       findOneBy: jest.fn(),
     };
 
+    const cartRepository = {
+      create: jest.fn().mockImplementation((dto) => dto),
+      save: jest.fn().mockImplementation(async (c) => c),
+    };
+
+    const hashService = {
+      hashPassword: jest.fn().mockResolvedValue('hashedpassword'),
+      comparePassword: jest.fn().mockResolvedValue(true),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: getRepositoryToken(User), useValue: userRepository },
+        { provide: getRepositoryToken(Cart), useValue: cartRepository },
         {
           provide: getRepositoryToken(RefreshToken),
           useValue: refreshTokenRepository,
@@ -64,6 +77,7 @@ describe('AuthService - Refresh Tokens & Rotation', () => {
           provide: getRepositoryToken(PasswordResetToken),
           useValue: passwordResetTokenRepository,
         },
+        { provide: HashService, useValue: hashService },
         {
           provide: JwtService,
           useValue: {
