@@ -16,9 +16,22 @@ export class RolesGuard implements CanActivate {
     }
     const { user } = context.switchToHttp().getRequest();
     
-    if (!user || !requiredRoles.includes(user.rol)) {
+    if (!user) {
+      throw new ForbiddenException('No tienes permisos suficientes para realizar esta acción');
+    }
+
+    const userRoles: string[] = Array.isArray(user.roles)
+      ? user.roles
+      : user.rol
+      ? [user.rol]
+      : [];
+
+    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+
+    if (!hasRole) {
       throw new ForbiddenException('No tienes permisos suficientes para realizar esta acción');
     }
     return true;
   }
 }
+

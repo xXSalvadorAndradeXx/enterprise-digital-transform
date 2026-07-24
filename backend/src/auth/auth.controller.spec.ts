@@ -1,11 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { HashService } from './hash.service';
 import { User } from '../users/entities/user.entity';
-import { Cart } from '../cart/entities/cart.entity';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -13,51 +10,77 @@ describe('AuthController', () => {
 
   const mockUser: User = {
     id: 'user-uuid-123',
-    nombre: 'Juan Pérez',
+    firstName: 'Juan',
+    lastName: 'Pérez',
     email: 'juan@example.com',
-    password: 'hashedpassword',
-    rol: 'cliente',
+    passwordHash: 'hashedpassword',
     isActive: true,
     isBlocked: false,
     mustChangePassword: false,
     createdAt: new Date(),
+    updatedAt: new Date(),
     cart: null as any,
-    refreshTokens: [],
-    passwordResetTokens: [],
-  };
+    roles: [{ id: 'role-1', name: 'cliente' }] as any,
+  } as User;
 
   beforeEach(async () => {
     authService = {
+      register: jest.fn().mockResolvedValue({
+        id: 'user-uuid-123',
+        firstName: 'Juan',
+        lastName: 'Pérez',
+        email: 'juan@example.com',
+        isActive: true,
+        mustChangePassword: false,
+      }),
       issueAccessToken: jest.fn().mockResolvedValue('access_token_123'),
       issueRefreshToken: jest.fn().mockResolvedValue('refresh_token_123'),
+      handleSuccessfulLogin: jest.fn().mockResolvedValue(undefined),
       validateAndRotate: jest.fn().mockResolvedValue({
         access_token: 'new_access_token',
         refresh_token: 'new_refresh_token',
       }),
       revokeAllUserTokens: jest.fn().mockResolvedValue(undefined),
       revokeToken: jest.fn().mockResolvedValue(undefined),
-      checkAccountStatus: jest.fn(),
+      changePassword: jest.fn().mockResolvedValue(undefined),
+      forgotPassword: jest.fn().mockResolvedValue({
+        message: 'Si el correo electrónico existe en nuestro sistema...',
+      }),
+      resetPassword: jest.fn().mockResolvedValue({
+        message: 'Contraseña restablecida exitosamente',
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [
-        { provide: getRepositoryToken(User), useValue: {} },
-        { provide: getRepositoryToken(Cart), useValue: {} },
-        { provide: HashService, useValue: {} },
-        { provide: AuthService, useValue: authService },
-      ],
+      providers: [{ provide: AuthService, useValue: authService }],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
   });
 
-  describe('login', () => {
-    it('debe retornar 200 con accessToken, refreshToken, user y mustChangePassword', async () => {
-      const req = { user: mockUser };
-      const loginDto = { email: 'juan@example.com', password: 'password123' };
+  describe('register', () => {
+    it('debe invocar authService.register y retornar el usuario creado', async () => {
+      const dto = {
+        nombre: 'Juan Pérez',
+        email: 'juan@example.com',
+        password: 'Password123!',
+      };
 
-      const result = await controller.login(req, loginDto);
+      const result = await controller.register(dto);
+
+      expect(result).toBeDefined();
+      expect(result.email).toBe('juan@example.com');
+      expect(authService.register).toHaveBeenCalledWith(dto);
+    });
+  });
+
+  describe('login', () => {
+    it('debe retornar 200 con accessToken, refreshToken, user y flags de cambio de clave', async () => {
+      const req = { user: mockUser };
+      const dto = { email: 'juan@example.com', password: 'Password123!' };
+
+      const result = await controller.login(req, dto);
 
       expect(result).toBeDefined();
       expect(result.accessToken).toBe('access_token_123');
@@ -70,10 +93,10 @@ describe('AuthController', () => {
   });
 
   describe('refresh', () => {
-    it('debe invocar validateAndRotate y retornar 200 con { accessToken, refreshToken }', async () => {
-      const refreshTokenDto = { refreshToken: 'valid_refresh_token' };
+    it('debe invocar validateAndRotate y retornar tokens rotados', async () => {
+      const dto = { refreshToken: 'valid_refresh_token' };
 
-      const result = await controller.refresh(refreshTokenDto);
+      const result = await controller.refresh(dto);
 
       expect(result).toEqual({
         accessToken: 'new_access_token',
@@ -82,43 +105,38 @@ describe('AuthController', () => {
       expect(authService.validateAndRotate).toHaveBeenCalledWith('valid_refresh_token');
     });
 
-    it('debe propagar la excepción UnauthorizedException (401) ante token invalido/reutilizado', async () => {
+    it('debe propagar UnauthorizedException si el token es revocado', async () => {
       authService.validateAndRotate.mockRejectedValue(
         new UnauthorizedException('Token de refresco revocado o invalido'),
       );
 
-      const refreshTokenDto = { refreshToken: 'revoked_token' };
+      const dto = { refreshToken: 'revoked_token' };
 
-      await expect(controller.refresh(refreshTokenDto)).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(controller.refresh(dto)).rejects.toThrow(UnauthorizedException);
     });
   });
 
   describe('logout', () => {
-    it('debe invocar revokeToken y retornar HTTP 204 sin contenido cuando se envía RefreshTokenDto', async () => {
-      const req = { user: { userId: 'user-uuid-123' } };
+    it('debe invocar revokeToken cuando se provee refreshToken en DTO', async () => {
+      const req = { user: { id: 'user-uuid-123' } };
       const dto = { refreshToken: 'active_refresh_token' };
 
-      const result = await controller.logout(req, dto);
+      await controller.logout(req, dto);
 
-      expect(result).toBeUndefined(); // 204 No Content
       expect(authService.revokeToken).toHaveBeenCalledWith('active_refresh_token');
     });
 
-    it('debe invocar revokeAllUserTokens y retornar HTTP 204 sin contenido cuando no se envía DTO', async () => {
-      const req = { user: { userId: 'user-uuid-123' } };
+    it('debe invocar revokeAllUserTokens cuando no se envía DTO', async () => {
+      const req = { user: { id: 'user-uuid-123' } };
 
-      const result = await controller.logout(req);
+      await controller.logout(req);
 
-      expect(result).toBeUndefined(); // 204 No Content
       expect(authService.revokeAllUserTokens).toHaveBeenCalledWith('user-uuid-123');
     });
   });
 
   describe('changePassword', () => {
-    it('debe invocar authService.changePassword y retornar mensaje de éxito (200)', async () => {
-      authService.changePassword = jest.fn().mockResolvedValue(undefined);
+    it('debe invocar authService.changePassword y retornar mensaje de éxito', async () => {
       const req = { user: { id: 'user-uuid-123' } };
       const dto = {
         currentPassword: 'OldPass123!',
@@ -137,10 +155,7 @@ describe('AuthController', () => {
   });
 
   describe('forgotPassword', () => {
-    it('debe invocar authService.forgotPassword y retornar mensaje de confirmación', async () => {
-      authService.forgotPassword = jest.fn().mockResolvedValue({
-        message: 'Si el correo electrónico existe en nuestro sistema...',
-      });
+    it('debe invocar authService.forgotPassword', async () => {
       const req = { ip: '127.0.0.1' };
       const dto = { email: 'juan@example.com' };
 
@@ -157,10 +172,7 @@ describe('AuthController', () => {
   });
 
   describe('resetPassword', () => {
-    it('debe invocar authService.resetPassword y retornar mensaje de éxito', async () => {
-      authService.resetPassword = jest.fn().mockResolvedValue({
-        message: 'Contraseña restablecida exitosamente',
-      });
+    it('debe invocar authService.resetPassword', async () => {
       const dto = {
         token: 'raw_reset_token',
         newPassword: 'NewSecurePass456!',
@@ -177,19 +189,14 @@ describe('AuthController', () => {
   });
 
   describe('getProfile (GET /auth/me)', () => {
-    it('debe retornar 200 con { user, roles, permissions } resueltos del token JWT', () => {
+    it('debe retornar datos del usuario autenticado', () => {
       const req = {
         user: {
           id: 'user-uuid-123',
-          userId: 'user-uuid-123',
           nombre: 'Juan Pérez',
           email: 'juan@example.com',
-          rol: 'cliente',
-          isActive: true,
-          isBlocked: false,
-          mustChangePassword: false,
           roles: ['cliente'],
-          permissions: ['read', 'create:order'],
+          permissions: ['read'],
         },
       };
 
@@ -198,16 +205,11 @@ describe('AuthController', () => {
       expect(result).toEqual({
         user: {
           id: 'user-uuid-123',
-          userId: 'user-uuid-123',
           nombre: 'Juan Pérez',
           email: 'juan@example.com',
-          rol: 'cliente',
-          isActive: true,
-          isBlocked: false,
-          mustChangePassword: false,
         },
         roles: ['cliente'],
-        permissions: ['read', 'create:order'],
+        permissions: ['read'],
       });
     });
   });

@@ -22,21 +22,27 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
   async validate(email: string, password: string): Promise<any> {
     const user = await this.userRepository
       .createQueryBuilder('user')
+      .leftJoinAndSelect('user.roles', 'roles')
       .addSelect('user.password_hash')
       .where('user.email = :email', { email })
       .getOne();
 
     if (user) {
-      // Delegar la verificación del estado de cuenta/lockout a AuthService
+      // 1. Verificar estado de bloqueo/lockout previo
       this.authService.checkLockout(user);
 
+      // 2. Comparar la contraseña
       const isPasswordMatching = await bcrypt.compare(password, user.passwordHash);
       if (isPasswordMatching) {
         const { passwordHash: _, ...result } = user;
         return result;
       }
+
+      // 3. Registrar intento fallido si la contraseña no coincide
+      await this.authService.handleFailedLogin(user);
     }
 
     throw new UnauthorizedException('Credenciales inválidas');
   }
 }
+
