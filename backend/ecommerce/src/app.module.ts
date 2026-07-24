@@ -8,7 +8,11 @@ import { ProductsModule } from './products/products.module';
 import { CartModule } from './cart/cart.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
+import { RolesModule } from './roles/roles.module';
+import { PermissionsModule } from './permissions/permissions.module';
 import { validate } from './env.validation';
+import { SuppliersModule } from './suppliers/suppliers.module';
+
 
 @Module({
   imports: [
@@ -39,6 +43,9 @@ import { validate } from './env.validation';
     CartModule,
     AuthModule,
     CategoriesModule,
+    RolesModule,
+    PermissionsModule,
+    SuppliersModule
   ],
   controllers: [AppController],
   providers: [AppService],

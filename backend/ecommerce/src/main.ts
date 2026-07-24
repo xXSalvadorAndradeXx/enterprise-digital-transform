@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, HttpStatus } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
@@ -13,18 +13,17 @@ async function bootstrap() {
   });
 
   // Activar validaciones globales
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true, // Elimina campos que no estén en el DTO
-      forbidNonWhitelisted: true, // Lanza error si envían campos de más
-      transform: true, // Convierte los datos a los tipos del DTO automáticamente
-    }),
-  );
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true, // Elimina campos que no estén en el DTO
+    forbidNonWhitelisted: true, // Lanza error si envían campos de más
+    transform: true, // Convierte los datos a los tipos del DTO automáticamente
+    errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY, // Retorna 422 (Unprocessable Entity) ante errores de validación
+  }));
 
-  // Configuración de Documentación Swagger / OpenAPI
+  // Configuración de Swagger
   const config = new DocumentBuilder()
-    .setTitle('E-commerce API')
-    .setDescription('Documentación de los endpoints de la API REST del E-commerce')
+    .setTitle('Ecommerce API')
+    .setDescription('Backend restful para el sistema de Ecommerce')
     .setVersion('1.0')
     .addBearerAuth()
     .build();

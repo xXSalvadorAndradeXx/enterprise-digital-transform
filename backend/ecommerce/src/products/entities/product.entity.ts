@@ -1,11 +1,28 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, DeleteDateColumn, ManyToOne, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+} from 'typeorm';
 import { Category } from '../../categories/entities/category.entity';
 import { CartItem } from '../../cart/entities/cart-item.entity';
+import { Supplier } from '../../suppliers/entities/supplier.entity';
 
 @Entity('products')
 export class Product {
   @PrimaryGeneratedColumn()
   id!: number;
+
+  @ManyToOne(() => Supplier, (supplier) => supplier.products, {
+  nullable: true,
+  onDelete: 'SET NULL',
+})
+  @JoinColumn({ name: 'supplier_id' })
+  supplier?: Supplier;
 
   @Column()
   nombre!: string;

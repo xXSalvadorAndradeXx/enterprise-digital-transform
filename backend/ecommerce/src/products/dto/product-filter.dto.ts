@@ -1,5 +1,5 @@
 import { IsOptional, IsString, IsNumber, Min, IsEnum, IsIn } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { Type } from 'class-transformer';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
 export enum SortOrder {
@@ -11,7 +11,6 @@ const ALLOWED_SORT_FIELDS = ['precio', 'stock', 'createdAt'];
 
 export class ProductFilterDto extends PaginationDto {
   @IsOptional()
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   search?: string;
 
