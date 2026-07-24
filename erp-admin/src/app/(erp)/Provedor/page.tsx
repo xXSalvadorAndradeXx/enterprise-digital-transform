@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreateProveedor } from "./hooks/useCreateProveedor";
 import { useUpdateProveedor } from "./hooks/useUpdateProveedor";
 import { Pencil, Trash2 } from "lucide-react";
+import { useDeleteProveedor } from "./hooks/useDeleteProveedor";
 
 import {
   supplierSchema,
@@ -27,6 +28,7 @@ import ErrorIcon from "@/assets/images/adver.png";
 import SearchEmptyIcon from "@/assets/images/lupa.png";
 
 import { useEffect, useState } from "react";
+
 
 const loadProviders = () => {
   // Aquí irá la petición a la API cuando exista.
@@ -47,6 +49,7 @@ export default function ProveedorPage() {
   const [openEditModal, setOpenEditModal] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   const [successMessage, setSuccessMessage] = useState("");
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const {
   register: registerEdit,
   handleSubmit: handleSubmitEdit,
@@ -76,6 +79,12 @@ console.log("EDIT FORM", {
 
   setOpenEditModal(true);
 };
+
+const handleDelete = (provider: any) => {
+  setSelectedProvider(provider);
+  setOpenDeleteModal(true);
+};
+
   const {
   register,
   handleSubmit,
@@ -96,6 +105,10 @@ const {
   update,
   loading: updatingProvider,
 } = useUpdateProveedor();
+const {
+  remove,
+  loading: deletingProvider,
+} = useDeleteProveedor();
   
 
 
@@ -171,6 +184,7 @@ useEffect(() => {
 
       <button
         type="button"
+        onClick={() => handleDelete(row)}
         className="
           flex
           h-6
@@ -473,6 +487,91 @@ useEffect(() => {
 </button>
   </div>
 </form>
+</Modal>
+<Modal
+  isOpen={openDeleteModal}
+  title=""
+  onClose={() => setOpenDeleteModal(false)}
+  showCloseButton={false}
+>
+  <div className="flex flex-col items-center text-center">
+
+  <Image
+    src={ErrorIcon}
+    alt="Advertencia"
+    width={78}
+    height={78}
+    className="mb-5"
+  />
+
+  <h2 className="mb-3 text-[20px] font-bold text-[#1E1E1E]">
+    Eliminar proveedor
+  </h2>
+
+  <p className="mb-8 max-w-[320px] text-[16px] leading-7 text-[#1a1919]">
+    ¿Estás seguro de que deseas eliminar este proveedor?
+  </p>
+
+  <div className="flex gap-3">
+
+    <button
+      type="button"
+      onClick={() => setOpenDeleteModal(false)}
+      className="
+        h-10
+        w-[95px]
+        rounded-md
+        border
+        border-[#FF3B30]
+        bg-white
+        text-sm
+        font-medium
+        text-black
+        transition
+        hover:bg-red-50
+      "
+    >
+      Cancelar
+    </button>
+
+    <button
+  type="button"
+  disabled={deletingProvider}
+  onClick={async () => {
+    if (!selectedProvider) return;
+
+    const response = await remove(selectedProvider.id);
+
+    if (response.status === 200) {
+      await refresh();
+
+      setOpenDeleteModal(false);
+
+      setSuccessMessage("¡Proveedor eliminado correctamente!");
+
+      setOpenSuccess(true);
+    }
+  }}
+  className="
+    h-10
+    w-[95px]
+    rounded-md
+    bg-[#FF4D4F]
+    text-sm
+    font-medium
+    text-white
+    transition
+    hover:bg-[#e53935]
+    disabled:cursor-not-allowed
+    disabled:bg-gray-400
+  "
+>
+  {deletingProvider ? "Eliminando..." : "Eliminar"}
+</button>
+
+  </div>
+
+</div>
 </Modal>
     </main>
   );
