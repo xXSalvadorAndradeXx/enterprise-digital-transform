@@ -49,15 +49,16 @@ Este proyecto corresponde al desarrollo de una plataforma empresarial compuesta 
 ```
 enterprise-digital-transform/
 │
-├── backend/
-│   ├── erp/
-│   └── ecommerce/
+├── erp-pmv/
+│   
+│   
+├── erp-admin/
 │
+|
 ├── frontend/
-│   ├── erp/
-│   └── ecommerce/
 │
-└── docs/
+│
+└
 ```
 
 ---
