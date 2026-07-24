@@ -44,6 +44,54 @@ export class AuthController {
     private readonly authService: AuthService,
   ) {}
 
+  @ApiOperation({
+    summary: 'Registrar nuevo usuario en la plataforma',
+    description:
+      'Crea una nueva cuenta de usuario con rol cliente por defecto y asigna un carrito de compras automáticamente.',
+  })
+  @ApiBody({ type: RegisterDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Usuario registrado exitosamente',
+    schema: {
+      type: 'object',
+      example: {
+        id: 'd3b07384-d113-4603-9d4f-40291410d5e6',
+        nombre: 'Juan Pérez',
+        email: 'juan@example.com',
+        rol: 'cliente',
+        isActive: true,
+        mustChangePassword: false,
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos de registro inválidos (fallo de validación DTO)',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 400,
+        message: [
+          'El correo electrónico no es válido',
+          'La contraseña no cumple con la política de complejidad',
+        ],
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'El correo electrónico ya está registrado',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 409,
+        message: 'El correo electrónico ya está registrado',
+        error: 'Conflict',
+      },
+    },
+  })
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
     const existingUser = await this.userRepository.findOneBy({
@@ -98,6 +146,18 @@ export class AuthController {
         },
         mustChangePassword: { type: 'boolean', example: false },
         must_change_password: { type: 'boolean', example: false },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos de inicio de sesión inválidos (fallo de validación DTO)',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 400,
+        message: ['El correo electrónico no es válido'],
+        error: 'Bad Request',
       },
     },
   })
@@ -164,8 +224,18 @@ export class AuthController {
       properties: {
         accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
         refreshToken: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
-        access_token: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
-        refresh_token: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Refresh Token no provisto o con formato inválido',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 400,
+        message: ['El refresh token es requerido'],
+        error: 'Bad Request',
       },
     },
   })
@@ -260,6 +330,18 @@ export class AuthController {
     },
   })
   @ApiResponse({
+    status: 401,
+    description: 'Acceso no autorizado - Bearer Token JWT ausente o inválido',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 401,
+        message: 'Acceso no autorizado',
+        error: 'Unauthorized',
+      },
+    },
+  })
+  @ApiResponse({
     status: 403,
     description: 'Debe cambiar su contraseña antes de realizar otra acción',
     schema: {
@@ -315,6 +397,18 @@ export class AuthController {
       example: {
         message:
           'Si el correo electrónico existe en nuestro sistema, se ha enviado un enlace para restablecer la contraseña.',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Correo electrónico no provisto o formato inválido',
+    schema: {
+      type: 'object',
+      example: {
+        statusCode: 400,
+        message: ['El correo electrónico no es válido'],
+        error: 'Bad Request',
       },
     },
   })
