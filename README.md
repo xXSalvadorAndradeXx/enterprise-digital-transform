@@ -49,15 +49,16 @@ Este proyecto corresponde al desarrollo de una plataforma empresarial compuesta 
 ```
 enterprise-digital-transform/
 │
-├── backend/
-│   ├── erp/
-│   └── ecommerce/
+├── erp-pmv/
+│   
+│   
+├── erp-admin/
 │
+|
 ├── frontend/
-│   ├── erp/
-│   └── ecommerce/
 │
-└── docs/
+│
+└
 ```
 
 ---
@@ -95,9 +96,9 @@ API_PREFIX=api/v1
 
 DB_HOST=localhost
 DB_PORT=5432
-DB_USERNAME=postgres
+DB_USERNAME=user
 DB_PASSWORD=password
-DB_DATABASE=erp_pmv
+DB_DATABASE=name-db
 
 JWT_SECRET=secret
 JWT_EXPIRES_IN=1h
@@ -185,4 +186,4 @@ pnpm run test:cov
 
 # 📄 Licencia
 
-Este proyecto se distribuye bajo la licencia **MIT**.
+Este proyecto es de uso privado y su código fuente es confidencial. No está permitida su distribución o reproducción sin autorización.
