@@ -1,82 +1,189 @@
-# ERP PMV — API REST
+<p align="center">
+  <img src="https://nestjs.com/img/logo-small.svg" width="120" alt="NestJS Logo" />
+</p>
 
-Sistema ERP (Enterprise Resource Planning) — Producto Mínimo Viable.
+<h1 align="center">Enterprise Digital Transform</h1>
 
-**Stack:** NestJS 10 · PostgreSQL 15 · TypeORM · JWT · Swagger (OpenAPI 3.0)
+<p align="center">
+Sistema ERP y E-Commerce desarrollado con una arquitectura moderna basada en <strong>NestJS</strong>, <strong>React</strong> y <strong>Vite</strong>.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/NestJS-v11-E0234E?logo=nestjs&logoColor=white" />
+  <img src="https://img.shields.io/badge/React-v19-61DAFB?logo=react&logoColor=black" />
+  <img src="https://img.shields.io/badge/Vite-v7-646CFF?logo=vite&logoColor=white" />
+  <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/PostgreSQL-18-336791?logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/License-MIT-green" />
+</p>
 
 ---
 
-## Requisitos previos
+# 📖 Descripción
 
-- Node.js LTS (≥ 20.x)
-- PNPM (≥ 8.x)
-- Docker + Docker Compose
-- PostgreSQL 15 (o usar el de Docker Compose)
+Este proyecto corresponde al desarrollo de una plataforma empresarial compuesta por un **ERP** y un **E-Commerce**, diseñada bajo una arquitectura escalable y modular.
+
+## Tecnologías principales
+
+### Backend
+
+- NestJS
+- TypeScript
+- TypeORM
+- PostgreSQL
+- JWT Authentication
+- Passport
+- Swagger
+
+### Frontend
+
+- React
+- Vite
+- TypeScript
+- Tailwind CSS
 
 ---
 
-## Instalación y arranque local
+# 📂 Arquitectura
+
+```
+enterprise-digital-transform/
+│
+├── erp-pmv/
+│   
+│   
+├── erp-admin/
+│
+|
+├── frontend/
+│
+│
+└
+```
+
+---
+
+# 🚀 Instalación
+
+## Clonar el repositorio
 
 ```bash
-# 1. Clonar el repositorio
-git clone <repo-url>
-cd erp-pmv
+git clone <repository-url>
 
-# 2. Instalar dependencias
+cd backend
+```
+
+## Instalar dependencias
+
+```bash
 pnpm install
-
-# 3. Copiar variables de entorno
-cp .env.example .env
-# Editar .env con tus valores locales
-
-# 4. Levantar PostgreSQL con Docker
-docker-compose up postgres -d
-
-# 5. Ejecutar migraciones
-pnpm migration:run
-
-# 6. Ejecutar seeds
-pnpm seed:run
-
-# 7. Iniciar en modo desarrollo
-pnpm start:dev
 ```
 
 ---
 
-## Con Docker Compose completo
+# ⚙️ Variables de entorno
+
+Crear un archivo `.env` basado en `.env.example`.
+
+Ejemplo:
+
+```env
+NODE_ENV=development
+
+PORT=3000
+
+API_PREFIX=api/v1
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=user
+DB_PASSWORD=password
+DB_DATABASE=name-db
+
+JWT_SECRET=secret
+JWT_EXPIRES_IN=1h
+
+JWT_REFRESH_SECRET=refresh_secret
+JWT_REFRESH_EXPIRES_IN=7d
+```
+
+---
+
+# ▶️ Ejecutar el proyecto
+
+Modo desarrollo
 
 ```bash
-cp .env.example .env
-docker-compose up --build
+pnpm run start:dev
+```
+
+Modo producción
+
+```bash
+pnpm run start:prod
+```
+
+Compilar
+
+```bash
+pnpm run build
 ```
 
 ---
 
-## URLs disponibles
+# 🧪 Pruebas
 
-| Recurso       | URL                                    |
-|---------------|----------------------------------------|
-| API           | http://localhost:3000/api/v1           |
-| Swagger       | http://localhost:3000/api/docs         |
-| PostgreSQL    | localhost:5432                         |
+Unitarias
 
----
+```bash
+pnpm run test
+```
 
-## Scripts disponibles
+End-to-End
 
-| Script                | Descripción                                   |
-|-----------------------|-----------------------------------------------|
-| `pnpm start:dev`      | Desarrollo con hot-reload                     |
-| `pnpm build`          | Compilar para producción                      |
-| `pnpm start:prod`     | Iniciar build de producción                   |
-| `pnpm test`           | Ejecutar pruebas unitarias                    |
-| `pnpm test:cov`       | Pruebas con reporte de cobertura              |
-| `pnpm migration:run`  | Ejecutar migraciones pendientes               |
-| `pnpm migration:revert` | Revertir última migración                   |
-| `pnpm migration:generate -- src/database/migrations/NombreMigracion` | Generar migración |
-| `pnpm seed:run`       | Ejecutar seeds                                |
+```bash
+pnpm run test:e2e
+```
+
+Cobertura
+
+```bash
+pnpm run test:cov
+```
 
 ---
 
-## Estructura del proyecto
+# 📦 Stack Tecnológico
+
+| Tecnología | Uso |
+|------------|-----|
+| NestJS | Backend |
+| React | Frontend |
+| Vite | Build Tool |
+| TypeScript | Lenguaje |
+| PostgreSQL | Base de Datos |
+| TypeORM | ORM |
+| JWT | Autenticación |
+| Tailwind CSS | Estilos |
+
+---
+
+# 📌 Módulos del ERP
+
+- Autenticación
+- Usuarios
+- Roles y Permisos
+- Clientes
+- Proveedores
+- Productos
+- Inventario
+- Compras
+- Ventas
+- Facturación Electrónica (DTE)
+- Dashboard
+
+---
+
+# 📄 Licencia
+
+Este proyecto es de uso privado y su código fuente es confidencial. No está permitida su distribución o reproducción sin autorización.
