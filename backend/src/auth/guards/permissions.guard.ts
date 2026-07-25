@@ -27,6 +27,15 @@ export class PermissionsGuard implements CanActivate {
 
     // Obtener los detalles completos del usuario y sus permisos unificados
     const userDetail = await this.usersService.findOne(user.userId);
+
+    // Si el usuario posee el rol ADMIN o SUPERADMIN, conceder acceso total automáticamente
+    const isMasterAdmin = userDetail.roles?.some(
+      (role: any) => role.name === 'ADMIN' || role.name === 'SUPERADMIN',
+    );
+    if (isMasterAdmin) {
+      return true;
+    }
+
     const userPermissions = userDetail.permissions || [];
 
     // Comprobar si el usuario posee todos los permisos requeridos
