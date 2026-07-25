@@ -2,16 +2,16 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { HashService } from './hash.service';
-import { RefreshTokenService } from './refresh-token.service';
+import { AuthController } from './controllers/auth.controller';
+import { AuthService } from './services/auth.service';
+import { HashService } from './services/hash.service';
+import { RefreshTokenService } from './services/refresh-token.service';
 import { User } from '../users/entities/user.entity';
 import { Cart } from '../cart/entities/cart.entity';
 import { RefreshToken } from '../users/entities/refresh-token.entity';
 import { PasswordResetToken } from '../users/entities/password-reset-token.entity';
-import { JwtStrategy } from './jwt.strategy';
-import { LocalStrategy } from './local.strategy';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { LocalStrategy } from './strategies/local.strategy';
 import { MustChangePasswordGuard } from './guards/must-change-password.guard';
 
 @Module({

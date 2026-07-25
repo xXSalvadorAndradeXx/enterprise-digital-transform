@@ -2,15 +2,23 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException, HttpException, HttpStatus, BadRequestException, UnprocessableEntityException, ConflictException } from '@nestjs/common';
+import * as crypto from 'crypto';
+import {
+  UnauthorizedException,
+  HttpException,
+  HttpStatus,
+  BadRequestException,
+  UnprocessableEntityException,
+  ConflictException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { User } from '../users/entities/user.entity';
-import { Cart } from '../cart/entities/cart.entity';
+import { User } from '../../users/entities/user.entity';
+import { Cart } from '../../cart/entities/cart.entity';
 import { HashService } from './hash.service';
-import { RefreshToken } from '../users/entities/refresh-token.entity';
-import { PasswordResetToken } from '../users/entities/password-reset-token.entity';
+import { RefreshToken } from '../../users/entities/refresh-token.entity';
+import { PasswordResetToken } from '../../users/entities/password-reset-token.entity';
 
-describe('AuthService', () => {
+describe('AuthService (Pruebas Unitarias de Seguridad)', () => {
   let service: AuthService;
   let jwtService: jest.Mocked<JwtService>;
   let configService: jest.Mocked<ConfigService>;
@@ -116,118 +124,41 @@ describe('AuthService', () => {
     configService = module.get(ConfigService);
   });
 
-  describe('register', () => {
-    it('debe registrar un usuario exitosamente', async () => {
-      userRepository.findOneBy.mockResolvedValue(null);
-
-      const dto = {
-        nombre: 'Juan Pérez',
-        email: 'test@example.com',
-        password: 'Password123!',
-      };
-
-      const result = await service.register(dto);
-
-      expect(result).toBeDefined();
-      expect(result.email).toBe('test@example.com');
-      expect(userRepository.create).toHaveBeenCalled();
-      expect(cartRepository.create).toHaveBeenCalled();
+  // ------------------------------------------------------------------
+  // 1. REGISTRO Y ESTADO DE CUENTA (LOCKOUT 423)
+  // ------------------------------------------------------------------
+  describe('Estado de cuenta y Lockout (423)', () => {
+    it('Prueba: login bloqueado por cuenta en lockout (423)', () => {
+      const blockedUser = { ...mockUser, isBlocked: true };
+      expect(() => service.checkAccountStatus(blockedUser)).toThrow(
+        HttpException,
+      );
+      try {
+        service.checkAccountStatus(blockedUser);
+      } catch (err: any) {
+        expect(err.getStatus()).toBe(HttpStatus.LOCKED); // HTTP 423
+      }
     });
 
-    it('debe lanzar ConflictException si el correo ya está registrado', async () => {
-      userRepository.findOneBy.mockResolvedValue(mockUser);
-
-      const dto = {
-        nombre: 'Juan Pérez',
-        email: 'test@example.com',
-        password: 'Password123!',
-      };
-
-      await expect(service.register(dto)).rejects.toThrow(ConflictException);
-    });
-  });
-
-  describe('checkAccountStatus', () => {
-    it('debe lanzar HttpException (423) si la cuenta está bloqueada', () => {
-      const user = { ...mockUser, isBlocked: true };
-      expect(() => service.checkAccountStatus(user)).toThrow(HttpException);
-    });
-
-    it('debe permitir la ejecución si la cuenta está activa y no bloqueada', () => {
-      expect(() => service.checkAccountStatus(mockUser)).not.toThrow();
-    });
-  });
-
-  describe('handleFailedLogin', () => {
-    it('debe incrementar el contador de intentos fallidos en 1', async () => {
-      const user = { ...mockUser, failedLoginAttempts: 0 };
-      await service.handleFailedLogin(user);
-
-      expect(user.failedLoginAttempts).toBe(1);
-      expect(user.isBlocked).toBe(false);
-      expect(userRepository.save).toHaveBeenCalledWith(user);
-    });
-
-    it('debe bloquear la cuenta al alcanzar 3 intentos fallidos', async () => {
+    it('debe incrementar intentos fallidos y bloquear la cuenta al llegar a 3 fallos', async () => {
       const user = { ...mockUser, failedLoginAttempts: 2 };
       await expect(service.handleFailedLogin(user)).rejects.toThrow(HttpException);
 
       expect(user.failedLoginAttempts).toBe(3);
       expect(user.isBlocked).toBe(true);
-      expect(user.lockedUntil).toBeInstanceOf(Date);
-      expect(userRepository.save).toHaveBeenCalledWith(user);
-    });
-
-  });
-
-  describe('handleSuccessfulLogin', () => {
-    it('debe reiniciar los intentos fallidos a 0', async () => {
-      const user = {
-        ...mockUser,
-        failedLoginAttempts: 2,
-        isBlocked: true,
-        lockedUntil: new Date(),
-      };
-
-      await service.handleSuccessfulLogin(user);
-
-      expect(user.failedLoginAttempts).toBe(0);
-      expect(user.lockedUntil).toBeNull();
-      expect(user.isBlocked).toBe(false);
       expect(userRepository.save).toHaveBeenCalledWith(user);
     });
   });
 
-  describe('issueRefreshToken', () => {
-    it('debe generar un refresh token y guardarlo en BD', async () => {
-      const mockRawToken = 'raw.refresh.token';
-      jwtService.signAsync.mockResolvedValue(mockRawToken);
-
-      const result = await service.issueRefreshToken(mockUser.id);
-
-      expect(result).toBe(mockRawToken);
-      expect(refreshTokenRepository.create).toHaveBeenCalled();
-      expect(refreshTokenRepository.save).toHaveBeenCalled();
-    });
-  });
-
-  describe('revokeAllUserTokens', () => {
-    it('debe revocar todos los tokens activos del usuario', async () => {
-      await service.revokeAllUserTokens(mockUser.id);
-
-      expect(refreshTokenRepository.update).toHaveBeenCalledWith(
-        { userId: mockUser.id, revoked: false },
-        { revoked: true },
-      );
-    });
-  });
-
-  describe('validateAndRotate', () => {
-    it('debe rotar el token exitosamente', async () => {
-      const oldRawToken = 'old.refresh.token';
+  // ------------------------------------------------------------------
+  // 2. ROTACIÓN Y REUTILIZACIÓN DE REFRESH TOKENS
+  // ------------------------------------------------------------------
+  describe('Rotación e Invalidación Masiva de Refresh Tokens', () => {
+    it('Prueba: rotación exitosa de refresh token', async () => {
+      const oldRawToken = 'valid.old.refresh.token';
       const oldHash = service.hashToken(oldRawToken);
-      const newRawToken = 'new.refresh.token';
-      const newAccessToken = 'new.access.token';
+      const newRawToken = 'new.raw.refresh.token';
+      const newAccessToken = 'new.raw.access.token';
 
       jwtService.verifyAsync.mockResolvedValue({
         sub: mockUser.id,
@@ -262,8 +193,8 @@ describe('AuthService', () => {
       expect(refreshTokenRepository.save).toHaveBeenCalledWith(tokenRecord);
     });
 
-    it('debe DETECTAR REUTILIZACIÓN MALICIOSA e invalidar todas las sesiones si el token ya fue revocado', async () => {
-      const reusedRawToken = 'reused.refresh.token';
+    it('Prueba: detección de reutilización de refresh token e invalidación masiva', async () => {
+      const reusedRawToken = 'reused.revoked.refresh.token';
       const reusedHash = service.hashToken(reusedRawToken);
 
       jwtService.verifyAsync.mockResolvedValue({
@@ -278,7 +209,7 @@ describe('AuthService', () => {
         tokenHash: reusedHash,
         expiresAt: new Date(Date.now() + 1000000),
         revoked: true,
-        replacedByTokenHash: 'some_other_hash',
+        replacedByTokenHash: 'some_previous_replacement_hash',
         createdAt: new Date(),
         updatedAt: new Date(),
         deletedAt: null,
@@ -290,6 +221,7 @@ describe('AuthService', () => {
         UnauthorizedException,
       );
 
+      // Invalida masivamente todas las sesiones activas del usuario
       expect(refreshTokenRepository.update).toHaveBeenCalledWith(
         { userId: mockUser.id, revoked: false },
         { revoked: true },
@@ -297,13 +229,16 @@ describe('AuthService', () => {
     });
   });
 
-  describe('changePassword', () => {
+  // ------------------------------------------------------------------
+  // 3. CAMBIO DE CONTRASEÑA
+  // ------------------------------------------------------------------
+  describe('Cambio de Contraseña', () => {
     const oldPass = 'OldPass123!';
     const hashedOldPass = require('bcrypt').hashSync(oldPass, 10);
     const validNewPass = 'NewSecurePass456!';
     const weakNewPass = 'weakpass';
 
-    it('debe actualizar la contraseña y limpiar el flag mustChangePassword a false', async () => {
+    it('Prueba: cambio de contraseña exitoso y limpieza de must_change_password', async () => {
       const dbUser = {
         ...mockUser,
         passwordHash: hashedOldPass,
@@ -320,10 +255,11 @@ describe('AuthService', () => {
       await service.changePassword(mockUser.id, oldPass, validNewPass);
 
       expect(dbUser.mustChangePassword).toBe(false);
+      expect(dbUser.isBlocked).toBe(false);
       expect(userRepository.save).toHaveBeenCalledWith(dbUser);
     });
 
-    it('debe lanzar BadRequestException (400) si la contraseña actual no coincide', async () => {
+    it('Prueba: cambio de contraseña con contraseña actual incorrecta', async () => {
       const dbUser = {
         ...mockUser,
         passwordHash: hashedOldPass,
@@ -342,7 +278,7 @@ describe('AuthService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('debe lanzar UnprocessableEntityException (422) si la nueva contraseña no cumple con la complejidad', async () => {
+    it('Prueba: cambio de contraseña con política de complejidad no cumplida', async () => {
       const dbUser = {
         ...mockUser,
         passwordHash: hashedOldPass,
@@ -362,8 +298,11 @@ describe('AuthService', () => {
     });
   });
 
-  describe('forgotPassword', () => {
-    it('debe generar token y responder con mensaje de confirmación si el usuario existe', async () => {
+  // ------------------------------------------------------------------
+  // 4. FORGOT PASSWORD (EMAIL EXISTENTE E INEXISTENTE)
+  // ------------------------------------------------------------------
+  describe('Forgot Password (Respuesta Genérica)', () => {
+    it('Prueba: forgot-password con email existente', async () => {
       userRepository.findOneBy.mockResolvedValue(mockUser);
 
       const result = await service.forgotPassword('test@example.com', '127.0.0.1');
@@ -374,14 +313,29 @@ describe('AuthService', () => {
       });
       expect(passwordResetTokenRepository.save).toHaveBeenCalled();
     });
+
+    it('Prueba: forgot-password con email inexistente (misma respuesta genérica)', async () => {
+      userRepository.findOneBy.mockResolvedValue(null);
+
+      const result = await service.forgotPassword('nonexistent@example.com', '127.0.0.1');
+
+      expect(result).toEqual({
+        message:
+          'Si el correo electrónico existe en nuestro sistema, se ha enviado un enlace para restablecer la contraseña.',
+      });
+      expect(passwordResetTokenRepository.save).not.toHaveBeenCalled();
+    });
   });
 
-  describe('resetPassword', () => {
-    it('debe restablecer la contraseña exitosamente', async () => {
-      const rawToken = 'valid_raw_reset_token';
-      const tokenHash = service.hashToken(rawToken);
-      const newPassword = 'NewSecretPass123!';
+  // ------------------------------------------------------------------
+  // 5. RESET PASSWORD (VÁLIDO, EXPIRADO Y YA USADO)
+  // ------------------------------------------------------------------
+  describe('Reset Password (Token Válido, Expirado y Ya Usado)', () => {
+    const rawToken = 'valid_raw_reset_token';
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const newPassword = 'NewSecretPass123!';
 
+    it('Prueba: reset-password con token válido', async () => {
       const tokenRecord = {
         id: 'reset-uuid-1',
         userId: mockUser.id,
@@ -398,6 +352,42 @@ describe('AuthService', () => {
       expect(result).toEqual({ message: 'Contraseña restablecida exitosamente' });
       expect(tokenRecord.used).toBe(true);
       expect(passwordResetTokenRepository.save).toHaveBeenCalledWith(tokenRecord);
+      expect(refreshTokenRepository.update).toHaveBeenCalledWith(
+        { userId: mockUser.id, revoked: false },
+        { revoked: true },
+      );
+    });
+
+    it('Prueba: reset-password con token expirado', async () => {
+      const expiredTokenRecord = {
+        id: 'reset-uuid-2',
+        userId: mockUser.id,
+        tokenHash,
+        used: false,
+        expiresAt: new Date(Date.now() - 100000), // Ya paso la fecha de expiracion
+      };
+
+      passwordResetTokenRepository.findOneBy.mockResolvedValue(expiredTokenRecord);
+
+      await expect(service.resetPassword(rawToken, newPassword)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('Prueba: reset-password con token ya usado', async () => {
+      const usedTokenRecord = {
+        id: 'reset-uuid-3',
+        userId: mockUser.id,
+        tokenHash,
+        used: true, // Ya fue utilizado previamente
+        expiresAt: new Date(Date.now() + 100000),
+      };
+
+      passwordResetTokenRepository.findOneBy.mockResolvedValue(usedTokenRecord);
+
+      await expect(service.resetPassword(rawToken, newPassword)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

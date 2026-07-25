@@ -3,8 +3,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { LocalStrategy } from './local.strategy';
-import { User } from '../users/entities/user.entity';
-import { AuthService } from './auth.service';
+import { User } from '../../users/entities/user.entity';
+import { AuthService } from '../services/auth.service';
 
 describe('LocalStrategy', () => {
   let strategy: LocalStrategy;
@@ -38,7 +38,6 @@ describe('LocalStrategy', () => {
       }),
     };
 
-
     authService = {
       checkLockout: jest.fn().mockImplementation((user: User) => {
         if (user.isBlocked) {
@@ -50,7 +49,6 @@ describe('LocalStrategy', () => {
       }),
       handleFailedLogin: jest.fn().mockResolvedValue(undefined),
     };
-
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -109,4 +107,3 @@ describe('LocalStrategy', () => {
     }
   });
 });
-

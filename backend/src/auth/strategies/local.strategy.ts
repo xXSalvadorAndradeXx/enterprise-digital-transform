@@ -4,8 +4,8 @@ import { Strategy } from 'passport-local';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from '../users/entities/user.entity';
-import { AuthService } from './auth.service';
+import { User } from '../../users/entities/user.entity';
+import { AuthService } from '../services/auth.service';
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
@@ -45,4 +45,3 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     throw new UnauthorizedException('Credenciales inválidas');
   }
 }
-

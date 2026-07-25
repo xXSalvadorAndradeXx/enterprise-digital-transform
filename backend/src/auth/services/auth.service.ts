@@ -14,13 +14,13 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { User } from '../users/entities/user.entity';
-import { RefreshToken } from '../users/entities/refresh-token.entity';
-import { PasswordResetToken } from '../users/entities/password-reset-token.entity';
-import { PASSWORD_COMPLEXITY_REGEX } from './dto/change-password.dto';
-import { Cart } from '../cart/entities/cart.entity';
+import { User } from '../../users/entities/user.entity';
+import { RefreshToken } from '../../users/entities/refresh-token.entity';
+import { PasswordResetToken } from '../../users/entities/password-reset-token.entity';
+import { PASSWORD_COMPLEXITY_REGEX } from '../dto/change-password.dto';
+import { Cart } from '../../cart/entities/cart.entity';
 import { HashService } from './hash.service';
-import { RegisterDto } from './dto/register.dto';
+import { RegisterDto } from '../dto/register.dto';
 
 @Injectable()
 export class AuthService {
@@ -131,7 +131,6 @@ export class AuthService {
 
     await this.userRepository.save(user);
   }
-
 
   /**
    * Reinicia el contador failed_login_attempts a 0 y desmarca el bloqueo tras un login exitoso.
@@ -249,7 +248,6 @@ export class AuthService {
         'Refresh token inválido, alterado o expirado',
       );
     }
-
 
     if (payload.type !== 'refresh') {
       throw new UnauthorizedException('El token provisto no es un refresh token');

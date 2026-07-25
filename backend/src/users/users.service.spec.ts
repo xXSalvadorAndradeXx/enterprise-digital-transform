@@ -6,7 +6,7 @@ import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import * as bcrypt from 'bcrypt';
-import { RefreshTokenService } from '../auth/refresh-token.service';
+import { RefreshTokenService } from '../auth/services/refresh-token.service';
 
 describe('UsersService', () => {
   let service: UsersService;
