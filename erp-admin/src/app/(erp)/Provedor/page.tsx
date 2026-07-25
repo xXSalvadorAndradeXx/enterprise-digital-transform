@@ -13,6 +13,7 @@ import { useCreateProveedor } from "./hooks/useCreateProveedor";
 import { useUpdateProveedor } from "./hooks/useUpdateProveedor";
 import { Pencil, Trash2 } from "lucide-react";
 import { useDeleteProveedor } from "./hooks/useDeleteProveedor";
+import { formatPhone } from "@/lib/utils/formatPhone";
 
 import {
   supplierSchema,
@@ -67,6 +68,22 @@ console.log("EDIT FORM", {
   isEditValid,
   editErrors,
 });
+
+function formatPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+
+  // Si viene como 50375943334, quitamos el 503
+  const local = digits.startsWith("503")
+    ? digits.slice(3)
+    : digits;
+
+  if (local.length !== 8) {
+    return phone;
+  }
+
+  return `+503 ${local.slice(0, 4)}-${local.slice(4)}`;
+}
+
  const handleEdit = (provider: any) => {
   console.log(provider);
 
@@ -74,7 +91,7 @@ console.log("EDIT FORM", {
 
   reset({
     companyName: provider.provider,
-    phone: provider.phone,
+    phone: formatPhone(provider.phone),
   });
 
   setOpenEditModal(true);
@@ -114,17 +131,7 @@ const {
 
   const view = "table"; // Cambia esto según la vista que quieras mostrar
   
-useEffect(() => {
-  if (openModal) {
-    trigger();
-  }
-}, [openModal, trigger]);
 
-useEffect(() => {
-  if (openEditModal) {
-    triggerEdit();
-  }
-}, [openEditModal, triggerEdit]);
 
 
   useEffect(() => {
@@ -151,8 +158,9 @@ useEffect(() => {
       accessor: "provider",
     },
     {
-      header: "Teléfono",
-      accessor: "phone",
+  header: "Teléfono",
+  accessor: "phone",
+  render: (value) => formatPhone(value),
     },
     {
   header: "Acciones",
@@ -300,7 +308,7 @@ useEffect(() => {
     description="Cuando agregues algún proveedor, aparecerá aquí."
     helperText="Puedes agregar tu primer proveedor para comenzar."
     buttonText="Agregar proveedor"
-    onButtonClick={() => {}}
+    onButtonClick={() => setOpenModal(true)}
   />
 ) : isNoResults ? (
   <NoSearchResults
@@ -344,26 +352,20 @@ useEffect(() => {
 >
   
 
-  <form
+ <form
   onSubmit={handleSubmit(async (data) => {
+    console.log("DATOS DEL FORM:", data);
     const response = await create(data);
 
-    if (response.status === 409) {
-  setError("companyName", {
-    type: "server",
-    message: response.errors.companyName,
-  });
+   console.log("RESPUESTA DEL CREATE:", JSON.stringify(response, null, 2));
 
-  return;
-}
+    if (response.status === 201) {
+      await refresh();
 
-   if (response.status === 201) {
-  await refresh();
-  setSuccessMessage("¡Proveedor agregado con éxito!");
-  setOpenModal(false);
-  setOpenSuccess(true);
-  }
-  
+      setSuccessMessage("¡Proveedor agregado con éxito!");
+      setOpenModal(false);
+      setOpenSuccess(true);
+    }
   })}
 >
     <p className="text-gray-600">
@@ -429,9 +431,15 @@ useEffect(() => {
 >
   <form
   onSubmit={handleSubmitEdit(async (data) => {
+    console.log("ENTRÓ AL SUBMIT");
+    console.log(data);
     if (!selectedProvider) return;
 
-    const response = await update(selectedProvider.id, data);
+    console.log("FUNCIÓN UPDATE:", update);
+
+const response = await update(selectedProvider.id, data);
+
+console.log("RESPUESTA:", response);
 
     if (response.status === 200) {
       await refresh();
@@ -542,7 +550,7 @@ useEffect(() => {
 
     const response = await remove(selectedProvider.id);
 
-    if (response.status === 200) {
+    if (response.status === 204) {
       await refresh();
 
       setOpenDeleteModal(false);

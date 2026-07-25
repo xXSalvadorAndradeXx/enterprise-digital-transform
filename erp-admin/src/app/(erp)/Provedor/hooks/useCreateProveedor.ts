@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { SupplierForm } from "@/lib/validations/supplierSchema";
-import { createProveedor } from "../services/createProveedor";
+import { createProveedor } from "@/services/proveedor/createProveedor";
 
 export function useCreateProveedor() {
   const [loading, setLoading] = useState(false);
