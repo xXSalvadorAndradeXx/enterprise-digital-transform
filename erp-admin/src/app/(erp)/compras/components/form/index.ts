@@ -18,3 +18,6 @@ export { RestockTable } from "./RestockTable";
 export type { RestockSize } from "./RestockTable";
 export { PurchaseSuccessModal } from "./PurchaseSuccessModal";
 export type { PurchaseSuccessModalProps } from "./PurchaseSuccessModal";
+export { AddedProductsTable } from "./AddedProductsTable";
+export type { AddedProduct } from "./AddedProductsTable";
+export { IncomeDetailsPanel } from "./IncomeDetailsPanel";

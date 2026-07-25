@@ -4,7 +4,12 @@ import { CalendarDays, ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 
+import {
+  AddedProductsTable,
+  type AddedProduct,
+} from "./AddedProductsTable";
 import { FileUploadInput } from "./FileUploadInput";
+import { IncomeDetailsPanel } from "./IncomeDetailsPanel";
 import {
   createInitialNewProductDraft,
   NewProductForm,
@@ -42,7 +47,11 @@ export function PurchaseForm() {
   const [restock, setRestock] = useState<RestockDraft>(INITIAL_RESTOCK_DRAFT);
   const [modalOpen, setModalOpen] = useState(false);
   const [purchaseNumber, setPurchaseNumber] = useState("");
+  const [addedProducts, setAddedProducts] = useState<AddedProduct[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
   const sequenceRef = useRef(5);
+  const productSequenceRef = useRef(1);
 
   const closeModal = useCallback(() => setModalOpen(false), []);
 
@@ -52,9 +61,50 @@ export function PurchaseForm() {
   };
 
   const handleAddPurchase = () => {
-    if (activeTab === "new-product" && !invoice) {
+    if (!invoice) {
       setInvoiceError("*Por favor, adjunta tu factura.");
       return;
+    }
+
+    if (activeTab === "new-product") {
+      if (!newProduct.name.trim() || !newProduct.category) return;
+
+      const variants = newProduct.variants.map((variant) => ({ ...variant }));
+      const quantity = variants.reduce((sum, variant) => {
+        const value = Number(variant.quantity);
+        return Number.isFinite(value) && value >= 0 ? sum + value : sum;
+      }, 0);
+      const total = variants.reduce((sum, variant) => {
+        const quantityValue = Number(variant.quantity);
+        const costValue = Number(variant.unitCost);
+        return Number.isFinite(quantityValue) &&
+          quantityValue >= 0 &&
+          Number.isFinite(costValue) &&
+          costValue >= 0
+          ? sum + quantityValue * costValue
+          : sum;
+      }, 0);
+      const validCosts = variants
+        .map((variant) => Number(variant.unitCost))
+        .filter((cost) => Number.isFinite(cost) && cost >= 0);
+      const localSequence = productSequenceRef.current++;
+
+      setAddedProducts((current) => [
+        ...current,
+        {
+          id: `qa-local-product-${localSequence}`,
+          name: newProduct.name.trim(),
+          sku: `QA-LOCAL-${String(localSequence).padStart(4, "0")}`,
+          invoiceFile: invoice,
+          variants,
+          quantity,
+          unitCost: validCosts[0] ?? 0,
+          total,
+        },
+      ]);
+      setInvoice(null);
+      setInvoiceError("");
+      setNewProduct(createInitialNewProductDraft());
     }
 
     // Número temporal para demostración de TASK 686.
@@ -62,6 +112,48 @@ export function PurchaseForm() {
     setPurchaseNumber(`CP-${String(sequenceRef.current).padStart(4, "0")}`);
     sequenceRef.current += 1;
     setModalOpen(true);
+  };
+
+  const closeIncomeDetails = useCallback(() => {
+    setSelectedProductId(null);
+    window.requestAnimationFrame(() => detailTriggerRef.current?.focus());
+  }, []);
+
+  const selectedProduct =
+    addedProducts.find((product) => product.id === selectedProductId) ?? null;
+
+  const saveIncomeDetails = (variants: NewProductDraft["variants"]) => {
+    if (!selectedProductId) return;
+    setAddedProducts((current) =>
+      current.map((product) => {
+        if (product.id !== selectedProductId) return product;
+        const quantity = variants.reduce((sum, variant) => {
+          const value = Number(variant.quantity);
+          return Number.isFinite(value) && value >= 0 ? sum + value : sum;
+        }, 0);
+        const total = variants.reduce((sum, variant) => {
+          const quantityValue = Number(variant.quantity);
+          const costValue = Number(variant.unitCost);
+          return Number.isFinite(quantityValue) &&
+            quantityValue >= 0 &&
+            Number.isFinite(costValue) &&
+            costValue >= 0
+            ? sum + quantityValue * costValue
+            : sum;
+        }, 0);
+        const representativeCost = variants
+          .map((variant) => Number(variant.unitCost))
+          .find((cost) => Number.isFinite(cost) && cost >= 0);
+        return {
+          ...product,
+          variants: variants.map((variant) => ({ ...variant })),
+          quantity,
+          unitCost: representativeCost ?? 0,
+          total,
+        };
+      }),
+    );
+    closeIncomeDetails();
   };
 
   return (
@@ -143,20 +235,16 @@ export function PurchaseForm() {
           </div>
 
           <div className="px-5 py-5 sm:px-7 sm:py-6">
-          {activeTab === "new-product" && (
             <FileUploadInput
-              id="purchase-invoice"
+              id={`purchase-invoice-${activeTab}`}
               label="Subir factura"
               file={invoice}
               onFileChange={handleInvoiceChange}
               error={invoiceError}
             />
-          )}
 
           <div
-            className={`flex flex-col-reverse justify-end gap-3 sm:flex-row sm:gap-4 ${
-              activeTab === "new-product" ? "mt-6" : ""
-            }`}
+            className="mt-6 flex flex-col-reverse justify-end gap-3 sm:flex-row sm:gap-4"
           >
             <button
               type="button"
@@ -176,6 +264,28 @@ export function PurchaseForm() {
         </div>
       </div>
       </div>
+
+      <AddedProductsTable
+        products={addedProducts}
+        onOpen={(productId, trigger) => {
+          detailTriggerRef.current = trigger;
+          setSelectedProductId(productId);
+        }}
+        onRemove={(productId) =>
+          setAddedProducts((current) =>
+            current.filter((product) => product.id !== productId),
+          )
+        }
+      />
+
+      {selectedProduct && (
+        <IncomeDetailsPanel
+          key={selectedProduct.id}
+          product={selectedProduct}
+          onClose={closeIncomeDetails}
+          onSave={saveIncomeDetails}
+        />
+      )}
 
       <PurchaseSuccessModal
         open={modalOpen}

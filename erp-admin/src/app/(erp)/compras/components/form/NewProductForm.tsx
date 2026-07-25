@@ -33,7 +33,7 @@ function createVariant(id?: string): PurchaseVariantValue {
 }
 
 export function createInitialNewProductDraft(): NewProductDraft {
-  return { name: "", category: "", variants: [createVariant("initial-variant")] };
+  return { name: "", category: "", variants: [createVariant()] };
 }
 
 export function NewProductForm({ value, onChange }: NewProductFormProps) {
