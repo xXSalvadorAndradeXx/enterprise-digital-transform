@@ -2,6 +2,7 @@
 
 import {
   VariantRow,
+  type PurchaseVariantErrors,
   type PurchaseVariantField,
   type PurchaseVariantValue,
 } from "./VariantRow";
@@ -15,6 +16,14 @@ export type NewProductDraft = {
 type NewProductFormProps = {
   value: NewProductDraft;
   onChange: (value: NewProductDraft) => void;
+  errors?: NewProductFormErrors;
+};
+
+export type NewProductFormErrors = {
+  name?: string;
+  category?: string;
+  variants?: Record<string, PurchaseVariantErrors>;
+  variantsGeneral?: string;
 };
 
 function createVariant(id?: string): PurchaseVariantValue {
@@ -36,7 +45,7 @@ export function createInitialNewProductDraft(): NewProductDraft {
   return { name: "", category: "", variants: [createVariant()] };
 }
 
-export function NewProductForm({ value, onChange }: NewProductFormProps) {
+export function NewProductForm({ value, onChange, errors }: NewProductFormProps) {
   const updateVariant = (id: string, field: PurchaseVariantField, fieldValue: string) => {
     onChange({
       ...value,
@@ -70,9 +79,16 @@ export function NewProductForm({ value, onChange }: NewProductFormProps) {
             id="purchase-product-name"
             type="text"
             value={value.name}
+            aria-invalid={errors?.name ? true : undefined}
+            aria-describedby={errors?.name ? "purchase-product-name-error" : undefined}
             onChange={(event) => onChange({ ...value, name: event.target.value })}
             className="h-11 w-full min-w-0 rounded-[5px] border border-[#878A92] bg-white px-3 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1] lg:max-w-[430px]"
           />
+          {errors?.name && (
+            <p id="purchase-product-name-error" role="alert" className="text-xs text-red-600">
+              {errors.name}
+            </p>
+          )}
         </div>
 
         <div className="min-w-0 lg:w-[210px]">
@@ -80,6 +96,8 @@ export function NewProductForm({ value, onChange }: NewProductFormProps) {
             id="purchase-category"
             aria-label="Categorías"
             value={value.category}
+            aria-invalid={errors?.category ? true : undefined}
+            aria-describedby={errors?.category ? "purchase-category-error" : undefined}
             onChange={(event) => onChange({ ...value, category: event.target.value })}
             className="h-9 w-full border-0 border-b border-[#B7BAC2] bg-white px-1 pr-8 text-sm outline-none focus:border-[#1C21D1] focus:ring-0"
           >
@@ -88,6 +106,11 @@ export function NewProductForm({ value, onChange }: NewProductFormProps) {
             <option value="fashion">Moda</option>
             <option value="footwear">Calzado</option>
           </select>
+          {errors?.category && (
+            <p id="purchase-category-error" role="alert" className="mt-1 text-xs text-red-600">
+              {errors.category}
+            </p>
+          )}
         </div>
       </div>
 
@@ -103,9 +126,15 @@ export function NewProductForm({ value, onChange }: NewProductFormProps) {
               onChange={updateVariant}
               onAdd={addVariant}
               showAddButton={index === value.variants.length - 1}
+              errors={errors?.variants?.[variant.id]}
             />
           ))}
         </div>
+        {errors?.variantsGeneral && (
+          <p role="alert" className="mt-2 text-xs text-red-600">
+            {errors.variantsGeneral}
+          </p>
+        )}
       </fieldset>
     </section>
   );

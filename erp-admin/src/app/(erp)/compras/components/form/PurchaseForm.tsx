@@ -3,7 +3,13 @@
 import { CalendarDays, ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
+import type { ZodIssue } from "zod";
 
+import {
+  invoiceSchema,
+  newProductSchema,
+  restockSchema,
+} from "../../schemas/purchaseForm.schema";
 import {
   AddedProductsTable,
   type AddedProduct,
@@ -14,12 +20,15 @@ import {
   createInitialNewProductDraft,
   NewProductForm,
   type NewProductDraft,
+  type NewProductFormErrors,
 } from "./NewProductForm";
 import { PurchaseSuccessModal } from "./PurchaseSuccessModal";
 import {
   INITIAL_RESTOCK_DRAFT,
+  createInitialRestockDraft,
   RestockProductForm,
   type RestockDraft,
+  type RestockFormErrors,
 } from "./RestockProductForm";
 import { Tabs, type TabItem } from "./Tabs";
 
@@ -36,6 +45,58 @@ function getLocalDate(): string {
   return offsetDate.toISOString().slice(0, 10);
 }
 
+function getInvoiceIssue(issues: ZodIssue[]): string {
+  return issues.find((issue) => issue.path[0] === "invoice")?.message ?? "";
+}
+
+function mapNewProductErrors(
+  issues: ZodIssue[],
+  draft: NewProductDraft,
+): NewProductFormErrors {
+  const errors: NewProductFormErrors = { variants: {} };
+  for (const issue of issues) {
+    const [section, index, field] = issue.path;
+    if (section === "name" && !errors.name) errors.name = issue.message;
+    if (section === "category" && !errors.category) errors.category = issue.message;
+    if (section !== "variants") continue;
+    if (typeof index !== "number") {
+      if (!errors.variantsGeneral) errors.variantsGeneral = issue.message;
+      continue;
+    }
+    const variant = draft.variants[index];
+    if (!variant || typeof field !== "string") continue;
+    const variantErrors = errors.variants?.[variant.id] ?? {};
+    if (field === "size" || field === "quantity" || field === "unitCost") {
+      variantErrors[field] ??= issue.message;
+    }
+    if (errors.variants) errors.variants[variant.id] = variantErrors;
+  }
+  return errors;
+}
+
+function mapRestockErrors(
+  issues: ZodIssue[],
+  draft: RestockDraft,
+): RestockFormErrors {
+  const errors: RestockFormErrors = { sizes: {} };
+  for (const issue of issues) {
+    const [section, index] = issue.path;
+    if (section === "selectedProductId" && !errors.selectedProductId) {
+      errors.selectedProductId = issue.message;
+    }
+    if (section !== "sizes") continue;
+    if (typeof index !== "number") {
+      if (!errors.sizesGeneral) errors.sizesGeneral = issue.message;
+      continue;
+    }
+    const row = draft.sizes[index];
+    if (row && errors.sizes && !errors.sizes[row.size]) {
+      errors.sizes[row.size] = issue.message;
+    }
+  }
+  return errors;
+}
+
 export function PurchaseForm() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<PurchaseTab>("new-product");
@@ -45,6 +106,8 @@ export function PurchaseForm() {
   const [invoiceError, setInvoiceError] = useState("");
   const [newProduct, setNewProduct] = useState<NewProductDraft>(createInitialNewProductDraft);
   const [restock, setRestock] = useState<RestockDraft>(INITIAL_RESTOCK_DRAFT);
+  const [newProductInteracted, setNewProductInteracted] = useState(false);
+  const [restockInteracted, setRestockInteracted] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [purchaseNumber, setPurchaseNumber] = useState("");
   const [addedProducts, setAddedProducts] = useState<AddedProduct[]>([]);
@@ -56,18 +119,29 @@ export function PurchaseForm() {
   const closeModal = useCallback(() => setModalOpen(false), []);
 
   const handleInvoiceChange = (file: File | null) => {
+    if (!file) {
+      setInvoice(null);
+      setInvoiceError("");
+      return;
+    }
+    const result = invoiceSchema.safeParse(file);
+    if (!result.success) {
+      setInvoice(null);
+      setInvoiceError(result.error.issues[0]?.message ?? "");
+      return;
+    }
     setInvoice(file);
-    if (file) setInvoiceError("");
+    setInvoiceError("");
   };
 
   const handleAddPurchase = () => {
-    if (!invoice) {
-      setInvoiceError("*Por favor, adjunta tu factura.");
-      return;
-    }
-
     if (activeTab === "new-product") {
-      if (!newProduct.name.trim() || !newProduct.category) return;
+      setNewProductInteracted(true);
+      const validation = newProductSchema.safeParse({ ...newProduct, invoice });
+      if (!validation.success) {
+        setInvoiceError(getInvoiceIssue(validation.error.issues));
+        return;
+      }
 
       const variants = newProduct.variants.map((variant) => ({ ...variant }));
       const quantity = variants.reduce((sum, variant) => {
@@ -105,6 +179,18 @@ export function PurchaseForm() {
       setInvoice(null);
       setInvoiceError("");
       setNewProduct(createInitialNewProductDraft());
+      setNewProductInteracted(false);
+    } else {
+      setRestockInteracted(true);
+      const validation = restockSchema.safeParse({ ...restock, invoice });
+      if (!validation.success) {
+        setInvoiceError(getInvoiceIssue(validation.error.issues));
+        return;
+      }
+      setInvoice(null);
+      setInvoiceError("");
+      setRestock(createInitialRestockDraft());
+      setRestockInteracted(false);
     }
 
     // Número temporal para demostración de TASK 686.
@@ -155,6 +241,29 @@ export function PurchaseForm() {
     );
     closeIncomeDetails();
   };
+
+  const newProductValidation = newProductSchema.safeParse({
+    ...newProduct,
+    invoice,
+  });
+  const restockValidation = restockSchema.safeParse({ ...restock, invoice });
+  const newProductErrors =
+    newProductInteracted && !newProductValidation.success
+      ? mapNewProductErrors(newProductValidation.error.issues, newProduct)
+      : undefined;
+  const restockErrors =
+    restockInteracted && !restockValidation.success
+      ? mapRestockErrors(restockValidation.error.issues, restock)
+      : undefined;
+  const activeValidation =
+    activeTab === "new-product" ? newProductValidation : restockValidation;
+  const activeInteracted =
+    activeTab === "new-product" ? newProductInteracted : restockInteracted;
+  const displayedInvoiceError =
+    invoiceError ||
+    (activeInteracted && !activeValidation.success
+      ? getInvoiceIssue(activeValidation.error.issues)
+      : "");
 
   return (
     <div className="mx-auto w-full max-w-[1035px] min-w-0 text-[#202124]">
@@ -228,9 +337,23 @@ export function PurchaseForm() {
             className="px-5 pb-5 pt-6 sm:px-7 sm:pb-6 sm:pt-7"
           >
             {activeTab === "new-product" ? (
-              <NewProductForm value={newProduct} onChange={setNewProduct} />
+              <NewProductForm
+                value={newProduct}
+                onChange={(value) => {
+                  setNewProduct(value);
+                  setNewProductInteracted(true);
+                }}
+                errors={newProductErrors}
+              />
             ) : (
-              <RestockProductForm value={restock} onChange={setRestock} />
+              <RestockProductForm
+                value={restock}
+                onChange={(value) => {
+                  setRestock(value);
+                  setRestockInteracted(true);
+                }}
+                errors={restockErrors}
+              />
             )}
           </div>
 
@@ -240,7 +363,7 @@ export function PurchaseForm() {
               label="Subir factura"
               file={invoice}
               onFileChange={handleInvoiceChange}
-              error={invoiceError}
+              error={displayedInvoiceError}
             />
 
           <div
@@ -256,7 +379,8 @@ export function PurchaseForm() {
             <button
               type="button"
               onClick={handleAddPurchase}
-              className="h-11 rounded-[5px] bg-[#1C21D1] px-7 font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1] sm:min-w-40"
+              disabled={!activeValidation.success}
+              className="h-11 rounded-[5px] bg-[#1C21D1] px-7 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1] sm:min-w-40"
             >
               Agregar compra
             </button>

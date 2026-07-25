@@ -9,9 +9,10 @@ export type RestockSize = {
 type RestockTableProps = {
   rows: RestockSize[];
   onQuantityChange: (size: string, quantity: string) => void;
+  errors?: Record<string, string | undefined>;
 };
 
-export function RestockTable({ rows, onQuantityChange }: RestockTableProps) {
+export function RestockTable({ rows, onQuantityChange, errors }: RestockTableProps) {
   return (
     <div className="w-full overflow-x-auto">
       <h3 className="mb-3 text-base font-medium text-[#202124]">
@@ -45,9 +46,22 @@ export function RestockTable({ rows, onQuantityChange }: RestockTableProps) {
                   min={0}
                   step={1}
                   value={row.quantity}
+                  aria-invalid={errors?.[row.size] ? true : undefined}
+                  aria-describedby={
+                    errors?.[row.size] ? `restock-${row.size}-error` : undefined
+                  }
                   onChange={(event) => onQuantityChange(row.size, event.target.value)}
                   className="mx-auto block h-7 w-[100px] rounded-[4px] border border-[#AEB1B8] bg-white px-2 text-center outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1]"
                 />
+                {errors?.[row.size] && (
+                  <p
+                    id={`restock-${row.size}-error`}
+                    role="alert"
+                    className="mt-1 text-xs text-red-600"
+                  >
+                    {errors[row.size]}
+                  </p>
+                )}
               </td>
             </tr>
           ))}

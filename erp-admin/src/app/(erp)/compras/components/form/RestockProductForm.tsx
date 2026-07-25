@@ -5,30 +5,49 @@ import { RestockTable, type RestockSize } from "./RestockTable";
 
 export type RestockDraft = {
   search: string;
+  selectedProductId: string;
   sizes: RestockSize[];
+};
+
+export type RestockFormErrors = {
+  selectedProductId?: string;
+  sizes?: Record<string, string | undefined>;
+  sizesGeneral?: string;
 };
 
 type RestockProductFormProps = {
   value: RestockDraft;
   onChange: (value: RestockDraft) => void;
+  errors?: RestockFormErrors;
 };
 
 // Fixtures visuales temporales de TASK 686. Retirar al integrar el inventario real.
-export const INITIAL_RESTOCK_DRAFT: RestockDraft = {
-  search: "",
-  sizes: [
-    { size: "S", currentStock: 35, quantity: "" },
-    { size: "M", currentStock: 12, quantity: "" },
-    { size: "L", currentStock: 28, quantity: "" },
-  ],
-};
+export const MOCK_RESTOCK_PRODUCT_ID = "mock-raw-black-t-shirt";
 
-export function RestockProductForm({ value, onChange }: RestockProductFormProps) {
+export function createInitialRestockDraft(): RestockDraft {
+  return {
+    search: "",
+    selectedProductId: "",
+    sizes: [
+      { size: "S", currentStock: 35, quantity: "" },
+      { size: "M", currentStock: 12, quantity: "" },
+      { size: "L", currentStock: 28, quantity: "" },
+    ],
+  };
+}
+
+export const INITIAL_RESTOCK_DRAFT: RestockDraft = createInitialRestockDraft();
+
+export function RestockProductForm({
+  value,
+  onChange,
+  errors,
+}: RestockProductFormProps) {
   const normalizedSearch = value.search.trim().toLocaleLowerCase();
-  const productMatches =
-    !normalizedSearch ||
+  const productMatchesSearch =
     "Raw Black T-Shirt".toLocaleLowerCase().includes(normalizedSearch) ||
     "Moda".toLocaleLowerCase().includes(normalizedSearch);
+  const productMatches = normalizedSearch !== "" && productMatchesSearch;
 
   const total = value.sizes.reduce((sum, row) => {
     const quantity = Number(row.quantity);
@@ -53,9 +72,25 @@ export function RestockProductForm({ value, onChange }: RestockProductFormProps)
             value={value.search}
             placeholder="Buscar en el inventario"
             ariaLabel="Buscar producto en el inventario"
-            onChange={(search) => onChange({ ...value, search })}
+            onChange={(search) => {
+              const normalized = search.trim().toLocaleLowerCase();
+              const matches =
+                normalized !== "" &&
+                ("Raw Black T-Shirt".toLocaleLowerCase().includes(normalized) ||
+                  "Moda".toLocaleLowerCase().includes(normalized));
+              onChange({
+                ...value,
+                search,
+                selectedProductId: matches ? MOCK_RESTOCK_PRODUCT_ID : "",
+              });
+            }}
             className="w-full lg:w-[300px]"
           />
+          {normalizedSearch !== "" && errors?.selectedProductId && (
+            <p role="alert" className="text-xs text-red-600">
+              {errors.selectedProductId}
+            </p>
+          )}
         </div>
         <div className="w-full lg:w-[210px]">
           <select
@@ -74,6 +109,7 @@ export function RestockProductForm({ value, onChange }: RestockProductFormProps)
         <div className="mt-[60px]">
           <RestockTable
             rows={value.sizes}
+            errors={errors?.sizes}
             onQuantityChange={(size, quantity) =>
               onChange({
                 ...value,
@@ -81,6 +117,11 @@ export function RestockProductForm({ value, onChange }: RestockProductFormProps)
               })
             }
           />
+          {errors?.sizesGeneral && (
+            <p role="alert" className="mt-2 text-xs text-red-600">
+              {errors.sizesGeneral}
+            </p>
+          )}
           <div className="mt-4 flex items-center justify-end gap-3">
             <span className="text-base font-semibold text-[#202124]">
               Total a reabastecer

@@ -20,7 +20,7 @@ export function FileUploadInput({
   label = "Subir factura",
   file,
   onFileChange,
-  accept = "image/*,application/pdf",
+  accept = "image/png,image/jpeg,application/pdf",
   disabled = false,
   error,
   className = "",
