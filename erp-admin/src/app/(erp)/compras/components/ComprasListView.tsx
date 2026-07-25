@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Inbox, Pencil, Plus, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import {
   EmptyState,
@@ -144,8 +145,6 @@ const columns: readonly TableColumn<PurchaseListRow>[] = [
   },
 ];
 
-const presentationOnlyAction = () => undefined;
-
 export interface ComprasListViewProps {
   showEmptyState?: boolean;
 }
@@ -153,6 +152,7 @@ export interface ComprasListViewProps {
 export default function ComprasListView({
   showEmptyState = false,
 }: ComprasListViewProps) {
+  const router = useRouter();
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -208,6 +208,7 @@ export default function ComprasListView({
           <div className="flex h-[89px] flex-wrap items-center gap-4 px-[14px] py-[23px]">
             <button
               type="button"
+              onClick={() => router.push("/compras/nueva")}
               className="inline-flex h-10 w-[161px] min-w-[161px] shrink-0 items-center justify-center whitespace-nowrap rounded-[4px] bg-[#1C21D1] px-4 text-[15px] font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1]"
             >
               Agregar compra
@@ -249,7 +250,7 @@ export default function ComprasListView({
             infoMessage="Puedes agregar tu primera compra para comenzar."
             actionLabel="Agregar compra"
             actionIcon={<Plus />}
-            onAction={presentationOnlyAction}
+            onAction={() => router.push("/compras/nueva")}
             className="pt-9 pb-10"
           />
         </section>

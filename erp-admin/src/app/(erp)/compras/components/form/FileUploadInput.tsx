@@ -44,13 +44,13 @@ export function FileUploadInput({
   };
 
   return (
-    <div className={`w-full ${className}`}>
+    <div className={`w-full max-w-[190px] ${className}`}>
       <span className="mb-2 block text-sm font-medium text-[#202124]">{label}</span>
 
       {!file ? (
         <label
           htmlFor={id}
-          className={`flex h-28 w-full items-center justify-center border border-dashed border-[#878A92] bg-[#F7F7F8] text-[#4A4A4A] transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#1C21D1] ${
+          className={`flex h-16 w-full items-center justify-center rounded-[4px] border border-dashed border-[#878A92] bg-[#F7F7F8] text-[#4A4A4A] transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#1C21D1] ${
             disabled
               ? "cursor-not-allowed opacity-50"
               : "cursor-pointer hover:border-[#1C21D1] hover:text-[#1C21D1]"
@@ -62,7 +62,7 @@ export function FileUploadInput({
       ) : (
         <div className="relative w-full overflow-hidden border border-[#D9DAE0] bg-[#F7F7F8] p-2">
           {previewUrl && isImage && (
-            <div className="relative h-36 w-full">
+            <div className="relative h-20 w-full">
               <Image
                 src={previewUrl}
                 alt={`Vista previa de ${file.name}`}
@@ -79,7 +79,7 @@ export function FileUploadInput({
               data={previewUrl}
               type="application/pdf"
               aria-label={`Vista previa de ${file.name}`}
-              className="h-40 w-full bg-white"
+              className="h-24 w-full bg-white"
             >
               <p className="p-3 text-sm text-[#4A4A4A]">
                 No se pudo mostrar la vista previa de {file.name}.
@@ -127,4 +127,3 @@ export function FileUploadInput({
     </div>
   );
 }
- 

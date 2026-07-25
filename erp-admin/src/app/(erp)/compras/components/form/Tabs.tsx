@@ -62,7 +62,7 @@ export function Tabs<T extends string>({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className={`grid w-full grid-flow-col auto-cols-fr gap-px border border-[#D9E3F5] bg-[#D9E3F5] ${className}`}
+      className={`grid w-full grid-flow-col auto-cols-fr gap-2 ${className}`}
     >
       {items.map((item, index) => {
         const isActive = item.value === value;
@@ -80,7 +80,7 @@ export function Tabs<T extends string>({
             disabled={item.disabled}
             onClick={() => onValueChange(item.value)}
             onKeyDown={(event) => handleKeyDown(event, index)}
-            className="min-h-11 bg-[#F5F7FA] px-3 py-2 text-sm font-semibold text-[#202124] disabled:cursor-not-allowed disabled:opacity-50 aria-selected:bg-[#E7F0FF] focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#1C21D1]"
+            className="min-h-11 min-w-0 rounded-[2px] border border-[#B8CBEA] bg-[#F5F7FA] px-3 py-2 text-sm font-semibold text-[#202124] disabled:cursor-not-allowed disabled:opacity-50 aria-selected:bg-[#E7F0FF] focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#1C21D1]"
           >
             {item.label}
           </button>
