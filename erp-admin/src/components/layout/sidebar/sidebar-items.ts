@@ -55,9 +55,9 @@ export const sidebarItems = [
     icon: Handshake,
   },
   {
-    id: "proveedores",
-    label: "Proveedores",
-    href: "/proveedores",
+    id: "Provedor",
+    label: "Provedores",
+    href: "/Provedor",
     icon: Truck,
   },
   {
