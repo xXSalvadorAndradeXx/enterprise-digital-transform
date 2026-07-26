@@ -134,11 +134,11 @@ export function RestockProductForm({
             </output>
           </div>
         </div>
-      ) : (
+      ) : normalizedSearch !== "" ? (
         <p className="mt-6 rounded-md bg-[#F5F7FA] px-4 py-5 text-sm text-[#4A4A4A]">
           No se encontraron productos.
         </p>
-      )}
+      ) : null}
     </section>
   );
 }
