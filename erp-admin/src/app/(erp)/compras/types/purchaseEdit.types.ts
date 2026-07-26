@@ -18,5 +18,5 @@ export type EditablePurchase = {
     category: string;
     variants: PurchaseVariantValue[];
   };
-  existingInvoice: ExistingInvoice;
+  existingInvoice: ExistingInvoice | null;
 };

@@ -133,8 +133,58 @@ export const restockSchema = z
     }
   });
 
+export const editPurchaseSchema = z
+  .object({
+    date: z.string().min(1),
+    supplierId: z.string().min(1),
+    productId: z.string().min(1),
+    name: z.string().trim().min(1, "*El nombre del producto es requerido."),
+    category: z.string().min(1, "*Selecciona una categoría."),
+    variants: z.array(newProductVariantSchema).min(1),
+    existingInvoice: z
+      .object({
+        name: z.string().min(1),
+        mimeType: z.string().min(1),
+        url: z.string().min(1),
+      })
+      .nullable(),
+    replacementInvoice: invoiceSchema.nullable(),
+  })
+  .superRefine((form, context) => {
+    form.variants.forEach((variant, index) => {
+      if (variant.size.trim() === "") {
+        context.addIssue({
+          code: "custom",
+          path: ["variants", index, "size"],
+          message: "*Ingresa una talla.",
+        });
+      }
+    });
+
+    const hasPositiveQuantity = form.variants.some(
+      (variant) =>
+        /^\d+$/.test(variant.quantity.trim()) && Number(variant.quantity) > 0,
+    );
+    if (!hasPositiveQuantity) {
+      context.addIssue({
+        code: "custom",
+        path: ["variants"],
+        message: "*Agrega al menos una variante con cantidad mayor que 0.",
+      });
+    }
+
+    if (!form.existingInvoice && !form.replacementInvoice) {
+      context.addIssue({
+        code: "custom",
+        path: ["replacementInvoice"],
+        message: "*Por favor, adjunta tu factura.",
+      });
+    }
+  });
+
 export type NewProductVariantInput = z.input<typeof newProductVariantSchema>;
 export type NewProductFormInput = z.input<typeof newProductSchema>;
 export type RestockRowInput = z.input<typeof restockRowSchema>;
 export type RestockFormInput = z.input<typeof restockSchema>;
 export type InvoiceInput = z.input<typeof invoiceSchema>;
+export type EditPurchaseInput = z.input<typeof editPurchaseSchema>;

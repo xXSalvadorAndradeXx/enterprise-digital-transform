@@ -7,6 +7,7 @@ import type { ZodIssue } from "zod";
 
 import {
   invoiceSchema,
+  editPurchaseSchema,
   newProductSchema,
   restockSchema,
 } from "../../schemas/purchaseForm.schema";
@@ -32,6 +33,10 @@ import {
 } from "./RestockProductForm";
 import { Tabs, type TabItem } from "./Tabs";
 import type { EditablePurchase } from "../../types/purchaseEdit.types";
+import {
+  getPurchaseChanges,
+  type PurchaseEditSnapshot,
+} from "../../utils/getPurchaseChanges";
 
 type PurchaseTab = "new-product" | "restock-product";
 
@@ -111,6 +116,18 @@ export function PurchaseForm({
 }: PurchaseFormProps) {
   const isEdit = mode === "edit";
   const router = useRouter();
+  const [originalEditData] = useState<PurchaseEditSnapshot | null>(() =>
+    initialData
+      ? {
+          date: initialData.date,
+          supplierId: initialData.supplierId,
+          productId: initialData.product.id,
+          productName: initialData.product.name,
+          categoryId: initialData.product.category,
+          variants: initialData.product.variants.map((variant) => ({ ...variant })),
+        }
+      : null,
+  );
   const [activeTab, setActiveTab] = useState<PurchaseTab>("new-product");
   const [purchaseDate, setPurchaseDate] = useState(() => initialData?.date ?? getLocalDate());
   const [supplierId, setSupplierId] = useState(() => initialData?.supplierId ?? "");
@@ -150,6 +167,7 @@ export function PurchaseForm({
     }];
   });
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [editSubmitAttempted, setEditSubmitAttempted] = useState(false);
   const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
   const sequenceRef = useRef(5);
   const productSequenceRef = useRef(1);
@@ -174,6 +192,28 @@ export function PurchaseForm({
 
   const handleAddPurchase = () => {
     if (isEdit) {
+      setEditSubmitAttempted(true);
+      const validation = editPurchaseSchema.safeParse({
+        date: purchaseDate,
+        supplierId,
+        productId: initialData?.product.id ?? "",
+        name: newProduct.name,
+        category: newProduct.category,
+        variants: newProduct.variants,
+        existingInvoice: initialData?.existingInvoice ?? null,
+        replacementInvoice: invoice,
+      });
+      if (!validation.success) {
+        setNewProductInteracted(true);
+        const invoiceIssue = validation.error.issues.find(
+          (issue) => issue.path[0] === "replacementInvoice",
+        );
+        setInvoiceError(invoiceIssue?.message ?? invoiceError);
+        return;
+      }
+
+      // Resumen local para TASK 691. No se envía ni persiste.
+      void editChanges.changedFields;
       setModalOpen(true);
       return;
     }
@@ -289,9 +329,39 @@ export function PurchaseForm({
     invoice,
   });
   const restockValidation = restockSchema.safeParse({ ...restock, invoice });
+  const editValidation = editPurchaseSchema.safeParse({
+    date: purchaseDate,
+    supplierId,
+    productId: initialData?.product.id ?? "",
+    name: newProduct.name,
+    category: newProduct.category,
+    variants: newProduct.variants,
+    existingInvoice: initialData?.existingInvoice ?? null,
+    replacementInvoice: invoice,
+  });
+  const currentEditSnapshot: PurchaseEditSnapshot = {
+    date: purchaseDate,
+    supplierId,
+    productId: initialData?.product.id ?? "",
+    productName: newProduct.name,
+    categoryId: newProduct.category,
+    variants: newProduct.variants,
+  };
+  const editChanges = originalEditData
+    ? getPurchaseChanges(originalEditData, currentEditSnapshot, invoice)
+    : { hasChanges: false, changedFields: {} };
   const newProductErrors =
-    newProductInteracted && !newProductValidation.success
-      ? mapNewProductErrors(newProductValidation.error.issues, newProduct)
+    (newProductInteracted || editSubmitAttempted) &&
+    !(isEdit ? editValidation : newProductValidation).success
+      ? mapNewProductErrors(
+          (isEdit && !editValidation.success
+            ? editValidation.error
+            : !newProductValidation.success
+              ? newProductValidation.error
+              : { issues: [] }
+          ).issues,
+          newProduct,
+        )
       : undefined;
   const restockErrors =
     restockInteracted && !restockValidation.success
@@ -508,7 +578,11 @@ export function PurchaseForm({
             <button
               type="button"
               onClick={handleAddPurchase}
-              disabled={!isEdit && !activeValidation.success}
+              disabled={
+                isEdit
+                  ? !editValidation.success || !editChanges.hasChanges
+                  : !activeValidation.success
+              }
               className="h-11 rounded-[5px] bg-[#1C21D1] px-7 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1] sm:min-w-40"
             >
               Agregar compra
