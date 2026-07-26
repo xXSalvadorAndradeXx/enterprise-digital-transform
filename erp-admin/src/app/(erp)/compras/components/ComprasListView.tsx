@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Inbox, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import {
   EmptyState,
@@ -126,13 +127,13 @@ const columns: readonly TableColumn<PurchaseListRow>[] = [
     className: "w-[11.1%]",
     render: (row) => (
       <div className="flex items-center justify-center gap-3">
-        <button
-          type="button"
+        <Link
+          href={`/compras/${encodeURIComponent(row.id)}/editar`}
           aria-label={`Editar compra ${row.id}`}
           className="rounded p-1 text-[#4A4A4A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4A4A4A]"
         >
           <Pencil aria-hidden="true" size={20} strokeWidth={2} />
-        </button>
+        </Link>
         <button
           type="button"
           aria-label={`Eliminar compra ${row.id}`}

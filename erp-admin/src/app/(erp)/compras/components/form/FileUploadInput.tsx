@@ -4,6 +4,9 @@ import Image from "next/image";
 import { Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 
+import { InvoiceThumbnail } from "../InvoiceThumbnail";
+import type { ExistingInvoice } from "../../types/purchaseEdit.types";
+
 export interface FileUploadInputProps {
   id: string;
   label?: string;
@@ -13,6 +16,7 @@ export interface FileUploadInputProps {
   disabled?: boolean;
   error?: string;
   className?: string;
+  existingInvoice?: ExistingInvoice | null;
 }
 
 export function FileUploadInput({
@@ -24,6 +28,7 @@ export function FileUploadInput({
   disabled = false,
   error,
   className = "",
+  existingInvoice = null,
 }: FileUploadInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const errorId = `${id}-error`;
@@ -48,9 +53,37 @@ export function FileUploadInput({
 
   return (
     <div className={`w-full max-w-[190px] ${className}`}>
-      <span className="mb-2 block text-sm font-medium text-[#202124]">{label}</span>
+      {!existingInvoice && (
+        <span className="mb-2 block text-sm font-medium text-[#202124]">{label}</span>
+      )}
 
-      {!file ? (
+      {!file && existingInvoice ? (
+        <div className="rounded-[4px] border border-[#D9DAE0] bg-[#F7F7F8] p-2 text-center">
+          <InvoiceThumbnail
+            src={existingInvoice.url}
+            alt={`Factura ${existingInvoice.name}`}
+            fileType={existingInvoice.mimeType === "application/pdf" ? "pdf" : "image"}
+            onImageOpen={() =>
+              window.open(existingInvoice.url, "_blank", "noopener,noreferrer")
+            }
+            className="mx-auto"
+            width={84}
+            height={44}
+          />
+          <p
+            title={existingInvoice.name}
+            className="mt-1 w-full truncate text-xs font-medium text-[#202124]"
+          >
+            {existingInvoice.name}
+          </p>
+          <label
+            htmlFor={id}
+            className="mt-1 inline-block cursor-pointer text-xs font-semibold text-[#1C21D1] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#1C21D1]"
+          >
+            Reemplazar
+          </label>
+        </div>
+      ) : !file ? (
         <label
           htmlFor={id}
           className={`flex h-16 w-full items-center justify-center rounded-[4px] border border-dashed border-[#878A92] bg-[#F7F7F8] text-[#4A4A4A] transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#1C21D1] ${

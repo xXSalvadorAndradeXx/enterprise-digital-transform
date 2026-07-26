@@ -7,6 +7,9 @@ export type PurchaseSuccessModalProps = {
   open: boolean;
   purchaseNumber: string;
   onAccept: () => void;
+  onClose?: () => void;
+  title?: string;
+  description?: string;
 };
 
 const FOCUSABLE_SELECTOR =
@@ -16,6 +19,9 @@ export function PurchaseSuccessModal({
   open,
   purchaseNumber,
   onAccept,
+  onClose = onAccept,
+  title = "¡Compra registrada correctamente!",
+  description,
 }: PurchaseSuccessModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const acceptButtonRef = useRef<HTMLButtonElement>(null);
@@ -32,7 +38,7 @@ export function PurchaseSuccessModal({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onAccept();
+        onClose();
         return;
       }
 
@@ -59,7 +65,7 @@ export function PurchaseSuccessModal({
       document.body.style.overflow = previousOverflow;
       openerRef.current?.focus();
     };
-  }, [open, onAccept]);
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -75,7 +81,7 @@ export function PurchaseSuccessModal({
         <button
           type="button"
           aria-label="Cerrar modal"
-          onClick={onAccept}
+          onClick={onClose}
           className="absolute right-3 top-3 rounded p-1 text-[#4A4A4A] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803D]"
         >
           <X aria-hidden="true" size={20} />
@@ -87,9 +93,11 @@ export function PurchaseSuccessModal({
           id="purchase-success-title"
           className="mt-5 text-2xl font-bold text-[#15803D]"
         >
-          ¡Compra registrada correctamente!
+          {title}
         </h2>
-        <p className="mt-3 text-lg text-[#202124]">No. de compra: {purchaseNumber}</p>
+        <p className="mt-3 text-lg text-[#202124]">
+          {description ?? `No. de compra: ${purchaseNumber}`}
+        </p>
         <button
           ref={acceptButtonRef}
           type="button"

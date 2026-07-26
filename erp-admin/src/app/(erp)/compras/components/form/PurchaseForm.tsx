@@ -31,8 +31,15 @@ import {
   type RestockFormErrors,
 } from "./RestockProductForm";
 import { Tabs, type TabItem } from "./Tabs";
+import type { EditablePurchase } from "../../types/purchaseEdit.types";
 
 type PurchaseTab = "new-product" | "restock-product";
+
+type PurchaseFormProps = {
+  mode?: "create" | "edit";
+  initialData?: EditablePurchase;
+  reference?: string;
+};
 
 const PURCHASE_TABS: readonly TabItem<PurchaseTab>[] = [
   { value: "new-product", label: "Nuevo producto" },
@@ -97,20 +104,51 @@ function mapRestockErrors(
   return errors;
 }
 
-export function PurchaseForm() {
+export function PurchaseForm({
+  mode = "create",
+  initialData,
+  reference,
+}: PurchaseFormProps) {
+  const isEdit = mode === "edit";
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<PurchaseTab>("new-product");
-  const [purchaseDate, setPurchaseDate] = useState(getLocalDate);
-  const [supplierId, setSupplierId] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState(() => initialData?.date ?? getLocalDate());
+  const [supplierId, setSupplierId] = useState(() => initialData?.supplierId ?? "");
   const [invoice, setInvoice] = useState<File | null>(null);
   const [invoiceError, setInvoiceError] = useState("");
-  const [newProduct, setNewProduct] = useState<NewProductDraft>(createInitialNewProductDraft);
+  const [newProduct, setNewProduct] = useState<NewProductDraft>(() =>
+    initialData
+      ? {
+          name: initialData.product.name,
+          category: initialData.product.category,
+          variants: initialData.product.variants.map((variant) => ({ ...variant })),
+        }
+      : createInitialNewProductDraft(),
+  );
   const [restock, setRestock] = useState<RestockDraft>(INITIAL_RESTOCK_DRAFT);
   const [newProductInteracted, setNewProductInteracted] = useState(false);
   const [restockInteracted, setRestockInteracted] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [purchaseNumber, setPurchaseNumber] = useState("");
-  const [addedProducts, setAddedProducts] = useState<AddedProduct[]>([]);
+  const [purchaseNumber, setPurchaseNumber] = useState(reference ?? "");
+  const [addedProducts, setAddedProducts] = useState<AddedProduct[]>(() => {
+    if (!initialData) return [];
+    const variants = initialData.product.variants.map((variant) => ({ ...variant }));
+    const quantity = variants.reduce((sum, variant) => sum + Number(variant.quantity), 0);
+    const total = variants.reduce(
+      (sum, variant) => sum + Number(variant.quantity) * Number(variant.unitCost),
+      0,
+    );
+    return [{
+      id: initialData.product.id,
+      name: initialData.product.name,
+      sku: initialData.product.sku,
+      invoiceFile: null,
+      variants,
+      quantity,
+      unitCost: Number(variants[0]?.unitCost ?? 0),
+      total,
+    }];
+  });
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
   const sequenceRef = useRef(5);
@@ -135,6 +173,10 @@ export function PurchaseForm() {
   };
 
   const handleAddPurchase = () => {
+    if (isEdit) {
+      setModalOpen(true);
+      return;
+    }
     if (activeTab === "new-product") {
       setNewProductInteracted(true);
       const validation = newProductSchema.safeParse({ ...newProduct, invoice });
@@ -269,7 +311,7 @@ export function PurchaseForm() {
     <div className="mx-auto w-full max-w-[1035px] min-w-0 text-[#202124]">
       <header className="flex flex-wrap items-center justify-between gap-4 rounded-[6px] border border-[#D9DAE0] bg-white px-5 py-5 sm:px-7">
         <h1 className="font-[var(--font-title)] text-[32px] leading-10 font-bold">
-          Nueva Compra
+          {isEdit ? `Editar compra #${reference ?? purchaseNumber}` : "Nueva Compra"}
         </h1>
         <button
           type="button"
@@ -303,37 +345,85 @@ export function PurchaseForm() {
             </div>
           </div>
           <div>
-            <label htmlFor="purchase-supplier" className="mb-2 block text-sm font-medium">
-              Seleccionar proveedor
-            </label>
-            <select
-              id="purchase-supplier"
-              value={supplierId}
-              onChange={(event) => setSupplierId(event.target.value)}
-              className="h-11 w-full max-w-[360px] rounded-[5px] border border-[#878A92] bg-white px-3 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1]"
-            >
-              {/* Datos exclusivamente visuales para TASK 686.
-                  Retirar cuando Backend exponga el contrato real de proveedores. */}
-              <option value="">Proveedor</option>
-              <option value="global">Distribuidora global</option>
-              <option value="local">Proveedor local</option>
-            </select>
+            {isEdit && initialData ? (
+              <>
+                <p
+                  id="purchase-supplier-product-label"
+                  className="mb-2 block text-sm font-medium"
+                >
+                  Seleccionar proveedor / producto
+                </p>
+                <div className="w-full max-w-[360px]">
+                  <select
+                    id="purchase-supplier"
+                    aria-labelledby="purchase-supplier-product-label"
+                    value={supplierId}
+                    onChange={(event) => setSupplierId(event.target.value)}
+                    className="relative z-0 block h-11 w-full rounded-t-[5px] rounded-b-none border border-[#878A92] bg-white px-3 text-sm outline-none focus:z-10 focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1]"
+                  >
+                    <option value="">Proveedor</option>
+                    <option value="global">Distribuidora global</option>
+                    <option value="local">Proveedor local</option>
+                  </select>
+                  <select
+                    id="purchase-product"
+                    aria-labelledby="purchase-supplier-product-label"
+                    value={initialData.product.id}
+                    onChange={() => undefined}
+                    className="relative z-0 -mt-px block h-11 w-full rounded-t-none rounded-b-[5px] border border-[#878A92] bg-white px-3 text-sm outline-none focus:z-10 focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1]"
+                  >
+                    <option value={initialData.product.id}>
+                      {initialData.product.name}
+                    </option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <>
+                <label
+                  htmlFor="purchase-supplier"
+                  className="mb-2 block text-sm font-medium"
+                >
+                  Seleccionar proveedor
+                </label>
+                <select
+                  id="purchase-supplier"
+                  value={supplierId}
+                  onChange={(event) => setSupplierId(event.target.value)}
+                  className="h-11 w-full max-w-[360px] rounded-[5px] border border-[#878A92] bg-white px-3 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1]"
+                >
+                  {/* Datos exclusivamente visuales para TASK 686.
+                      Retirar cuando Backend exponga el contrato real de proveedores. */}
+                  <option value="">Proveedor</option>
+                  <option value="global">Distribuidora global</option>
+                  <option value="local">Proveedor local</option>
+                </select>
+              </>
+            )}
           </div>
       </div>
 
       <div className="mt-4">
-        <Tabs
-          items={PURCHASE_TABS}
-          value={activeTab}
-          onValueChange={setActiveTab}
-          ariaLabel="Tipo de compra"
-          className="rounded-t-[6px]"
-        />
+        {!isEdit && (
+          <Tabs
+            items={PURCHASE_TABS}
+            value={activeTab}
+            onValueChange={setActiveTab}
+            ariaLabel="Tipo de compra"
+            className="rounded-t-[6px]"
+          />
+        )}
 
-        <div className="mt-2 rounded-[6px] border border-[#B8CBEA] bg-white">
+        <div
+          className={`${isEdit ? "" : "mt-2"} rounded-[6px] border border-[#B8CBEA] bg-white`}
+        >
           <div
             role="tabpanel"
-            aria-label={PURCHASE_TABS.find((tab) => tab.value === activeTab)?.label}
+            aria-label={
+              isEdit
+                ? "Editar compra"
+                : PURCHASE_TABS.find((tab) => tab.value === activeTab)?.label
+            }
             className="px-5 pb-5 pt-6 sm:px-7 sm:pb-6 sm:pt-7"
           >
             {activeTab === "new-product" ? (
@@ -342,6 +432,32 @@ export function PurchaseForm() {
                 onChange={(value) => {
                   setNewProduct(value);
                   setNewProductInteracted(true);
+                  if (isEdit) {
+                    setAddedProducts((current) =>
+                      current.map((product) => {
+                        if (product.id !== initialData?.product.id) return product;
+                        const quantity = value.variants.reduce(
+                          (sum, variant) => sum + Number(variant.quantity || 0),
+                          0,
+                        );
+                        const total = value.variants.reduce(
+                          (sum, variant) =>
+                            sum +
+                            Number(variant.quantity || 0) *
+                              Number(variant.unitCost || 0),
+                          0,
+                        );
+                        return {
+                          ...product,
+                          name: value.name,
+                          variants: value.variants.map((variant) => ({ ...variant })),
+                          quantity,
+                          unitCost: Number(value.variants[0]?.unitCost ?? 0),
+                          total,
+                        };
+                      }),
+                    );
+                  }
                 }}
                 errors={newProductErrors}
               />
@@ -357,17 +473,30 @@ export function PurchaseForm() {
             )}
           </div>
 
-          <div className="px-5 py-5 sm:px-7 sm:py-6">
+          <div
+            className={`px-5 py-5 sm:px-7 sm:py-6 ${
+              isEdit
+                ? "flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between"
+                : ""
+            }`}
+          >
             <FileUploadInput
               id={`purchase-invoice-${activeTab}`}
               label="Subir factura"
               file={invoice}
               onFileChange={handleInvoiceChange}
-              error={displayedInvoiceError}
+              error={
+                isEdit && initialData?.existingInvoice
+                  ? invoiceError
+                  : displayedInvoiceError
+              }
+              existingInvoice={isEdit ? initialData?.existingInvoice : null}
             />
 
           <div
-            className="mt-6 flex flex-col-reverse justify-end gap-3 sm:flex-row sm:gap-4"
+            className={`flex flex-col-reverse justify-end gap-3 sm:flex-row sm:gap-4 ${
+              isEdit ? "" : "mt-6"
+            }`}
           >
             <button
               type="button"
@@ -379,7 +508,7 @@ export function PurchaseForm() {
             <button
               type="button"
               onClick={handleAddPurchase}
-              disabled={!activeValidation.success}
+              disabled={!isEdit && !activeValidation.success}
               className="h-11 rounded-[5px] bg-[#1C21D1] px-7 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1] sm:min-w-40"
             >
               Agregar compra
@@ -389,20 +518,22 @@ export function PurchaseForm() {
       </div>
       </div>
 
-      <AddedProductsTable
-        products={addedProducts}
-        onOpen={(productId, trigger) => {
-          detailTriggerRef.current = trigger;
-          setSelectedProductId(productId);
-        }}
-        onRemove={(productId) =>
-          setAddedProducts((current) =>
-            current.filter((product) => product.id !== productId),
-          )
-        }
-      />
+      {!isEdit && (
+        <AddedProductsTable
+          products={addedProducts}
+          onOpen={(productId, trigger) => {
+            detailTriggerRef.current = trigger;
+            setSelectedProductId(productId);
+          }}
+          onRemove={(productId) =>
+            setAddedProducts((current) =>
+              current.filter((product) => product.id !== productId),
+            )
+          }
+        />
+      )}
 
-      {selectedProduct && (
+      {!isEdit && selectedProduct && (
         <IncomeDetailsPanel
           key={selectedProduct.id}
           product={selectedProduct}
@@ -414,7 +545,13 @@ export function PurchaseForm() {
       <PurchaseSuccessModal
         open={modalOpen}
         purchaseNumber={purchaseNumber}
-        onAccept={closeModal}
+        onAccept={() => {
+          closeModal();
+          if (isEdit) router.push("/compras");
+        }}
+        onClose={closeModal}
+        title={isEdit ? "¡Modificado con éxito!" : undefined}
+        description={isEdit ? "Se ha creado correctamente." : undefined}
       />
     </div>
   );

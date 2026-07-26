@@ -17,6 +17,8 @@ type NewProductFormProps = {
   value: NewProductDraft;
   onChange: (value: NewProductDraft) => void;
   errors?: NewProductFormErrors;
+  allowVariantRemoval?: boolean;
+  showStockTotal?: boolean;
 };
 
 export type NewProductFormErrors = {
@@ -45,7 +47,13 @@ export function createInitialNewProductDraft(): NewProductDraft {
   return { name: "", category: "", variants: [createVariant()] };
 }
 
-export function NewProductForm({ value, onChange, errors }: NewProductFormProps) {
+export function NewProductForm({
+  value,
+  onChange,
+  errors,
+  allowVariantRemoval = false,
+  showStockTotal = false,
+}: NewProductFormProps) {
   const updateVariant = (id: string, field: PurchaseVariantField, fieldValue: string) => {
     onChange({
       ...value,
@@ -58,6 +66,19 @@ export function NewProductForm({ value, onChange, errors }: NewProductFormProps)
   const addVariant = () => {
     onChange({ ...value, variants: [...value.variants, createVariant()] });
   };
+
+  const removeVariant = (id: string) => {
+    if (value.variants.length === 1) return;
+    onChange({
+      ...value,
+      variants: value.variants.filter((variant) => variant.id !== id),
+    });
+  };
+
+  const stockTotal = value.variants.reduce((sum, variant) => {
+    const quantity = Number(variant.quantity);
+    return Number.isFinite(quantity) && quantity >= 0 ? sum + quantity : sum;
+  }, 0);
 
   return (
     <section aria-labelledby="new-product-title">
@@ -126,6 +147,11 @@ export function NewProductForm({ value, onChange, errors }: NewProductFormProps)
               onChange={updateVariant}
               onAdd={addVariant}
               showAddButton={index === value.variants.length - 1}
+              onRemove={
+                allowVariantRemoval && value.variants.length > 1
+                  ? removeVariant
+                  : undefined
+              }
               errors={errors?.variants?.[variant.id]}
             />
           ))}
@@ -136,6 +162,14 @@ export function NewProductForm({ value, onChange, errors }: NewProductFormProps)
           </p>
         )}
       </fieldset>
+      {showStockTotal && (
+        <div className="mt-4 text-center">
+          <p className="text-sm font-semibold">STOCK TOTAL</p>
+          <output aria-label="Stock total" className="mt-1 block text-lg font-bold">
+            {stockTotal}
+          </output>
+        </div>
+      )}
     </section>
   );
 }

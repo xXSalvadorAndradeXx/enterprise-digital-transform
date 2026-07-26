@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useId } from "react";
 
 export type PurchaseVariantField = "size" | "quantity" | "unitCost";
@@ -22,6 +22,7 @@ export interface VariantRowProps {
   value: PurchaseVariantValue;
   onChange: (id: string, field: PurchaseVariantField, value: string) => void;
   onAdd: () => void;
+  onRemove?: (id: string) => void;
   showAddButton?: boolean;
   disabled?: boolean;
   errors?: PurchaseVariantErrors;
@@ -42,6 +43,7 @@ export function VariantRow({
   value,
   onChange,
   onAdd,
+  onRemove,
   showAddButton = false,
   disabled = false,
   errors,
@@ -91,6 +93,17 @@ export function VariantRow({
           className="flex size-7 items-center justify-center rounded-full border border-[#202124] bg-white text-[#202124] disabled:cursor-not-allowed disabled:opacity-50 lg:col-start-1"
         >
           <Plus aria-hidden="true" size={16} strokeWidth={2} />
+        </button>
+      )}
+      {onRemove && (
+        <button
+          type="button"
+          aria-label={`Eliminar talla ${value.size || "sin nombre"}`}
+          disabled={disabled}
+          onClick={() => onRemove(value.id)}
+          className="flex size-7 items-center justify-center rounded text-red-600 disabled:cursor-not-allowed disabled:opacity-50 lg:col-start-2 lg:row-start-2"
+        >
+          <Trash2 aria-hidden="true" size={18} />
         </button>
       )}
     </div>
