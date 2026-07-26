@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Inbox, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import {
   EmptyState,
+  DeletePurchaseConfirmModal,
+  DeletePurchaseSuccessModal,
   InvoiceThumbnail,
   Pagination,
   SearchBar,
@@ -16,6 +18,7 @@ import {
 
 type PurchaseListRow = {
   id: string;
+  reference: string;
   date: string;
   supplier: string;
   product: string;
@@ -47,6 +50,7 @@ function resolveInvoiceType(row: PurchaseListRow): "pdf" | "image" {
 const TEMPORARY_PRESENTATION_ROWS: readonly PurchaseListRow[] = [
   {
     id: "001",
+    reference: "CP-0005",
     date: "18-05-2026",
     supplier: "Nike",
     product: "nike ford",
@@ -57,6 +61,7 @@ const TEMPORARY_PRESENTATION_ROWS: readonly PurchaseListRow[] = [
   },
   {
     id: "002",
+    reference: "CP-0006",
     date: "18-05-2026",
     supplier: "Nike",
     product: "nike low 1",
@@ -67,7 +72,10 @@ const TEMPORARY_PRESENTATION_ROWS: readonly PurchaseListRow[] = [
   },
 ];
 
-const columns: readonly TableColumn<PurchaseListRow>[] = [
+function createColumns(
+  onDelete: (row: PurchaseListRow, trigger: HTMLButtonElement) => void,
+): readonly TableColumn<PurchaseListRow>[] {
+  return [
   {
     id: "id",
     header: "id",
@@ -136,7 +144,8 @@ const columns: readonly TableColumn<PurchaseListRow>[] = [
         </Link>
         <button
           type="button"
-          aria-label={`Eliminar compra ${row.id}`}
+          aria-label={`Eliminar compra ${row.reference}`}
+          onClick={(event) => onDelete(row, event.currentTarget)}
           className="rounded p-1 text-[#F44336] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F44336]"
         >
           <Trash2 aria-hidden="true" size={20} strokeWidth={2} />
@@ -144,7 +153,8 @@ const columns: readonly TableColumn<PurchaseListRow>[] = [
       </div>
     ),
   },
-];
+  ];
+}
 
 export interface ComprasListViewProps {
   showEmptyState?: boolean;
@@ -154,9 +164,52 @@ export default function ComprasListView({
   showEmptyState = false,
 }: ComprasListViewProps) {
   const router = useRouter();
+  // Simulación local temporal: al recargar se restauran los mocks.
+  const [rows, setRows] = useState<PurchaseListRow[]>(() => [
+    ...TEMPORARY_PRESENTATION_ROWS,
+  ]);
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedPurchase, setSelectedPurchase] =
+    useState<PurchaseListRow | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [deleteTrigger, setDeleteTrigger] =
+    useState<HTMLButtonElement | null>(null);
+
+  const openDeleteConfirmation = useCallback(
+    (row: PurchaseListRow, trigger: HTMLButtonElement) => {
+      setDeleteTrigger(trigger);
+      setSelectedPurchase(row);
+      setConfirmOpen(true);
+    },
+    [],
+  );
+
+  const closeDeleteConfirmation = useCallback(() => {
+    setConfirmOpen(false);
+    setSelectedPurchase(null);
+  }, []);
+
+  const confirmLocalDelete = useCallback(() => {
+    if (!selectedPurchase) return;
+    setRows((current) =>
+      current.filter((row) => row.id !== selectedPurchase.id),
+    );
+    setConfirmOpen(false);
+    setSelectedPurchase(null);
+    setSuccessOpen(true);
+  }, [selectedPurchase]);
+
+  const closeDeleteSuccess = useCallback(() => {
+    setSuccessOpen(false);
+    setDeleteTrigger(null);
+  }, []);
+  const columns = useMemo(
+    () => createColumns(openDeleteConfirmation),
+    [openDeleteConfirmation],
+  );
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -173,14 +226,14 @@ export default function ComprasListView({
   );
 
   const filteredRows = useMemo(() => {
-    if (!normalizedSearchTerm) return TEMPORARY_PRESENTATION_ROWS;
+    if (!normalizedSearchTerm) return rows;
 
-    return TEMPORARY_PRESENTATION_ROWS.filter(
+    return rows.filter(
       (row) =>
         normalizeSearchTerm(row.id).includes(normalizedSearchTerm) ||
         normalizeSearchTerm(row.supplier).includes(normalizedSearchTerm),
     );
-  }, [normalizedSearchTerm]);
+  }, [normalizedSearchTerm, rows]);
 
   const totalPages = Math.ceil(filteredRows.length / LOCAL_PAGE_SIZE);
   const validCurrentPage =
@@ -256,6 +309,17 @@ export default function ComprasListView({
           />
         </section>
       )}
+      <DeletePurchaseConfirmModal
+        open={confirmOpen}
+        reference={selectedPurchase?.reference ?? ""}
+        returnFocusTo={deleteTrigger}
+        onCancel={closeDeleteConfirmation}
+        onConfirm={confirmLocalDelete}
+      />
+      <DeletePurchaseSuccessModal
+        open={successOpen}
+        onClose={closeDeleteSuccess}
+      />
     </div>
   );
 }

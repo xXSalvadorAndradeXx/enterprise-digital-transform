@@ -6,6 +6,7 @@ import type { PurchaseVariantValue } from "./VariantRow";
 
 export type AddedProduct = {
   id: string;
+  reference?: string;
   name: string;
   sku: string;
   invoiceFile: File | null;
@@ -18,7 +19,7 @@ export type AddedProduct = {
 type AddedProductsTableProps = {
   products: AddedProduct[];
   onOpen: (productId: string, trigger: HTMLButtonElement) => void;
-  onRemove: (productId: string) => void;
+  onRemove: (productId: string, trigger: HTMLButtonElement) => void;
 };
 
 function formatMoney(value: number) {
@@ -89,10 +90,10 @@ export function AddedProductsTable({
                   <td className="px-4 py-3 text-center">
                     <button
                       type="button"
-                      aria-label={`Eliminar ${product.name} de los productos añadidos`}
+                      aria-label={`Eliminar compra ${product.reference ?? product.name}`}
                       onClick={(event) => {
                         event.stopPropagation();
-                        onRemove(product.id);
+                        onRemove(product.id, event.currentTarget);
                       }}
                       className="inline-flex size-8 items-center justify-center rounded text-red-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
                     >

@@ -37,6 +37,8 @@ import {
   getPurchaseChanges,
   type PurchaseEditSnapshot,
 } from "../../utils/getPurchaseChanges";
+import { DeletePurchaseConfirmModal } from "../DeletePurchaseConfirmModal";
+import { DeletePurchaseSuccessModal } from "../DeletePurchaseSuccessModal";
 
 type PurchaseTab = "new-product" | "restock-product";
 
@@ -168,6 +170,12 @@ export function PurchaseForm({
   });
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [editSubmitAttempted, setEditSubmitAttempted] = useState(false);
+  const [productPendingDeleteId, setProductPendingDeleteId] =
+    useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteSuccessOpen, setDeleteSuccessOpen] = useState(false);
+  const [deleteTrigger, setDeleteTrigger] =
+    useState<HTMLButtonElement | null>(null);
   const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
   const sequenceRef = useRef(5);
   const productSequenceRef = useRef(1);
@@ -249,6 +257,7 @@ export function PurchaseForm({
         ...current,
         {
           id: `qa-local-product-${localSequence}`,
+          reference: `CP-${String(sequenceRef.current).padStart(4, "0")}`,
           name: newProduct.name.trim(),
           sku: `QA-LOCAL-${String(localSequence).padStart(4, "0")}`,
           invoiceFile: invoice,
@@ -289,6 +298,28 @@ export function PurchaseForm({
 
   const selectedProduct =
     addedProducts.find((product) => product.id === selectedProductId) ?? null;
+  const productPendingDelete =
+    addedProducts.find((product) => product.id === productPendingDeleteId) ?? null;
+
+  const closeProductDeleteConfirmation = useCallback(() => {
+    setDeleteConfirmOpen(false);
+    setProductPendingDeleteId(null);
+  }, []);
+
+  const confirmProductDelete = useCallback(() => {
+    if (!productPendingDeleteId) return;
+    setAddedProducts((current) =>
+      current.filter((product) => product.id !== productPendingDeleteId),
+    );
+    setDeleteConfirmOpen(false);
+    setProductPendingDeleteId(null);
+    setDeleteSuccessOpen(true);
+  }, [productPendingDeleteId]);
+
+  const closeProductDeleteSuccess = useCallback(() => {
+    setDeleteSuccessOpen(false);
+    setDeleteTrigger(null);
+  }, []);
 
   const saveIncomeDetails = (variants: NewProductDraft["variants"]) => {
     if (!selectedProductId) return;
@@ -599,11 +630,11 @@ export function PurchaseForm({
             detailTriggerRef.current = trigger;
             setSelectedProductId(productId);
           }}
-          onRemove={(productId) =>
-            setAddedProducts((current) =>
-              current.filter((product) => product.id !== productId),
-            )
-          }
+          onRemove={(productId, trigger) => {
+            setDeleteTrigger(trigger);
+            setProductPendingDeleteId(productId);
+            setDeleteConfirmOpen(true);
+          }}
         />
       )}
 
@@ -627,6 +658,21 @@ export function PurchaseForm({
         title={isEdit ? "¡Modificado con éxito!" : undefined}
         description={isEdit ? "Se ha creado correctamente." : undefined}
       />
+      {!isEdit && (
+        <>
+          <DeletePurchaseConfirmModal
+            open={deleteConfirmOpen}
+            reference={productPendingDelete?.reference ?? ""}
+            returnFocusTo={deleteTrigger}
+            onCancel={closeProductDeleteConfirmation}
+            onConfirm={confirmProductDelete}
+          />
+          <DeletePurchaseSuccessModal
+            open={deleteSuccessOpen}
+            onClose={closeProductDeleteSuccess}
+          />
+        </>
+      )}
     </div>
   );
 }

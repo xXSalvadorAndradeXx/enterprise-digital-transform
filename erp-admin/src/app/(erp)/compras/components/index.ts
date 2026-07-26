@@ -1,6 +1,8 @@
 export { EmptyState } from "./EmptyState";
 export type { EmptyStateProps } from "./EmptyState";
 export { InvoiceThumbnail } from "./InvoiceThumbnail";
+export { DeletePurchaseConfirmModal } from "./DeletePurchaseConfirmModal";
+export { DeletePurchaseSuccessModal } from "./DeletePurchaseSuccessModal";
 export type { InvoiceThumbnailProps } from "./InvoiceThumbnail";
 export { Pagination } from "./Pagination";
 export type { PaginationProps } from "./Pagination";
