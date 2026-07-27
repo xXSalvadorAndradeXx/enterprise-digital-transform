@@ -1,16 +1,19 @@
-// src/modules/purchases/purchases.module.ts
+// src/purchases/purchases.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Purchase } from './entities/purchase.entity';
-import { PurchaseItem } from './entities/purchase-item.entity';
+import { SupplierPurchase } from './entities/supplier-purchase.entity';
+import { SupplierPurchaseItem } from './entities/supplier-purchase-item.entity';
+import { PurchaseStatusHistory } from './entities/purchase-status-history.entity';
 import { PurchasesController } from './purchases.controller';
 import { PurchasesService } from './purchases.service';
-import { InventoryModule } from '../inventory/inventory.module';  // ← agregar
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Purchase, PurchaseItem]),
-    InventoryModule,  // ← agregar
+    TypeOrmModule.forFeature([
+      SupplierPurchase,
+      SupplierPurchaseItem,
+      PurchaseStatusHistory,
+    ]),
   ],
   controllers: [PurchasesController],
   providers: [PurchasesService],

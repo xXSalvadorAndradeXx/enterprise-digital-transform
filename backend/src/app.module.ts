@@ -16,6 +16,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { PurchasesModule } from './purchases/purchases.module';
 
 
+
 @Module({
   imports: [
     // Configuración de Variables de Entorno
@@ -50,6 +51,7 @@ import { PurchasesModule } from './purchases/purchases.module';
     SuppliersModule,
     InventoryModule,
     PurchasesModule,
+   
   ],
   controllers: [AppController],
   providers: [AppService],

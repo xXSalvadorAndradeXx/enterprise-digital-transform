@@ -1,19 +1,19 @@
-// src/modules/purchases/dto/create-purchase-item.dto.ts
+// src/purchases/dto/create-purchase-item.dto.ts
 import { IsUUID, IsNumber, IsPositive, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreatePurchaseItemDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({ format: 'uuid', example: 'uuid-del-producto' })
   @IsUUID('4')
-  productId: string;
+  productId!: string;
 
   @ApiProperty({ example: 10 })
   @IsNumber()
   @IsPositive()
-  quantity: number;
+  quantity!: number;
 
   @ApiProperty({ example: 25.50 })
   @IsNumber()
   @Min(0)
-  unitCost: number;
+  unitCost!: number;
 }
