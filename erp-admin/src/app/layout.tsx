@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Montserrat, Poppins } from "next/font/google";
+import { AuthProvider } from "@/contexts/AuthContext";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -29,7 +30,9 @@ export default function RootLayout({
       lang="es"
       className={`${montserrat.variable} ${poppins.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

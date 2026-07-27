@@ -1,87 +1,71 @@
+"use client";
+
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { usePathname } from "next/navigation";
 
-/**
- * Representa un elemento individual del Breadcrumb.
- */
-interface BreadcrumbItem {
-/**
- * Texto que se mostrará al usuario.
- */
-label: string;
+import { sidebarItems } from "../sidebar/sidebar-items";
 
-/**
- * Ruta de navegación.
- * Si existe, el elemento será un enlace (<Link>).
- * Si no existe, se interpreta como la página actual.
- */
-href?: string;
-}
+export default function Breadcrumb() {
+const pathname = usePathname();
 
-/**
- * Propiedades del componente Breadcrumb.
- */
-interface BreadcrumbProps {
-/**
- * Lista de elementos que conforman la ruta de navegación.
- *
- * Ejemplo:
- * [
- *   { label: "Admin", href: "/dashboard" },
- *   { label: "Equipo" }
- * ]
- */
-items: BreadcrumbItem[];
-}
+const activeItem = sidebarItems.find(
+(item) =>
+pathname === item.href ||
+pathname.startsWith(`${item.href}/`),
+);
 
-/**
- * Componente reutilizable que muestra la ubicación actual
- * del usuario dentro de la aplicación.
- *
- * Ejemplo visual:
- *
- * Admin > Equipo
- *
- * Características:
- * - Los elementos con "href" se muestran como enlaces.
- * - El último elemento representa la página actual.
- * - Se agrega automáticamente el separador (>) entre elementos.
- */
-export default function Breadcrumb({ items }: BreadcrumbProps) {
+const currentLabel =
+activeItem?.label ?? getLabelFromPathname(pathname);
+
 return (
-<nav
-className="flex items-center text-sm"
-aria-label="Breadcrumb"
->
-{items.map((item, index) => (
-<div
-key={item.label}
-className="flex items-center"
->
-{/* Si existe una ruta, mostrar un enlace */}
-{item.href ? (
+<nav aria-label="Migas de pan">
+<ol className="flex items-center text-sm">
+<li>
 <Link
-href={item.href}
+href="/dashboard"
 className="text-gray-500 transition-colors hover:text-black"
 >
-{item.label}
+Admin
 </Link>
-) : (
-/* Si no existe una ruta, es la página actual */
-<span className="font-medium text-black">
-{item.label}
-</span>
-)}
+</li>
 
-{/* Mostrar el separador únicamente entre elementos */}
-{index < items.length - 1 && (
-<ChevronRight
-size={16}
-className="mx-2 text-gray-400"
-/>
+{currentLabel && (
+<>
+<li aria-hidden="true">
+    <ChevronRight
+    size={16}
+    className="mx-2 text-gray-400"
+    />
+</li>
+
+<li
+    className="font-medium text-black"
+    aria-current="page"
+>
+    {currentLabel}
+</li>
+</>
 )}
-</div>
-))}
+</ol>
 </nav>
+);
+}
+
+function getLabelFromPathname(pathname: string): string {
+const segment = pathname
+.split("/")
+.filter(Boolean)
+.at(-1);
+
+if (!segment) {
+return "";
+}
+
+return decodeURIComponent(segment)
+.replaceAll("-", " ")
+.replaceAll("_", " ")
+.replace(/\b\w/g, (character) =>
+character.toUpperCase(),
 );
 }
