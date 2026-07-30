@@ -305,4 +305,29 @@ export class UsersService {
 
     return removedUser;
   }
+
+  
+  async generateTemporaryPassword(id: string): Promise<{ temporaryPassword: string }> {
+    const user = await this.userRepository.findOneBy({ id });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const temporaryPassword = generateTemporaryPassword(12);
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+    user.passwordHash = passwordHash;
+    user.mustChangePassword = true;
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.isBlocked = false;
+
+    await this.userRepository.save(user);
+
+    this.logger.log(
+      `[TEMPORARY PASSWORD GENERATED] Contraseña temporal generada para usuario ${user.email}: ${temporaryPassword}`
+    );
+
+    return { temporaryPassword };
+  }
 }

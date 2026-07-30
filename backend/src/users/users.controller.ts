@@ -636,4 +636,64 @@ export class UsersController {
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     await this.usersService.remove(id);
   }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users:update')
+  @ApiOperation({
+    summary: 'Generar nueva contraseña temporal para un usuario',
+    description: 'Genera una nueva contraseña temporal compleja para el usuario especificado, actualiza su hash en base de datos, marca mustChangePassword en true y reinicia sus contadores de intentos fallidos y bloqueos.',
+  })
+  @Post(':id/generate-temporary-password')
+  @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario (UUID v4)', example: 'f8d3848b-d113-49cd-a5d6-8c4d5865dec9' })
+  @ApiOkResponse({
+    description: 'La contraseña temporal ha sido generada exitosamente.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        message: { type: 'string', example: 'Contraseña temporal generada exitosamente' },
+        temporaryPassword: { type: 'string', example: 'AbC123!@#$%' }
+      }
+    }
+  })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso users:update requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: El usuario especificado no existe en la base de datos.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Usuario no encontrado' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
+  async generateTemporaryPassword(@Param('id', ParseUUIDPipe) id: string) {
+    const { temporaryPassword } = await this.usersService.generateTemporaryPassword(id);
+    return {
+      status: 'success',
+      message: 'Contraseña temporal generada exitosamente',
+      temporaryPassword,
+    };
+  }
 }
