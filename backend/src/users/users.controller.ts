@@ -71,7 +71,8 @@ export class UsersController {
               }
             }
           }
-        }
+        },
+        temporaryPassword: { type: 'string', example: 'AbC123!@#' }
       }
     }
   })
@@ -124,12 +125,13 @@ export class UsersController {
   })
   @ApiBody({ type: CreateUserDto, description: 'Datos del nuevo usuario a crear' })
   async create(@Body() createUserDto: CreateUserDto) {
-    const { user } = await this.usersService.create(createUserDto);
+    const { user, temporaryPassword } = await this.usersService.create(createUserDto);
     const serializedUser = plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true });
     return {
       status: 'success',
       message: 'Usuario creado exitosamente',
       data: serializedUser,
+      temporaryPassword,
     };
   }
 
