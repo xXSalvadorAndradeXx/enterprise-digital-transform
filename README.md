@@ -88,23 +88,33 @@ Crear un archivo `.env` basado en `.env.example`.
 Ejemplo:
 
 ```env
-NODE_ENV=development
+# ── Aplicación ───────────────────────────────────────────
 
 PORT=3000
-
 API_PREFIX=api/v1
 
+
+# ── JWT ──────────────────────────────────────────────────
+JWT_SECRET=9f8a7d6c5b4e3f2a1d0c9b8a7f6e5d4c
+JWT_EXPIRES_IN=15m
+
+JWT_REFRESH_SECRET=1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p
+JWT_REFRESH_EXPIRES_IN=7d
+
+
+# ── Base de datos PostgreSQL ─────────────────────────────
 DB_HOST=localhost
 DB_PORT=5432
-DB_USERNAME=user
-DB_PASSWORD=password
-DB_DATABASE=name-db
+DB_USERNAME=postgres
+DB_PASSWORD=Admin
+DB_NAME=tienda_db
 
-JWT_SECRET=secret
-JWT_EXPIRES_IN=1h
+# ── Seeds ────────────────────────────────────────────────
 
-JWT_REFRESH_SECRET=refresh_secret
-JWT_REFRESH_EXPIRES_IN=7d
+SEED_ADMIN_EMAIL=admin@erp.local
+SEED_ADMIN_PASSWORD=Admin1234!
+SEED_EMPLEADO_EMAIL=empleado@erp.local
+SEED_EMPLEADO_PASSWORD=Empleado1234!
 ```
 
 ---

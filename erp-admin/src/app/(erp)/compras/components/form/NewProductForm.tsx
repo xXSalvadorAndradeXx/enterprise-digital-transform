@@ -86,30 +86,34 @@ export function NewProductForm({
         Añadir Compra
       </h2>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,535px)_210px] lg:items-center lg:gap-12">
-        <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
-          <label
-            htmlFor="purchase-product-name"
-            className="shrink-0 text-sm font-medium lg:w-[89px]"
-          >
-            Nombre del
-            <br />
-            producto:
-          </label>
-          <input
-            id="purchase-product-name"
-            type="text"
-            value={value.name}
-            aria-invalid={errors?.name ? true : undefined}
-            aria-describedby={errors?.name ? "purchase-product-name-error" : undefined}
-            onChange={(event) => onChange({ ...value, name: event.target.value })}
-            className="h-11 w-full min-w-0 rounded-[5px] border border-[#878A92] bg-white px-3 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1] lg:max-w-[430px]"
-          />
-          {errors?.name && (
-            <p id="purchase-product-name-error" role="alert" className="text-xs text-red-600">
-              {errors.name}
-            </p>
-          )}
+      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,535px)_210px] lg:items-start lg:gap-12">
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
+            <label
+              htmlFor="purchase-product-name"
+              className="shrink-0 text-sm font-medium lg:w-[89px]"
+            >
+              Nombre del
+              <br />
+              producto:
+            </label>
+            <input
+              id="purchase-product-name"
+              type="text"
+              value={value.name}
+              aria-invalid={errors?.name ? true : undefined}
+              aria-describedby={errors?.name ? "purchase-product-name-error" : undefined}
+              onChange={(event) => onChange({ ...value, name: event.target.value })}
+              className="h-11 w-full min-w-0 rounded-[5px] border border-[#878A92] bg-white px-3 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1] lg:max-w-[430px]"
+            />
+          </div>
+          <div className="min-h-6 pt-1 lg:pl-[105px]">
+            {errors?.name && (
+              <p id="purchase-product-name-error" role="alert" className="text-xs text-red-600">
+                {errors.name}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="min-w-0 lg:w-[210px]">
@@ -127,11 +131,13 @@ export function NewProductForm({
             <option value="fashion">Moda</option>
             <option value="footwear">Calzado</option>
           </select>
-          {errors?.category && (
-            <p id="purchase-category-error" role="alert" className="mt-1 text-xs text-red-600">
-              {errors.category}
-            </p>
-          )}
+          <div className="min-h-6 pt-1">
+            {errors?.category && (
+              <p id="purchase-category-error" role="alert" className="text-xs text-red-600">
+                {errors.category}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

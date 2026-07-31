@@ -61,25 +61,29 @@ export function VariantRow({
         const errorId = `${inputId}-error`;
 
         return (
-          <div key={field.name} className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-            <label htmlFor={inputId} className="shrink-0 text-sm font-medium text-[#4A4A4A]">
-              {field.label}
-            </label>
-            <input
-              id={inputId}
-              type="text"
-              value={value[field.name]}
-              disabled={disabled}
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? errorId : undefined}
-              onChange={(event) => onChange(value.id, field.name, event.target.value)}
-              className={`h-8 w-full min-w-0 rounded-[4px] border border-[#878A92] bg-white px-2 text-sm text-[#202124] outline-none disabled:cursor-not-allowed disabled:bg-[#F7F7F8] disabled:opacity-60 focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1] ${field.inputWidth}`}
-            />
-            {error && (
-              <p id={errorId} role="alert" className="mt-1 text-xs text-red-600">
-                {error}
-              </p>
-            )}
+          <div key={field.name} className="min-w-0">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+              <label htmlFor={inputId} className="shrink-0 text-sm font-medium text-[#4A4A4A]">
+                {field.label}
+              </label>
+              <input
+                id={inputId}
+                type="text"
+                value={value[field.name]}
+                disabled={disabled}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? errorId : undefined}
+                onChange={(event) => onChange(value.id, field.name, event.target.value)}
+                className={`h-8 w-full min-w-0 rounded-[4px] border border-[#878A92] bg-white px-2 text-sm text-[#202124] outline-none disabled:cursor-not-allowed disabled:bg-[#F7F7F8] disabled:opacity-60 focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1] ${field.inputWidth}`}
+              />
+            </div>
+            <div className="min-h-10 pt-1">
+              {error && (
+                <p id={errorId} role="alert" className="text-xs leading-4 text-red-600">
+                  {error}
+                </p>
+              )}
+            </div>
           </div>
         );
       })}

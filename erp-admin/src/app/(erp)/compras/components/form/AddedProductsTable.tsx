@@ -14,12 +14,17 @@ export type AddedProduct = {
   quantity: number;
   unitCost: number;
   total: number;
+  inventoryProductId?: string;
+  category?: string;
 };
 
 type AddedProductsTableProps = {
   products: AddedProduct[];
   onOpen: (productId: string, trigger: HTMLButtonElement) => void;
   onRemove: (productId: string, trigger: HTMLButtonElement) => void;
+  onRegister: () => void;
+  registerDisabled?: boolean;
+  registerError?: string;
 };
 
 function formatMoney(value: number) {
@@ -34,6 +39,9 @@ export function AddedProductsTable({
   products,
   onOpen,
   onRemove,
+  onRegister,
+  registerDisabled = false,
+  registerError,
 }: AddedProductsTableProps) {
   return (
     <section aria-labelledby="added-products-title" className="mt-6">
@@ -105,6 +113,23 @@ export function AddedProductsTable({
             )}
           </tbody>
         </table>
+      </div>
+      <div className="mt-6 flex flex-col items-end">
+        <button
+          type="button"
+          onClick={onRegister}
+          disabled={registerDisabled}
+          className="h-11 min-w-48 rounded-[5px] bg-[#1C21D1] px-7 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1]"
+        >
+          Registrar compra
+        </button>
+        <div className="min-h-6 pt-1">
+          {registerError && (
+            <p role="alert" className="text-sm text-red-600">
+              {registerError}
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );

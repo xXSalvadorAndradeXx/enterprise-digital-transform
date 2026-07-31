@@ -39,6 +39,16 @@ import {
 } from "../../utils/getPurchaseChanges";
 import { DeletePurchaseConfirmModal } from "../DeletePurchaseConfirmModal";
 import { DeletePurchaseSuccessModal } from "../DeletePurchaseSuccessModal";
+import { usePurchaseSuppliers } from "../../hooks/usePurchaseSuppliers";
+import {
+  addLocalPurchase,
+  getNextLocalPurchaseIdentifiers,
+  updateLocalPurchase,
+} from "../../data/localPurchases";
+import {
+  applyMockRestock,
+  findMockInventoryProduct,
+} from "../../data/mockInventory";
 
 type PurchaseTab = "new-product" | "restock-product";
 
@@ -118,6 +128,11 @@ export function PurchaseForm({
 }: PurchaseFormProps) {
   const isEdit = mode === "edit";
   const router = useRouter();
+  const {
+    suppliers,
+    loading: suppliersLoading,
+    error: suppliersError,
+  } = usePurchaseSuppliers();
   const [originalEditData] = useState<PurchaseEditSnapshot | null>(() =>
     initialData
       ? {
@@ -133,6 +148,8 @@ export function PurchaseForm({
   const [activeTab, setActiveTab] = useState<PurchaseTab>("new-product");
   const [purchaseDate, setPurchaseDate] = useState(() => initialData?.date ?? getLocalDate());
   const [supplierId, setSupplierId] = useState(() => initialData?.supplierId ?? "");
+  const [supplierValidationVisible, setSupplierValidationVisible] = useState(false);
+  const [registerError, setRegisterError] = useState("");
   const [invoice, setInvoice] = useState<File | null>(null);
   const [invoiceError, setInvoiceError] = useState("");
   const [newProduct, setNewProduct] = useState<NewProductDraft>(() =>
@@ -177,7 +194,7 @@ export function PurchaseForm({
   const [deleteTrigger, setDeleteTrigger] =
     useState<HTMLButtonElement | null>(null);
   const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const sequenceRef = useRef(5);
+  const sequenceRef = useRef(7);
   const productSequenceRef = useRef(1);
 
   const closeModal = useCallback(() => setModalOpen(false), []);
@@ -199,6 +216,9 @@ export function PurchaseForm({
   };
 
   const handleAddPurchase = () => {
+    setSupplierValidationVisible(true);
+    if (!supplierId) return;
+
     if (isEdit) {
       setEditSubmitAttempted(true);
       const validation = editPurchaseSchema.safeParse({
@@ -222,6 +242,51 @@ export function PurchaseForm({
 
       // Resumen local para TASK 691. No se envía ni persiste.
       void editChanges.changedFields;
+      if (initialData) {
+        const quantity = newProduct.variants.reduce(
+          (sum, variant) => sum + Number(variant.quantity || 0),
+          0,
+        );
+        const total = newProduct.variants.reduce(
+          (sum, variant) =>
+            sum +
+            Number(variant.quantity || 0) *
+              Number(variant.unitCost || 0),
+          0,
+        );
+        const selectedSupplier = suppliers.find(
+          (supplier) => supplier.id === supplierId,
+        );
+        const [year, month, day] = purchaseDate.split("-");
+
+        updateLocalPurchase(initialData.id, {
+          date:
+            year && month && day
+              ? `${day}-${month}-${year}`
+              : purchaseDate,
+          supplier: selectedSupplier?.provider ?? supplierId,
+          product: newProduct.name.trim(),
+          total: total.toLocaleString("en-US", {
+            style: "currency",
+            currency: "USD",
+          }),
+          stockEntered: quantity,
+          invoiceType:
+            invoice?.type === "application/pdf"
+              ? "pdf"
+              : initialData.existingInvoice?.mimeType === "application/pdf"
+                ? "pdf"
+                : "image",
+          editDetails: {
+            supplierId,
+            purchaseDate,
+            productId: initialData.product.id,
+            productSku: initialData.product.sku,
+            category: newProduct.category,
+            variants: newProduct.variants.map((variant) => ({ ...variant })),
+          },
+        });
+      }
       setModalOpen(true);
       return;
     }
@@ -265,12 +330,15 @@ export function PurchaseForm({
           quantity,
           unitCost: validCosts[0] ?? 0,
           total,
+          category: newProduct.category,
         },
       ]);
       setInvoice(null);
       setInvoiceError("");
       setNewProduct(createInitialNewProductDraft());
       setNewProductInteracted(false);
+      setRegisterError("");
+      return;
     } else {
       setRestockInteracted(true);
       const validation = restockSchema.safeParse({ ...restock, invoice });
@@ -278,15 +346,124 @@ export function PurchaseForm({
         setInvoiceError(getInvoiceIssue(validation.error.issues));
         return;
       }
+      const inventoryProduct = findMockInventoryProduct(
+        restock.selectedProductId,
+      );
+      if (!inventoryProduct) return;
+      const localSequence = productSequenceRef.current++;
+      const quantity = restock.sizes.reduce(
+        (sum, row) => sum + Number(row.quantity || 0),
+        0,
+      );
+      setAddedProducts((current) => [
+        ...current,
+        {
+          id: `qa-local-restock-${localSequence}`,
+          reference: `CP-${String(sequenceRef.current).padStart(4, "0")}`,
+          name: inventoryProduct.name,
+          sku: inventoryProduct.sku,
+          invoiceFile: invoice,
+          variants: restock.sizes.map((row) => {
+            const inventoryVariant = inventoryProduct.variants.find(
+              (variant) => variant.size === row.size,
+            );
+            return {
+              id: `restock-${localSequence}-${row.size}`,
+              size: row.size,
+              quantity: row.quantity,
+              unitCost: String(inventoryVariant?.unitCost ?? 0),
+            };
+          }),
+          quantity,
+          unitCost: inventoryProduct.variants[0]?.unitCost ?? 0,
+          total: restock.sizes.reduce((sum, row) => {
+            const inventoryVariant = inventoryProduct.variants.find(
+              (variant) => variant.size === row.size,
+            );
+            return sum + Number(row.quantity || 0) * (inventoryVariant?.unitCost ?? 0);
+          }, 0),
+          inventoryProductId: inventoryProduct.id,
+          category: inventoryProduct.category,
+        },
+      ]);
       setInvoice(null);
       setInvoiceError("");
       setRestock(createInitialRestockDraft());
       setRestockInteracted(false);
+      setRegisterError("");
+      return;
     }
 
     // Número temporal para demostración de TASK 686.
     // Reemplazar por el número devuelto por Backend.
-    setPurchaseNumber(`CP-${String(sequenceRef.current).padStart(4, "0")}`);
+  };
+
+  const handleRegisterPurchase = () => {
+    setSupplierValidationVisible(true);
+
+    if (!supplierId) {
+      setRegisterError("Selecciona un proveedor antes de registrar la compra.");
+      return;
+    }
+
+    if (addedProducts.length === 0) {
+      setRegisterError("Añade al menos un producto antes de registrar la compra.");
+      return;
+    }
+
+    const { id, reference } = getNextLocalPurchaseIdentifiers();
+    const supplier = suppliers.find((item) => item.id === supplierId);
+    const total = addedProducts.reduce((sum, product) => sum + product.total, 0);
+    const stockEntered = addedProducts.reduce(
+      (sum, product) => sum + product.quantity,
+      0,
+    );
+    const invoiceFile = addedProducts.find(
+      (product) => product.invoiceFile,
+    )?.invoiceFile;
+    const invoiceType =
+      invoiceFile?.type === "application/pdf" ? "pdf" : "image";
+    const [year, month, day] = purchaseDate.split("-");
+
+    addLocalPurchase({
+      id,
+      reference,
+      date:
+        year && month && day
+          ? `${day}-${month}-${year}`
+          : purchaseDate,
+      supplier: supplier?.provider ?? "Proveedor seleccionado",
+      product: addedProducts.map((product) => product.name).join(", "),
+      total: total.toLocaleString("en-US", {
+        style: "currency",
+        currency: "USD",
+      }),
+      stockEntered,
+      invoiceUrl: "",
+      invoiceType,
+      editDetails: {
+        supplierId,
+        purchaseDate,
+        productId: addedProducts[0]?.id ?? `local-product-${id}`,
+        productSku: addedProducts[0]?.sku ?? `LOCAL-${id}`,
+        category: addedProducts[0]?.category ?? "fashion",
+        variants:
+          addedProducts[0]?.variants.map((variant) => ({ ...variant })) ?? [],
+      },
+    });
+    addedProducts.forEach((product) => {
+      if (!product.inventoryProductId) return;
+      applyMockRestock(
+        product.inventoryProductId,
+        product.variants.map((variant) => ({
+          size: variant.size,
+          quantity: Number(variant.quantity || 0),
+        })),
+      );
+    });
+
+    setRegisterError("");
+    setPurchaseNumber(reference);
     sequenceRef.current += 1;
     setModalOpen(true);
   };
@@ -455,17 +632,53 @@ export function PurchaseForm({
                   Seleccionar proveedor / producto
                 </p>
                 <div className="w-full max-w-[360px]">
-                  <select
-                    id="purchase-supplier"
-                    aria-labelledby="purchase-supplier-product-label"
-                    value={supplierId}
-                    onChange={(event) => setSupplierId(event.target.value)}
-                    className="relative z-0 block h-11 w-full rounded-t-[5px] rounded-b-none border border-[#878A92] bg-white px-3 text-sm outline-none focus:z-10 focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1]"
-                  >
-                    <option value="">Proveedor</option>
-                    <option value="global">Distribuidora global</option>
-                    <option value="local">Proveedor local</option>
-                  </select>
+                   <select
+                     id="purchase-supplier"
+                     aria-labelledby="purchase-supplier-product-label"
+                     aria-describedby={
+                       suppliersError
+                         ? "purchase-supplier-error"
+                         : undefined
+                     }
+                     value={supplierId}
+                     onChange={(event) => {
+                       setSupplierId(event.target.value);
+                       setSupplierValidationVisible(true);
+                       setRegisterError("");
+                     }}
+                     disabled={suppliersLoading || Boolean(suppliersError)}
+                     className="relative z-0 block h-11 w-full rounded-t-[5px] rounded-b-none border border-[#878A92] bg-white px-3 text-sm outline-none focus:z-10 focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1]"
+                   >
+                     <option value="">
+                       {suppliersLoading
+                         ? "Cargando proveedores..."
+                         : suppliers.length === 0
+                           ? "No hay proveedores disponibles"
+                           : "Selecciona un proveedor"}
+                     </option>
+                     {supplierId &&
+                       !suppliers.some(
+                         (supplier) => supplier.id === supplierId,
+                       ) && (
+                         <option value={supplierId}>
+                           Proveedor actual
+                         </option>
+                       )}
+                     {suppliers.map((supplier) => (
+                       <option key={supplier.id} value={supplier.id}>
+                         {supplier.provider}
+                       </option>
+                     ))}
+                   </select>
+                   {suppliersError && (
+                     <p
+                       id="purchase-supplier-error"
+                       role="alert"
+                       className="mt-2 text-xs text-red-600"
+                     >
+                       No se pudieron cargar los proveedores.
+                     </p>
+                   )}
                   <select
                     id="purchase-product"
                     aria-labelledby="purchase-supplier-product-label"
@@ -487,18 +700,55 @@ export function PurchaseForm({
                 >
                   Seleccionar proveedor
                 </label>
-                <select
-                  id="purchase-supplier"
-                  value={supplierId}
-                  onChange={(event) => setSupplierId(event.target.value)}
-                  className="h-11 w-full max-w-[360px] rounded-[5px] border border-[#878A92] bg-white px-3 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1]"
-                >
-                  {/* Datos exclusivamente visuales para TASK 686.
-                      Retirar cuando Backend exponga el contrato real de proveedores. */}
-                  <option value="">Proveedor</option>
-                  <option value="global">Distribuidora global</option>
-                  <option value="local">Proveedor local</option>
-                </select>
+                 <select
+                   id="purchase-supplier"
+                   aria-invalid={
+                     supplierValidationVisible && !supplierId ? true : undefined
+                   }
+                   aria-describedby={
+                     suppliersError || (supplierValidationVisible && !supplierId)
+                       ? "purchase-supplier-error"
+                       : undefined
+                   }
+                   value={supplierId}
+                   onChange={(event) => {
+                     setSupplierId(event.target.value);
+                     setSupplierValidationVisible(true);
+                     setRegisterError("");
+                   }}
+                   disabled={suppliersLoading || Boolean(suppliersError)}
+                   className={`h-11 w-full max-w-[360px] rounded-[5px] border bg-white px-3 text-sm outline-none focus:ring-1 ${
+                     supplierValidationVisible && !supplierId
+                       ? "border-red-600 focus:border-red-600 focus:ring-red-600"
+                       : "border-[#878A92] focus:border-[#1C21D1] focus:ring-[#1C21D1]"
+                   }`}
+                 >
+                   <option value="">
+                     {suppliersLoading
+                       ? "Cargando proveedores..."
+                       : suppliers.length === 0
+                         ? "No hay proveedores disponibles"
+                         : "Selecciona un proveedor"}
+                   </option>
+                   {suppliers.map((supplier) => (
+                     <option key={supplier.id} value={supplier.id}>
+                       {supplier.provider}
+                     </option>
+                   ))}
+                 </select>
+                 <div className="min-h-6 pt-1">
+                 {(suppliersError || (supplierValidationVisible && !supplierId)) && (
+                   <p
+                     id="purchase-supplier-error"
+                     role="alert"
+                     className="text-xs text-red-600"
+                   >
+                     {suppliersError
+                       ? "No se pudieron cargar los proveedores."
+                       : "Selecciona un proveedor."}
+                   </p>
+                 )}
+                 </div>
               </>
             )}
           </div>
@@ -612,11 +862,11 @@ export function PurchaseForm({
               disabled={
                 isEdit
                   ? !editValidation.success || !editChanges.hasChanges
-                  : !activeValidation.success
+                  : !supplierId || !activeValidation.success
               }
               className="h-11 rounded-[5px] bg-[#1C21D1] px-7 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1] sm:min-w-40"
             >
-              Agregar compra
+              {isEdit ? "Guardar cambios" : "Añadir producto"}
             </button>
           </div>
         </div>
@@ -635,6 +885,9 @@ export function PurchaseForm({
             setProductPendingDeleteId(productId);
             setDeleteConfirmOpen(true);
           }}
+          onRegister={handleRegisterPurchase}
+          registerDisabled={addedProducts.length === 0}
+          registerError={registerError}
         />
       )}
 
@@ -652,7 +905,7 @@ export function PurchaseForm({
         purchaseNumber={purchaseNumber}
         onAccept={() => {
           closeModal();
-          if (isEdit) router.push("/compras");
+          router.push("/compras");
         }}
         onClose={closeModal}
         title={isEdit ? "¡Modificado con éxito!" : undefined}

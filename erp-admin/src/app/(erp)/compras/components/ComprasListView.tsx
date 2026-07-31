@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Inbox, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -15,23 +21,20 @@ import {
   Table,
   type TableColumn,
 } from "./index";
+import {
+  getLocalPurchasesServerSnapshot,
+  getLocalPurchasesSnapshot,
+  saveLocalPurchases,
+  subscribeToLocalPurchases,
+  type LocalPurchaseRow,
+} from "../data/localPurchases";
 
-type PurchaseListRow = {
-  id: string;
-  reference: string;
-  date: string;
-  supplier: string;
-  product: string;
-  total: string;
-  stockEntered: number;
-  invoiceUrl: string;
-  invoiceType: "image" | "pdf";
-};
+type PurchaseListRow = LocalPurchaseRow;
 
 const SEARCH_DEBOUNCE_MS = 300;
 
 // Tamaño temporal para la paginación local; TASK 684 lo sustituirá con datos reales.
-const LOCAL_PAGE_SIZE = 2;
+const LOCAL_PAGE_SIZE = 4;
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"]);
 
@@ -47,31 +50,6 @@ function resolveInvoiceType(row: PurchaseListRow): "pdf" | "image" {
 }
 
 // Datos temporales exclusivamente visuales; serán reemplazados por la integración de TASK 684.
-const TEMPORARY_PRESENTATION_ROWS: readonly PurchaseListRow[] = [
-  {
-    id: "001",
-    reference: "CP-0005",
-    date: "18-05-2026",
-    supplier: "Nike",
-    product: "nike ford",
-    total: "$309.50",
-    stockEntered: 100,
-    invoiceUrl: "",
-    invoiceType: "pdf",
-  },
-  {
-    id: "002",
-    reference: "CP-0006",
-    date: "18-05-2026",
-    supplier: "Nike",
-    product: "nike low 1",
-    total: "$105.50",
-    stockEntered: 90,
-    invoiceUrl: "",
-    invoiceType: "pdf",
-  },
-];
-
 function createColumns(
   onDelete: (row: PurchaseListRow, trigger: HTMLButtonElement) => void,
 ): readonly TableColumn<PurchaseListRow>[] {
@@ -165,9 +143,11 @@ export default function ComprasListView({
 }: ComprasListViewProps) {
   const router = useRouter();
   // Simulación local temporal: al recargar se restauran los mocks.
-  const [rows, setRows] = useState<PurchaseListRow[]>(() => [
-    ...TEMPORARY_PRESENTATION_ROWS,
-  ]);
+  const rows = useSyncExternalStore(
+    subscribeToLocalPurchases,
+    getLocalPurchasesSnapshot,
+    getLocalPurchasesServerSnapshot,
+  );
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearchValue, setDebouncedSearchValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -194,13 +174,11 @@ export default function ComprasListView({
 
   const confirmLocalDelete = useCallback(() => {
     if (!selectedPurchase) return;
-    setRows((current) =>
-      current.filter((row) => row.id !== selectedPurchase.id),
-    );
+    saveLocalPurchases(rows.filter((row) => row.id !== selectedPurchase.id));
     setConfirmOpen(false);
     setSelectedPurchase(null);
     setSuccessOpen(true);
-  }, [selectedPurchase]);
+  }, [rows, selectedPurchase]);
 
   const closeDeleteSuccess = useCallback(() => {
     setSuccessOpen(false);
