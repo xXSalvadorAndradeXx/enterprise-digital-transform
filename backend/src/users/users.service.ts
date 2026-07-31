@@ -330,4 +330,55 @@ export class UsersService {
 
     return { temporaryPassword };
   }
+
+  async unlockUser(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['roles'],
+    });
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.isBlocked = false;
+    user.isActive = true;
+
+    return this.userRepository.save(user);
+  }
+
+  async unlockAndResetPassword(id: string): Promise<{ user: User; temporaryPassword: string }> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['roles'],
+    });
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+
+    // 1. Lógica de desbloqueo
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.isBlocked = false;
+    user.isActive = true;
+
+    // 2. Generar contraseña temporal segura
+    const temporaryPassword = generateTemporaryPassword(12);
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+    user.passwordHash = passwordHash;
+    user.mustChangePassword = true;
+
+    const savedUser = await this.userRepository.save(user);
+
+    this.logger.log(
+      `[TEMPORARY PASSWORD GENERATED] Contraseña temporal generada para usuario ${savedUser.email} (durante desbloqueo): ${temporaryPassword}`
+    );
+
+    return {
+      user: savedUser,
+      temporaryPassword,
+    };
+  }
 }
