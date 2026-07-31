@@ -2,44 +2,26 @@ import Breadcrumb from "./Breadcrumb";
 import NotificationBell from "./NotificationBell";
 import ProfileDropdown from "./ProfileDropdown";
 
-interface BreadcrumbItem {
-  label: string;
-  href?: string;
-}
-
 interface TopbarProps {
-  breadcrumb: BreadcrumbItem[];
+  /**
+   * Nombre del usuario obtenido por el Layout.
+   */
+  userName: string;
 }
 
-/**
- * Componente Topbar.
- *
- * Muestra la navegación superior del ERP.
- * Está compuesto por:
- * - Breadcrumb (lado izquierdo).
- * - Campana de notificaciones.
- * - Información del usuario autenticado.
- */
-export default function Topbar({ breadcrumb }: TopbarProps) {
+export default function Topbar({
+  userName,
+}: TopbarProps) {
   return (
-    <header className="flex h-20 items-center justify-between border-b border-[#FFFFFF] bg-[#FFFFFF] px-8">
+    <header className="flex h-20 items-center justify-between border-b border-white bg-white px-8">
+      <Breadcrumb />
 
-      {/* Breadcrumb */}
-      <Breadcrumb items={breadcrumb} />
-
-      {/* Acciones del usuario */}
       <div className="flex items-center gap-6">
-
-        {/* Notificaciones */}
         <NotificationBell count={1} />
 
-        {/* Usuario */}
-        <ProfileDropdown
-          name="Admin"
-        />
-
+        {/* Ya no mostramos "Admin" de forma fija. */}
+        <ProfileDropdown name={userName} />
       </div>
-
     </header>
   );
 }

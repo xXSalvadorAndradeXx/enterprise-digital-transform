@@ -2,75 +2,53 @@
 
 import { usePathname } from "next/navigation";
 
+import type { PermissionCode } from "@/types/auth/permissions.types";
+
 import Logo from "../Logo";
 import SidebarItem from "./SidebarItem";
 import { sidebarItems } from "./sidebar-items";
 
-/**
- * Componente Sidebar.
- *
- * Responsabilidades:
- * - Mostrar el logotipo de la aplicación.
- * - Mostrar el menú de navegación principal del ERP.
- * - Determinar qué opción del menú se encuentra activa según la ruta actual.
- *
- * Nota:
- * Este componente únicamente construye la interfaz visual.
- * La lógica de permisos o carga dinámica del menú se implementará
- * posteriormente mediante integración con el backend.
- */
-export default function Sidebar() {
+interface SidebarProps {
+  permissions: PermissionCode[];
+}
 
-/**
- * Obtiene la ruta actual de la aplicación.
- *
- * Ejemplo:
- * /dashboard
- * /productos
- * /equipo
- */
-const pathname = usePathname();
+export default function Sidebar({
+  permissions,
+}: SidebarProps) {
+  const pathname = usePathname();
 
-return (
+  const permissionSet = new Set(permissions);
 
-/*
-* Contenedor principal del Sidebar.
-*
-* h-screen      → ocupa toda la altura de la ventana.
-* w-64          → ancho fijo de 256px.
-* flex-col      → organiza el contenido verticalmente.
-* bg-white      → fondo blanco.
-* px-6 py-8     → espaciado interno.
-*/
-<aside className="ml-[55px] flex h-screen w-64 flex-col bg-white py-8">
+  /*
+   * Las opciones sin permiso se eliminan completamente.
+   * No se renderizan deshabilitadas.
+   */
+  const authorizedItems = sidebarItems.filter((item) =>
+    permissionSet.has(item.permission),
+  );
 
-{/* Logo del sistema */}
-<Logo />
+  return (
+    <aside className="ml-[55px] flex h-screen w-64 flex-col bg-white py-8">
+      <Logo />
 
-{/* Menú principal */}
-<nav className="mt-10 flex flex-col gap-[5px]">
-
-{sidebarItems.map((item) => (
-
-/*
-* Se crea un SidebarItem por cada opción
-* definida en sidebar-items.ts.
-*/
-<SidebarItem
-key={item.id}
-{...item}
-
-/*
-* Si la ruta actual coincide con la ruta del menú,
-* el componente cambia automáticamente al estado Activo.
-*/
-active={pathname === item.href}
-/>
-
-))}
-
-</nav>
-
-</aside>
-);
+      <nav
+        className="mt-10 flex flex-col gap-[5px]"
+        aria-label="Navegación principal"
+      >
+        {authorizedItems.map((item) => (
+          <SidebarItem
+            key={item.id}
+            id={item.id}
+            label={item.label}
+            href={item.href}
+            icon={item.icon}
+            active={
+              pathname === item.href ||
+              pathname.startsWith(`${item.href}/`)
+            }
+          />
+        ))}
+      </nav>
+    </aside>
+  );
 }
