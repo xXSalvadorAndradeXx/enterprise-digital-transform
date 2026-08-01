@@ -1,53 +1,75 @@
 "use client";
 
-import { ReactNode } from "react";
+import { useEffect } from "react";
 import { X } from "lucide-react";
+import { ModalProps } from "./Modal.types";
 
-interface ModalProps {
-  isOpen: boolean;
-  title?: string;
-  children: ReactNode;
-  onClose: () => void;
-  showCloseButton?: boolean;
-  className?: string;
-  titleClassName?: string;
-}
+const SIZE_CLASSES: Record<NonNullable<ModalProps["size"]>, string> = {
+  md: "max-w-md",
+  lg: "max-w-xl",
+  xl: "max-w-2xl",
+  "2xl": "max-w-3xl",
+};
 
-export default function Modal({
+export function Modal({
   isOpen,
-  title,
-  children,
   onClose,
-  showCloseButton = true,
-  className = "",
-  titleClassName = "",
+  title,
+  fields,
+  footer,
+  children,
+  size = "xl",
+  headerDivider = true,
 }: ModalProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
       <div
-        className={`relative w-full max-w-xl rounded-3xl bg-white p-8 shadow-xl ${className}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        onClick={(event) => event.stopPropagation()}
+        className={`w-full ${SIZE_CLASSES[size]} rounded-2xl bg-white p-6 shadow-xl`}
       >
-
-        {showCloseButton && (
-  <button
-    onClick={onClose}
-    className="absolute right-5 top-5 text-gray-500 hover:text-black"
-  >
-    <X size={22} />
-  </button>
-   )}
-
-        {title && (
-          <h2
-            className={`mb-6 text-4xl font-semibold text-[#1E1E1E] ${titleClassName}`}
-          >
+        <div className={`mb-2 flex items-center justify-between pb-4 ${headerDivider ? "border-b border-gray-300" : ""}`}>
+          <h2 id="modal-title" className="text-xl font-bold text-gray-900">
             {title}
           </h2>
-        )}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="text-red-500 transition-colors hover:text-red-600"
+          >
+            <X size={22} />
+          </button>
+        </div>
 
-        {children}
+        <div>
+          {children
+            ? children
+            : fields?.map((field, index) => (
+                <div
+                  key={field.label}
+                  className={`py-4 ${index < fields.length - 1 ? "border-b border-gray-300" : "pb-0"}`}
+                >
+                  <p className="text-base font-semibold text-gray-900">{field.label}</p>
+                  <p className="mt-1 text-base text-gray-500">{field.value}</p>
+                </div>
+              ))}
+        </div>
+
+        {footer && <div className="mt-6 flex items-center gap-3">{footer}</div>}
       </div>
     </div>
   );

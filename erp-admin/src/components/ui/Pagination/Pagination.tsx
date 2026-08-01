@@ -1,126 +1,55 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { PaginationProps } from "./Pagination.types";
+import { getPaginationRange } from "./getPaginationRange";
 
-import type { PaginationProps } from "./Pagination.types";
+export function Pagination({ currentPage, totalPages, onPageChange, siblingCount = 1 }: PaginationProps) {
+  if (totalPages <= 1) return null;
 
-type PaginationItem = number | "ellipsis-start" | "ellipsis-end";
-
-function getPaginationItems(
-  currentPage: number,
-  totalPages: number,
-): PaginationItem[] {
-  if (totalPages <= 5) {
-    return Array.from(
-      { length: totalPages },
-      (_, index) => index + 1,
-    );
-  }
-
-  const pages = new Set<number>([
-    1,
-    totalPages,
-    currentPage - 1,
-    currentPage,
-    currentPage + 1,
-  ]);
-
-  const validPages = [...pages]
-    .filter((page) => page >= 1 && page <= totalPages)
-    .sort((first, second) => first - second);
-
-  const items: PaginationItem[] = [];
-
-  validPages.forEach((page, index) => {
-    const previousPage = validPages[index - 1];
-
-    if (previousPage && page - previousPage > 1) {
-      items.push(
-        previousPage === 1 ? "ellipsis-start" : "ellipsis-end",
-      );
-    }
-
-    items.push(page);
-  });
-
-  return items;
-}
-
-const Pagination = ({
-  currentPage,
-  totalPages,
-  onPageChange,
-  className = "",
-}: PaginationProps) => {
-  if (totalPages <= 1) {
-    return null;
-  }
-
-  const safeCurrentPage = Math.min(
-    Math.max(currentPage, 1),
-    totalPages,
-  );
-  const paginationItems = getPaginationItems(
-    safeCurrentPage,
-    totalPages,
-  );
+  const range = getPaginationRange(currentPage, totalPages, siblingCount);
 
   return (
-    <nav
-      aria-label="Paginación"
-      className={`flex items-center justify-end gap-2 text-[13px] ${className}`}
-    >
+    <nav className="flex items-center justify-end gap-1 px-4 py-4" aria-label="Paginación">
       <button
         type="button"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
         aria-label="Página anterior"
-        disabled={safeCurrentPage === 1}
-        onClick={() => onPageChange(safeCurrentPage - 1)}
-        className="flex size-8 items-center justify-center rounded text-[#4B5563] hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <ChevronLeft size={16} aria-hidden="true" />
+        <ChevronLeft size={16} />
       </button>
 
-      {paginationItems.map((item) =>
-        typeof item === "number" ? (
+      {range.map((item, index) =>
+        item === "dots" ? (
+          <span key={`dots-${index}`} className="px-2 text-sm text-gray-400">
+            …
+          </span>
+        ) : (
           <button
             key={item}
             type="button"
-            aria-label={`Ir a la página ${item}`}
-            aria-current={
-              safeCurrentPage === item ? "page" : undefined
-            }
             onClick={() => onPageChange(item)}
-            className={[
-              "flex size-8 items-center justify-center rounded-md transition-colors",
-              safeCurrentPage === item
-                ? "bg-[#F3F4F6] font-medium text-black"
-                : "text-[#374151] hover:bg-gray-100",
-            ].join(" ")}
+            aria-current={item === currentPage ? "page" : undefined}
+            className={`flex h-8 w-8 items-center justify-center rounded-md text-sm transition-colors ${
+              item === currentPage ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+            }`}
           >
             {item}
           </button>
-        ) : (
-          <span
-            key={item}
-            aria-hidden="true"
-            className="px-1 text-[#6B7280]"
-          >
-            …
-          </span>
-        ),
+        )
       )}
 
       <button
         type="button"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
         aria-label="Página siguiente"
-        disabled={safeCurrentPage === totalPages}
-        onClick={() => onPageChange(safeCurrentPage + 1)}
-        className="flex size-8 items-center justify-center rounded text-[#4B5563] hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <ChevronRight size={16} aria-hidden="true" />
+        <ChevronRight size={16} />
       </button>
     </nav>
   );
-};
-
-export default Pagination;
+}

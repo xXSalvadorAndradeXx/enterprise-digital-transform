@@ -1,7 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
-import Modal from "../Modal";
+import { Modal } from "../Modal";
 
 interface ModalSuccessProps {
   isOpen: boolean;

@@ -8,4 +8,7 @@
  * esta dirección será reemplazada por la URL
  * del servidor de producción.
  */
-const API_BASE_URL = "http://localhost:3000";
+/**
+ * URL base del Backend.
+ */
+export const API_BASE_URL = "http://localhost:3000/api/v1";
