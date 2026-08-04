@@ -251,6 +251,8 @@ export class UsersService {
             'Operación rechazada: No se puede desactivar al último administrador activo en el sistema.'
           );
         }
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
+        await this.refreshTokenService.revokeAllUserTokens(id);
       }
       user.isActive = updateUserDto.isActive;
     }
@@ -296,6 +298,7 @@ export class UsersService {
 
       // Desactivar y aplicar soft-delete
       user.isActive = false;
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
       await userRepo.save(user);
       return userRepo.softRemove(user);
     });
