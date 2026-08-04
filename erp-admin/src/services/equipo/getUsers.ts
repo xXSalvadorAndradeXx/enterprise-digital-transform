@@ -61,21 +61,51 @@ export async function getUsers({
     },
   );
 
-  const responseBody: unknown = await response
-    .json()
-    .catch(() => null);
+        const responseBody: unknown = await response
+        .json()
+        .catch(() => null);
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error(
-        "No hay una sesión activa. Debes autenticarte para consultar los usuarios.",
-      );
+      if (!response.ok) {
+        throw new UsersRequestError(
+          response.status,
+          getResponseMessage(responseBody),
+        );
+      }
+
+      return responseBody as UsersResponse;
+}
+
+export class UsersRequestError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "UsersRequestError";
+  }
+}
+
+function getResponseMessage(body: unknown): string {
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "message" in body
+  ) {
+    const message = body.message;
+
+    if (Array.isArray(message)) {
+      return message
+        .filter(
+          (item): item is string =>
+            typeof item === "string",
+        )
+        .join(" ");
     }
 
-    throw new Error(
-      `No fue posible obtener los usuarios. Código: ${response.status}`,
-    );
+    if (typeof message === "string") {
+      return message;
+    }
   }
 
-  return responseBody as UsersResponse;
+  return "No fue posible consultar los usuarios.";
 }

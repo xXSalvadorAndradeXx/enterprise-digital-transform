@@ -4,7 +4,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import NoSearchResults from "@/components/ui/NoSearchResults";
 import LoadingState from "@/components/ui/LoadingState";
-import { Modal } from "@/components/ui/Modal";
+import{Modal}from"@/components/ui/Modal";
 import ModalSuccess from "@/components/ui/ModalSuccess";
 import Input from "@/components/ui/Input";
 import { useForm } from "react-hook-form";
@@ -31,13 +31,10 @@ import SearchEmptyIcon from "@/assets/images/lupa.png";
 import { useEffect, useState } from "react";
 
 
-import { SearchBar } from "@/components/ui/SearchBar";
-import { Table } from "@/components/ui/Table";
-import type {
-  TableAction,
-  TableColumn,
-} from "@/components/ui/Table/Table.types";
-import { Pagination } from "@/components/ui/Pagination";
+import {SearchBar } from "@/components/ui/SearchBar";
+import {Table} from "@/components/ui/Table";
+import type { TableColumn } from "@/components/ui/Table/Table.types";
+import {Pagination} from "@/components/ui/Pagination";
 
 export default function ProveedorPage() {
   const [search, setSearch] = useState("");
@@ -161,32 +158,72 @@ const {
 
   const isSearching = search !== debouncedSearch;
 
-  const columns: TableColumn<Proveedor>[] = [
+  const columns: TableColumn[] = [
     {
-      key: "provider",
       header: "Proveedor",
-      accessor: (provider) => provider.provider,
+      accessor: "provider",
     },
     {
-      key: "phone",
-      header: "Teléfono",
-      accessor: (provider) => formatPhone(provider.phone),
+  header: "Teléfono",
+  accessor: "phone",
+  render: (value) => formatPhone(value),
     },
-  ];
+    {
+  header: "Acciones",
+  accessor: "actions",
+  render: (_, row) => (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() =>
+          handleEdit(row as unknown as Proveedor)
+        }
+        className="
+          flex
+          h-6
+          w-6
+          items-center
+          justify-center
+          rounded
+          border
+          border-[#D1D5DB]
+          bg-white
+          hover:bg-gray-100
+        "
+      >
+        <Pencil
+          size={13}
+          strokeWidth={2}
+          className="text-black"
+        />
+      </button>
 
-  const actions: TableAction<Proveedor>[] = [
-    {
-      icon: Pencil,
-      label: "Editar proveedor",
-      onClick: handleEdit,
-      className: "text-black hover:text-[#2F3CE9]",
-    },
-    {
-      icon: Trash2,
-      label: "Eliminar proveedor",
-      onClick: handleDelete,
-      className: "text-[#FF3B30] hover:text-red-700",
-    },
+      <button
+        type="button"
+        onClick={() =>
+          handleDelete(row as unknown as Proveedor)
+        }
+        className="
+          flex
+          h-6
+          w-6
+          items-center
+          justify-center
+          rounded
+          border
+          border-[#D1D5DB]
+          bg-white
+          hover:bg-red-50
+        "
+      >
+        <Trash2
+          size={13}
+          className="text-[#FF3B30]"
+        />
+      </button>
+    </div>
+  ),
+},
   ];
 
   
@@ -305,20 +342,18 @@ const {
   />
 ) : (
   <>
-    <Table<Proveedor>
+    <Table
       columns={columns}
       data={providers}
-      rowKey={(provider) => provider.id}
-      actions={actions}
+      showBorder={false}
     />
 
-    <div className="mt-6">
-      <Pagination
-        currentPage={currentPage}
-        totalPages={pagination.totalPages}
-        onPageChange={setCurrentPage}
-      />
-    </div>
+    <Pagination
+      currentPage={currentPage}
+      totalPages={pagination.totalPages}
+      onPageChange={setCurrentPage}
+      className="mt-6"
+    />
   </>
 )}
       </div>
@@ -326,8 +361,8 @@ const {
   isOpen={openModal}
   title="Agregar proveedor"
   onClose={closeCreateProviderModal}
-  size="xl"
-  headerDivider={false}
+  className="max-w-[32px] p-6 sm:px-[70px] sm:py-[52px]"
+  titleClassName="mb-7 text-[32px] leading-tight"
 >
   
 
@@ -539,8 +574,7 @@ const {
   isOpen={openDeleteModal}
   title=""
   onClose={() => setOpenDeleteModal(false)}
-  size="md"
-  headerDivider={false}
+  showCloseButton={false}
 >
   <div className="flex flex-col items-center text-center">
 

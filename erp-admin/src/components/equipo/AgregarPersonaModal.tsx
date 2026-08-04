@@ -85,11 +85,7 @@ export function AgregarPersonaModal({
         });
 
         handleClose();
-      } catch (error) {
-        console.error(
-          "Error al crear el usuario:",
-          error,
-        );
+      } catch {
       }
     };
 

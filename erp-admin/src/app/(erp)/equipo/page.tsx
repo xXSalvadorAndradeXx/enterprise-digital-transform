@@ -218,6 +218,8 @@ const handleConfirmBulkAction =
       return;
     }
 
+    const actionToExecute = bulkAction;
+
     const userIds = selectedUsers.map(
       (user) => String(user.id),
     );
@@ -226,29 +228,30 @@ const handleConfirmBulkAction =
       clearBulkActionError();
 
       const result =
-        bulkAction === "deactivate"
+        actionToExecute === "deactivate"
           ? await deactivateSelectedUsers(userIds)
           : await deleteSelectedUsers(userIds);
 
       const affectedCount =
         result.successfulIds.length;
 
-      setSelected(new Set());
+      // Primero cerrar y limpiar la interfaz.
       setBulkAction(null);
+      setSelected(new Set());
 
-      setToast(
-        buildBulkActionToastText(
-          bulkAction,
-          affectedCount,
-        ),
-      );
+      if (affectedCount > 0) {
+        setToast(
+          buildBulkActionToastText(
+            actionToExecute,
+            affectedCount,
+          ),
+        );
+      }
 
+      // Luego refrescar la tabla.
       refetch();
-    } catch (error) {
-      console.error(
-        "Error al ejecutar la acción masiva:",
-        error,
-      );
+    } catch {
+      // El hook ya guarda el error.
     }
   };
 

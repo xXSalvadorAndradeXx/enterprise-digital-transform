@@ -71,6 +71,14 @@ function convertirEstadoAIsActive(estado: string): boolean {
   );
 }
 
+function obtenerEstadoEditable(
+  estado: Colaborador["estado"],
+): "activo" | "desactivado" {
+  return estado === "desactivado"
+    ? "desactivado"
+    : "activo";
+}
+
 export function EditarUsuarioModal({
   isOpen,
   onClose,
@@ -91,7 +99,6 @@ export function EditarUsuarioModal({
     handleSubmit,
     formState: {
       errors,
-      isValid,
       isSubmitting,
     },
   } = useForm<EditarUsuarioForm>({
@@ -102,59 +109,67 @@ export function EditarUsuarioModal({
       correo: "",
       nombreUsuario: "",
       rol: "",
-      estado: "",
+      estado: "activo",
     },
   });
 
   useEffect(() => {
-    if (!colaborador || !isOpen) {
-      return;
-    }
+  if (!colaborador || !isOpen) {
+    return;
+  }
 
-    clearError();
+  clearError();
 
-    reset({
-      nombreCompleto: colaborador.nombre,
-      correo: colaborador.correo,
-      nombreUsuario: colaborador.correo.split("@")[0],
-      rol: obtenerRolId(colaborador.rol),
-      estado: colaborador.estado,
-    });
-  }, [colaborador, isOpen, reset, clearError]);
+  reset({
+    nombreCompleto: colaborador.nombre,
+    correo: colaborador.correo,
+    nombreUsuario: colaborador.correo.split("@")[0],
+    rol: obtenerRolId(colaborador.rol),
+    estado: obtenerEstadoEditable(
+      colaborador.estado,
+    ),
+  });
+}, [
+  colaborador,
+  isOpen,
+  reset,
+  clearError,
+]);
   
   const handleClose = () => {
     clearError();
     onClose();
   };
 
-  const onSubmit = async (
-    data: EditarUsuarioForm,
-  ): Promise<void> => {
-    if (!colaborador) {
-      return;
-    }
+    const onSubmit = async (
+      data: EditarUsuarioForm,
+    ): Promise<void> => {
+      if (!colaborador) {
+        return;
+      }
 
-    const { firstName, lastName } =
-      separarNombreCompleto(data.nombreCompleto);
+      const { firstName, lastName } =
+        separarNombreCompleto(data.nombreCompleto);
 
-    try {
-      await updateUser(colaborador.id, {
-        firstName,
-        lastName,
-        email: data.correo.trim().toLowerCase(),
-        roleIds: [data.rol],
-        isActive: convertirEstadoAIsActive(data.estado),
-      });
+      try {
+        await updateUser(colaborador.id, {
+          firstName,
+          lastName,
+          email: data.correo.trim().toLowerCase(),
+          roleIds: [data.rol],
+          isActive:
+            convertirEstadoAIsActive(data.estado),
+        });
 
-      onSuccess(data.nombreCompleto.trim());
-      handleClose();
-    } catch (error) {
-      console.error(
-        "Error al actualizar el usuario:",
-        error,
-      );
-    }
-  };
+        const nombreActualizado =
+          data.nombreCompleto.trim();
+
+        handleClose();
+        onSuccess(nombreActualizado);
+      } catch {
+        // useUpdateUser muestra el error en el modal.
+      }
+    };
 
   if (!colaborador) {
     return null;
@@ -234,11 +249,12 @@ export function EditarUsuarioModal({
               )}
             </FormField>
 
-            <FormField label="Nombre de usuario">
+           <FormField label="Nombre de usuario">
               <input
                 {...register("nombreUsuario")}
                 className={`${formInputClass} cursor-not-allowed bg-gray-100`}
-                disabled
+                readOnly
+                aria-readonly="true"
               />
 
               {errors.nombreUsuario && (
@@ -292,12 +308,12 @@ export function EditarUsuarioModal({
           </button>
 
           <button
-            type="submit"
-            disabled={!isValid || isSaving}
-            className="w-36 rounded-md bg-[#1C21D1] py-2 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSaving ? "Guardando..." : "Guardar"}
-          </button>
+          type="submit"
+          disabled={isSaving}
+          className="w-36 rounded-md bg-[#1C21D1] py-2 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSaving ? "Guardando..." : "Guardar"}
+        </button>
         </div>
       </form>
     </Modal>

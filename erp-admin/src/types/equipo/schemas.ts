@@ -48,15 +48,18 @@ export const editarUsuarioSchema = z.object({
   nombreUsuario: z
     .string()
     .trim()
-    .min(3, "El nombre de usuario es obligatorio."),
+    .min(2, "El nombre de usuario es obligatorio."),
 
   rol: z
     .string()
     .min(1, "Debe seleccionar un rol."),
 
-  estado: z
-    .string()
-    .min(1, "Debe seleccionar un estado."),
+  estado: z.enum(
+    ["activo", "desactivado"],
+    {
+      message: "Debe seleccionar un estado válido.",
+    },
+  ),
 });
 
 export type EditarUsuarioForm = z.infer<typeof editarUsuarioSchema>;

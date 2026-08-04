@@ -9,6 +9,7 @@ import {
 
 import {
   getUsers,
+  UsersRequestError,
   type GetUsersParams,
   type User,
 } from "@/services/equipo/getUsers";
@@ -67,7 +68,13 @@ export function useUsers({
           return;
         }
 
-        setData(response.data);
+        const sortedUsers = [...response.data].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() -
+            new Date(a.createdAt).getTime(),
+        );
+
+        setData(sortedUsers);
 
         setMeta({
           total: response.meta.total,
@@ -81,32 +88,70 @@ export function useUsers({
 
         setError(null);
       })
-      .catch((caughtError: unknown) => {
-        if (cancelled) {
-          return;
-        }
+.catch((caughtError: unknown) => {
+  if (cancelled) {
+    return;
+  }
 
-        console.error(
-          "Error al cargar los usuarios:",
-          caughtError,
-        );
+  if (caughtError instanceof UsersRequestError) {
+    const normalizedMessage =
+      caughtError.message.toLowerCase();
 
-        const message =
-          caughtError instanceof Error
-            ? caughtError.message
-            : "No fue posible cargar los usuarios.";
+    const accountDisabled =
+      caughtError.status === 401 &&
+      (
+        normalizedMessage.includes("inactiva") ||
+        normalizedMessage.includes("invalidada") ||
+        normalizedMessage.includes("usuario no encontrado")
+      );
 
-        setData([]);
+    if (accountDisabled) {
+      window.dispatchEvent(
+        new CustomEvent("auth:account-disabled", {
+          detail: {
+            message: caughtError.message,
+          },
+        }),
+      );
 
-        setMeta({
-          total: 0,
-          page,
-          limit,
-          totalPages: 1,
-        });
+      setError(null);
+      return;
+    }
 
-        setError(message);
-      })
+    if (
+      caughtError.status === 503 ||
+      caughtError.status === 504
+    ) {
+      setData([]);
+      setError(
+        "No se pudo conectar con el servicio de usuarios.",
+      );
+      return;
+    }
+
+    if (caughtError.status === 401) {
+      window.dispatchEvent(
+        new CustomEvent("auth:session-expired", {
+          detail: {
+            message: caughtError.message,
+          },
+        }),
+      );
+
+      setError(null);
+      return;
+    }
+
+    setData([]);
+    setError(caughtError.message);
+    return;
+  }
+
+  setData([]);
+  setError(
+    "Ocurrió un error inesperado al cargar los usuarios.",
+  );
+})
       .finally(() => {
         if (cancelled) {
           return;
@@ -140,3 +185,4 @@ export function useUsers({
     refetch,
   };
 }
+
