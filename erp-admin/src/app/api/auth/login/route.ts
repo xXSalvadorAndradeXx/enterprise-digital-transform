@@ -224,7 +224,21 @@ function normalizeBackendLoginResponse(
 
   const user = normalizeAuthUser(body.user);
 
-  if (!accessToken || !user) {
+  const mustChangePassword =
+    typeof body.mustChangePassword === "boolean"
+      ? body.mustChangePassword
+      : typeof body.must_change_password === "boolean"
+        ? body.must_change_password
+        : isRecord(body.user) &&
+            typeof body.user.mustChangePassword === "boolean"
+          ? body.user.mustChangePassword
+          : null;
+
+  if (
+    !accessToken ||
+    !user ||
+    mustChangePassword === null
+  ) {
     return null;
   }
 
@@ -233,6 +247,7 @@ function normalizeBackendLoginResponse(
     session: {
       user,
       isAuthenticated: true,
+      mustChangePassword,
     },
   };
 }
@@ -383,7 +398,10 @@ export async function POST(request: NextRequest) {
      * Guarda el access token en la cookie HttpOnly.
      * El token no queda expuesto a JavaScript del navegador.
      */
-    await setAuthToken(normalizedResponse.accessToken);
+    await setAuthToken(
+      normalizedResponse.accessToken,
+      normalizedResponse.session.mustChangePassword,
+    );
 
     /*
      * Al navegador solamente se devuelve la sesión pública.

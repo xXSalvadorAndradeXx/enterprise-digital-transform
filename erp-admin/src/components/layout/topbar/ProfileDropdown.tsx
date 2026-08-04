@@ -29,9 +29,6 @@ name: string;
 export default function ProfileDropdown({
 name,
 }: ProfileDropdownProps) {
-// Controla si el menú está abierto.
-const [isOpen, setIsOpen] = useState(false);
-
 // Controla el estado visual durante el cierre de sesión.
 const [isLoggingOut, setIsLoggingOut] =
 useState(false);
@@ -42,6 +39,13 @@ const containerRef = useRef<HTMLDivElement>(null);
 const pathname = usePathname();
 const router = useRouter();
 
+// Guarda la ruta en la que se abrió el menú.
+// Al navegar, la ruta cambia y el menú queda cerrado sin un efecto.
+const [openedAtPathname, setOpenedAtPathname] =
+useState<string | null>(null);
+
+const isOpen = openedAtPathname === pathname;
+
 /**
  * clearSession pertenece al AuthContext.
  *
@@ -49,14 +53,6 @@ const router = useRouter();
  * elimina la cookie y limpia el usuario del estado global.
  */
 const { clearSession } = useAuth();
-
-/**
- * Cierra automáticamente el Dropdown cuando cambia
- * la ruta actual.
- */
-useEffect(() => {
-setIsOpen(false);
-}, [pathname]);
 
 /**
  * Mientras el menú esté abierto:
@@ -78,7 +74,7 @@ if (
 target instanceof Node &&
 !containerRef.current?.contains(target)
 ) {
-setIsOpen(false);
+setOpenedAtPathname(null);
 }
 };
 
@@ -86,7 +82,7 @@ const handleKeyDown = (
 event: KeyboardEvent,
 ) => {
 if (event.key === "Escape") {
-setIsOpen(false);
+setOpenedAtPathname(null);
 }
 };
 
@@ -128,7 +124,7 @@ return;
 }
 
 setIsLoggingOut(true);
-setIsOpen(false);
+setOpenedAtPathname(null);
 
 try {
 await clearSession();
@@ -156,9 +152,11 @@ className="relative"
 >
 <button
 type="button"
-onClick={() =>
-setIsOpen((current) => !current)
-}
+onClick={() => {
+setOpenedAtPathname((currentPathname) =>
+currentPathname === pathname ? null : pathname,
+);
+}}
 disabled={isLoggingOut}
 className="flex items-center gap-3 rounded-lg px-2 py-1 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
 aria-haspopup="menu"

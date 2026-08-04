@@ -6,10 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
+import { useRoles } from "@/hooks/equipo/useRoles";
 import { useUpdateUser } from "@/hooks/equipo/useUpdateUser";
 
 import {
-  ROL_OPTIONS,
   ESTADO_EDITABLE_OPTIONS,
   type Colaborador,
 } from "@/types/equipo";
@@ -48,19 +48,6 @@ function separarNombreCompleto(nombreCompleto: string): {
   };
 }
 
-function obtenerRolId(rol: string): string {
-  const rolNormalizado = rol.trim().toUpperCase();
-
-  const roles: Record<string, string> = {
-
-    ADMIN: "d27c2af6-832f-41e7-8379-a656fe0b8c48",
-    ADMINISTRADOR: "d27c2af6-832f-41e7-8379-a656fe0b8c48",
-    EMPLEADO: "7aada40a-f15b-4ec6-87de-9686c3c6d5df",
-  };
-
-  return roles[rolNormalizado] ?? rol;
-}
-
 function convertirEstadoAIsActive(estado: string): boolean {
   const estadoNormalizado = estado.trim().toLowerCase();
 
@@ -91,6 +78,12 @@ export function EditarUsuarioModal({
     error: updateError,
     clearError,
   } = useUpdateUser();
+
+  const {
+    options: roleOptions,
+    isLoading: isLoadingRoles,
+    error: rolesError,
+  } = useRoles();
 
   const {
     register,
@@ -124,7 +117,7 @@ export function EditarUsuarioModal({
     nombreCompleto: colaborador.nombre,
     correo: colaborador.correo,
     nombreUsuario: colaborador.correo.split("@")[0],
-    rol: obtenerRolId(colaborador.rol),
+    rol: colaborador.roleId,
     estado: obtenerEstadoEditable(
       colaborador.estado,
     ),
@@ -176,6 +169,10 @@ export function EditarUsuarioModal({
   }
 
   const isSaving = isSubmitting || isLoading;
+  const isRoleCatalogUnavailable =
+    isLoadingRoles ||
+    Boolean(rolesError) ||
+    roleOptions.length === 0;
 
   return (
     <Modal
@@ -217,7 +214,15 @@ export function EditarUsuarioModal({
                   label="Rol"
                   value={field.value}
                   onChange={field.onChange}
-                  options={ROL_OPTIONS}
+                  options={roleOptions}
+                  placeholder={
+                    isLoadingRoles
+                      ? "Cargando roles..."
+                      : "Seleccionar un rol"
+                  }
+                  disabled={
+                    isSaving || isRoleCatalogUnavailable
+                  }
                 />
               )}
             />
@@ -225,6 +230,12 @@ export function EditarUsuarioModal({
             {errors.rol && (
               <p className="mt-1 text-xs text-red-500">
                 {errors.rol.message}
+              </p>
+            )}
+
+            {rolesError && (
+              <p className="mt-1 text-xs text-red-500">
+                {rolesError}
               </p>
             )}
           </div>
@@ -309,7 +320,9 @@ export function EditarUsuarioModal({
 
           <button
           type="submit"
-          disabled={isSaving}
+          disabled={
+            isSaving || isRoleCatalogUnavailable
+          }
           className="w-36 rounded-md bg-[#1C21D1] py-2 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSaving ? "Guardando..." : "Guardar"}

@@ -17,7 +17,13 @@ export default function ModalSuccess({
   onAccept,
 }: ModalSuccessProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onAccept}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onAccept}
+      title=""
+      size="md"
+      headerDivider={false}
+    >
       <div className="flex flex-col items-center justify-center py-6">
 
         <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-500">

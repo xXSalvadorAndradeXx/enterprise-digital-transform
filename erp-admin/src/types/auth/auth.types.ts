@@ -13,6 +13,7 @@ export interface AuthUser {
 export interface PublicAuthSession {
   user: AuthUser;
   isAuthenticated: boolean;
+  mustChangePassword: boolean;
 }
 
 export type AuthErrorType =

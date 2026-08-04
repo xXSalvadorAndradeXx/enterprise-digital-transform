@@ -103,8 +103,6 @@ const {
       !user ||
       mustChangePassword
     ) {
-      setPermissions([]);
-      setIsLoadingPermissions(false);
       return;
     }
 

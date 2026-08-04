@@ -28,6 +28,9 @@ import { useLogin } from "@/hooks/auth/useLogin";
 const INVALID_CREDENTIALS_MESSAGE =
   "Usuario o contraseña incorrectos.";
 
+const EMPTY_FIELDS_MESSAGE =
+  "Por favor, completa todos los campos para continuar";
+
 /*
  * Estos errores se representan en los campos o mediante un modal.
  * Por eso no deben mostrarse nuevamente como error general.
@@ -61,11 +64,8 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [isPasswordVisible, setIsPasswordVisible] =
     useState(false);
-
-  const [
-    isAccountLockedModalOpen,
-    setIsAccountLockedModalOpen,
-  ] = useState(false);
+  const [hasEmptyFieldsError, setHasEmptyFieldsError] =
+    useState(false);
 
   const router = useRouter();
   const { establishSession } = useAuth();
@@ -79,6 +79,7 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    getValues,
     setError,
     clearErrors,
     formState: { errors },
@@ -120,6 +121,12 @@ export default function LoginPage() {
       : undefined;
 
   const hasFormError = Boolean(formErrorMessage);
+  const usuarioHasError =
+    hasEmptyFieldsError || Boolean(errors.usuario);
+  const passwordHasError =
+    hasEmptyFieldsError || Boolean(errors.password);
+  const isAccountLockedModalOpen =
+    error?.type === "account_locked";
 
   /*
    * Traduce el error normalizado del servicio a su
@@ -181,7 +188,6 @@ export default function LoginPage() {
      */
     if (error.type === "account_locked") {
       clearErrors();
-      setIsAccountLockedModalOpen(true);
     }
   }, [error, setError, clearErrors]);
 
@@ -189,6 +195,11 @@ export default function LoginPage() {
     event: ChangeEvent<HTMLInputElement>,
   ): void => {
     void onUsuarioFieldChange(event);
+
+    if (hasEmptyFieldsError) {
+      setHasEmptyFieldsError(false);
+      clearErrors();
+    }
 
     if (errors.usuario?.type === "server") {
       clearErrors("usuario");
@@ -201,6 +212,11 @@ export default function LoginPage() {
     event: ChangeEvent<HTMLInputElement>,
   ): void => {
     void onPasswordFieldChange(event);
+
+    if (hasEmptyFieldsError) {
+      setHasEmptyFieldsError(false);
+      clearErrors();
+    }
 
     if (errors.password?.type === "server") {
       clearErrors("password");
@@ -226,13 +242,13 @@ export default function LoginPage() {
   };
 
   const handleAccountLockedAcknowledge = (): void => {
-    setIsAccountLockedModalOpen(false);
     resetError();
   };
 
   const onSubmit = async (
     values: LoginFormValues,
   ): Promise<void> => {
+    setHasEmptyFieldsError(false);
     resetError();
     clearServerFieldErrors();
 
@@ -248,17 +264,23 @@ export default function LoginPage() {
     try {
       await establishSession(session);
 
+      if (session.mustChangePassword) {
+        router.replace("/cambiar-password");
+        router.refresh();
+        return;
+      }
+
       const normalizedRole = session.user.rol
-  .trim()
-  .toUpperCase();
+        .trim()
+        .toUpperCase();
 
-const destination =
-  normalizedRole === "EMPLEADO"
-    ? "/pedidos"
-    : "/dashboard";
+      const destination =
+        normalizedRole === "EMPLEADO"
+          ? "/pedidos"
+          : "/dashboard";
 
-router.replace(destination);
-router.refresh();
+      router.replace(destination);
+      router.refresh();
 
 
     } catch {
@@ -266,6 +288,19 @@ router.refresh();
        * AuthContext controla los errores producidos
        * al establecer la sesión.
        */
+    }
+  };
+
+  const onInvalidSubmit = (): void => {
+    const values = getValues();
+    const hasEmptyField =
+      values.usuario.trim().length === 0 ||
+      values.password.trim().length === 0;
+
+    setHasEmptyFieldsError(hasEmptyField);
+
+    if (hasEmptyField) {
+      resetError();
     }
   };
 
@@ -280,7 +315,10 @@ router.refresh();
             </h1>
 
             <form
-              onSubmit={handleSubmit(onSubmit)}
+              onSubmit={handleSubmit(
+                onSubmit,
+                onInvalidSubmit,
+              )}
               aria-label="Inicio de sesión"
               noValidate
               className="mt-20 flex flex-col"
@@ -294,18 +332,24 @@ router.refresh();
                   autoComplete="username"
                   inputMode="email"
                   spellCheck={false}
-                  error={Boolean(errors.usuario)}
-                  errorMessage={errors.usuario?.message}
-                  aria-invalid={Boolean(errors.usuario)}
+                  error={usuarioHasError}
+                  errorMessage={
+                    hasEmptyFieldsError
+                      ? undefined
+                      : errors.usuario?.message
+                  }
+                  aria-invalid={usuarioHasError}
                   aria-describedby={
-                    errors.usuario
+                    hasEmptyFieldsError
+                      ? "login-empty-fields-error"
+                      : errors.usuario
                       ? "usuario-error"
                       : hasFormError
                         ? "login-form-error"
                         : undefined
                   }
                   icon={
-                    errors.usuario ? (
+                    usuarioHasError ? (
                       <CircleAlert
                         aria-hidden="true"
                         size={20}
@@ -335,11 +379,17 @@ router.refresh();
                   placeholder="Contraseña"
                   autoComplete="current-password"
                   className="pr-24"
-                  error={Boolean(errors.password)}
-                  errorMessage={errors.password?.message}
-                  aria-invalid={Boolean(errors.password)}
+                  error={passwordHasError}
+                  errorMessage={
+                    hasEmptyFieldsError
+                      ? undefined
+                      : errors.password?.message
+                  }
+                  aria-invalid={passwordHasError}
                   aria-describedby={
-                    errors.password
+                    hasEmptyFieldsError
+                      ? "login-empty-fields-error"
+                      : errors.password
                       ? "password-error"
                       : hasFormError
                         ? "login-form-error"
@@ -347,7 +397,7 @@ router.refresh();
                   }
                   icon={
                     <span className="flex items-center gap-2">
-                      {errors.password ? (
+                      {passwordHasError ? (
                         <CircleAlert
                           aria-hidden="true"
                           size={20}
@@ -390,6 +440,22 @@ router.refresh();
                   ref={passwordRegisterRef}
                 />
               </div>
+
+              {hasEmptyFieldsError && (
+                <p
+                  id="login-empty-fields-error"
+                  role="alert"
+                  aria-live="polite"
+                  className="mt-5 flex items-center gap-2 text-sm text-[#F44336]"
+                >
+                  <CircleAlert
+                    aria-hidden="true"
+                    className="h-5 w-5 shrink-0"
+                  />
+
+                  <span>{EMPTY_FIELDS_MESSAGE}</span>
+                </p>
+              )}
 
               {/* Errores generales de red, servidor o timeout */}
               {hasFormError && (

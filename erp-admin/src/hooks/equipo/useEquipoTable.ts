@@ -75,6 +75,7 @@ export function useEquipoTable() {
         id: user.id,
         nombre: `${user.firstName} ${user.lastName}`.trim(),
         correo: user.email,
+        roleId: user.roles[0]?.id ?? "",
         rol:
         user.roles.length > 0
           ? user.roles

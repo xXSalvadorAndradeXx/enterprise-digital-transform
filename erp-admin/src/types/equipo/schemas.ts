@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  ALLOWED_EMAIL_DOMAINS,
+  ALLOWED_EMAIL_DOMAINS_MESSAGE,
+} from "@/constants/allowed-email-domains";
+
 /* ============================
  * Crear colaborador
  * ============================ */
@@ -7,16 +12,46 @@ export const agregarPersonaSchema = z.object({
   nombre: z
     .string()
     .trim()
-    .min(6, "El nombre debe tener al menos 6 caracteres.")
-    .max(80, "El nombre no puede superar los 80 caracteres."),
+    .min(1, "El nombre es obligatorio.")
+    .min(3, "El nombre debe tener al menos 3 caracteres.")
+    .max(80, "El nombre no puede superar los 80 caracteres.")
+    .regex(
+      /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:[ '-][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*$/,
+      "El nombre solo puede contener letras y espacios internos.",
+    ),
 
   apellido: z
     .string()
     .trim()
-    .min(6, "El apellido debe tener al menos 6 caracteres.")
-    .max(80, "El apellido no puede superar los 80 caracteres."),
+    .min(1, "El apellido es obligatorio.")
+    .min(3, "El apellido debe tener al menos 3 caracteres.")
+    .max(80, "El apellido no puede superar los 80 caracteres.")
+    .regex(
+      /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:[ '-][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*$/,
+      "El apellido solo puede contener letras y espacios internos.",
+    ),
 
-  correo: z.email("Ingrese un correo electrónico válido."),
+  correo: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Ingrese un correo electrónico válido.")
+    .refine(
+      (email) => {
+        const domain = email.split("@").at(1);
+
+        return (
+          typeof domain === "string" &&
+          ALLOWED_EMAIL_DOMAINS.some(
+            (allowedDomain) =>
+              domain === allowedDomain,
+          )
+        );
+      },
+      {
+        message: ALLOWED_EMAIL_DOMAINS_MESSAGE,
+      },
+    ),
 
   rol: z
     .string()

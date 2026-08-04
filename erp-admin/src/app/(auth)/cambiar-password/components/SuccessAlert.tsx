@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -31,12 +32,12 @@ export default function SuccessAlert({
     useState(false);
 
   const router = useRouter();
-  const { clearSession } = useAuth();
+  const { recoverSession } = useAuth();
 
   /**
    * Elimina la sesión temporal y redirige al login.
    */
-  const handleAccept = async (): Promise<void> => {
+  const handleAccept = useCallback(async (): Promise<void> => {
     // Evita varios clics mientras se procesa.
     if (isRedirecting) {
       return;
@@ -45,21 +46,35 @@ export default function SuccessAlert({
     setIsRedirecting(true);
 
     try {
-      // Elimina la cookie y limpia el AuthContext.
-      await clearSession();
+      const session = await recoverSession();
 
-      // Cierra el modal.
       onClose();
 
-      // Redirige sin guardar la ruta anterior.
-      router.replace("/login");
+      if (!session) {
+        router.replace("/login");
+        router.refresh();
+        return;
+      }
+
+      const destination =
+        session.user.rol.trim().toUpperCase() ===
+        "EMPLEADO"
+          ? "/pedidos"
+          : "/dashboard";
+
+      router.replace(destination);
 
       // Actualiza los Server Components.
       router.refresh();
     } finally {
       setIsRedirecting(false);
     }
-  };
+  }, [
+    isRedirecting,
+    onClose,
+    recoverSession,
+    router,
+  ]);
 
   useEffect(() => {
     if (!open) {
@@ -72,7 +87,7 @@ export default function SuccessAlert({
       event: KeyboardEvent,
     ) => {
       if (event.key === "Escape") {
-        onClose();
+        void handleAccept();
       }
     };
 
@@ -87,7 +102,7 @@ export default function SuccessAlert({
         handleKeyDown,
       );
     };
-  }, [open, onClose]);
+  }, [handleAccept, open]);
 
   if (!open) {
     return null;

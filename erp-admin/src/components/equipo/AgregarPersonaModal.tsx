@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { useCreateUser } from "@/hooks/equipo/useCreateUser";
-import { ROL_OPTIONS } from "@/types/equipo";
+import { useRoles } from "@/hooks/equipo/useRoles";
 import {
   agregarPersonaSchema,
   type AgregarPersonaForm,
@@ -36,6 +36,12 @@ export function AgregarPersonaModal({
     error: createUserError,
     clearError,
   } = useCreateUser();
+
+  const {
+    options: roleOptions,
+    isLoading: isLoadingRoles,
+    error: rolesError,
+  } = useRoles();
 
   const {
     register,
@@ -90,6 +96,10 @@ export function AgregarPersonaModal({
     };
 
   const isSaving = isSubmitting || isLoading;
+  const isRoleCatalogUnavailable =
+    isLoadingRoles ||
+    Boolean(rolesError) ||
+    roleOptions.length === 0;
 
   return (
     <Modal
@@ -167,8 +177,15 @@ export function AgregarPersonaModal({
                 required
                 value={field.value}
                 onChange={field.onChange}
-                options={ROL_OPTIONS}
-                placeholder="Seleccionar un rol"
+                options={roleOptions}
+                placeholder={
+                  isLoadingRoles
+                    ? "Cargando roles..."
+                    : "Seleccionar un rol"
+                }
+                disabled={
+                  isSaving || isRoleCatalogUnavailable
+                }
               />
             )}
           />
@@ -176,6 +193,12 @@ export function AgregarPersonaModal({
           {errors.rol && (
             <p className="mt-1 text-xs text-red-500">
               {errors.rol.message}
+            </p>
+          )}
+
+          {rolesError && (
+            <p className="mt-1 text-xs text-red-500">
+              {rolesError}
             </p>
           )}
         </div>
@@ -236,7 +259,11 @@ export function AgregarPersonaModal({
 
           <button
             type="submit"
-            disabled={!isValid || isSaving}
+            disabled={
+              !isValid ||
+              isSaving ||
+              isRoleCatalogUnavailable
+            }
             className="w-36 rounded-md bg-[#1C21D1] px-4 py-2 text-sm font-medium text-white hover:bg-[#171AAD] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSaving

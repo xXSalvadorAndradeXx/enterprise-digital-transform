@@ -3,6 +3,7 @@ import { z } from "zod";
 export const supplierSchema = z.object({
   companyName: z
     .string()
+    .trim()
     .min(1, "El nombre de la empresa es obligatorio"),
 
   phone: z

@@ -6,6 +6,8 @@ import type {
 } from "@/types/auth/auth.types";
 
 const AUTH_SESSION_COOKIE_NAME = "erp_session";
+const AUTH_PASSWORD_CHANGE_COOKIE_NAME =
+  "erp_must_change_password";
 const LEGACY_MOCK_SESSION_COOKIE_NAME = "erp_mock_session";
 const AUTH_SESSION_MAX_AGE_SECONDS = 15 * 60;
 const BACKEND_REQUEST_TIMEOUT_MS = 10_000;
@@ -100,11 +102,31 @@ function normalizeProfileUser(responseBody: unknown) {
 }
 
 // Sesión basada en access token mientras Backend no implemente refresh y logout con revocación.
-export async function setAuthToken(accessToken: string): Promise<void> {
+export async function setAuthToken(
+  accessToken: string,
+  mustChangePassword: boolean,
+): Promise<void> {
   const cookieStore = await cookies();
 
   deleteCookie(cookieStore, LEGACY_MOCK_SESSION_COOKIE_NAME);
   cookieStore.set(AUTH_SESSION_COOKIE_NAME, accessToken, getCookieOptions());
+  cookieStore.set(
+    AUTH_PASSWORD_CHANGE_COOKIE_NAME,
+    mustChangePassword ? "true" : "false",
+    getCookieOptions(),
+  );
+}
+
+export async function setMustChangePasswordRequirement(
+  mustChangePassword: boolean,
+): Promise<void> {
+  const cookieStore = await cookies();
+
+  cookieStore.set(
+    AUTH_PASSWORD_CHANGE_COOKIE_NAME,
+    mustChangePassword ? "true" : "false",
+    getCookieOptions(),
+  );
 }
 
 export async function getAuthToken(): Promise<string | null> {
@@ -117,12 +139,17 @@ export async function deleteAuthToken(): Promise<void> {
   const cookieStore = await cookies();
 
   deleteCookie(cookieStore, AUTH_SESSION_COOKIE_NAME);
+  deleteCookie(
+    cookieStore,
+    AUTH_PASSWORD_CHANGE_COOKIE_NAME,
+  );
   deleteCookie(cookieStore, LEGACY_MOCK_SESSION_COOKIE_NAME);
 }
 
 export async function getAuthSession(): Promise<PublicAuthSession | null> {
   const accessToken = await getAuthToken();
   const backendApiUrl = getBackendApiUrl();
+  const cookieStore = await cookies();
 
   if (!accessToken || !backendApiUrl) {
     return null;
@@ -157,6 +184,10 @@ export async function getAuthSession(): Promise<PublicAuthSession | null> {
     return {
       user,
       isAuthenticated: true,
+      mustChangePassword:
+        cookieStore.get(
+          AUTH_PASSWORD_CHANGE_COOKIE_NAME,
+        )?.value === "true",
     };
   } catch {
     return null;
