@@ -4,7 +4,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import ErrorState from "@/components/ui/ErrorState";
 import NoSearchResults from "@/components/ui/NoSearchResults";
 import LoadingState from "@/components/ui/LoadingState";
-import Modal from "@/components/ui/Modal";
+import{Modal}from"@/components/ui/Modal";
 import ModalSuccess from "@/components/ui/ModalSuccess";
 import Input from "@/components/ui/Input";
 import { useForm } from "react-hook-form";
@@ -31,10 +31,10 @@ import SearchEmptyIcon from "@/assets/images/lupa.png";
 import { useEffect, useState } from "react";
 
 
-import SearchBar from "@/components/ui/SearchBar";
-import Table from "@/components/ui/Table";
+import {SearchBar } from "@/components/ui/SearchBar";
+import {Table} from "@/components/ui/Table";
 import type { TableColumn } from "@/components/ui/Table/Table.types";
-import Pagination from "@/components/ui/Pagination";
+import {Pagination} from "@/components/ui/Pagination";
 
 export default function ProveedorPage() {
   const [search, setSearch] = useState("");

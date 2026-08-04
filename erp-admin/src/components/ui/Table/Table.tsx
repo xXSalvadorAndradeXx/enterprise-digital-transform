@@ -49,31 +49,38 @@ export function Table<T>({
 
   return (
     <div className="w-full">
-      {/* Bulk actions toolbar — only appears while something is selected */}
-      {selectable && selectedCount > 0 && (
-        <div className="flex items-center justify-between border-b border-gray-200 bg-indigo-50/60 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              role="checkbox"
-              aria-checked={allSelected}
-              onClick={toggleAll}
-              className="flex h-5 w-5 items-center justify-center rounded border-2 border-indigo-600 bg-white text-indigo-600"
-            >
-              {allSelected && <Check size={14} strokeWidth={3} />}
-            </button>
-            <SelectionCounter count={selectedCount} />
-          </div>
-          <div className="flex items-center gap-2">
-            {bulkActions?.(selectedCount, clearSelection)}
-          </div>
-        </div>
+      {/**/}
+{selectable && (
+  <div className="flex items-center justify-between border-b border-gray-200 bg-indigo-50/60 px-4 py-3">
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={allSelected}
+        onClick={toggleAll}
+        className="flex h-5 w-5 items-center justify-center rounded border-2 border-indigo-600 bg-white text-indigo-600"
+      >
+        {allSelected && (
+          <Check size={14} strokeWidth={3} />
+        )}
+      </button>
+
+      <SelectionCounter count={selectedCount} />
+    </div>
+
+    <div className="flex items-center gap-2">
+      {bulkActions?.(
+        selectedCount,
+        clearSelection,
       )}
+    </div>
+  </div>
+)}
 
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50/80 text-gray-500">
+            <tr className="border-b border-gray-200 bg-gray-50/80 text-gray-800">
               {selectable && <th className="w-10 px-4 py-3" />}
               {columns.map((column) => (
                 <th
@@ -154,7 +161,7 @@ export function Table<T>({
                                 type="button"
                                 title={action.label}
                                 onClick={() => action.onClick(row)}
-                                className={action.className ?? "text-indigo-500 hover:text-indigo-700"}
+                                className={action.className ?? "text-[#1C21D1] hover:text-indigo-400"}
                               >
                                 <action.icon size={18} />
                               </button>

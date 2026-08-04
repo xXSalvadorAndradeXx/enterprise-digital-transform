@@ -10,10 +10,16 @@ export interface User {
   lastName: string;
   email: string;
   isActive: boolean;
+  isBlocked: boolean;
+  mustChangePassword: boolean;
+  failedLoginAttempts: number;
+  lockedUntil: string | null;
   createdAt: string;
+  updatedAt: string;
   roles: {
     id: string;
     name: string;
+    description?: string | null;
   }[];
 }
 

@@ -52,21 +52,45 @@ export function useEquipoTable() {
 
   const totalPages = meta?.totalPages ?? 1;
 
-  const data = useMemo<Colaborador[]>(() => {
-    return users.map((user) => ({
-      id: user.id,
-      nombre: `${user.firstName} ${user.lastName}`.trim(),
-      correo: user.email,
-      rol:
+  function formatRoleName(role: string): string {
+  const normalized = role.trim().toUpperCase();
+
+  switch (normalized) {
+    case "ADMIN":
+      return "Admin";
+
+    case "EMPLEADO":
+      return "Empleado";
+
+    default:
+      return (
+        normalized.charAt(0) +
+        normalized.slice(1).toLowerCase()
+      );
+  }
+}
+
+    const data = useMemo<Colaborador[]>(() => {
+      return users.map((user) => ({
+        id: user.id,
+        nombre: `${user.firstName} ${user.lastName}`.trim(),
+        correo: user.email,
+        rol:
         user.roles.length > 0
-          ? user.roles.map((role) => role.name).join(", ")
+          ? user.roles
+              .map((role) => formatRoleName(role.name))
+              .join(", ")
           : "Sin rol",
-      estado: user.isActive ? "activo" : "desactivado",
-      fecha: new Intl.DateTimeFormat("es-SV").format(
-        new Date(user.createdAt),
-      ),
-    }));
-  }, [users]);
+        estado: user.isBlocked
+          ? "bloqueado_intento"
+          : user.isActive
+            ? "activo"
+            : "desactivado",
+        fecha: new Intl.DateTimeFormat("es-SV").format(
+          new Date(user.createdAt),
+        ),
+      }));
+    }, [users]);
 
   const openDetalle = (colaborador: Colaborador) => setSelectedColaborador(colaborador);
   const closeDetalle = () => setSelectedColaborador(null);

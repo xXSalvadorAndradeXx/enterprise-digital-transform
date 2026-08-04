@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, Eye } from "lucide-react";
+import { AlertCircle, Eye, KeyRound } from "lucide-react";
+import { Pause, Trash2 } from "lucide-react";
 import { Table } from "@/components/ui/Table";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { Pagination } from "@/components/ui/Pagination";
@@ -18,6 +19,17 @@ import { useGenerateTemporaryPassword } from "@/hooks/equipo/useGenerateTemporar
 import {BulkActionConfirmModal,type BulkActionType,} from "@/components/equipo/BulkActionConfirmModal";
 
 import { Toast } from "@/components/ui/Toast";
+
+import {
+  UnlockUserModal,
+  type UnlockOption,
+} from "@/components/equipo/UnlockUserModal";
+
+import { useUnlockUser } from "@/hooks/equipo/useUnlockUser";
+
+import { useUnlockAndResetPassword } from "@/hooks/equipo/useUnlockAndResetPassword";
+
+import { useBulkUserActions } from "@/hooks/equipo/useBulkUserActions";
 
 // Arma el título y la descripción del Toast con la concordancia correcta en
 // singular ("El usuario fue desactivado...") vs plural ("Los 3 usuarios
@@ -81,6 +93,28 @@ export default function EquipoPage() {
         clearError: clearGeneratePasswordError,
       } = useGenerateTemporaryPassword();
 
+      const {
+      unlockUser,
+      isLoading: isUnlocking,
+      error: unlockError,
+      clearError: clearUnlockError,
+    } = useUnlockUser();
+
+    const {
+      unlockAndResetPassword,
+      isLoading: isUnlockingAndResetting,
+      error: unlockAndResetError,
+      clearError: clearUnlockAndResetError,
+    } = useUnlockAndResetPassword();
+
+    const {
+  deactivateSelectedUsers,
+  deleteSelectedUsers,
+  isLoading: isBulkActionLoading,
+  error: bulkActionError,
+  clearError: clearBulkActionError,
+} = useBulkUserActions();
+
 
   // Puntos de entrada / modales de T-06
   const [agregarOpen, setAgregarOpen] = useState(false);
@@ -93,7 +127,6 @@ export default function EquipoPage() {
 
 
 const [bulkAction, setBulkAction] = useState<BulkActionType | null>(null);
-const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
 
 
 
@@ -136,29 +169,91 @@ const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
       closeDetalle();
     };
 
+      const handleUnlockUser = async (
+    option: UnlockOption,
+  ): Promise<void> => {
+    if (!usuarioBloqueado) {
+      return;
+    }
 
-const handleConfirmBulkAction = async () => {
-  if (!bulkAction || selectedUsers.length === 0) return;
+    try {
+      clearUnlockError();
+      clearUnlockAndResetError();
 
-  const confirmedAction = bulkAction;
-  const selectedCount = selectedUsers.length;
+      if (option === "desbloquear") {
+        await unlockUser(usuarioBloqueado.id);
 
-  setIsBulkActionLoading(true);
+        setToast({
+          title: "Usuario desbloqueado",
+          description: `${usuarioBloqueado.nombre} fue desbloqueado correctamente.`,
+        });
 
-  try {
-    // TODO(backend): reemplazar por la mutación real.
-    await new Promise((resolve) => setTimeout(resolve, 500));
+        setUsuarioBloqueado(null);
+        refetch();
+        return;
+      }
 
-    setSelected(new Set());
-    setBulkAction(null);
+      const response =
+        await unlockAndResetPassword(
+          usuarioBloqueado.id,
+        );
 
-    setToast(buildBulkActionToastText(confirmedAction, selectedCount));
+      setContrasenaTemporal({
+        usuario: usuarioBloqueado.nombre,
+        contrasenaTemporal:
+          response.temporaryPassword,
+      });
 
-    refetch();
-  } finally {
-    setIsBulkActionLoading(false);
-  }
-};
+      setUsuarioBloqueado(null);
+      refetch();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+
+const handleConfirmBulkAction =
+  async (): Promise<void> => {
+    if (!bulkAction || selectedUsers.length === 0) {
+      return;
+    }
+
+    const userIds = selectedUsers.map(
+      (user) => String(user.id),
+    );
+
+    try {
+      clearBulkActionError();
+
+      const result =
+        bulkAction === "deactivate"
+          ? await deactivateSelectedUsers(userIds)
+          : await deleteSelectedUsers(userIds);
+
+      const affectedCount =
+        result.successfulIds.length;
+
+      setSelected(new Set());
+      setBulkAction(null);
+
+      setToast(
+        buildBulkActionToastText(
+          bulkAction,
+          affectedCount,
+        ),
+      );
+
+      refetch();
+    } catch (error) {
+      console.error(
+        "Error al ejecutar la acción masiva:",
+        error,
+      );
+    }
+  };
+
+const [usuarioBloqueado, setUsuarioBloqueado] =
+  useState<Colaborador | null>(null);
 
 const [toast, setToast] = useState<{
   title: string;
@@ -207,7 +302,7 @@ const [toast, setToast] = useState<{
                 return <StatusDot label={config.label} tone={config.tone} icon={config.icon} />;
               },
             },
-            { key: "fecha", header: "Fecha", accessor: (c) => c.fecha, sortable: true },
+            { key: "fecha", header: "Fecha", accessor: (c) => c.fecha, sortable: false },
           ]}
           data={tableData}
           rowKey={(c) => c.id}
@@ -216,29 +311,66 @@ const [toast, setToast] = useState<{
           selectedRows={selected}
           onSelectionChange={setSelected}
           actions={[
-            { icon: Eye, label: "Ver detalle", onClick: openDetalle },
-            /*{ icon: SquarePen, label: "Editar", onClick: setEditarColaborador },*/
-          ]}
+            {
+              icon: Eye,
+              label: "Ver detalle",
+              onClick: openDetalle,
+              show: (colaborador) =>
+                colaborador.estado !== "bloqueado_intento",
+            },
+            {
+              icon: KeyRound,
+              label: "Desbloquear usuario",
+              onClick: (colaborador) => {
+                setUsuarioBloqueado(colaborador);
+              },
+              show: (colaborador) =>
+                colaborador.estado === "bloqueado_intento",
+              className: "text-[#F59E0B] hover:bg-amber-50",
+            },
+          ]}            
 
-          bulkActions={() => (
-          <>
-            <button
-              type="button"
-              onClick={() => setBulkAction("deactivate")}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              Desactivar
-            </button>
+          bulkActions={(selectedCount) => (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  setBulkAction("deactivate")
+                }
+                disabled={
+                  selectedCount === 0 ||
+                  isBulkActionLoading
+                }
+                className="flex h-9 w-[118px] items-center justify-center gap-1.5 rounded-lg border border-[#1C21D1] bg-white px-2.5 text-[14px] font-normal text-black transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:opacity-50 disabled:hover:bg-white"
+              >
+                <Pause
+                  size={15}
+                  strokeWidth={1.5}
+                  className="shrink-0"
+                />
+                <span>Desactivar</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setBulkAction("delete")}
-              className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50"
-            >
-              Eliminar
-            </button>
-          </>
-        )}
+              <button
+                type="button"
+                onClick={() =>
+                  setBulkAction("delete")
+                }
+                disabled={
+                  selectedCount === 0 ||
+                  isBulkActionLoading
+                }
+                className="flex h-9 w-[108px] items-center justify-center gap-1.5 rounded-lg border border-[#1C21D1] bg-white px-2.5 text-[14px] font-normal text-black transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:opacity-50 disabled:hover:bg-white"
+              >
+                <Trash2
+                  size={15}
+                  strokeWidth={1.5}
+                  className="shrink-0"
+                />
+                <span>Eliminar</span>
+              </button>
+            </>
+          )}
 
           emptyMessage={
             searchInput.trim()
@@ -340,6 +472,27 @@ const [toast, setToast] = useState<{
         onSuccess={handleEditarSuccess}
       />
 
+          <UnlockUserModal
+      isOpen={usuarioBloqueado !== null}
+      onClose={() => {
+        clearUnlockError();
+        clearUnlockAndResetError();
+        setUsuarioBloqueado(null);
+      }}
+      nombreUsuario={
+        usuarioBloqueado?.nombre ?? ""
+      }
+      onConfirm={handleUnlockUser}
+      isLoading={
+        isUnlocking ||
+        isUnlockingAndResetting
+      }
+      error={
+        unlockError ??
+        unlockAndResetError
+      }
+    />
+
       {/* Éxito: usuario agregado (con credenciales) */}
       <UsuarioAgregadoModal
         isOpen={usuarioAgregado !== null}
@@ -374,8 +527,21 @@ const [toast, setToast] = useState<{
           action={bulkAction ?? "deactivate"}
           users={selectedUsers}
           isLoading={isBulkActionLoading}
-          onClose={() => setBulkAction(null)}
+          onClose={() => {
+            setBulkAction(null);
+            setSelected(new Set());
+
+            {bulkActionError && (
+              <div
+                role="alert"
+                className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                {bulkActionError}
+              </div>
+            )}
+          }}
           onConfirm={handleConfirmBulkAction}
+          
         />
         
         <Toast

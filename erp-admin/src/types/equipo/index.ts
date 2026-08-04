@@ -2,7 +2,7 @@ import { CheckCircle2, LockKeyhole, MinusCircle } from "lucide-react";
 import type { StatusTone } from "@/components/ui/StatusDot";
 import type { SelectOption } from "@/components/ui/Select";
 
-export type EstadoColaborador = "activo" | "desactivado" | "bloqueado";
+export type EstadoColaborador = "activo" | "desactivado" | "bloqueado_intento";
 
 export interface Colaborador {
   id: string;
@@ -20,11 +20,26 @@ interface EstadoConfig {
 }
 
 /** Maps each Equipo status to how StatusDot should render it. */
-export const ESTADO_COLABORADOR_CONFIG: Record<EstadoColaborador, EstadoConfig> = {
-  activo: { label: "Activo", tone: "success", icon: CheckCircle2 },
-  desactivado: { label: "Desactivado", tone: "neutral", icon: MinusCircle },
-  bloqueado: { label: "Bloqueado", tone: "danger", icon: LockKeyhole },
-};
+export const ESTADO_COLABORADOR_CONFIG: Record<
+  EstadoColaborador,
+  EstadoConfig
+> = {
+  activo: {
+    label: "Activo",
+    tone: "success",
+    icon: CheckCircle2,
+  },
+  desactivado: {
+    label: "Desactivado",
+    tone: "neutral",
+    icon: MinusCircle,
+  },
+  bloqueado_intento: {
+    label: "Bloqueado",
+    tone: "danger",
+    icon: LockKeyhole,
+  },
+};;
 
 /** Opciones del campo Rol en los formularios de Agregar/Editar. */
 export const ROL_OPTIONS = [
