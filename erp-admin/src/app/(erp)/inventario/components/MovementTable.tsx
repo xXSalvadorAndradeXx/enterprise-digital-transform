@@ -12,14 +12,36 @@ import {
   ChevronRight,
   ChevronDown,
   Check,
+  type LucideIcon,
 } from "lucide-react";
 
-const CHANNEL_STYLES = {
+/**
+ * Tipos locales del prototipo (mock). `rows` todavía no viene de la API,
+ * así que estos tipos NO son los DTOs del contrato — cuando se conecte a
+ * GET /inventory-movements, reemplazar por `MovementResponseDto` /
+ * `MovementViewModel` desde "@/types/inventario" y borrar este bloque.
+ */
+type MovementTipo = "Entrada" | "Salida";
+type MovementCanal = "Tienda en línea" | "Tienda física";
+
+interface MockMovementRow {
+  readonly tipo: MovementTipo;
+  readonly canal: MovementCanal;
+  readonly responsable: string;
+  readonly cantidad: number;
+}
+
+interface ChannelStyle {
+  readonly icon: LucideIcon;
+  readonly color: string;
+}
+
+const CHANNEL_STYLES: Record<MovementCanal, ChannelStyle> = {
   "Tienda en línea": { icon: Monitor, color: "text-blue-500" },
   "Tienda física": { icon: Store, color: "text-fuchsia-500" },
 };
 
-const rows = [
+const rows: readonly MockMovementRow[] = [
   { tipo: "Entrada", canal: "Tienda en línea", responsable: "Emilio Reyes", cantidad: 45 },
   { tipo: "Entrada", canal: "Tienda física", responsable: "Fernando Esquivel", cantidad: 45 },
   { tipo: "Entrada", canal: "Tienda en línea", responsable: "Diego Zepeda", cantidad: 45 },
@@ -31,61 +53,62 @@ const rows = [
 ];
 
 export default function MovementTable() {
-  const [tipo, setTipo] = useState(null);
-  const [canal, setCanal] = useState("Todos");
+  const [tipo, setTipo] = useState<MovementTipo | null>(null);
+  const [canal, setCanal] = useState<MovementCanal | "Todos">("Todos");
   const [search, setSearch] = useState("");
   const [fecha, setFecha] = useState("");
   const [dateError, setDateError] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [searchError, setSearchError] = useState("");
+
   useEffect(() => {
-  const value = search.trim();
+    const value = search.trim();
 
-  if (value.length > 100) {
-    setSearchError("Máximo 100 caracteres.");
-    
-    return;
-  }
+    if (value.length > 100) {
+      setSearchError("Máximo 100 caracteres.");
+      return;
+    }
 
-  setSearchError("");
+    setSearchError("");
 
-  const timer = setTimeout(() => {
-    setDebouncedSearch(value);
-  }, 500);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(value);
+    }, 500);
 
-  return () => clearTimeout(timer);
-}, [search]);
-useEffect(() => {
-  if (fecha === "") {
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    if (fecha === "") {
+      setDateError("");
+      return;
+    }
+
     setDateError("");
-    return;
-  }
+  }, [fecha]);
 
-  setDateError("");
-}, [fecha]);
   const router = useRouter();
+
   const filteredRows = rows.filter((item) => {
-  const text = debouncedSearch.trim().toLowerCase();
+    const text = debouncedSearch.trim().toLowerCase();
 
-  // Buscar
-  const matchesSearch =
-    text === "" ||
-    item.tipo.toLowerCase().includes(text) ||
-    item.canal.toLowerCase().includes(text) ||
-    item.responsable.toLowerCase().includes(text) ||
-    "camisa de algodón".toLowerCase().includes(text);
+    // Buscar
+    const matchesSearch =
+      text === "" ||
+      item.tipo.toLowerCase().includes(text) ||
+      item.canal.toLowerCase().includes(text) ||
+      item.responsable.toLowerCase().includes(text) ||
+      "camisa de algodón".toLowerCase().includes(text);
 
-  // Tipo
-  const matchesTipo =
-    !tipo || item.tipo === tipo;
+    // Tipo
+    const matchesTipo = !tipo || item.tipo === tipo;
 
-  // Canal
-  const matchesCanal =
-    canal === "Todos" || item.canal === canal;
+    // Canal
+    const matchesCanal = canal === "Todos" || item.canal === canal;
 
-  return matchesSearch && matchesTipo && matchesCanal;
-});
+    return matchesSearch && matchesTipo && matchesCanal;
+  });
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -95,40 +118,36 @@ useEffect(() => {
         <div className="relative w-full sm:w-56">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
-           type="text"
-           value={search}
-           maxLength={100}
-           onChange={(e) => {
-             setSearch(e.target.value);
-             setPage(1);
-               }}
-               placeholder="Buscar"
-               className="h-10 w-56 rounded-md border border-[#CFCFCF] bg-white pl-10 pr-3 text-gray-700 placeholder:text-gray-400 outline-none"
-               /> 
-               {searchError && (
-               <p className="mt-1 text-xs text-red-500">
-                {searchError}
-               </p>
-                   )}
+            type="text"
+            value={search}
+            maxLength={100}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Buscar"
+            className="h-10 w-56 rounded-md border border-[#CFCFCF] bg-white pl-10 pr-3 text-gray-700 placeholder:text-gray-400 outline-none"
+          />
+          {searchError && <p className="mt-1 text-xs text-red-500">{searchError}</p>}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <Dropdown
-           label="Fecha"
-           display={fecha || "Fecha"}
+          <Dropdown<string>
+            label="Fecha"
+            display={fecha || "Fecha"}
             options={[
-            { value: "Hoy", label: "Hoy" },
-            { value: "Esta semana", label: "Esta semana" },
-            { value: "Este mes", label: "Este mes" },
-             ]}
-             selected={fecha}
-             onSelect={(value) => {
-             setFecha(value);
-             setPage(1);
-               }}
-            />
+              { value: "Hoy", label: "Hoy" },
+              { value: "Esta semana", label: "Esta semana" },
+              { value: "Este mes", label: "Este mes" },
+            ]}
+            selected={fecha}
+            onSelect={(value) => {
+              setFecha(value);
+              setPage(1);
+            }}
+          />
 
-          <Dropdown
+          <Dropdown<MovementTipo>
             label="Tipo"
             display={tipo || "Tipo"}
             options={[
@@ -137,18 +156,28 @@ useEffect(() => {
             ]}
             selected={tipo}
             onSelect={(value) => {
-            setTipo(value);
-            setPage(1);
-          }}
+              setTipo(value);
+              setPage(1);
+            }}
           />
 
-          <Dropdown
+          <Dropdown<MovementCanal | "Todos">
             label="Canal"
             display={canal === "Todos" ? "Canal: Todos" : `Canal: ${canal}`}
             options={[
               { value: "Todos", label: "Todos los canales" },
-              { value: "Tienda en línea", label: "Tienda en línea", icon: Monitor, iconColor: "text-blue-500" },
-              { value: "Tienda física", label: "Tienda física", icon: Store, iconColor: "text-fuchsia-500" },
+              {
+                value: "Tienda en línea",
+                label: "Tienda en línea",
+                icon: Monitor,
+                iconColor: "text-blue-500",
+              },
+              {
+                value: "Tienda física",
+                label: "Tienda física",
+                icon: Store,
+                iconColor: "text-fuchsia-500",
+              },
             ]}
             selected={canal}
             onSelect={setCanal}
@@ -156,11 +185,7 @@ useEffect(() => {
         </div>
       </div>
 
-      {dateError && (
-      <p className="px-6 pt-2 text-sm text-red-500">
-      {dateError}
-       </p>
-      )}
+      {dateError && <p className="px-6 pt-2 text-sm text-red-500">{dateError}</p>}
 
       {/* Tabla */}
       <div className="overflow-x-auto">
@@ -177,13 +202,16 @@ useEffect(() => {
           </thead>
 
           <tbody>
-              {filteredRows.map((item, index) => {
+            {filteredRows.map((item, index) => {
               const isEntrada = item.tipo === "Entrada";
               const channel = CHANNEL_STYLES[item.canal];
               const ChannelIcon = channel.icon;
 
               return (
-                <tr key={index} className="h-16 border-b border-gray-100 text-center text-sm text-gray-700">
+                <tr
+                  key={index}
+                  className="h-16 border-b border-gray-100 text-center text-sm text-gray-700"
+                >
                   <td className="text-gray-700">24/07/2025</td>
                   <td className="text-gray-700">Camisa de algodón</td>
                   <td>
@@ -192,7 +220,11 @@ useEffect(() => {
                         isEntrada ? "bg-[#DDF6DA] text-[#2F9E44]" : "bg-[#FFE0E0] text-[#E03131]"
                       }`}
                     >
-                      {isEntrada ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                      {isEntrada ? (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      )}
                       {item.tipo}
                     </span>
                   </td>
@@ -206,19 +238,16 @@ useEffect(() => {
                   <td className="text-gray-700">{item.responsable}</td>
                 </tr>
               );
-                 })}
+            })}
 
-      {filteredRows.length === 0 && (
-        <tr>
-          <td
-            colSpan={6}
-            className="py-10 text-center text-gray-500"
-          >
-            No se encontraron resultados.
-          </td>
-        </tr>
-      )}
-      </tbody>
+            {filteredRows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-10 text-center text-gray-500">
+                  No se encontraron resultados.
+                </td>
+              </tr>
+            )}
+          </tbody>
         </table>
       </div>
 
@@ -231,10 +260,16 @@ useEffect(() => {
         <button className="flex h-8 w-8 items-center justify-center rounded bg-gray-100 font-medium text-black">
           1
         </button>
-        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">2</button>
+        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">
+          2
+        </button>
         <span className="px-1">...</span>
-        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">23</button>
-        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">24</button>
+        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">
+          23
+        </button>
+        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">
+          24
+        </button>
 
         <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">
           <ChevronRight className="h-4 w-4" />
@@ -243,24 +278,40 @@ useEffect(() => {
 
       {/* Botón volver */}
       <div className="flex justify-center px-4 pb-6 sm:justify-end sm:px-8">
-       <button
-         onClick={() => router.push("/inventario")}
-         className="h-12 w-full max-w-xs rounded border-2 border-blue-600 text-lg font-medium text-blue-600 transition hover:bg-blue-50 sm:w-36"
-          >
-           Volver
-           </button>
+        <button
+          onClick={() => router.push("/inventario")}
+          className="h-12 w-full max-w-xs rounded border-2 border-blue-600 text-lg font-medium text-blue-600 transition hover:bg-blue-50 sm:w-36"
+        >
+          Volver
+        </button>
       </div>
     </div>
   );
 }
 
-function Dropdown({ label, display, options, selected, onSelect }) {
+/** Opción genérica de un Dropdown. `T` es el tipo del valor seleccionable. */
+interface DropdownOption<T extends string> {
+  readonly value: T;
+  readonly label: string;
+  readonly icon?: LucideIcon;
+  readonly iconColor?: string;
+}
+
+interface DropdownProps<T extends string> {
+  readonly label: string;
+  readonly display: string;
+  readonly options: readonly DropdownOption<T>[];
+  readonly selected: T | null;
+  readonly onSelect: (value: T) => void;
+}
+
+function Dropdown<T extends string>({ label, display, options, selected, onSelect }: DropdownProps<T>) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && e.target instanceof Node && !ref.current.contains(e.target)) {
         setOpen(false);
       }
     }
@@ -274,6 +325,7 @@ function Dropdown({ label, display, options, selected, onSelect }) {
     <div ref={ref} className="relative">
       <button
         type="button"
+        aria-label={label}
         onClick={() => hasOptions && setOpen((o) => !o)}
         className={`flex h-10 items-center gap-2 whitespace-nowrap rounded-md border px-3 text-sm ${
           open ? "border-blue-500 text-blue-600" : "border-gray-300 text-gray-700"
