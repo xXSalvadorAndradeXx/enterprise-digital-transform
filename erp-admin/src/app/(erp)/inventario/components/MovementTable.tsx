@@ -33,7 +33,59 @@ const rows = [
 export default function MovementTable() {
   const [tipo, setTipo] = useState(null);
   const [canal, setCanal] = useState("Todos");
+  const [search, setSearch] = useState("");
+  const [fecha, setFecha] = useState("");
+  const [dateError, setDateError] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [searchError, setSearchError] = useState("");
+  useEffect(() => {
+  const value = search.trim();
+
+  if (value.length > 100) {
+    setSearchError("Máximo 100 caracteres.");
+    
+    return;
+  }
+
+  setSearchError("");
+
+  const timer = setTimeout(() => {
+    setDebouncedSearch(value);
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [search]);
+useEffect(() => {
+  if (fecha === "") {
+    setDateError("");
+    return;
+  }
+
+  setDateError("");
+}, [fecha]);
   const router = useRouter();
+  const filteredRows = rows.filter((item) => {
+  const text = debouncedSearch.trim().toLowerCase();
+
+  // Buscar
+  const matchesSearch =
+    text === "" ||
+    item.tipo.toLowerCase().includes(text) ||
+    item.canal.toLowerCase().includes(text) ||
+    item.responsable.toLowerCase().includes(text) ||
+    "camisa de algodón".toLowerCase().includes(text);
+
+  // Tipo
+  const matchesTipo =
+    !tipo || item.tipo === tipo;
+
+  // Canal
+  const matchesCanal =
+    canal === "Todos" || item.canal === canal;
+
+  return matchesSearch && matchesTipo && matchesCanal;
+});
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -43,14 +95,38 @@ export default function MovementTable() {
         <div className="relative w-full sm:w-56">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
-            type="text"
-            placeholder="Buscar"
-            className="h-10 w-full rounded-md border border-gray-300 pl-9 pr-3 text-sm text-gray-800 placeholder:text-gray-400 outline-none focus:border-blue-500"
-          />
+           type="text"
+           value={search}
+           maxLength={100}
+           onChange={(e) => {
+             setSearch(e.target.value);
+             setPage(1);
+               }}
+               placeholder="Buscar"
+               className="h-10 w-56 rounded-md border border-[#CFCFCF] bg-white pl-10 pr-3 text-gray-700 placeholder:text-gray-400 outline-none"
+               /> 
+               {searchError && (
+               <p className="mt-1 text-xs text-red-500">
+                {searchError}
+               </p>
+                   )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <Dropdown label="Fecha" display="Fecha" options={[]} />
+          <Dropdown
+           label="Fecha"
+           display={fecha || "Fecha"}
+            options={[
+            { value: "Hoy", label: "Hoy" },
+            { value: "Esta semana", label: "Esta semana" },
+            { value: "Este mes", label: "Este mes" },
+             ]}
+             selected={fecha}
+             onSelect={(value) => {
+             setFecha(value);
+             setPage(1);
+               }}
+            />
 
           <Dropdown
             label="Tipo"
@@ -60,7 +136,10 @@ export default function MovementTable() {
               { value: "Salida", label: "Salida" },
             ]}
             selected={tipo}
-            onSelect={setTipo}
+            onSelect={(value) => {
+            setTipo(value);
+            setPage(1);
+          }}
           />
 
           <Dropdown
@@ -77,6 +156,12 @@ export default function MovementTable() {
         </div>
       </div>
 
+      {dateError && (
+      <p className="px-6 pt-2 text-sm text-red-500">
+      {dateError}
+       </p>
+      )}
+
       {/* Tabla */}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] border-collapse">
@@ -92,7 +177,7 @@ export default function MovementTable() {
           </thead>
 
           <tbody>
-            {rows.map((item, index) => {
+              {filteredRows.map((item, index) => {
               const isEntrada = item.tipo === "Entrada";
               const channel = CHANNEL_STYLES[item.canal];
               const ChannelIcon = channel.icon;
@@ -121,8 +206,19 @@ export default function MovementTable() {
                   <td className="text-gray-700">{item.responsable}</td>
                 </tr>
               );
-            })}
-          </tbody>
+                 })}
+
+      {filteredRows.length === 0 && (
+        <tr>
+          <td
+            colSpan={6}
+            className="py-10 text-center text-gray-500"
+          >
+            No se encontraron resultados.
+          </td>
+        </tr>
+      )}
+      </tbody>
         </table>
       </div>
 
