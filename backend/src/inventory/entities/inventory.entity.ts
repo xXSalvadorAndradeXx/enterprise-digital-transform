@@ -114,4 +114,10 @@ export class Inventory {
 
   @Column({ name: 'product_id', type: 'uuid', nullable: true })
   productId!: string | null;
+
+  @ApiPropertyOptional({ example: 100 })
+  totalStock?: number;
+
+  @ApiPropertyOptional({ example: 5 })
+  totalVariants?: number;
 }

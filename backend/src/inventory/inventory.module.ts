@@ -7,11 +7,13 @@ import { InventoryMovement } from './entities/inventory-movement.entity';
 import { Product } from '../products/entities/product.entity';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
+import { InventoryRepository } from './repositories/inventory.repository';
+import { InventoryDetailRepository } from './repositories/inventory-detail.repository';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Inventory, InventoryDetail, InventoryMovement, Product])],
   controllers: [InventoryController],
-  providers: [InventoryService],
-  exports: [InventoryService],
+  providers: [InventoryService, InventoryRepository, InventoryDetailRepository],
+  exports: [InventoryService, InventoryRepository, InventoryDetailRepository],
 })
 export class InventoryModule {}
