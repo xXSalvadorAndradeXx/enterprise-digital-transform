@@ -62,7 +62,7 @@ export class InventoryRepository extends Repository<Inventory> {
 
     const sortBy = query.sortBy && sortWhitelist[query.sortBy] ? query.sortBy : 'created_at';
     const sortColumn = sortWhitelist[sortBy];
-    const sortOrder = query.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    const sortOrder = query.order === 'ASC' ? 'ASC' : 'DESC';
 
     qb.orderBy(sortColumn, sortOrder);
 
