@@ -1,9 +1,3 @@
-export default function DashboardPage() {
-return (
-<div>
-<h1 className="text-3xl font-bold">INVENTARIO</h1>
-
-
-</div>
-);
+export default function InventarioPage() {
+  return <h1>Inventario</h1>;
 }
