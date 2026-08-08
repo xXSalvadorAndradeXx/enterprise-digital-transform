@@ -6,6 +6,7 @@ import { SupplierPurchaseItem } from './entities/supplier-purchase-item.entity';
 import { PurchaseStatusHistory } from './entities/purchase-status-history.entity';
 import { PurchasesController } from './purchases.controller';
 import { PurchasesService } from './purchases.service';
+import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PurchasesService } from './purchases.service';
       SupplierPurchaseItem,
       PurchaseStatusHistory,
     ]),
+    InventoryModule,
   ],
   controllers: [PurchasesController],
   providers: [PurchasesService],

@@ -2,7 +2,7 @@ import {
   Controller, Get,
   Param, Query, ParseUUIDPipe, UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { QueryMovementsDto } from './dto/query-inventory.dto';
 import { InventoryQueryDto } from './dto/inventory-query.dto';
@@ -16,6 +16,10 @@ import { RequirePermissions } from '../common/decorators/require-permissions.dec
 
 @ApiTags('Inventory')
 @ApiBearerAuth('access-token')
+@ApiHeader({
+  name: 'Authorization',
+  description: 'JWT Bearer token',
+})
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('inventory')
 export class InventoryController {

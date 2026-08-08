@@ -12,6 +12,7 @@ import { UpdatePurchaseDto } from './dto/update-purchase.dto';
 import { QueryPurchaseDto } from './dto/query-purchase.dto';
 import { PurchaseStatus } from './enums/purchase-status.enum';
 import { PurchaseStateMachine } from './purchase-state-machine';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Injectable()
 export class PurchasesService {
@@ -22,6 +23,7 @@ export class PurchasesService {
     private readonly itemRepo: Repository<SupplierPurchaseItem>,
     @InjectRepository(PurchaseStatusHistory)
     private readonly historyRepo: Repository<PurchaseStatusHistory>,
+    private readonly inventoryService: InventoryService,
     private readonly dataSource: DataSource,
   ) {}
 
