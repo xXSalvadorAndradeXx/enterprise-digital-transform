@@ -13,6 +13,10 @@ import { InventoryRepository } from './repositories/inventory.repository';
 import { InventoryDetailRepository } from './repositories/inventory-detail.repository';
 import { InventoryQueryDto } from './dto/inventory-query.dto';
 import { PaginatedInventoryResponseDto } from './dto/paginated-inventory-response.dto';
+import { InventoryWithDetailsResponseDto } from './dto/inventory-with-details-response.dto';
+import { InventoryDetailDto } from './dto/inventory-detail.dto';
+import { LowStockResponseDto } from './dto/low-stock-response.dto';
+import { calculateStockStatus } from './helpers/stock.helper';
 
 @Injectable()
 export class InventoryService {
@@ -70,6 +74,107 @@ export class InventoryService {
       this.logger.error(`Error en findAll al obtener inventarios paginados: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Ocurrió un error interno al consultar el inventario');
     }
+  }
+
+  async findOne(id: string): Promise<InventoryWithDetailsResponseDto> {
+    this.logger.log(`Buscando inventario con ID: ${id}`);
+
+    const inventory = await this.inventoryRepo.findOneWithDetails(id);
+
+    if (!inventory) {
+      throw new NotFoundException(`Inventario con ID ${id} no encontrado`);
+    }
+
+    const details = inventory.details || [];
+    const totalStock = details.reduce((sum, d) => sum + Number(d.stock), 0);
+    const totalVariants = details.length;
+
+    const mappedInventory = {
+      id: inventory.id,
+      productName: inventory.productName,
+      brand: inventory.brand,
+      mainImageUrl: inventory.mainImageUrl,
+      status: inventory.status,
+      totalStock,
+      totalVariants,
+      createdAt: inventory.createdAt ? inventory.createdAt.toISOString() : null,
+      category: inventory.category ? { id: inventory.category.id, name: inventory.category.nombre } : null,
+      supplier: inventory.supplier ? { id: inventory.supplier.id, name: inventory.supplier.name } : null,
+    } as any;
+
+    const mappedDetails = details.map(detail => ({
+      id: detail.id,
+      sku: detail.sku,
+      size: detail.size,
+      color: detail.color,
+      stock: detail.stock,
+      unitCost: Number(detail.unitCost),
+      minStock: detail.minStock,
+      stockStatus: calculateStockStatus(detail.stock, detail.minStock),
+    }));
+
+    return {
+      ...mappedInventory,
+      details: mappedDetails,
+    };
+  }
+
+  async findDetails(inventoryId: string): Promise<InventoryDetailDto[]> {
+    this.logger.log(`Consultando detalles del inventario con ID: ${inventoryId}`);
+
+    const inventory = await this.inventoryRepo.findOne({ where: { id: inventoryId } });
+    if (!inventory) {
+      throw new NotFoundException(`Inventario con ID ${inventoryId} no encontrado`);
+    }
+
+    const details = await this.detailRepo.findByInventoryId(inventoryId);
+
+    return details.map(detail => ({
+      id: detail.id,
+      sku: detail.sku,
+      size: detail.size,
+      color: detail.color,
+      stock: detail.stock,
+      unitCost: Number(detail.unitCost),
+      minStock: detail.minStock,
+      stockStatus: calculateStockStatus(detail.stock, detail.minStock),
+    }));
+  }
+
+  async findLowStock(
+    page?: number,
+    limit?: number,
+  ): Promise<{ data: LowStockResponseDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+    const pageNumber = page ?? 1;
+    const limitNumber = limit ?? 20;
+
+    this.logger.log(`Consultando stock bajo - page: ${pageNumber}, limit: ${limitNumber}`);
+
+    const [details, total] = await this.detailRepo.findLowStock(pageNumber, limitNumber);
+
+    const totalPages = Math.ceil(total / limitNumber);
+
+    const data: LowStockResponseDto[] = details.map(detail => ({
+      id: detail.id,
+      sku: detail.sku,
+      size: detail.size,
+      color: detail.color,
+      stock: detail.stock,
+      unitCost: Number(detail.unitCost),
+      minStock: detail.minStock,
+      inventoryName: detail.inventory?.productName || '',
+      stockStatus: calculateStockStatus(detail.stock, detail.minStock),
+    }));
+
+    return {
+      data,
+      meta: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages,
+      },
+    };
   }
 
   async findByProduct(productId: string): Promise<Inventory> {
