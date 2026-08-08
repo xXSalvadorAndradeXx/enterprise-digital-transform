@@ -1,9 +1,11 @@
 import {
-  Injectable, NotFoundException, BadRequestException, Logger, InternalServerErrorException,
+  Injectable, NotFoundException, BadRequestException, Logger, InternalServerErrorException, ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
+import { isUUID } from 'class-validator';
 import { Inventory } from './entities/inventory.entity';
+import { InventoryDetail } from './entities/inventory-detail.entity';
 import { InventoryMovement } from './entities/inventory-movement.entity';
 import { Product } from '../products/entities/product.entity';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
@@ -16,6 +18,8 @@ import { PaginatedInventoryResponseDto } from './dto/paginated-inventory-respons
 import { InventoryWithDetailsResponseDto } from './dto/inventory-with-details-response.dto';
 import { InventoryDetailDto } from './dto/inventory-detail.dto';
 import { LowStockResponseDto } from './dto/low-stock-response.dto';
+import { CreateInventoryInternalDto } from './dto/internal/create-inventory-internal.dto';
+import { CreateInventoryDetailInternalDto } from './dto/internal/create-inventory-detail-internal.dto';
 import { calculateStockStatus } from './helpers/stock.helper';
 
 @Injectable()
@@ -311,5 +315,108 @@ export class InventoryService {
 
     const inventory = this.inventoryRepo.create({ productId, stock: 0, reserved: 0 });
     return this.inventoryRepo.save(inventory);
+  }
+
+  /**
+   * Método de uso interno exclusivo para PurchasesModule.
+   * Crea y persiste un nuevo inventario dentro de la transacción del EntityManager proporcionado.
+   *
+   * @param data - Datos de creación del inventario
+   * @param manager - EntityManager transaccional
+   * @returns El inventario persistido
+   */
+  async createInventory(
+    data: CreateInventoryInternalDto,
+    manager: EntityManager,
+  ): Promise<Inventory> {
+    this.logger.log(`Creando inventario internamente para producto: ${data.productName}`);
+
+    if (data.purchaseId && !isUUID(data.purchaseId)) {
+      throw new BadRequestException('purchase_id debe ser un UUID válido');
+    }
+
+    if (data.supplierId && !isUUID(data.supplierId)) {
+      throw new BadRequestException('supplier_id debe ser un UUID válido');
+    }
+
+    const inventory = manager.create(Inventory, data);
+    return manager.save(Inventory, inventory);
+  }
+
+  /**
+   * Método de uso interno exclusivo para PurchasesModule.
+   * Crea y persiste una nueva variante de inventario (InventoryDetail) dentro de la transacción del EntityManager proporcionado.
+   *
+   * @param inventoryId - ID del inventario principal
+   * @param data - Datos de la variante
+   * @param manager - EntityManager transaccional
+   * @returns La variante persistida
+   */
+  async createInventoryDetail(
+    inventoryId: string,
+    data: CreateInventoryDetailInternalDto,
+    manager: EntityManager,
+  ): Promise<InventoryDetail> {
+    this.logger.log(`Creando detalle/variante internamente con SKU: ${data.sku} para inventario: ${inventoryId}`);
+
+    if (data.purchaseItemId && !isUUID(data.purchaseItemId)) {
+      throw new BadRequestException('purchase_item_id debe ser un UUID válido');
+    }
+
+    const detail = manager.create(InventoryDetail, {
+      ...data,
+      inventoryId,
+    });
+
+    return manager.save(InventoryDetail, detail);
+  }
+
+  /**
+   * Método de uso interno exclusivo para PurchasesModule.
+   * Actualiza el stock de una variante de inventario (InventoryDetail) dentro de una transacción.
+   * Aplica la regla de negocio RN-I-003 para prevenir stocks negativos utilizando bloqueo pesimista.
+   *
+   * @param inventoryDetailId - ID de la variante de inventario
+   * @param delta - Cantidad a sumar (positivo para reabastecimiento, negativo para decremento)
+   * @param manager - EntityManager transaccional
+   */
+  async updateStock(
+    inventoryDetailId: string,
+    delta: number,
+    manager: EntityManager,
+  ): Promise<void> {
+    if (delta > 0) {
+      this.logger.log(`Incrementando stock para variante ${inventoryDetailId} en +${delta}`);
+      await manager.increment(InventoryDetail, { id: inventoryDetailId }, 'stock', delta);
+      return;
+    }
+
+    if (delta < 0) {
+      this.logger.log(`Decrementando stock para variante ${inventoryDetailId} en ${delta}`);
+
+      // Bloquear el registro con SELECT FOR UPDATE para evitar condiciones de carrera (RN-I-003)
+      const detail = await manager
+        .createQueryBuilder(InventoryDetail, 'detail')
+        .setLock('pessimistic_write')
+        .where('detail.id = :id', { id: inventoryDetailId })
+        .getOne();
+
+      if (!detail) {
+        throw new NotFoundException(`Detalle de inventario con ID ${inventoryDetailId} no encontrado`);
+      }
+
+      const newStock = detail.stock + delta;
+
+      // RN-I-003: Validación de no negatividad de stock
+      if (newStock < 0) {
+        this.logger.warn(
+          `[RN-I-003] Intento de decremento fallido: Stock insuficiente para variante ${inventoryDetailId}. Stock actual: ${detail.stock}, delta: ${delta}`,
+        );
+        throw new ConflictException('Stock insuficiente para ejecutar esta operación');
+      }
+
+      detail.stock = newStock;
+      await manager.save(InventoryDetail, detail);
+    }
   }
 }
