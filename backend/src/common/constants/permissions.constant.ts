@@ -43,4 +43,7 @@ export const PERMISSIONS_CATALOG: PermissionDefinition[] = [
   { code: 'purchases:read', description: 'Permite visualizar el historial y detalle de compras' },
   { code: 'purchases:update', description: 'Permite modificar o actualizar compras en proceso' },
   { code: 'purchases:delete', description: 'Permite anular o eliminar registros de compras' },
+
+  // Módulo de Inventario (Introducido por el módulo de Inventario)
+  { code: 'inventory:read', description: 'Permite consultar inventarios y sus variantes' },
 ];

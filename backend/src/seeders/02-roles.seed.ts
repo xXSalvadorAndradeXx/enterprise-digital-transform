@@ -19,44 +19,64 @@ const EMPLEADO_PERMISSIONS = [
   'customers:update',
 ];
 
+// Permisos que tendrá el rol VENDEDOR
+const VENDEDOR_PERMISSIONS = [
+  'products:read',
+  'product-categories:read',
+  'inventory:read',
+  'customers:read',
+  'customers:create',
+  'customers:update',
+];
+
 export async function seedRoles(dataSource: DataSource): Promise<void> {
   const roleRepo = dataSource.getRepository(Role);
   const permRepo = dataSource.getRepository(Permission);
 
-  const allPermissions     = await permRepo.find();
-  const empleadoPerms      = allPermissions.filter((p) =>
+  const allPermissions = await permRepo.find();
+  const empleadoPerms = allPermissions.filter((p) =>
     EMPLEADO_PERMISSIONS.includes(p.code),
+  );
+  const vendedorPerms = allPermissions.filter((p) =>
+    VENDEDOR_PERMISSIONS.includes(p.code),
   );
 
   // ── Rol ADMIN ────────────────────────────────────────────────────────
-  const existingAdmin = await roleRepo.findOne({ where: { name: 'ADMIN' } });
-  if (!existingAdmin) {
-    await roleRepo.save(
-      roleRepo.create({
-        name:        'ADMIN',
-        description: 'Acceso total al sistema.',
-        isSystem:    true,
-        permissions: allPermissions,
-      }),
-    );
-    console.log('✓ Rol ADMIN creado.');
-  } else {
-    console.log('✓ Rol ADMIN ya existe — omitiendo.');
+  let admin = await roleRepo.findOne({ where: { name: 'ADMIN' }, relations: ['permissions'] });
+  if (!admin) {
+    admin = roleRepo.create({
+      name: 'ADMIN',
+      description: 'Acceso total al sistema.',
+      isSystem: true,
+    });
   }
+  admin.permissions = allPermissions;
+  await roleRepo.save(admin);
+  console.log('✓ Rol ADMIN sincronizado con todos los permisos (incluye inventory:read).');
 
   // ── Rol EMPLEADO ─────────────────────────────────────────────────────
-  const existingEmpleado = await roleRepo.findOne({ where: { name: 'EMPLEADO' } });
-  if (!existingEmpleado) {
-    await roleRepo.save(
-      roleRepo.create({
-        name:        'EMPLEADO',
-        description: 'Acceso operativo básico.',
-        isSystem:    false,
-        permissions: empleadoPerms,
-      }),
-    );
-    console.log('✓ Rol EMPLEADO creado.');
-  } else {
-    console.log('✓ Rol EMPLEADO ya existe — omitiendo.');
+  let empleado = await roleRepo.findOne({ where: { name: 'EMPLEADO' }, relations: ['permissions'] });
+  if (!empleado) {
+    empleado = roleRepo.create({
+      name: 'EMPLEADO',
+      description: 'Acceso operativo básico.',
+      isSystem: false,
+    });
   }
+  empleado.permissions = empleadoPerms;
+  await roleRepo.save(empleado);
+  console.log('✓ Rol EMPLEADO sincronizado con permisos operativos (incluye inventory:read).');
+
+  // ── Rol VENDEDOR ─────────────────────────────────────────────────────
+  let vendedor = await roleRepo.findOne({ where: { name: 'VENDEDOR' }, relations: ['permissions'] });
+  if (!vendedor) {
+    vendedor = roleRepo.create({
+      name: 'VENDEDOR',
+      description: 'Acceso a catálogo, ventas e inventario.',
+      isSystem: false,
+    });
+  }
+  vendedor.permissions = vendedorPerms;
+  await roleRepo.save(vendedor);
+  console.log('✓ Rol VENDEDOR sincronizado con permisos (incluye inventory:read).');
 }
