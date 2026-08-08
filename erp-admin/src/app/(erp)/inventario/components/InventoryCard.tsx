@@ -3,8 +3,16 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 import InventoryTable from "./InventoryTable";
+import { useInventory } from "../hooks/useInventory";
 
 export default function InventoryCard() {
+ const inventory = useInventory();
+
+const {
+  query,
+  updateQuery,
+} = inventory;
+
   return (
     <section className="space-y-6">
       {/* Encabezado */}
@@ -43,19 +51,26 @@ export default function InventoryCard() {
                 size={18}
               />
 
-              <input
-                type="text"
-                placeholder="Buscar devoluciones."
-                
-                className="w-full rounded-md border border-blue-500 py-3 pl-10 pr-4 outline-none sm:w-72 text-black placeholder:text-gray-500 "
-              />
+             <input
+  type="text"
+  placeholder="Buscar inventario..."
+  value={query.search ?? ""}
+  onChange={(e) =>
+    updateQuery({
+      search: e.target.value,
+    })
+  }
+  className="w-full rounded-md border border-blue-500 py-3 pl-10 pr-4 text-black outline-none placeholder:text-gray-500 sm:w-72"
+/>
             </div>
 
           </div>
         </div>
 
         {/* Tabla */}
-        <InventoryTable />
+        <InventoryTable
+  inventory={inventory}
+/>
 
       </div>
     </section>

@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useMovements } from "../hooks/useMovements";
+import { MovementChannel, MovementType } from "../types";
 import {
   Search,
   ArrowUp,
@@ -53,46 +55,29 @@ const rows: readonly MockMovementRow[] = [
 ];
 
 export default function MovementTable() {
+  const {
+  query,
+  updateQuery,
+  items,
+  meta,
+  loading,
+  error,
+  retry,
+} = useMovements();
   const [tipo, setTipo] = useState<MovementTipo | null>(null);
   const [canal, setCanal] = useState<MovementCanal | "Todos">("Todos");
-  const [search, setSearch] = useState("");
   const [fecha, setFecha] = useState("");
   const [dateError, setDateError] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [, setPage] = useState(1);
   const [searchError, setSearchError] = useState("");
 
-  useEffect(() => {
-  const timer = setTimeout(() => {
-    setDebouncedSearch(search.trim());
-  }, 500);
 
-  return () => clearTimeout(timer);
-}, [search]);
 
   
 
   const router = useRouter();
 
-  const filteredRows = rows.filter((item) => {
-    const text = debouncedSearch.trim().toLowerCase();
-
-    // Buscar
-    const matchesSearch =
-      text === "" ||
-      item.tipo.toLowerCase().includes(text) ||
-      item.canal.toLowerCase().includes(text) ||
-      item.responsable.toLowerCase().includes(text) ||
-      "camisa de algodón".toLowerCase().includes(text);
-
-    // Tipo
-    const matchesTipo = !tipo || item.tipo === tipo;
-
-    // Canal
-    const matchesCanal = canal === "Todos" || item.canal === canal;
-
-    return matchesSearch && matchesTipo && matchesCanal;
-  });
+  
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -103,20 +88,22 @@ export default function MovementTable() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            value={search}
+            value={query.search ?? ""}
             maxLength={100}
            onChange={(e) => {
-           const value = e.target.value;
+  const value = e.target.value;
 
-             if (value.length > 100) {
-             setSearchError("Máximo 100 caracteres.");
-              return;
-             }
+  if (value.length > 100) {
+    setSearchError("Máximo 100 caracteres.");
+    return;
+  }
 
-               setSearchError("");
-               setSearch(value);
-               setPage(1);
-                 }}
+  setSearchError("");
+
+  updateQuery({
+    search: value,
+  });
+}}
             placeholder="Buscar"
             className="h-10 w-56 rounded-md border border-[#CFCFCF] bg-white pl-10 pr-3 text-gray-700 placeholder:text-gray-400 outline-none"
           />
@@ -149,10 +136,16 @@ export default function MovementTable() {
             ]}
             selected={tipo}
             onSelect={(value) => {
-              setTipo(value);
-              setPage(1);
-            }}
-          />
+             setTipo(value);
+
+               updateQuery({
+  type:
+    value === "Entrada"
+      ? MovementType.NUEVO_PRODUCTO
+      : MovementType.SALIDA,
+});
+                }}
+                />
 
           <Dropdown<MovementCanal | "Todos">
             label="Canal"
@@ -173,7 +166,18 @@ export default function MovementTable() {
               },
             ]}
             selected={canal}
-            onSelect={setCanal}
+            onSelect={(value) => {
+            setCanal(value);
+
+            updateQuery({
+  channel:
+    value === "Todos"
+      ? undefined
+      : value === "Tienda física"
+      ? MovementChannel.TIENDA_FISICA
+      : MovementChannel.ECOMMERCE,
+});
+             }}
           />
         </div>
       </div>
@@ -195,18 +199,22 @@ export default function MovementTable() {
           </thead>
 
           <tbody>
-            {filteredRows.map((item, index) => {
-              const isEntrada = item.tipo === "Entrada";
-              const channel = CHANNEL_STYLES[item.canal];
-              const ChannelIcon = channel.icon;
+            {items.map((item, index) => {
+              const isEntrada = item.direction === "ENTRADA";
+              const channel =
+                item.channel === "ECOMMERCE"
+                 ? CHANNEL_STYLES["Tienda en línea"]
+                  : CHANNEL_STYLES["Tienda física"];
+
+                 const ChannelIcon = channel.icon;
 
               return (
                 <tr
                   key={index}
                   className="h-16 border-b border-gray-100 text-center text-sm text-gray-700"
                 >
-                  <td className="text-gray-700">24/07/2025</td>
-                  <td className="text-gray-700">Camisa de algodón</td>
+                  <td className="text-gray-700">{new Date(item.createdAt).toLocaleDateString()}</td>
+                  <td className="text-gray-700">{item.inventoryName}</td>
                   <td>
                     <span
                       className={`inline-flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium ${
@@ -218,22 +226,24 @@ export default function MovementTable() {
                       ) : (
                         <ArrowDown className="h-3.5 w-3.5" />
                       )}
-                      {item.tipo}
+                      {item.direction}
                     </span>
                   </td>
-                  <td className="text-gray-700">{item.cantidad}</td>
+                  <td className="text-gray-700">{item.quantity}</td>
                   <td>
                     <span className="inline-flex items-center gap-1.5 text-gray-700">
                       <ChannelIcon className={`h-4 w-4 ${channel.color}`} />
-                      {item.canal}
+                      {item.channel}
                     </span>
                   </td>
-                  <td className="text-gray-700">{item.responsable}</td>
+                  <td className="text-gray-700">{item.responsibleUser
+                                                    ? `${item.responsibleUser.firstName} ${item.responsibleUser.lastName}`
+                                                     : "-"}</td>
                 </tr>
               );
             })}
 
-            {filteredRows.length === 0 && (
+            {items.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-10 text-center text-gray-500">
                   No se encontraron resultados.
@@ -246,37 +256,41 @@ export default function MovementTable() {
 
       {/* Paginación */}
       <div className="flex flex-wrap items-center justify-center gap-2 px-4 py-6 text-sm text-gray-500 sm:justify-end sm:px-8">
-        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-
-        <button className="flex h-8 w-8 items-center justify-center rounded bg-gray-100 font-medium text-black">
-          1
-        </button>
-        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">
-          2
-        </button>
-        <span className="px-1">...</span>
-        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">
-          23
-        </button>
-        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">
-          24
-        </button>
-
-        <button className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100">
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Botón volver */}
-      <div className="flex justify-center px-4 pb-6 sm:justify-end sm:px-8">
         <button
-          onClick={() => router.push("/inventario")}
-          className="h-12 w-full max-w-xs rounded border-2 border-blue-600 text-lg font-medium text-blue-600 transition hover:bg-blue-50 sm:w-36"
-        >
-          Volver
-        </button>
+  onClick={() =>
+    updateQuery({
+      page: Math.max(1, meta.page - 1),
+    })
+  }
+  disabled={meta.page === 1}
+  className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100 disabled:opacity-40"
+>
+  <ChevronLeft className="h-4 w-4" />
+</button>
+
+<span className="px-3">
+  Página {meta.page} de {meta.totalPages || 1}
+</span>
+
+<button
+  onClick={() =>
+    updateQuery({
+      page: Math.min(meta.totalPages, meta.page + 1),
+    })
+  }
+  disabled={meta.page >= meta.totalPages}
+  className="flex h-8 w-8 items-center justify-center rounded hover:bg-gray-100 disabled:opacity-40"
+>
+  <ChevronRight className="h-4 w-4" />
+</button>
+<div className="flex justify-center px-4 pb-6 pt-4 sm:justify-end sm:px-8">
+  <button
+    onClick={() => router.push("/inventario")}
+    className="h-12 w-full max-w-xs rounded border-2 border-blue-600 text-lg font-medium text-blue-600 transition hover:bg-blue-50 sm:w-36"
+  >
+    Volver
+  </button>
+</div>
       </div>
     </div>
   );
