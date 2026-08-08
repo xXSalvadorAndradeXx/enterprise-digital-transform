@@ -59,34 +59,18 @@ export default function MovementTable() {
   const [fecha, setFecha] = useState("");
   const [dateError, setDateError] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [, setPage] = useState(1);
   const [searchError, setSearchError] = useState("");
 
   useEffect(() => {
-    const value = search.trim();
+  const timer = setTimeout(() => {
+    setDebouncedSearch(search.trim());
+  }, 500);
 
-    if (value.length > 100) {
-      setSearchError("Máximo 100 caracteres.");
-      return;
-    }
+  return () => clearTimeout(timer);
+}, [search]);
 
-    setSearchError("");
-
-    const timer = setTimeout(() => {
-      setDebouncedSearch(value);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  useEffect(() => {
-    if (fecha === "") {
-      setDateError("");
-      return;
-    }
-
-    setDateError("");
-  }, [fecha]);
+  
 
   const router = useRouter();
 
@@ -121,10 +105,18 @@ export default function MovementTable() {
             type="text"
             value={search}
             maxLength={100}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
+           onChange={(e) => {
+           const value = e.target.value;
+
+             if (value.length > 100) {
+             setSearchError("Máximo 100 caracteres.");
+              return;
+             }
+
+               setSearchError("");
+               setSearch(value);
+               setPage(1);
+                 }}
             placeholder="Buscar"
             className="h-10 w-56 rounded-md border border-[#CFCFCF] bg-white pl-10 pr-3 text-gray-700 placeholder:text-gray-400 outline-none"
           />
@@ -142,9 +134,10 @@ export default function MovementTable() {
             ]}
             selected={fecha}
             onSelect={(value) => {
-              setFecha(value);
-              setPage(1);
-            }}
+            setDateError("");
+            setFecha(value);
+            setPage(1);
+             }}
           />
 
           <Dropdown<MovementTipo>
