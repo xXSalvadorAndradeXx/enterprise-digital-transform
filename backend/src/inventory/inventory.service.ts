@@ -1,6 +1,5 @@
-// src/modules/inventory/inventory.service.ts
 import {
-  Injectable, NotFoundException, BadRequestException,
+  Injectable, NotFoundException, BadRequestException, Logger, InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -10,12 +9,18 @@ import { Product } from '../products/entities/product.entity';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { QueryMovementsDto } from './dto/query-inventory.dto';
 import { MovementType } from './enums/movement-type.enum';
+import { InventoryRepository } from './repositories/inventory.repository';
+import { InventoryDetailRepository } from './repositories/inventory-detail.repository';
+import { InventoryQueryDto } from './dto/inventory-query.dto';
+import { PaginatedInventoryResponseDto } from './dto/paginated-inventory-response.dto';
 
 @Injectable()
 export class InventoryService {
+  private readonly logger = new Logger('InventoryService');
+
   constructor(
-    @InjectRepository(Inventory)
-    private readonly inventoryRepo: Repository<Inventory>,
+    private readonly inventoryRepo: InventoryRepository,
+    private readonly detailRepo: InventoryDetailRepository,
     @InjectRepository(InventoryMovement)
     private readonly movementRepo: Repository<InventoryMovement>,
     @InjectRepository(Product)
@@ -25,8 +30,46 @@ export class InventoryService {
 
   // ── Stock actual ────────────────────────────────────────────────────────
 
-  async findAll() {
-    return this.inventoryRepo.find({ order: { productId: 'ASC' } });
+  async findAll(query: InventoryQueryDto = {}): Promise<PaginatedInventoryResponseDto> {
+    try {
+      const page = query.page ?? 1;
+      const limit = query.limit ?? 20;
+
+      this.logger.log(`Iniciando findAll con query: ${JSON.stringify(query)}`);
+
+      query.page = page;
+      query.limit = limit;
+
+      const [inventories, total] = await this.inventoryRepo.findAllPaginated(query);
+
+      const totalPages = Math.ceil(total / limit);
+
+      const data = inventories.map(inv => ({
+        id: inv.id,
+        productName: inv.productName,
+        brand: inv.brand,
+        mainImageUrl: inv.mainImageUrl,
+        status: inv.status,
+        totalStock: inv.totalStock ?? 0,
+        totalVariants: inv.totalVariants ?? 0,
+        createdAt: inv.createdAt ? inv.createdAt.toISOString() : null,
+        category: inv.category ? { id: inv.category.id, name: inv.category.nombre } : null,
+        supplier: inv.supplier ? { id: inv.supplier.id, name: inv.supplier.name } : null,
+      })) as any; // Conversión para omitir las comprobaciones estrictas de nulabilidad en las relaciones opcionales de categoría/proveedor si es necesario
+
+      return {
+        data,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages,
+        },
+      };
+    } catch (error: any) {
+      this.logger.error(`Error en findAll al obtener inventarios paginados: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Ocurrió un error interno al consultar el inventario');
+    }
   }
 
   async findByProduct(productId: string): Promise<Inventory> {
