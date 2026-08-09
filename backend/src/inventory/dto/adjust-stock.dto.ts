@@ -23,7 +23,7 @@ export class AdjustStockDto {
   @IsNotEmpty()
   quantity: number;
 
-  @ApiProperty({ enum: MovementType, example: MovementType.ADJUSTMENT })
+  @ApiProperty({ enum: MovementType, example: MovementType.IN })
   @IsEnum(MovementType)
   type: MovementType;
 

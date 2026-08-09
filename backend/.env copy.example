@@ -5,12 +5,12 @@ API_PREFIX=api/v1
 CORS_ORIGINS=http://localhost:5173,http://localhost:3001
 
 # ── Base de datos PostgreSQL ─────────────────────────────
+
 DB_HOST=localhost
 DB_PORT=5432
-DB_USERNAME=erp_user
-DB_PASSWORD=erp_password
-DB_DATABASE=erp_pmv
-DB_LOGGING=false
+DB_USERNAME=postgres
+DB_PASSWORD=Admin
+DB_NAME=tienda_db
 
 # ── JWT ──────────────────────────────────────────────────
 JWT_SECRET=cambia_esto_por_un_secreto_largo_minimo_32_chars

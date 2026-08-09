@@ -1,3 +1,5 @@
+// backend\src\inventory\inventory.controller.ts
+
 import {
   Controller,
   Get,
@@ -24,6 +26,8 @@ import { InventoryDetailDto } from './dto/inventory-detail.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
+import { QueryMovementsDto } from './dto/query-inventory.dto';
+import { PaginatedMovementsResponseDto } from './dto/paginated-movements-response.dto';
 
 // RN-I-001: Operaciones públicas restringidas a solo lectura (GET)
 // RN-I-007: Campos no modificables públicamente (brand, category_id, supplier_id)
@@ -76,6 +80,28 @@ export class InventoryController {
       page ? Number(page) : undefined,
       limit ? Number(limit) : undefined,
     );
+  }
+
+  @Get('movements')
+  @RequirePermissions('inventory:read')
+  @ApiOperation({ summary: 'Historial paginado de movimientos de inventario' })
+  @ApiQuery({ name: 'productId', required: false, type: String, example: 'uuid' })
+  @ApiQuery({ name: 'type', required: false, type: String, example: 'PURCHASE' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiResponse({
+    status: 200,
+    type: PaginatedMovementsResponseDto,
+    description: 'Movimientos obtenidos exitosamente',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Prohibido: Permisos insuficientes',
+  })
+  findMovements(
+    @Query() query: QueryMovementsDto,
+  ): Promise<PaginatedMovementsResponseDto> {
+    return this.inventoryService.findMovements(query);
   }
 
   @Get(':id')

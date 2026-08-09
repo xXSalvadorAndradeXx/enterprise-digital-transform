@@ -1,3 +1,4 @@
+// backend\src\inventory\inventory.service.ts
 import {
   Injectable,
   NotFoundException,
@@ -26,6 +27,8 @@ import { LowStockResponseDto } from './dto/low-stock-response.dto';
 import { CreateInventoryInternalDto } from './dto/internal/create-inventory-internal.dto';
 import { CreateInventoryDetailInternalDto } from './dto/internal/create-inventory-detail-internal.dto';
 import { calculateStockStatus } from './helpers/stock.helper';
+import { PaginatedMovementsResponseDto } from './dto/paginated-movements-response.dto';
+import { MovementResponseDto } from './dto/movement-response.dto';
 
 @Injectable()
 export class InventoryService {
@@ -75,7 +78,7 @@ export class InventoryService {
         supplier: inv.supplier
           ? { id: inv.supplier.id, name: inv.supplier.name }
           : null,
-      })) as any; // Conversión para omitir las comprobaciones estrictas de nulabilidad en las relaciones opcionales de categoría/proveedor si es necesario
+      })) as any;
 
       return {
         data,
@@ -233,33 +236,60 @@ export class InventoryService {
 
   // ── Movimientos ─────────────────────────────────────────────────────────
 
-  async findMovements(query: QueryMovementsDto) {
-    const { productId, type, page = 1, limit = 20 } = query;
-    const skip = (page - 1) * limit;
+  async findMovements(
+  query: QueryMovementsDto,
+): Promise<PaginatedMovementsResponseDto> {
+  const { productId, type, page = 1, limit = 20 } = query;
+  const skip = (page - 1) * limit;
 
-    const qb = this.movementRepo
-      .createQueryBuilder('m')
-      .leftJoinAndSelect('m.product', 'product')
-      .leftJoinAndSelect('m.createdBy', 'createdBy')
-      .orderBy('m.created_at', 'DESC')
-      .skip(skip)
-      .take(limit);
+  this.logger.log(
+    `Consultando movimientos - page: ${page}, limit: ${limit}, productId: ${productId ?? 'todos'}, type: ${type ?? 'todos'}`,
+  );
 
-    if (productId) qb.andWhere('m.product_id = :productId', { productId });
-    if (type) qb.andWhere('m.type = :type', { type });
+  const qb = this.movementRepo
+    .createQueryBuilder('m')
+    .leftJoinAndSelect('m.product', 'product')
+    .leftJoinAndSelect('m.createdBy', 'createdBy')
+    .orderBy('m.created_at', 'DESC')
+    .skip(skip)
+    .take(limit);
 
-    const [data, total] = await qb.getManyAndCount();
+  if (productId) qb.andWhere('m.product_id = :productId', { productId });
+  if (type) qb.andWhere('m.type = :type', { type });
 
-    return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
+  const [movements, total] = await qb.getManyAndCount();
+
+  const data: MovementResponseDto[] = movements.map((m) => ({
+    id: m.id,
+    type: m.type,
+    quantity: Number(m.quantity),
+    stockBefore: Number(m.stockBefore),
+    stockAfter: Number(m.stockAfter),
+    notes: m.notes,
+    referenceId: m.referenceId,
+    createdAt: m.createdAt.toISOString(),
+    product: m.product
+      ? { id: m.product.id, nombre: m.product.nombre }
+      : null,
+    createdBy: m.createdBy
+      ? {
+          id: m.createdBy.id,
+          firstName: m.createdBy.firstName,
+          lastName: m.createdBy.lastName,
+        }
+      : null,
+  }));
+
+  return {
+    data,
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
 
   // ── Ajuste manual ───────────────────────────────────────────────────────
 
@@ -340,7 +370,7 @@ export class InventoryService {
 
         const movement = manager.create(InventoryMovement, {
           productId: item.productId,
-          type: MovementType.PURCHASE,
+          type: MovementType.IN,
           quantity: item.quantity,
           stockBefore,
           stockAfter,
@@ -371,10 +401,6 @@ export class InventoryService {
   /**
    * Método de uso interno exclusivo para PurchasesModule.
    * Crea y persiste un nuevo inventario dentro de la transacción del EntityManager proporcionado.
-   *
-   * @param data - Datos de creación del inventario
-   * @param manager - EntityManager transaccional
-   * @returns El inventario persistido
    */
   async createInventory(
     data: CreateInventoryInternalDto,
@@ -399,11 +425,6 @@ export class InventoryService {
   /**
    * Método de uso interno exclusivo para PurchasesModule.
    * Crea y persiste una nueva variante de inventario (InventoryDetail) dentro de la transacción del EntityManager proporcionado.
-   *
-   * @param inventoryId - ID del inventario principal
-   * @param data - Datos de la variante
-   * @param manager - EntityManager transaccional
-   * @returns La variante persistida
    */
   async createInventoryDetail(
     inventoryId: string,
@@ -442,11 +463,7 @@ export class InventoryService {
   /**
    * Método de uso interno exclusivo para PurchasesModule.
    * Actualiza el stock de una variante de inventario (InventoryDetail) dentro de una transacción.
-   * Aplica la regla de negocio RN-I-003 para prevenir stocks negativos utilizando bloqueo pesimista.
-   *
-   * @param inventoryDetailId - ID de la variante de inventario
-   * @param delta - Cantidad a sumar (positivo para reabastecimiento, negativo para decremento)
-   * @param manager - EntityManager transaccional
+   * Aplica RN-I-003 para prevenir stocks negativos utilizando bloqueo pesimista.
    */
   // RN-I-002
   async updateStock(
