@@ -9,9 +9,19 @@ describe('InventoryController', () => {
 
   beforeEach(async () => {
     service = {
-      findAll: jest.fn().mockResolvedValue({ data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } }),
-      findLowStock: jest.fn().mockResolvedValue({ data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } }),
-      findOne: jest.fn().mockResolvedValue({ id: 'inv-uuid-1', productName: 'Prod 1', details: [] }),
+      findAll: jest.fn().mockResolvedValue({
+        data: [],
+        meta: { total: 0, page: 1, limit: 20, totalPages: 0 },
+      }),
+      findLowStock: jest.fn().mockResolvedValue({
+        data: [],
+        meta: { total: 0, page: 1, limit: 20, totalPages: 0 },
+      }),
+      findOne: jest.fn().mockResolvedValue({
+        id: 'inv-uuid-1',
+        productName: 'Prod 1',
+        details: [],
+      }),
       findDetails: jest.fn().mockResolvedValue([]),
     };
 

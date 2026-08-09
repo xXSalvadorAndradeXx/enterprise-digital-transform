@@ -1,4 +1,12 @@
-import { IsNotEmpty, IsString, IsNumber, IsOptional, IsUUID, Min, Matches } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsUUID,
+  Min,
+  Matches,
+} from 'class-validator';
 
 /**
  * DTO interno para la creación de variantes de inventario (InventoryDetail).
@@ -15,7 +23,9 @@ export class CreateInventoryDetailInternalDto {
 
   @IsNotEmpty()
   @IsString()
-  @Matches(/^#[0-9a-fA-F]{6}$/, { message: 'El color debe tener formato hexadecimal #RRGGBB' })
+  @Matches(/^#[0-9a-fA-F]{6}$/, {
+    message: 'El color debe tener formato hexadecimal #RRGGBB',
+  })
   color!: string;
 
   @IsNotEmpty()

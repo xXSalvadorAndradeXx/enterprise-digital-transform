@@ -1,4 +1,4 @@
-import { DataSource, EntityManager, SelectQueryBuilder } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { InventoryRepository } from '../repositories/inventory.repository';
 import { InventoryDetailRepository } from '../repositories/inventory-detail.repository';
 import { InventoryStatus } from '../enums/inventory-status.enum';
@@ -23,8 +23,12 @@ describe('Inventory Repository Specs', () => {
         entities: [{ id: 'inv-1', productName: 'Producto Test' }],
         raw: [{ totalStock: '20', totalVariants: '2' }],
       }),
-      getManyAndCount: jest.fn().mockResolvedValue([[{ id: 'detail-1', stock: 2, minStock: 10 }], 1]),
-      getOne: jest.fn().mockResolvedValue({ id: 'inv-1', productName: 'Producto Test' }),
+      getManyAndCount: jest
+        .fn()
+        .mockResolvedValue([[{ id: 'detail-1', stock: 2, minStock: 10 }], 1]),
+      getOne: jest
+        .fn()
+        .mockResolvedValue({ id: 'inv-1', productName: 'Producto Test' }),
     };
 
     mockEntityManager = {
@@ -43,7 +47,9 @@ describe('Inventory Repository Specs', () => {
     beforeEach(() => {
       repository = new InventoryRepository(mockDataSource as DataSource);
       // Re-enlazar createQueryBuilder en la instancia del repositorio
-      repository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
+      repository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(mockQueryBuilder);
     });
 
     describe('findAllPaginated', () => {
@@ -52,11 +58,24 @@ describe('Inventory Repository Specs', () => {
         const [entities, count] = await repository.findAllPaginated(query);
 
         expect(repository.createQueryBuilder).toHaveBeenCalledWith('inventory');
-        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('inventory.category', 'category');
-        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('inventory.supplier', 'supplier');
-        expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith('inventory.purchase', 'purchase');
-        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('inventory.deletedAt IS NULL');
-        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('(inventory.purchaseId IS NULL OR purchase.deletedAt IS NULL)');
+        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+          'inventory.category',
+          'category',
+        );
+        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+          'inventory.supplier',
+          'supplier',
+        );
+        expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
+          'inventory.purchase',
+          'purchase',
+        );
+        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+          'inventory.deletedAt IS NULL',
+        );
+        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+          '(inventory.purchaseId IS NULL OR purchase.deletedAt IS NULL)',
+        );
         expect(mockQueryBuilder.skip).toHaveBeenCalledWith(0);
         expect(mockQueryBuilder.take).toHaveBeenCalledWith(10);
         expect(count).toBe(1);
@@ -102,13 +121,32 @@ describe('Inventory Repository Specs', () => {
         const result = await repository.findOneWithDetails('inv-1');
 
         expect(repository.createQueryBuilder).toHaveBeenCalledWith('inventory');
-        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('inventory.details', 'details');
-        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('inventory.category', 'category');
-        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('inventory.supplier', 'supplier');
-        expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith('inventory.purchase', 'purchase');
-        expect(mockQueryBuilder.where).toHaveBeenCalledWith('inventory.id = :id', { id: 'inv-1' });
-        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('inventory.deletedAt IS NULL');
-        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('(inventory.purchaseId IS NULL OR purchase.deletedAt IS NULL)');
+        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+          'inventory.details',
+          'details',
+        );
+        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+          'inventory.category',
+          'category',
+        );
+        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+          'inventory.supplier',
+          'supplier',
+        );
+        expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
+          'inventory.purchase',
+          'purchase',
+        );
+        expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+          'inventory.id = :id',
+          { id: 'inv-1' },
+        );
+        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+          'inventory.deletedAt IS NULL',
+        );
+        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+          '(inventory.purchaseId IS NULL OR purchase.deletedAt IS NULL)',
+        );
         expect(result).toBeDefined();
         expect(result!.id).toBe('inv-1');
       });
@@ -119,19 +157,34 @@ describe('Inventory Repository Specs', () => {
     let detailRepository: InventoryDetailRepository;
 
     beforeEach(() => {
-      detailRepository = new InventoryDetailRepository(mockDataSource as DataSource);
-      detailRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
-      detailRepository.find = jest.fn().mockResolvedValue([{ id: 'detail-1', sku: 'SKU-001' }]);
+      detailRepository = new InventoryDetailRepository(
+        mockDataSource as DataSource,
+      );
+      detailRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(mockQueryBuilder);
+      detailRepository.find = jest
+        .fn()
+        .mockResolvedValue([{ id: 'detail-1', sku: 'SKU-001' }]);
     });
 
     describe('findLowStock', () => {
       it('debe aplicar correctamente los filtros stock <= minStock y minStock > 0 e incluir la relación con inventory', async () => {
         const [details, total] = await detailRepository.findLowStock(1, 10);
 
-        expect(detailRepository.createQueryBuilder).toHaveBeenCalledWith('detail');
-        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('detail.inventory', 'inventory');
-        expect(mockQueryBuilder.where).toHaveBeenCalledWith('detail.stock <= detail.minStock');
-        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('detail.minStock > 0');
+        expect(detailRepository.createQueryBuilder).toHaveBeenCalledWith(
+          'detail',
+        );
+        expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+          'detail.inventory',
+          'inventory',
+        );
+        expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+          'detail.stock <= detail.minStock',
+        );
+        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+          'detail.minStock > 0',
+        );
         expect(mockQueryBuilder.skip).toHaveBeenCalledWith(0);
         expect(mockQueryBuilder.take).toHaveBeenCalledWith(10);
         expect(mockQueryBuilder.getManyAndCount).toHaveBeenCalled();

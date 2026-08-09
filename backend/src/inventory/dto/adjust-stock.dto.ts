@@ -1,7 +1,11 @@
 // src/modules/inventory/dto/adjust-stock.dto.ts
 import {
-  IsUUID, IsNumber, IsEnum,
-  IsOptional, IsString, IsNotEmpty,
+  IsUUID,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsNotEmpty,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MovementType } from '../enums/movement-type.enum';
@@ -11,7 +15,10 @@ export class AdjustStockDto {
   @IsUUID('4')
   productId: string;
 
-  @ApiProperty({ example: 10, description: 'Positivo = entrada, negativo = salida' })
+  @ApiProperty({
+    example: 10,
+    description: 'Positivo = entrada, negativo = salida',
+  })
   @IsNumber()
   @IsNotEmpty()
   quantity: number;

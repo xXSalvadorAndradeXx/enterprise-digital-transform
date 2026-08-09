@@ -2,7 +2,7 @@ import { StockStatus } from '../enums/stock-status.enum';
 
 /**
  * RN-I-004: Calcula el estado del stock a partir de la cantidad disponible y el stock mínimo.
- * 
+ *
  * Reglas de negocio:
  * - StockStatus.BAJO: Cuando stock <= minStock (incluye stock = 0).
  * - StockStatus.MEDIO: Cuando stock > minStock y stock <= minStock * 2.
@@ -17,7 +17,10 @@ import { StockStatus } from '../enums/stock-status.enum';
  * @returns El estado del stock (ALTO, MEDIO o BAJO).
  */
 // RN-I-004
-export function calculateStockStatus(stock: number, minStock: number): StockStatus {
+export function calculateStockStatus(
+  stock: number,
+  minStock: number,
+): StockStatus {
   // Caso 1: Stock menor o igual al mínimo requerido (incluye stock <= 0 cuando minStock = 0)
   if (stock <= minStock) {
     return StockStatus.BAJO;

@@ -24,7 +24,9 @@ describe('InventoryService — RN-I-003 & updateStock', () => {
     mockManager = {
       increment: jest.fn().mockResolvedValue({ affected: 1 } as any),
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
-      save: jest.fn().mockImplementation((entityClass, entity) => Promise.resolve(entity)),
+      save: jest
+        .fn()
+        .mockImplementation((entityClass, entity) => Promise.resolve(entity)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -70,9 +72,15 @@ describe('InventoryService — RN-I-003 & updateStock', () => {
       const delta = -10;
 
       await expect(
-        service.updateStock('detail-uuid-1', delta, mockManager as EntityManager),
+        service.updateStock(
+          'detail-uuid-1',
+          delta,
+          mockManager as EntityManager,
+        ),
       ).rejects.toThrow(
-        new ConflictException('Stock insuficiente para ejecutar esta operación'),
+        new ConflictException(
+          'Stock insuficiente para ejecutar esta operación',
+        ),
       );
 
       // Verificar que el stock NO fue modificado ni persistido
@@ -91,16 +99,27 @@ describe('InventoryService — RN-I-003 & updateStock', () => {
 
       const delta = -4; // 10 - 4 = 6 >= 0
 
-      await service.updateStock('detail-uuid-1', delta, mockManager as EntityManager);
+      await service.updateStock(
+        'detail-uuid-1',
+        delta,
+        mockManager as EntityManager,
+      );
 
       expect(mockDetail.stock).toBe(6);
-      expect(mockManager.save).toHaveBeenCalledWith(InventoryDetail, mockDetail);
+      expect(mockManager.save).toHaveBeenCalledWith(
+        InventoryDetail,
+        mockDetail,
+      );
     });
 
     it('debe incrementar el stock cuando delta sea positivo sin lanzar excepciones', async () => {
       const delta = 15;
 
-      await service.updateStock('detail-uuid-1', delta, mockManager as EntityManager);
+      await service.updateStock(
+        'detail-uuid-1',
+        delta,
+        mockManager as EntityManager,
+      );
 
       expect(mockManager.increment).toHaveBeenCalledWith(
         InventoryDetail,
@@ -115,9 +134,15 @@ describe('InventoryService — RN-I-003 & updateStock', () => {
       mockQueryBuilder.getOne.mockResolvedValue(null);
 
       await expect(
-        service.updateStock('detail-uuid-non-existent', -3, mockManager as EntityManager),
+        service.updateStock(
+          'detail-uuid-non-existent',
+          -3,
+          mockManager as EntityManager,
+        ),
       ).rejects.toThrow(
-        new NotFoundException('Detalle de inventario con ID detail-uuid-non-existent no encontrado'),
+        new NotFoundException(
+          'Detalle de inventario con ID detail-uuid-non-existent no encontrado',
+        ),
       );
 
       expect(mockManager.save).not.toHaveBeenCalled();
@@ -126,7 +151,9 @@ describe('InventoryService — RN-I-003 & updateStock', () => {
 
   describe('RN-I-008: Unicidad del SKU en createInventoryDetail', () => {
     it('debe lanzar ConflictException con mensaje exacto si el SKU ya existe', async () => {
-      mockManager.findOne = jest.fn().mockResolvedValue({ id: 'detail-existing-1', sku: 'SKU-EXISTING' });
+      mockManager.findOne = jest
+        .fn()
+        .mockResolvedValue({ id: 'detail-existing-1', sku: 'SKU-EXISTING' });
 
       await expect(
         service.createInventoryDetail(
@@ -148,7 +175,9 @@ describe('InventoryService — RN-I-003 & updateStock', () => {
 
     it('debe persistir el detalle cuando el SKU sea único', async () => {
       mockManager.findOne = jest.fn().mockResolvedValue(null);
-      mockManager.create = jest.fn().mockImplementation((entityClass, entity) => entity);
+      mockManager.create = jest
+        .fn()
+        .mockImplementation((entityClass, entity) => entity);
 
       const result = await service.createInventoryDetail(
         'inv-uuid-1',

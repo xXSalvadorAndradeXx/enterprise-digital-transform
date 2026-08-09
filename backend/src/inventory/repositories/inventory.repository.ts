@@ -1,4 +1,4 @@
-  import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { Inventory } from '../entities/inventory.entity';
 import { InventoryQueryDto } from '../dto/inventory-query.dto';
@@ -10,7 +10,9 @@ export class InventoryRepository extends Repository<Inventory> {
     super(Inventory, dataSource.createEntityManager());
   }
 
-  async findAllPaginated(query: InventoryQueryDto): Promise<[Inventory[], number]> {
+  async findAllPaginated(
+    query: InventoryQueryDto,
+  ): Promise<[Inventory[], number]> {
     const qb = this.createQueryBuilder('inventory');
 
     // RN-I-009: Cargar relaciones e incorporar SupplierPurchase para control de compras eliminadas
@@ -19,7 +21,7 @@ export class InventoryRepository extends Repository<Inventory> {
       .leftJoin('inventory.purchase', 'purchase');
 
     // RN-I-006: Subconsulta para calcular totalStock dinámicamente mediante SUM(details.stock)
-    qb.addSelect(subQuery => {
+    qb.addSelect((subQuery) => {
       return subQuery
         .select('COALESCE(SUM(d.stock), 0)', 'total_stock')
         .from(InventoryDetail, 'd')
@@ -27,7 +29,7 @@ export class InventoryRepository extends Repository<Inventory> {
     }, 'totalStock');
 
     // RN-I-006: Subconsulta para calcular totalVariants dinámicamente mediante COUNT(details.id)
-    qb.addSelect(subQuery => {
+    qb.addSelect((subQuery) => {
       return subQuery
         .select('COUNT(d.id)', 'total_variants')
         .from(InventoryDetail, 'd')
@@ -42,11 +44,15 @@ export class InventoryRepository extends Repository<Inventory> {
 
     // Filtros condicionales
     if (query.supplierId) {
-      qb.andWhere('inventory.supplierId = :supplierId', { supplierId: query.supplierId });
+      qb.andWhere('inventory.supplierId = :supplierId', {
+        supplierId: query.supplierId,
+      });
     }
 
     if (query.categoryId) {
-      qb.andWhere('inventory.categoryId = :categoryId', { categoryId: query.categoryId });
+      qb.andWhere('inventory.categoryId = :categoryId', {
+        categoryId: query.categoryId,
+      });
     }
 
     if (query.status) {
@@ -54,7 +60,9 @@ export class InventoryRepository extends Repository<Inventory> {
     }
 
     if (query.search) {
-      qb.andWhere('inventory.productName ILIKE :search', { search: `%${query.search}%` });
+      qb.andWhere('inventory.productName ILIKE :search', {
+        search: `%${query.search}%`,
+      });
     }
 
     // Ordenamiento dinámico seguro utilizando lista blanca (created_at, product_name, status)
@@ -64,7 +72,8 @@ export class InventoryRepository extends Repository<Inventory> {
       status: 'inventory.status',
     };
 
-    const sortBy = query.sortBy && sortWhitelist[query.sortBy] ? query.sortBy : 'created_at';
+    const sortBy =
+      query.sortBy && sortWhitelist[query.sortBy] ? query.sortBy : 'created_at';
     const sortColumn = sortWhitelist[sortBy];
     const sortOrder = query.order === 'ASC' ? 'ASC' : 'DESC';
 
@@ -86,7 +95,8 @@ export class InventoryRepository extends Repository<Inventory> {
     const mappedEntities = entities.map((entity, index) => {
       const rawItem = raw[index];
       const totalStockVal = rawItem?.totalStock ?? rawItem?.totalstock ?? 0;
-      const totalVariantsVal = rawItem?.totalVariants ?? rawItem?.totalvariants ?? 0;
+      const totalVariantsVal =
+        rawItem?.totalVariants ?? rawItem?.totalvariants ?? 0;
 
       entity.totalStock = Number(totalStockVal);
       entity.totalVariants = Number(totalVariantsVal);

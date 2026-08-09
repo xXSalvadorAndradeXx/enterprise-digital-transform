@@ -17,7 +17,7 @@ export class InventoryDetailDto {
   @ApiProperty({ example: 50 })
   stock!: number;
 
-  @ApiProperty({ example: 120.50 })
+  @ApiProperty({ example: 120.5 })
   unitCost!: number;
 
   @ApiProperty({ example: 10 })

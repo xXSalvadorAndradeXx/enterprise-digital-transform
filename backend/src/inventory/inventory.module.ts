@@ -11,7 +11,14 @@ import { InventoryRepository } from './repositories/inventory.repository';
 import { InventoryDetailRepository } from './repositories/inventory-detail.repository';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Inventory, InventoryDetail, InventoryMovement, Product])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Inventory,
+      InventoryDetail,
+      InventoryMovement,
+      Product,
+    ]),
+  ],
   controllers: [InventoryController],
   providers: [InventoryService, InventoryRepository, InventoryDetailRepository],
   exports: [InventoryService, InventoryRepository, InventoryDetailRepository],

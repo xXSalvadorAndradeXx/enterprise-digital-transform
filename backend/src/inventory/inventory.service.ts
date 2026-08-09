@@ -1,5 +1,10 @@
 import {
-  Injectable, NotFoundException, BadRequestException, Logger, InternalServerErrorException, ConflictException,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+  InternalServerErrorException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -38,7 +43,9 @@ export class InventoryService {
 
   // ── Stock actual ────────────────────────────────────────────────────────
 
-  async findAll(query: InventoryQueryDto = {}): Promise<PaginatedInventoryResponseDto> {
+  async findAll(
+    query: InventoryQueryDto = {},
+  ): Promise<PaginatedInventoryResponseDto> {
     try {
       const page = query.page ?? 1;
       const limit = query.limit ?? 20;
@@ -48,11 +55,12 @@ export class InventoryService {
       query.page = page;
       query.limit = limit;
 
-      const [inventories, total] = await this.inventoryRepo.findAllPaginated(query);
+      const [inventories, total] =
+        await this.inventoryRepo.findAllPaginated(query);
 
       const totalPages = Math.ceil(total / limit);
 
-      const data = inventories.map(inv => ({
+      const data = inventories.map((inv) => ({
         id: inv.id,
         productName: inv.productName,
         brand: inv.brand,
@@ -61,8 +69,12 @@ export class InventoryService {
         totalStock: inv.totalStock ?? 0,
         totalVariants: inv.totalVariants ?? 0,
         createdAt: inv.createdAt ? inv.createdAt.toISOString() : null,
-        category: inv.category ? { id: inv.category.id, name: inv.category.nombre } : null,
-        supplier: inv.supplier ? { id: inv.supplier.id, name: inv.supplier.name } : null,
+        category: inv.category
+          ? { id: inv.category.id, name: inv.category.nombre }
+          : null,
+        supplier: inv.supplier
+          ? { id: inv.supplier.id, name: inv.supplier.name }
+          : null,
       })) as any; // Conversión para omitir las comprobaciones estrictas de nulabilidad en las relaciones opcionales de categoría/proveedor si es necesario
 
       return {
@@ -75,8 +87,13 @@ export class InventoryService {
         },
       };
     } catch (error: any) {
-      this.logger.error(`Error en findAll al obtener inventarios paginados: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Ocurrió un error interno al consultar el inventario');
+      this.logger.error(
+        `Error en findAll al obtener inventarios paginados: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'Ocurrió un error interno al consultar el inventario',
+      );
     }
   }
 
@@ -102,11 +119,15 @@ export class InventoryService {
       totalStock,
       totalVariants,
       createdAt: inventory.createdAt ? inventory.createdAt.toISOString() : null,
-      category: inventory.category ? { id: inventory.category.id, name: inventory.category.nombre } : null,
-      supplier: inventory.supplier ? { id: inventory.supplier.id, name: inventory.supplier.name } : null,
+      category: inventory.category
+        ? { id: inventory.category.id, name: inventory.category.nombre }
+        : null,
+      supplier: inventory.supplier
+        ? { id: inventory.supplier.id, name: inventory.supplier.name }
+        : null,
     } as any;
 
-    const mappedDetails = details.map(detail => ({
+    const mappedDetails = details.map((detail) => ({
       id: detail.id,
       sku: detail.sku,
       size: detail.size,
@@ -126,16 +147,22 @@ export class InventoryService {
 
   // RN-I-010
   async findDetails(inventoryId: string): Promise<InventoryDetailDto[]> {
-    this.logger.log(`Consultando detalles del inventario con ID: ${inventoryId}`);
+    this.logger.log(
+      `Consultando detalles del inventario con ID: ${inventoryId}`,
+    );
 
-    const inventory = await this.inventoryRepo.findOne({ where: { id: inventoryId } });
+    const inventory = await this.inventoryRepo.findOne({
+      where: { id: inventoryId },
+    });
     if (!inventory) {
-      throw new NotFoundException(`Inventario con ID ${inventoryId} no encontrado`);
+      throw new NotFoundException(
+        `Inventario con ID ${inventoryId} no encontrado`,
+      );
     }
 
     const details = await this.detailRepo.findByInventoryId(inventoryId);
 
-    return details.map(detail => ({
+    return details.map((detail) => ({
       id: detail.id,
       sku: detail.sku,
       size: detail.size,
@@ -151,17 +178,25 @@ export class InventoryService {
   async findLowStock(
     page?: number,
     limit?: number,
-  ): Promise<{ data: LowStockResponseDto[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+  ): Promise<{
+    data: LowStockResponseDto[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const pageNumber = page ?? 1;
     const limitNumber = limit ?? 20;
 
-    this.logger.log(`Consultando stock bajo - page: ${pageNumber}, limit: ${limitNumber}`);
+    this.logger.log(
+      `Consultando stock bajo - page: ${pageNumber}, limit: ${limitNumber}`,
+    );
 
-    const [details, total] = await this.detailRepo.findLowStock(pageNumber, limitNumber);
+    const [details, total] = await this.detailRepo.findLowStock(
+      pageNumber,
+      limitNumber,
+    );
 
     const totalPages = Math.ceil(total / limitNumber);
 
-    const data: LowStockResponseDto[] = details.map(detail => ({
+    const data: LowStockResponseDto[] = details.map((detail) => ({
       id: detail.id,
       sku: detail.sku,
       size: detail.size,
@@ -186,8 +221,13 @@ export class InventoryService {
   }
 
   async findByProduct(productId: string): Promise<Inventory> {
-    const inventory = await this.inventoryRepo.findOne({ where: { productId } });
-    if (!inventory) throw new NotFoundException(`Inventario para producto ${productId} no encontrado`);
+    const inventory = await this.inventoryRepo.findOne({
+      where: { productId },
+    });
+    if (!inventory)
+      throw new NotFoundException(
+        `Inventario para producto ${productId} no encontrado`,
+      );
     return inventory;
   }
 
@@ -206,7 +246,7 @@ export class InventoryService {
       .take(limit);
 
     if (productId) qb.andWhere('m.product_id = :productId', { productId });
-    if (type)      qb.andWhere('m.type = :type', { type });
+    if (type) qb.andWhere('m.type = :type', { type });
 
     const [data, total] = await qb.getManyAndCount();
 
@@ -223,7 +263,10 @@ export class InventoryService {
 
   // ── Ajuste manual ───────────────────────────────────────────────────────
 
-  async adjust(dto: AdjustStockDto, userId: string): Promise<InventoryMovement> {
+  async adjust(
+    dto: AdjustStockDto,
+    userId: string,
+  ): Promise<InventoryMovement> {
     return this.dataSource.transaction(async (manager) => {
       // Bloquear la fila para evitar race conditions
       const inventory = await manager
@@ -239,7 +282,7 @@ export class InventoryService {
       }
 
       const stockBefore = Number(inventory.stock);
-      const stockAfter  = stockBefore + Number(dto.quantity);
+      const stockAfter = stockBefore + Number(dto.quantity);
 
       if (stockAfter < 0) {
         throw new BadRequestException(
@@ -253,12 +296,12 @@ export class InventoryService {
 
       // Registrar movimiento
       const movement = manager.create(InventoryMovement, {
-        productId:   dto.productId,
-        type:        dto.type,
-        quantity:    dto.quantity,
+        productId: dto.productId,
+        type: dto.type,
+        quantity: dto.quantity,
         stockBefore,
         stockAfter,
-        notes:       dto.notes       ?? null,
+        notes: dto.notes ?? null,
         referenceId: dto.referenceId ?? null,
         createdById: userId,
       });
@@ -284,24 +327,24 @@ export class InventoryService {
         if (!inventory) {
           inventory = manager.create(Inventory, {
             productId: item.productId,
-            stock:     0,
-            reserved:  0,
+            stock: 0,
+            reserved: 0,
           });
         }
 
         const stockBefore = Number(inventory.stock);
-        const stockAfter  = stockBefore + Number(item.quantity);
+        const stockAfter = stockBefore + Number(item.quantity);
 
         inventory.stock = stockAfter;
         await manager.save(Inventory, inventory);
 
         const movement = manager.create(InventoryMovement, {
-          productId:   item.productId,
-          type:        MovementType.PURCHASE,
-          quantity:    item.quantity,
+          productId: item.productId,
+          type: MovementType.PURCHASE,
+          quantity: item.quantity,
           stockBefore,
           stockAfter,
-          notes:       'Recepción de orden de compra',
+          notes: 'Recepción de orden de compra',
           referenceId: purchaseId,
           createdById: userId,
         });
@@ -317,7 +360,11 @@ export class InventoryService {
     const existing = await this.inventoryRepo.findOne({ where: { productId } });
     if (existing) return existing;
 
-    const inventory = this.inventoryRepo.create({ productId, stock: 0, reserved: 0 });
+    const inventory = this.inventoryRepo.create({
+      productId,
+      stock: 0,
+      reserved: 0,
+    });
     return this.inventoryRepo.save(inventory);
   }
 
@@ -333,7 +380,9 @@ export class InventoryService {
     data: CreateInventoryInternalDto,
     manager: EntityManager,
   ): Promise<Inventory> {
-    this.logger.log(`Creando inventario internamente para producto: ${data.productName}`);
+    this.logger.log(
+      `Creando inventario internamente para producto: ${data.productName}`,
+    );
 
     if (data.purchaseId && !isUUID(data.purchaseId)) {
       throw new BadRequestException('purchase_id debe ser un UUID válido');
@@ -361,7 +410,9 @@ export class InventoryService {
     data: CreateInventoryDetailInternalDto,
     manager: EntityManager,
   ): Promise<InventoryDetail> {
-    this.logger.log(`Creando detalle/variante internamente con SKU: ${data.sku} para inventario: ${inventoryId}`);
+    this.logger.log(
+      `Creando detalle/variante internamente con SKU: ${data.sku} para inventario: ${inventoryId}`,
+    );
 
     if (data.purchaseItemId && !isUUID(data.purchaseItemId)) {
       throw new BadRequestException('purchase_item_id debe ser un UUID válido');
@@ -374,7 +425,9 @@ export class InventoryService {
     });
 
     if (existingSku) {
-      this.logger.warn(`[RN-I-008] Intento de registro duplicado: El SKU ${data.sku} ya está registrado`);
+      this.logger.warn(
+        `[RN-I-008] Intento de registro duplicado: El SKU ${data.sku} ya está registrado`,
+      );
       throw new ConflictException(`El SKU ${data.sku} ya está registrado`);
     }
 
@@ -402,13 +455,22 @@ export class InventoryService {
     manager: EntityManager,
   ): Promise<void> {
     if (delta > 0) {
-      this.logger.log(`Incrementando stock para variante ${inventoryDetailId} en +${delta}`);
-      await manager.increment(InventoryDetail, { id: inventoryDetailId }, 'stock', delta);
+      this.logger.log(
+        `Incrementando stock para variante ${inventoryDetailId} en +${delta}`,
+      );
+      await manager.increment(
+        InventoryDetail,
+        { id: inventoryDetailId },
+        'stock',
+        delta,
+      );
       return;
     }
 
     if (delta < 0) {
-      this.logger.log(`Decrementando stock para variante ${inventoryDetailId} en ${delta}`);
+      this.logger.log(
+        `Decrementando stock para variante ${inventoryDetailId} en ${delta}`,
+      );
 
       // Bloquear el registro con SELECT FOR UPDATE para evitar condiciones de carrera (RN-I-003)
       // RN-I-003
@@ -419,7 +481,9 @@ export class InventoryService {
         .getOne();
 
       if (!detail) {
-        throw new NotFoundException(`Detalle de inventario con ID ${inventoryDetailId} no encontrado`);
+        throw new NotFoundException(
+          `Detalle de inventario con ID ${inventoryDetailId} no encontrado`,
+        );
       }
 
       const newStock = detail.stock + delta;
@@ -430,7 +494,9 @@ export class InventoryService {
         this.logger.warn(
           `[RN-I-003] Intento de decremento fallido: Stock insuficiente para variante ${inventoryDetailId}. Stock actual: ${detail.stock}, delta: ${delta}`,
         );
-        throw new ConflictException('Stock insuficiente para ejecutar esta operación');
+        throw new ConflictException(
+          'Stock insuficiente para ejecutar esta operación',
+        );
       }
 
       detail.stock = newStock;

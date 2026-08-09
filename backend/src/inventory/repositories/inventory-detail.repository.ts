@@ -15,7 +15,10 @@ export class InventoryDetailRepository extends Repository<InventoryDetail> {
     });
   }
 
-  async findLowStock(page: number = 1, limit: number = 10): Promise<[InventoryDetail[], number]> {
+  async findLowStock(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<[InventoryDetail[], number]> {
     const qb = this.createQueryBuilder('detail')
       .leftJoinAndSelect('detail.inventory', 'inventory')
       .where('detail.stock <= detail.minStock')

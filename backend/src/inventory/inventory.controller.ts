@@ -1,8 +1,20 @@
 import {
-  Controller, Get,
-  Param, Query, ParseUUIDPipe, UseGuards,
+  Controller,
+  Get,
+  Param,
+  Query,
+  ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiHeader } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiParam,
+  ApiHeader,
+} from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { InventoryQueryDto } from './dto/inventory-query.dto';
 import { PaginatedInventoryResponseDto } from './dto/paginated-inventory-response.dto';
@@ -29,9 +41,18 @@ export class InventoryController {
   @Get()
   @RequirePermissions('inventory:read')
   @ApiOperation({ summary: 'Listado paginado de inventarios' })
-  @ApiResponse({ status: 200, type: PaginatedInventoryResponseDto, description: 'Listado paginado de inventarios' })
-  @ApiResponse({ status: 403, description: 'Prohibido: Permisos insuficientes' })
-  findAll(@Query() query: InventoryQueryDto): Promise<PaginatedInventoryResponseDto> {
+  @ApiResponse({
+    status: 200,
+    type: PaginatedInventoryResponseDto,
+    description: 'Listado paginado de inventarios',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Prohibido: Permisos insuficientes',
+  })
+  findAll(
+    @Query() query: InventoryQueryDto,
+  ): Promise<PaginatedInventoryResponseDto> {
     return this.inventoryService.findAll(query);
   }
 
@@ -40,13 +61,17 @@ export class InventoryController {
   @ApiOperation({ summary: 'Listado de productos con stock bajo' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
-  @ApiResponse({ status: 200, description: 'Listado de productos con stock bajo' })
-  @ApiResponse({ status: 403, description: 'Prohibido: Permisos insuficientes' })
+  @ApiResponse({
+    status: 200,
+    type: [LowStockResponseDto],
+    description: 'Listado de productos con stock bajo',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Prohibido: Permisos insuficientes',
+  })
   @ApiResponse({ status: 404, description: 'No encontrado' })
-  findLowStock(
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-  ) {
+  findLowStock(@Query('page') page?: number, @Query('limit') limit?: number) {
     return this.inventoryService.findLowStock(
       page ? Number(page) : undefined,
       limit ? Number(limit) : undefined,
@@ -61,10 +86,19 @@ export class InventoryController {
     type: 'string',
     format: 'uuid',
   })
-  @ApiResponse({ status: 200, type: InventoryWithDetailsResponseDto, description: 'Inventario con variantes obtenido exitosamente' })
+  @ApiResponse({
+    status: 200,
+    type: InventoryWithDetailsResponseDto,
+    description: 'Inventario con variantes obtenido exitosamente',
+  })
   @ApiResponse({ status: 404, description: 'Inventario no encontrado' })
-  @ApiResponse({ status: 403, description: 'Prohibido: Permisos insuficientes' })
-  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<InventoryWithDetailsResponseDto> {
+  @ApiResponse({
+    status: 403,
+    description: 'Prohibido: Permisos insuficientes',
+  })
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<InventoryWithDetailsResponseDto> {
     return this.inventoryService.findOne(id);
   }
 
@@ -77,10 +111,19 @@ export class InventoryController {
     type: 'string',
     format: 'uuid',
   })
-  @ApiResponse({ status: 200, type: [InventoryDetailDto], description: 'Listado de variantes obtenido exitosamente' })
+  @ApiResponse({
+    status: 200,
+    type: [InventoryDetailDto],
+    description: 'Listado de variantes obtenido exitosamente',
+  })
   @ApiResponse({ status: 404, description: 'Inventario no encontrado' })
-  @ApiResponse({ status: 403, description: 'Prohibido: Permisos insuficientes' })
-  findDetails(@Param('id', ParseUUIDPipe) id: string): Promise<InventoryDetailDto[]> {
+  @ApiResponse({
+    status: 403,
+    description: 'Prohibido: Permisos insuficientes',
+  })
+  findDetails(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<InventoryDetailDto[]> {
     return this.inventoryService.findDetails(id);
   }
 }

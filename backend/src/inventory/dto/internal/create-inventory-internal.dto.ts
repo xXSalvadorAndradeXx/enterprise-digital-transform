@@ -1,4 +1,13 @@
-import { IsNotEmpty, IsString, IsOptional, IsUUID, IsInt, IsEnum, ValidateNested, IsArray } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsUUID,
+  IsInt,
+  IsEnum,
+  ValidateNested,
+  IsArray,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { InventoryStatus } from '../../enums/inventory-status.enum';
 import { CreateInventoryDetailInternalDto } from './create-inventory-detail-internal.dto';

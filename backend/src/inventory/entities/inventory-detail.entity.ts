@@ -42,8 +42,15 @@ export class InventoryDetail {
   @Column({ type: 'integer', nullable: false, default: 0 })
   stock!: number;
 
-  @ApiProperty({ example: 15.50 })
-  @Column({ name: 'unit_cost', type: 'numeric', precision: 10, scale: 2, nullable: false, default: 0 })
+  @ApiProperty({ example: 15.5 })
+  @Column({
+    name: 'unit_cost',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    nullable: false,
+    default: 0,
+  })
   unitCost!: number;
 
   // RN-I-005
@@ -54,7 +61,9 @@ export class InventoryDetail {
   // --- Relaciones ---
 
   @ApiProperty({ type: () => Inventory })
-  @ManyToOne(() => Inventory, (inventory) => inventory.details, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Inventory, (inventory) => inventory.details, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'inventory_id' })
   inventory!: Inventory;
 
@@ -62,7 +71,10 @@ export class InventoryDetail {
   inventoryId!: string;
 
   @ApiPropertyOptional({ type: () => SupplierPurchaseItem })
-  @OneToOne(() => SupplierPurchaseItem, { onDelete: 'SET NULL', nullable: true })
+  @OneToOne(() => SupplierPurchaseItem, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
   @JoinColumn({ name: 'purchase_item_id' })
   purchaseItem!: SupplierPurchaseItem | null;
 

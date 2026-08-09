@@ -17,11 +17,11 @@ export class QueryMovementsDto {
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(({ value }) => parseInt(String(value), 10))
   page?: number = 1;
 
   @ApiPropertyOptional({ default: 20 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value, 10))
+  @Transform(({ value }) => parseInt(String(value), 10))
   limit?: number = 20;
 }

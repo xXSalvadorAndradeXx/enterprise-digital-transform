@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ConflictException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import { InventoryService } from '../inventory.service';
@@ -13,6 +18,7 @@ import { MovementType } from '../enums/movement-type.enum';
 import { Inventory } from '../entities/inventory.entity';
 import { InventoryDetail } from '../entities/inventory-detail.entity';
 import { calculateStockStatus } from '../helpers/stock.helper';
+import { CreateInventoryInternalDto } from '../dto/internal/create-inventory-internal.dto';
 
 describe('InventoryService', () => {
   let service: InventoryService;
@@ -105,7 +111,10 @@ describe('InventoryService', () => {
     };
 
     it('debe recibir un query vacío y retornar data, total, page, limit, totalPages con valores por defecto', async () => {
-      inventoryRepository.findAllPaginated!.mockResolvedValue([[mockInventory], 1]);
+      inventoryRepository.findAllPaginated!.mockResolvedValue([
+        [mockInventory],
+        1,
+      ]);
 
       const result = await service.findAll({});
 
@@ -116,7 +125,10 @@ describe('InventoryService', () => {
       expect(result.data[0].id).toBe('inv-uuid-1');
       expect(result.data[0].productName).toBe('Zapato Deportivo');
       expect(result.data[0].category).toEqual({ id: 1, name: 'Calzado' });
-      expect(result.data[0].supplier).toEqual({ id: 'sup-uuid-1', name: 'Nike Corp' });
+      expect(result.data[0].supplier).toEqual({
+        id: 'sup-uuid-1',
+        name: 'Nike Corp',
+      });
       expect(result.meta).toEqual({
         total: 1,
         page: 1,
@@ -138,7 +150,10 @@ describe('InventoryService', () => {
     });
 
     it('debe enviar correctamente el parámetro search = "zapato" al repositorio', async () => {
-      inventoryRepository.findAllPaginated!.mockResolvedValue([[mockInventory], 1]);
+      inventoryRepository.findAllPaginated!.mockResolvedValue([
+        [mockInventory],
+        1,
+      ]);
 
       await service.findAll({ search: 'zapato' });
 
@@ -150,7 +165,10 @@ describe('InventoryService', () => {
     });
 
     it('debe enviar simultáneamente los filtros supplierId y categoryId al repositorio', async () => {
-      inventoryRepository.findAllPaginated!.mockResolvedValue([[mockInventory], 1]);
+      inventoryRepository.findAllPaginated!.mockResolvedValue([
+        [mockInventory],
+        1,
+      ]);
 
       await service.findAll({ supplierId: 'sup-uuid-1', categoryId: 3 });
 
@@ -163,9 +181,13 @@ describe('InventoryService', () => {
     });
 
     it('debe lanzar InternalServerErrorException si el repositorio falla', async () => {
-      inventoryRepository.findAllPaginated!.mockRejectedValue(new Error('DB Connection error'));
+      inventoryRepository.findAllPaginated!.mockRejectedValue(
+        new Error('DB Connection error'),
+      );
 
-      await expect(service.findAll({})).rejects.toThrow(InternalServerErrorException);
+      await expect(service.findAll({})).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 
@@ -202,15 +224,22 @@ describe('InventoryService', () => {
         ],
       };
 
-      inventoryRepository.findOneWithDetails.mockResolvedValue(mockInventoryWithDetails);
+      inventoryRepository.findOneWithDetails.mockResolvedValue(
+        mockInventoryWithDetails,
+      );
 
       const result = await service.findOne('inv-uuid-1');
 
-      expect(inventoryRepository.findOneWithDetails).toHaveBeenCalledWith('inv-uuid-1');
+      expect(inventoryRepository.findOneWithDetails).toHaveBeenCalledWith(
+        'inv-uuid-1',
+      );
       expect(result.id).toBe('inv-uuid-1');
       expect(result.productName).toBe('Camisa Formal');
       expect(result.category).toEqual({ id: 2, name: 'Ropa' });
-      expect(result.supplier).toEqual({ id: 'sup-uuid-2', name: 'Zara Inditex' });
+      expect(result.supplier).toEqual({
+        id: 'sup-uuid-2',
+        name: 'Zara Inditex',
+      });
       expect(result.totalStock).toBe(35);
       expect(result.totalVariants).toBe(2);
       expect(result.details).toHaveLength(2);
@@ -222,7 +251,9 @@ describe('InventoryService', () => {
       inventoryRepository.findOneWithDetails.mockResolvedValue(null);
 
       await expect(service.findOne('inv-uuid-non-existent')).rejects.toThrow(
-        new NotFoundException('Inventario con ID inv-uuid-non-existent no encontrado'),
+        new NotFoundException(
+          'Inventario con ID inv-uuid-non-existent no encontrado',
+        ),
       );
     });
   });
@@ -252,7 +283,9 @@ describe('InventoryService', () => {
     it('debe lanzar NotFoundException si el inventario no existe', async () => {
       inventoryRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.findDetails('inv-uuid-none')).rejects.toThrow(NotFoundException);
+      await expect(service.findDetails('inv-uuid-none')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -299,11 +332,17 @@ describe('InventoryService', () => {
         },
       ];
 
-      inventoryDetailRepository.findLowStock.mockResolvedValue([mockLowStockDetails, 1]);
+      inventoryDetailRepository.findLowStock.mockResolvedValue([
+        mockLowStockDetails,
+        1,
+      ]);
 
       const result = await service.findLowStock(1, 10);
 
-      expect(inventoryDetailRepository.findLowStock).toHaveBeenCalledWith(1, 10);
+      expect(inventoryDetailRepository.findLowStock).toHaveBeenCalledWith(
+        1,
+        10,
+      );
       expect(result.data).toHaveLength(1);
       expect(result.data[0].minStock).toBeGreaterThan(0);
       expect(result.meta).toEqual({
@@ -328,7 +367,10 @@ describe('InventoryService', () => {
         },
       ];
 
-      inventoryDetailRepository.findLowStock.mockResolvedValue([mockLowStockDetails, 1]);
+      inventoryDetailRepository.findLowStock.mockResolvedValue([
+        mockLowStockDetails,
+        1,
+      ]);
 
       const result = await service.findLowStock();
 
@@ -349,7 +391,10 @@ describe('InventoryService', () => {
         },
       ];
 
-      inventoryDetailRepository.findLowStock.mockResolvedValue([mockLowStockDetails, 1]);
+      inventoryDetailRepository.findLowStock.mockResolvedValue([
+        mockLowStockDetails,
+        1,
+      ]);
 
       const result = await service.findLowStock(1, 20);
 
@@ -385,9 +430,15 @@ describe('InventoryService', () => {
       const delta = -10; // Resultaría en -5 < 0
 
       await expect(
-        service.updateStock('detail-uuid-1', delta, mockManager as EntityManager),
+        service.updateStock(
+          'detail-uuid-1',
+          delta,
+          mockManager as EntityManager,
+        ),
       ).rejects.toThrow(
-        new ConflictException('Stock insuficiente para ejecutar esta operación'),
+        new ConflictException(
+          'Stock insuficiente para ejecutar esta operación',
+        ),
       );
 
       expect(mockManager.save).not.toHaveBeenCalled();
@@ -396,7 +447,11 @@ describe('InventoryService', () => {
     it('debe incrementar correctamente el stock cuando el delta sea positivo', async () => {
       const delta = 20;
 
-      await service.updateStock('detail-uuid-1', delta, mockManager as EntityManager);
+      await service.updateStock(
+        'detail-uuid-1',
+        delta,
+        mockManager as EntityManager,
+      );
 
       expect(mockManager.increment).toHaveBeenCalledWith(
         InventoryDetail,
@@ -422,17 +477,28 @@ describe('InventoryService', () => {
       expect(mockManager.save).not.toHaveBeenCalled();
 
       // Intento válido que deja stock exactamente en 0
-      await service.updateStock('detail-uuid-1', -3, mockManager as EntityManager);
+      await service.updateStock(
+        'detail-uuid-1',
+        -3,
+        mockManager as EntityManager,
+      );
 
       expect(mockDetail.stock).toBe(0);
-      expect(mockManager.save).toHaveBeenCalledWith(InventoryDetail, mockDetail);
+      expect(mockManager.save).toHaveBeenCalledWith(
+        InventoryDetail,
+        mockDetail,
+      );
     });
 
     it('debe lanzar NotFoundException si el detalle a decrementar no existe', async () => {
       mockQueryBuilder.getOne.mockResolvedValue(null);
 
       await expect(
-        service.updateStock('detail-uuid-none', -5, mockManager as EntityManager),
+        service.updateStock(
+          'detail-uuid-none',
+          -5,
+          mockManager as EntityManager,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -443,7 +509,10 @@ describe('InventoryService', () => {
     beforeEach(() => {
       mockManager = {
         create: jest.fn().mockImplementation((entityClass, data) => data),
-        save: jest.fn().mockImplementation(async (entityClass, data) => ({ id: 'inv-created-1', ...data })),
+        save: jest.fn().mockImplementation(async (entityClass, data) => ({
+          id: 'inv-created-1',
+          ...data,
+        })),
       };
     });
 
@@ -456,7 +525,10 @@ describe('InventoryService', () => {
         categoryId: 1,
       };
 
-      const result = await service.createInventory(dto as any, mockManager as EntityManager);
+      const result = await service.createInventory(
+        dto,
+        mockManager as EntityManager,
+      );
 
       expect(mockManager.create).toHaveBeenCalledWith(Inventory, dto);
       expect(mockManager.save).toHaveBeenCalled();
@@ -464,26 +536,26 @@ describe('InventoryService', () => {
     });
 
     it('debe lanzar BadRequestException si purchaseId no es un UUID válido', async () => {
-      const dto = {
+      const dto: CreateInventoryInternalDto = {
         productName: 'Producto Test',
         brand: 'Marca Test',
         purchaseId: 'invalid-uuid',
       };
 
       await expect(
-        service.createInventory(dto as any, mockManager as EntityManager),
+        service.createInventory(dto, mockManager as EntityManager),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('debe lanzar BadRequestException si supplierId no es un UUID válido', async () => {
-      const dto = {
+      const dto: CreateInventoryInternalDto = {
         productName: 'Producto Test',
         brand: 'Marca Test',
         supplierId: 'invalid-uuid',
       };
 
       await expect(
-        service.createInventory(dto as any, mockManager as EntityManager),
+        service.createInventory(dto, mockManager as EntityManager),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -516,7 +588,11 @@ describe('InventoryService', () => {
       };
 
       await expect(
-        service.createInventoryDetail('inv-uuid-1', dto, mockManager as EntityManager),
+        service.createInventoryDetail(
+          'inv-uuid-1',
+          dto,
+          mockManager as EntityManager,
+        ),
       ).rejects.toThrow(
         new ConflictException('El SKU SKU-DUPLICATED-123 ya está registrado'),
       );
@@ -540,7 +616,11 @@ describe('InventoryService', () => {
       };
 
       await expect(
-        service.createInventoryDetail('inv-uuid-1', dto, mockManager as EntityManager),
+        service.createInventoryDetail(
+          'inv-uuid-1',
+          dto,
+          mockManager as EntityManager,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -560,7 +640,11 @@ describe('InventoryService', () => {
         minStock: 5,
       };
 
-      const result = await service.createInventoryDetail('inv-uuid-1', dto, mockManager as EntityManager);
+      const result = await service.createInventoryDetail(
+        'inv-uuid-1',
+        dto,
+        mockManager as EntityManager,
+      );
 
       expect(mockManager.findOne).toHaveBeenCalledWith(InventoryDetail, {
         where: { sku: 'SKU-UNIQUE-456' },
@@ -577,22 +661,34 @@ describe('InventoryService', () => {
 
   describe('Métodos de Movimientos y Ajustes', () => {
     it('findByProduct debe retornar el inventario o lanzar NotFoundException', async () => {
-      inventoryRepository.findOne.mockResolvedValueOnce({ id: 'inv-p1', productId: 'p1' });
+      inventoryRepository.findOne.mockResolvedValueOnce({
+        id: 'inv-p1',
+        productId: 'p1',
+      });
       const result = await service.findByProduct('p1');
       expect(result.id).toBe('inv-p1');
 
       inventoryRepository.findOne.mockResolvedValueOnce(null);
-      await expect(service.findByProduct('p2')).rejects.toThrow(NotFoundException);
+      await expect(service.findByProduct('p2')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('initForProduct debe retornar existente o crear uno nuevo', async () => {
-      inventoryRepository.findOne.mockResolvedValueOnce({ id: 'inv-exist', stock: 10 });
+      inventoryRepository.findOne.mockResolvedValueOnce({
+        id: 'inv-exist',
+        stock: 10,
+      });
       const existing = await service.initForProduct('p1');
       expect(existing.id).toBe('inv-exist');
 
       inventoryRepository.findOne.mockResolvedValueOnce(null);
       inventoryRepository.create.mockReturnValue({ productId: 'p2', stock: 0 });
-      inventoryRepository.save.mockResolvedValue({ id: 'inv-new', productId: 'p2', stock: 0 });
+      inventoryRepository.save.mockResolvedValue({
+        id: 'inv-new',
+        productId: 'p2',
+        stock: 0,
+      });
       const created = await service.initForProduct('p2');
       expect(created.id).toBe('inv-new');
     });
@@ -619,7 +715,7 @@ describe('InventoryService', () => {
       expect(result.meta.total).toBe(1);
 
       // findMovements sin parámetros para cubrir branches por defecto
-      const defaultResult = await service.findMovements({} as any);
+      const defaultResult = await service.findMovements({});
       expect(defaultResult.meta.page).toBe(1);
       expect(defaultResult.meta.limit).toBe(20);
     });
@@ -663,7 +759,9 @@ describe('InventoryService', () => {
         create: jest.fn().mockImplementation((entityClass, data) => data),
       };
 
-      dataSource.transaction.mockImplementation(async (cb: any) => cb(mockTxManager));
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb(mockTxManager),
+      );
 
       const result = await service.adjust(
         { productId: 'prod-1', quantity: 5, type: MovementType.ADJUSTMENT },
@@ -686,7 +784,9 @@ describe('InventoryService', () => {
         createQueryBuilder: jest.fn().mockReturnValue(mockQb),
       };
 
-      dataSource.transaction.mockImplementation(async (cb: any) => cb(mockTxManager));
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb(mockTxManager),
+      );
 
       await expect(
         service.adjust(
@@ -707,11 +807,17 @@ describe('InventoryService', () => {
         createQueryBuilder: jest.fn().mockReturnValue(mockQb),
       };
 
-      dataSource.transaction.mockImplementation(async (cb: any) => cb(mockTxManager));
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb(mockTxManager),
+      );
 
       await expect(
         service.adjust(
-          { productId: 'prod-none', quantity: 5, type: MovementType.ADJUSTMENT },
+          {
+            productId: 'prod-none',
+            quantity: 5,
+            type: MovementType.ADJUSTMENT,
+          },
           'user-uuid-1',
         ),
       ).rejects.toThrow(NotFoundException);
@@ -719,14 +825,17 @@ describe('InventoryService', () => {
 
     it('applyPurchaseReceipt debe procesar recepción y crear o actualizar inventario', async () => {
       const mockTxManager = {
-        findOne: jest.fn()
+        findOne: jest
+          .fn()
           .mockResolvedValueOnce(null) // para item 1 (nuevo)
           .mockResolvedValueOnce({ productId: 'prod-2', stock: 5 }), // para item 2 (existente)
         create: jest.fn().mockImplementation((entityClass, data) => data),
         save: jest.fn().mockImplementation(async (entityClass, data) => data),
       };
 
-      dataSource.transaction.mockImplementation(async (cb: any) => cb(mockTxManager));
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb(mockTxManager),
+      );
 
       await service.applyPurchaseReceipt(
         [

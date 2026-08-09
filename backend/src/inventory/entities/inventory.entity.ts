@@ -26,7 +26,12 @@ export class Inventory {
   id!: string;
 
   @ApiProperty({ example: 'Audífonos Inalámbricos' })
-  @Column({ name: 'product_name', type: 'varchar', length: 200, nullable: false })
+  @Column({
+    name: 'product_name',
+    type: 'varchar',
+    length: 200,
+    nullable: false,
+  })
   productName!: string;
 
   @ApiProperty({ example: 'Sony' })
@@ -34,7 +39,12 @@ export class Inventory {
   brand!: string;
 
   @ApiPropertyOptional({ example: 'https://images.com/audifonos.jpg' })
-  @Column({ name: 'main_image_url', type: 'varchar', length: 500, nullable: true })
+  @Column({
+    name: 'main_image_url',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
   mainImageUrl!: string | null;
 
   @ApiProperty({ enum: InventoryStatus, default: InventoryStatus.ACTIVE })
@@ -95,11 +105,11 @@ export class Inventory {
 
   // --- Compatibilidad con lógica de stock existente ---
 
-  @ApiProperty({ example: 100.00 })
+  @ApiProperty({ example: 100.0 })
   @Column({ type: 'numeric', precision: 12, scale: 4, default: 0 })
   stock!: number;
 
-  @ApiProperty({ example: 10.00 })
+  @ApiProperty({ example: 10.0 })
   @Column({ type: 'numeric', precision: 12, scale: 4, default: 0 })
   reserved!: number;
 
