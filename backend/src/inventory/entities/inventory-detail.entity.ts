@@ -25,6 +25,7 @@ export class InventoryDetail {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  // RN-I-008
   @ApiProperty({ example: 'SKU-SHIRT-M-RED' })
   @Column({ type: 'varchar', length: 100, unique: true, nullable: false })
   sku!: string;
@@ -45,6 +46,7 @@ export class InventoryDetail {
   @Column({ name: 'unit_cost', type: 'numeric', precision: 10, scale: 2, nullable: false, default: 0 })
   unitCost!: number;
 
+  // RN-I-005
   @ApiProperty({ example: 10 })
   @Column({ name: 'min_stock', type: 'integer', nullable: false, default: 0 })
   minStock!: number;

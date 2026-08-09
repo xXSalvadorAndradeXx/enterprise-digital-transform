@@ -21,7 +21,17 @@ export class PermissionsGuard implements CanActivate {
     if (!required || required.length === 0) return true;
 
     const { user } = context.switchToHttp().getRequest();
-    const hasAll = required.every((p) => user?.permissions?.includes(p));
+    if (!user) {
+      throw new ForbiddenException('Acceso denegado: Usuario no autenticado');
+    }
+
+    // Si el usuario posee rol ADMIN o SUPERADMIN, conceder acceso total automáticamente
+    if (user.roles?.includes('ADMIN') || user.roles?.includes('SUPERADMIN') || user.rol === 'ADMIN') {
+      return true;
+    }
+
+    const userPermissions = user.permissions || [];
+    const hasAll = required.every((p) => userPermissions.includes(p));
 
     if (!hasAll) {
       throw new ForbiddenException('No tienes permisos para esta acción');

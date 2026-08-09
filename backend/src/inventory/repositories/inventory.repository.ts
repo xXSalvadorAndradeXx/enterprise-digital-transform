@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+  import { Injectable } from '@nestjs/common';
 import { Repository, DataSource } from 'typeorm';
 import { Inventory } from '../entities/inventory.entity';
 import { InventoryQueryDto } from '../dto/inventory-query.dto';
@@ -13,11 +13,12 @@ export class InventoryRepository extends Repository<Inventory> {
   async findAllPaginated(query: InventoryQueryDto): Promise<[Inventory[], number]> {
     const qb = this.createQueryBuilder('inventory');
 
-    // Cargar relaciones Category y Supplier
+    // RN-I-009: Cargar relaciones e incorporar SupplierPurchase para control de compras eliminadas
     qb.leftJoinAndSelect('inventory.category', 'category')
-      .leftJoinAndSelect('inventory.supplier', 'supplier');
+      .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoin('inventory.purchase', 'purchase');
 
-    // Subconsulta para calcular totalStock mediante SUM(details.stock)
+    // RN-I-006: Subconsulta para calcular totalStock dinámicamente mediante SUM(details.stock)
     qb.addSelect(subQuery => {
       return subQuery
         .select('COALESCE(SUM(d.stock), 0)', 'total_stock')
@@ -25,7 +26,7 @@ export class InventoryRepository extends Repository<Inventory> {
         .where('d.inventory_id = inventory.id');
     }, 'totalStock');
 
-    // Subconsulta para calcular totalVariants mediante COUNT(details.id)
+    // RN-I-006: Subconsulta para calcular totalVariants dinámicamente mediante COUNT(details.id)
     qb.addSelect(subQuery => {
       return subQuery
         .select('COUNT(d.id)', 'total_variants')
@@ -33,8 +34,11 @@ export class InventoryRepository extends Repository<Inventory> {
         .where('d.inventory_id = inventory.id');
     }, 'totalVariants');
 
-    // Excluir registros eliminados aplicando el filtro deleted_at IS NULL
+    // Excluir registros eliminados de inventario aplicando el filtro deleted_at IS NULL
     qb.andWhere('inventory.deletedAt IS NULL');
+
+    // RN-I-009: Excluir inventarios asociados a compras eliminadas (deleted_at IS NOT NULL)
+    qb.andWhere('(inventory.purchaseId IS NULL OR purchase.deletedAt IS NULL)');
 
     // Filtros condicionales
     if (query.supplierId) {
@@ -97,8 +101,10 @@ export class InventoryRepository extends Repository<Inventory> {
       .leftJoinAndSelect('inventory.details', 'details')
       .leftJoinAndSelect('inventory.category', 'category')
       .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoin('inventory.purchase', 'purchase')
       .where('inventory.id = :id', { id })
       .andWhere('inventory.deletedAt IS NULL')
+      .andWhere('(inventory.purchaseId IS NULL OR purchase.deletedAt IS NULL)')
       .getOne();
   }
 }

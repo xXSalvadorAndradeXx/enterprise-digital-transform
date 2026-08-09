@@ -4,7 +4,6 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiHeader } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
-import { QueryMovementsDto } from './dto/query-inventory.dto';
 import { InventoryQueryDto } from './dto/inventory-query.dto';
 import { PaginatedInventoryResponseDto } from './dto/paginated-inventory-response.dto';
 import { LowStockResponseDto } from './dto/low-stock-response.dto';
@@ -14,6 +13,8 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 
+// RN-I-001: Operaciones públicas restringidas a solo lectura (GET)
+// RN-I-007: Campos no modificables públicamente (brand, category_id, supplier_id)
 @ApiTags('Inventory')
 @ApiBearerAuth('access-token')
 @ApiHeader({
@@ -52,13 +53,6 @@ export class InventoryController {
     );
   }
 
-  @Get('movements')
-  @RequirePermissions('inventory:read')
-  @ApiOperation({ summary: 'Historial de movimientos con filtros y paginación' })
-  findMovements(@Query() query: QueryMovementsDto) {
-    return this.inventoryService.findMovements(query);
-  }
-
   @Get(':id')
   @RequirePermissions('inventory:read')
   @ApiOperation({ summary: 'Detalle de un inventario con variantes' })
@@ -74,6 +68,7 @@ export class InventoryController {
     return this.inventoryService.findOne(id);
   }
 
+  // RN-I-010: Detalles para Reabastecimiento
   @Get(':id/details')
   @RequirePermissions('inventory:read')
   @ApiOperation({ summary: 'Listado de variantes de un inventario' })

@@ -114,6 +114,7 @@ export class InventoryService {
       stock: detail.stock,
       unitCost: Number(detail.unitCost),
       minStock: detail.minStock,
+      // RN-I-004
       stockStatus: calculateStockStatus(detail.stock, detail.minStock),
     }));
 
@@ -123,6 +124,7 @@ export class InventoryService {
     };
   }
 
+  // RN-I-010
   async findDetails(inventoryId: string): Promise<InventoryDetailDto[]> {
     this.logger.log(`Consultando detalles del inventario con ID: ${inventoryId}`);
 
@@ -141,6 +143,7 @@ export class InventoryService {
       stock: detail.stock,
       unitCost: Number(detail.unitCost),
       minStock: detail.minStock,
+      // RN-I-004
       stockStatus: calculateStockStatus(detail.stock, detail.minStock),
     }));
   }
@@ -167,6 +170,7 @@ export class InventoryService {
       unitCost: Number(detail.unitCost),
       minStock: detail.minStock,
       inventoryName: detail.inventory?.productName || '',
+      // RN-I-004
       stockStatus: calculateStockStatus(detail.stock, detail.minStock),
     }));
 
@@ -363,6 +367,17 @@ export class InventoryService {
       throw new BadRequestException('purchase_item_id debe ser un UUID válido');
     }
 
+    // RN-I-008: Validación de unicidad de SKU
+    // RN-I-008
+    const existingSku = await manager.findOne(InventoryDetail, {
+      where: { sku: data.sku },
+    });
+
+    if (existingSku) {
+      this.logger.warn(`[RN-I-008] Intento de registro duplicado: El SKU ${data.sku} ya está registrado`);
+      throw new ConflictException(`El SKU ${data.sku} ya está registrado`);
+    }
+
     const detail = manager.create(InventoryDetail, {
       ...data,
       inventoryId,
@@ -380,6 +395,7 @@ export class InventoryService {
    * @param delta - Cantidad a sumar (positivo para reabastecimiento, negativo para decremento)
    * @param manager - EntityManager transaccional
    */
+  // RN-I-002
   async updateStock(
     inventoryDetailId: string,
     delta: number,
@@ -395,6 +411,7 @@ export class InventoryService {
       this.logger.log(`Decrementando stock para variante ${inventoryDetailId} en ${delta}`);
 
       // Bloquear el registro con SELECT FOR UPDATE para evitar condiciones de carrera (RN-I-003)
+      // RN-I-003
       const detail = await manager
         .createQueryBuilder(InventoryDetail, 'detail')
         .setLock('pessimistic_write')
@@ -408,6 +425,7 @@ export class InventoryService {
       const newStock = detail.stock + delta;
 
       // RN-I-003: Validación de no negatividad de stock
+      // RN-I-003
       if (newStock < 0) {
         this.logger.warn(
           `[RN-I-003] Intento de decremento fallido: Stock insuficiente para variante ${inventoryDetailId}. Stock actual: ${detail.stock}, delta: ${delta}`,
