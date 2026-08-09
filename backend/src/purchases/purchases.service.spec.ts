@@ -10,7 +10,6 @@ import { SupplierPurchaseItem } from './entities/supplier-purchase-item.entity';
 import { PurchaseStatusHistory } from './entities/purchase-status-history.entity';
 import { PurchaseStatus } from './enums/purchase-status.enum';
 import { PurchaseStateMachine } from './purchase-state-machine';
-import { jest } from '@jest/globals';
 
 // ── Mock del QueryRunner ────────────────────────────────────────────────────
 const mockQR = {
@@ -45,8 +44,14 @@ const mockPurchaseRepo = {
   })),
 };
 
+import { InventoryService } from '../inventory/inventory.service';
+
 const mockItemRepo    = { find: jest.fn() };
 const mockHistoryRepo = { find: jest.fn() };
+const mockInventoryService = {
+  createInventory: jest.fn().mockResolvedValue({ id: 'inv-1' }),
+  createInventoryDetail: jest.fn().mockResolvedValue({ id: 'inv-detail-1' }),
+};
 
 describe('PurchasesService', () => {
   let service: PurchasesService;
@@ -58,6 +63,7 @@ describe('PurchasesService', () => {
         { provide: getRepositoryToken(SupplierPurchase),     useValue: mockPurchaseRepo },
         { provide: getRepositoryToken(SupplierPurchaseItem), useValue: mockItemRepo },
         { provide: getRepositoryToken(PurchaseStatusHistory),useValue: mockHistoryRepo },
+        { provide: InventoryService, useValue: mockInventoryService },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();

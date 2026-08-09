@@ -36,8 +36,8 @@ const PERMISSIONS = [
   { code: 'product-categories:create', description: 'Crear categorías' },
   { code: 'product-categories:update', description: 'Actualizar categorías' },
   { code: 'product-categories:delete', description: 'Eliminar categorías' },
-  // inventory
-  { code: 'inventory:read',     description: 'Ver inventario' },
+  // Módulo de Inventario (Introducido por el módulo de Inventario)
+  { code: 'inventory:read',     description: 'Permite consultar inventarios y sus variantes' },
   { code: 'inventory:adjust',   description: 'Ajustar stock manualmente' },
   // customers
   { code: 'customers:read',     description: 'Ver clientes' },
@@ -50,10 +50,13 @@ export async function seedPermissions(dataSource: DataSource): Promise<Permissio
   const repo = dataSource.getRepository(Permission);
 
   for (const perm of PERMISSIONS) {
-    const exists = await repo.findOne({ where: { code: perm.code } });
-    if (!exists) {
-      await repo.save(repo.create(perm));
-    }
+    await repo
+      .createQueryBuilder()
+      .insert()
+      .into(Permission)
+      .values(perm)
+      .orIgnore()
+      .execute();
   }
 
   const all = await repo.find();
