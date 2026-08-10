@@ -250,7 +250,7 @@ export class InventoryService {
     .createQueryBuilder('m')
     .leftJoinAndSelect('m.product', 'product')
     .leftJoinAndSelect('m.createdBy', 'createdBy')
-    .orderBy('m.created_at', 'DESC')
+    .orderBy('m.createdAt', 'DESC')
     .skip(skip)
     .take(limit);
 

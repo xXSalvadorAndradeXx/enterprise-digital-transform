@@ -23,36 +23,75 @@ import {
  * GET /inventory-movements, reemplazar por `MovementResponseDto` /
  * `MovementViewModel` desde "@/types/inventario" y borrar este bloque.
  */
-type MovementTipo = "Entrada" | "Salida";
-type MovementCanal = "Tienda en línea" | "Tienda física";
 
-interface MockMovementRow {
-  readonly tipo: MovementTipo;
-  readonly canal: MovementCanal;
-  readonly responsable: string;
-  readonly cantidad: number;
-}
+
 
 interface ChannelStyle {
   readonly icon: LucideIcon;
   readonly color: string;
 }
 
-const CHANNEL_STYLES: Record<MovementCanal, ChannelStyle> = {
-  "Tienda en línea": { icon: Monitor, color: "text-blue-500" },
-  "Tienda física": { icon: Store, color: "text-fuchsia-500" },
-};
 
-const rows: readonly MockMovementRow[] = [
-  { tipo: "Entrada", canal: "Tienda en línea", responsable: "Emilio Reyes", cantidad: 45 },
-  { tipo: "Entrada", canal: "Tienda física", responsable: "Fernando Esquivel", cantidad: 45 },
-  { tipo: "Entrada", canal: "Tienda en línea", responsable: "Diego Zepeda", cantidad: 45 },
-  { tipo: "Entrada", canal: "Tienda física", responsable: "María Salgado", cantidad: 45 },
-  { tipo: "Salida", canal: "Tienda en línea", responsable: "Salvador Andrade", cantidad: 45 },
-  { tipo: "Entrada", canal: "Tienda en línea", responsable: "Mónica Campos", cantidad: 45 },
-  { tipo: "Entrada", canal: "Tienda física", responsable: "Víctor Rivas", cantidad: 45 },
-  { tipo: "Entrada", canal: "Tienda en línea", responsable: "Alex Orellana", cantidad: 45 },
-];
+
+function getDateRange(value: string): {
+  dateFrom: string;
+  dateTo: string;
+} | null {
+  const now = new Date();
+
+  if (value === "Hoy") {
+    const from = new Date(now);
+    from.setHours(0, 0, 0, 0);
+
+    const to = new Date(from);
+    to.setDate(to.getDate() + 1);
+
+    return {
+      dateFrom: from.toISOString(),
+      dateTo: to.toISOString(),
+    };
+  }
+
+  if (value === "Esta semana") {
+    const from = new Date(now);
+    from.setHours(0, 0, 0, 0);
+
+    const day = from.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+
+    from.setDate(from.getDate() + diff);
+
+    const to = new Date(from);
+    to.setDate(to.getDate() + 7);
+
+    return {
+      dateFrom: from.toISOString(),
+      dateTo: to.toISOString(),
+    };
+  }
+
+  if (value === "Este mes") {
+    const from = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1,
+    );
+
+    const to = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      1,
+    );
+
+    return {
+      dateFrom: from.toISOString(),
+      dateTo: to.toISOString(),
+    };
+  }
+
+  return null;
+}
+
 
 export default function MovementTable() {
   const {
@@ -64,11 +103,27 @@ export default function MovementTable() {
   error,
   retry,
 } = useMovements();
+
+const [searchInput, setSearchInput] = useState(query.search ?? "");
+
+useEffect(() => {
+  const timeout = setTimeout(() => {
+    updateQuery({
+      search: searchInput || undefined,
+    });
+  }, 400);
+
+  return () => clearTimeout(timeout);
+}, [searchInput, updateQuery]);
+
+const CHANNEL_STYLES: Record<MovementCanal, ChannelStyle> = {
+  "Tienda en línea": { icon: Monitor, color: "text-blue-500" },
+  "Tienda física": { icon: Store, color: "text-fuchsia-500" },
+};
   const [tipo, setTipo] = useState<MovementTipo | null>(null);
   const [canal, setCanal] = useState<MovementCanal | "Todos">("Todos");
   const [fecha, setFecha] = useState("");
   const [dateError, setDateError] = useState("");
-  const [, setPage] = useState(1);
   const [searchError, setSearchError] = useState("");
 
 
@@ -76,6 +131,35 @@ export default function MovementTable() {
   
 
   const router = useRouter();
+  if (loading) {
+  return (
+    <div className="flex min-h-[250px] items-center justify-center">
+      <p className="text-sm text-gray-500">
+        Cargando movimientos...
+      </p>
+    </div>
+  );
+}
+
+if (error) {
+  return (
+    <div className="flex min-h-[250px] flex-col items-center justify-center gap-3">
+      <p className="text-sm text-red-500">
+        {error}
+      </p>
+
+      <button
+        type="button"
+        onClick={retry}
+        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+      >
+        Reintentar
+      </button>
+    </div>
+  );
+}
+
+  
 
   
 
@@ -87,26 +171,11 @@ export default function MovementTable() {
         <div className="relative w-full sm:w-56">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
-            type="text"
-            value={query.search ?? ""}
-            maxLength={100}
-           onChange={(e) => {
-  const value = e.target.value;
-
-  if (value.length > 100) {
-    setSearchError("Máximo 100 caracteres.");
-    return;
-  }
-
-  setSearchError("");
-
-  updateQuery({
-    search: value,
-  });
-}}
-            placeholder="Buscar"
-            className="h-10 w-56 rounded-md border border-[#CFCFCF] bg-white pl-10 pr-3 text-gray-700 placeholder:text-gray-400 outline-none"
-          />
+  value={searchInput}
+  onChange={(e) => setSearchInput(e.target.value)}
+  placeholder="Buscar"
+  className="h-10 w-full rounded-md border border-gray-300 bg-white pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-blue-500"
+/>
           {searchError && <p className="mt-1 text-xs text-red-500">{searchError}</p>}
         </div>
 
@@ -119,12 +188,22 @@ export default function MovementTable() {
               { value: "Esta semana", label: "Esta semana" },
               { value: "Este mes", label: "Este mes" },
             ]}
-            selected={fecha}
             onSelect={(value) => {
-            setDateError("");
-            setFecha(value);
-            setPage(1);
-             }}
+  setDateError("");
+  setFecha(value);
+
+  const range = getDateRange(value);
+
+  if (!range) {
+    updateQuery({
+      dateFrom: undefined,
+      dateTo: undefined,
+    });
+    return;
+  }
+
+  updateQuery(range);
+}}
           />
 
           <Dropdown<MovementTipo>
@@ -253,6 +332,8 @@ export default function MovementTable() {
           </tbody>
         </table>
       </div>
+
+      
 
       {/* Paginación */}
       <div className="flex flex-wrap items-center justify-center gap-2 px-4 py-6 text-sm text-gray-500 sm:justify-end sm:px-8">

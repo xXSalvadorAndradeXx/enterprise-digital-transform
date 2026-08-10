@@ -2,6 +2,7 @@
 import { useRef } from "react";
 import { useCallback, useEffect, useState } from "react";
 
+
 import { getMovements } from "../services/movement.service";
 
 import type {
@@ -21,6 +22,7 @@ const EMPTY_META: PaginationMetaDto = {
   limit: 20,
   totalPages: 0,
 };
+
 
 export function useMovements() {
   const requestId = useRef(0);
@@ -56,10 +58,10 @@ setMeta(response.meta);
           : "No se pudieron cargar los movimientos."
       );
     } finally {
-      if (currentRequest !== requestId.current) {
-  return;
+  if (currentRequest === requestId.current) {
+    setLoading(false);
+  }
 }
-    }
   }, [query]);
 
   useEffect(() => {
