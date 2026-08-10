@@ -116,19 +116,20 @@ useEffect(() => {
   return () => clearTimeout(timeout);
 }, [searchInput, updateQuery]);
 
-const CHANNEL_STYLES: Record<MovementCanal, ChannelStyle> = {
-  "Tienda en línea": { icon: Monitor, color: "text-blue-500" },
-  "Tienda física": { icon: Store, color: "text-fuchsia-500" },
+const CHANNEL_STYLES: Record<MovementChannel, ChannelStyle> = {
+  [MovementChannel.ECOMMERCE]: {
+    icon: Monitor,
+    color: "text-blue-500",
+  },
+  [MovementChannel.TIENDA_FISICA]: {
+    icon: Store,
+    color: "text-fuchsia-500",
+  },
 };
-  const [tipo, setTipo] = useState<MovementTipo | null>(null);
-  const [canal, setCanal] = useState<MovementCanal | "Todos">("Todos");
+  const [tipo, setTipo] = useState<MovementType | null>(null);
+  const [canal, setCanal] = useState<MovementChannel| "Todos">("Todos");
   const [fecha, setFecha] = useState("");
   const [dateError, setDateError] = useState("");
-  const [searchError, setSearchError] = useState("");
-
-
-
-  
 
   const router = useRouter();
   if (loading) {
@@ -175,14 +176,12 @@ if (error) {
   onChange={(e) => setSearchInput(e.target.value)}
   placeholder="Buscar"
   className="h-10 w-full rounded-md border border-gray-300 bg-white pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-blue-500"
-/>
-          {searchError && <p className="mt-1 text-xs text-red-500">{searchError}</p>}
-        </div>
-
+/>               </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <Dropdown<string>
             label="Fecha"
             display={fecha || "Fecha"}
+            selected={fecha || null}
             options={[
               { value: "Hoy", label: "Hoy" },
               { value: "Esta semana", label: "Esta semana" },
@@ -206,39 +205,42 @@ if (error) {
 }}
           />
 
-          <Dropdown<MovementTipo>
-            label="Tipo"
-            display={tipo || "Tipo"}
-            options={[
-              { value: "Entrada", label: "Entrada" },
-              { value: "Salida", label: "Salida" },
-            ]}
-            selected={tipo}
-            onSelect={(value) => {
-             setTipo(value);
+          <Dropdown<MovementType>
+  label="Tipo"
+  display={tipo === MovementType.NUEVO_PRODUCTO ? "Entrada" : tipo === MovementType.SALIDA ? "Salida" : "Tipo"}
+  options={[
+    {
+      value: MovementType.NUEVO_PRODUCTO,
+      label: "Entrada",
+    },
+    {
+      value: MovementType.SALIDA,
+      label: "Salida",
+    },
+  ]}
+  selected={tipo}
+  onSelect={(value) => {
+    setTipo(value);
 
-               updateQuery({
-  type:
-    value === "Entrada"
-      ? MovementType.NUEVO_PRODUCTO
-      : MovementType.SALIDA,
-});
-                }}
-                />
+    updateQuery({
+      type: value,
+    });
+  }}
+/>
 
-          <Dropdown<MovementCanal | "Todos">
+          <Dropdown<MovementChannel | "Todos">
             label="Canal"
             display={canal === "Todos" ? "Canal: Todos" : `Canal: ${canal}`}
             options={[
               { value: "Todos", label: "Todos los canales" },
               {
-                value: "Tienda en línea",
+                 value: MovementChannel.ECOMMERCE,
                 label: "Tienda en línea",
                 icon: Monitor,
                 iconColor: "text-blue-500",
               },
               {
-                value: "Tienda física",
+                 value: MovementChannel.TIENDA_FISICA,
                 label: "Tienda física",
                 icon: Store,
                 iconColor: "text-fuchsia-500",
@@ -249,12 +251,7 @@ if (error) {
             setCanal(value);
 
             updateQuery({
-  channel:
-    value === "Todos"
-      ? undefined
-      : value === "Tienda física"
-      ? MovementChannel.TIENDA_FISICA
-      : MovementChannel.ECOMMERCE,
+  channel: value === "Todos" ? undefined : value,
 });
              }}
           />
@@ -280,11 +277,7 @@ if (error) {
           <tbody>
             {items.map((item, index) => {
               const isEntrada = item.direction === "ENTRADA";
-              const channel =
-                item.channel === "ECOMMERCE"
-                 ? CHANNEL_STYLES["Tienda en línea"]
-                  : CHANNEL_STYLES["Tienda física"];
-
+             const channel = CHANNEL_STYLES[item.channel];
                  const ChannelIcon = channel.icon;
 
               return (

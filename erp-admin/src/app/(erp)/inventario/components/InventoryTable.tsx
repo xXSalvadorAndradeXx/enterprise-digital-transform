@@ -1,12 +1,9 @@
 "use client";
-import { useInventory } from "../hooks/useInventory";
+
 import React, { useState } from "react";
 import type {
-  InventoryResponseDto,
   InventoryDetailDto,
-  PaginationMetaDto,
 } from "../types";
-
 
 
 import type { UseInventoryReturn } from "../hooks/useInventory";
@@ -45,17 +42,21 @@ export default function InventoryTable({
   }
 
   if (!variants[id]) {
-    const data = await loadVariants(id);
+    try {
 
-    setVariants((prev) => ({
-      ...prev,
-      [id]: data,
-    }));
+      const data = await loadVariants(id);
+
+      setVariants((prev) => ({
+        ...prev,
+        [id]: data,
+      }));
+    } catch {
+      return;
+    }
   }
 
   setExpandedRows((prev) => [...prev, Number(id)]);
 };
-
   if (loading) {
   return (
     <div className="p-8 text-center text-gray-500">
