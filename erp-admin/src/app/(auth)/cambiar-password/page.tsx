@@ -1,168 +1,261 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 import loginIllustration from "@/assets/login/login-illustration.png";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import PasswordRequirementsHint from "@/components/ui/PasswordRequirementsHint";
+import { useAuth } from "@/contexts/AuthContext";
+import { changePassword } from "@/services/auth/change-password.service";
+
 import SuccessAlert from "./components/SuccessAlert";
 
-interface ChangePasswordForm {
-temporaryPassword: string;
-newPassword: string;
-confirmPassword: string;
-}
+const changePasswordSchema = z
+  .object({
+    temporaryPassword: z
+      .string()
+      .min(1, "La contraseña temporal es obligatoria."),
+    newPassword: z
+      .string()
+      .min(8, "La nueva contraseña debe tener al menos 8 caracteres.")
+      .regex(/[A-Z]/, "Debe incluir una letra mayúscula.")
+      .regex(/[a-z]/, "Debe incluir una letra minúscula.")
+      .regex(/\d/, "Debe incluir un número.")
+      .regex(
+        /[^A-Za-z0-9]/,
+        "Debe incluir un carácter especial.",
+      ),
+    confirmPassword: z.string().min(
+      1,
+      "Debe confirmar la nueva contraseña.",
+    ),
+  })
+  .refine(
+    (values) =>
+      values.newPassword === values.confirmPassword,
+    {
+      path: ["confirmPassword"],
+      message: "Las contraseñas no coinciden.",
+    },
+  );
+
+type ChangePasswordForm = z.infer<
+  typeof changePasswordSchema
+>;
 
 export default function ChangePasswordPage() {
   const [showSuccess, setShowSuccess] = useState(false);
-const {
-  register,
-  watch,
-  handleSubmit,
-  formState: { errors },
-} = useForm<ChangePasswordForm>({
-  defaultValues: {
-    temporaryPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  },
-});
+  const [requestError, setRequestError] = useState<
+    string | null
+  >(null);
 
+  const router = useRouter();
+  const {
+    user,
+    isAuthenticated,
+    isInitializing,
+    mustChangePassword,
+  } = useAuth();
 
-const onSubmit = async (data: ChangePasswordForm) => {
-  console.log(data);
+  const {
+    register,
+    control,
+    handleSubmit,
+    formState: {
+      errors,
+      isSubmitting,
+      isValid,
+    },
+  } = useForm<ChangePasswordForm>({
+    resolver: zodResolver(changePasswordSchema),
+    mode: "onChange",
+    defaultValues: {
+      temporaryPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
 
-  // Simulación temporal de la petición al backend
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  useEffect(() => {
+    if (isInitializing) {
+      return;
+    }
 
-  setShowSuccess(true);
-};
+    if (!isAuthenticated || !user) {
+      router.replace("/login");
+      return;
+    }
 
-const temporaryPassword = watch("temporaryPassword") ?? "";
+    if (!mustChangePassword) {
+      const destination =
+        user.rol.trim().toUpperCase() === "EMPLEADO"
+          ? "/pedidos"
+          : "/dashboard";
 
-const password = watch("newPassword") ?? "";
+      router.replace(destination);
+    }
+  }, [
+    isAuthenticated,
+    isInitializing,
+    mustChangePassword,
+    router,
+    user,
+  ]);
 
-const passwordRules = {
-minLength: password.length >= 8,
-uppercase: /[A-Z]/.test(password),
-number: /\d/.test(password),
-symbol: /[!@#$%^&*(),.?":{}|<>]/.test(password),
-};
-const confirmPassword = watch("confirmPassword") ?? "";
+  const password =
+    useWatch({
+      control,
+      name: "newPassword",
+    }) ?? "";
 
-const passwordIsValid =
-passwordRules.minLength &&
-passwordRules.uppercase &&
-passwordRules.number &&
-passwordRules.symbol;
+  const passwordRules = {
+    minLength: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /\d/.test(password),
+    symbol: /[^A-Za-z0-9]/.test(password),
+  };
 
-const confirmPasswordIsValid =
-confirmPassword.length > 0 &&
-confirmPassword === password;
+  const onSubmit = async (
+    data: ChangePasswordForm,
+  ): Promise<void> => {
+    setRequestError(null);
 
+    try {
+      await changePassword({
+        currentPassword: data.temporaryPassword,
+        newPassword: data.newPassword,
+      });
 
-const temporaryPasswordIsValid = temporaryPassword.trim().length > 0;
+      setShowSuccess(true);
+    } catch (error) {
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "No fue posible cambiar la contraseña.",
+      );
+    }
+  };
 
-return (
-<main className="min-h-screen bg-white">
-<div className="grid min-h-screen w-full items-center gap-59 px-9 py-12 lg:grid-cols-[580px_420px] lg:px-12">
-{/* ================= COLUMNA IZQUIERDA ================= */}
-<section className="flex justify-start">
-    
-<div className="w-full max-w-[580px]">
-
-<h1 className="text-[40px] w-[580px] font-bold leading-tight text-[#000000]">
-    Crea una nueva contraseña
-</h1>
-
-<p className="mt-3 text-[16px] leading-relaxed text-[#4A4A4A]">
-    Por seguridad, debes cambiar tu contraseña temporal antes de acceder al ERP.
-</p>
-
-<form className="mt-8 flex flex-col gap-6" onSubmit={handleSubmit(onSubmit)}>
-
-<div className="flex flex-col gap-2 w-[362px] ">
-
-<Input 
-  label="Contraseña temporal actual"
-  error={!!errors.temporaryPassword}
-  errorMessage={errors.temporaryPassword?.message}
-  {...register("temporaryPassword", {
-    required: "La contraseña temporal es obligatoria.",
-  })}
-/>
-
-
-  <Input
-    id="newPassword"
-    label="Nueva contraseña"
-    type="password"
-    error={password.length > 0 && !passwordIsValid}
-    {...register("newPassword")}
-  />
-
-
-<Input
-  id="confirmPassword"
-  label="Confirmar nueva contraseña"
-  type="password"
-  error={
-    confirmPassword.length > 0 &&
-    !confirmPasswordIsValid
+  if (
+    isInitializing ||
+    !isAuthenticated ||
+    !user ||
+    !mustChangePassword
+  ) {
+    return (
+      <main
+        className="grid min-h-screen place-items-center bg-white"
+        role="status"
+      >
+        <p className="text-sm text-[#4A4A4A]">
+          Validando sesión...
+        </p>
+      </main>
+    );
   }
-  errorMessage={
-    confirmPassword.length > 0 &&
-    !confirmPasswordIsValid
-      ? "Las contraseñas no coinciden."
-      : undefined
-  }
-  {...register("confirmPassword")}
-/>
 
-  <PasswordRequirementsHint rules={passwordRules} />
-</div>
+  return (
+    <main className="min-h-screen bg-white">
+      <div className="grid min-h-screen w-full items-center gap-16 px-9 py-12 lg:grid-cols-[580px_420px] lg:px-12">
+        <section className="flex justify-start">
+          <div className="w-full max-w-[580px]">
+            <h1 className="text-[40px] font-bold leading-tight text-black">
+              Crea una nueva contraseña
+            </h1>
 
+            <p className="mt-3 text-[16px] leading-relaxed text-[#4A4A4A]">
+              Por seguridad, debes cambiar tu contraseña temporal antes de acceder al ERP.
+            </p>
 
+            <form
+              className="mt-8 flex flex-col gap-6"
+              onSubmit={handleSubmit(onSubmit)}
+              noValidate
+            >
+              <div className="flex w-full max-w-[362px] flex-col gap-3">
+                <Input
+                  label="Contraseña temporal actual"
+                  type="password"
+                  autoComplete="current-password"
+                  error={Boolean(errors.temporaryPassword)}
+                  errorMessage={errors.temporaryPassword?.message}
+                  {...register("temporaryPassword")}
+                />
 
-<Button
-  type="submit"
-  className="mt-1 self-center w-[352px]"
->
-  Cambiar contraseña y acceder
-</Button>
+                <Input
+                  id="newPassword"
+                  label="Nueva contraseña"
+                  type="password"
+                  autoComplete="new-password"
+                  error={Boolean(errors.newPassword)}
+                  errorMessage={errors.newPassword?.message}
+                  {...register("newPassword")}
+                />
 
-</form>
-</div>
-</section>
+                <Input
+                  id="confirmPassword"
+                  label="Confirmar nueva contraseña"
+                  type="password"
+                  autoComplete="new-password"
+                  error={Boolean(errors.confirmPassword)}
+                  errorMessage={errors.confirmPassword?.message}
+                  {...register("confirmPassword")}
+                />
 
-{/* ================= COLUMNA DERECHA ================= */}
-<section className="hidden lg:block">
-<div className="relative ml-auto h-[calc(100vh-48px)] w-[420px] overflow-hidden rounded-t-full bg-[#F2F5FC]">
-<Image
-    src={loginIllustration}
-    alt="Ilustración de cambio de contraseña"
-    priority
-    aria-hidden="true"
-    sizes="420px"
-    className="absolute left-1/2 top-[32%] h-auto w-[165%] max-w-none -translate-x-1/2 object-contain"
-/>
-</div>
-</section>
+                <PasswordRequirementsHint
+                  rules={passwordRules}
+                />
 
-</div>
+                {requestError && (
+                  <p
+                    role="alert"
+                    className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                  >
+                    {requestError}
+                  </p>
+                )}
+              </div>
 
+              <Button
+                type="submit"
+                loading={isSubmitting}
+                disabled={!isValid || isSubmitting}
+                className="mt-1 w-[352px] self-center"
+              >
+                Cambiar contraseña y acceder
+              </Button>
+            </form>
+          </div>
+        </section>
 
-<SuccessAlert
-  open={showSuccess}
-  onClose={() => setShowSuccess(false)}
-  title="¡Contraseña actualizada!"
-  message="Se guardó su contraseña correctamente."
-  buttonText="Aceptar"
-/>
+        <section className="hidden lg:block">
+          <div className="relative ml-auto h-[calc(100vh-48px)] w-[420px] overflow-hidden rounded-t-full bg-[#F2F5FC]">
+            <Image
+              src={loginIllustration}
+              alt=""
+              priority
+              aria-hidden="true"
+              sizes="420px"
+              className="absolute left-1/2 top-[32%] h-auto w-[165%] max-w-none -translate-x-1/2 object-contain"
+            />
+          </div>
+        </section>
+      </div>
 
-</main>
-);
+      <SuccessAlert
+        open={showSuccess}
+        onClose={() => setShowSuccess(false)}
+        title="¡Contraseña actualizada!"
+        message="Se guardó su contraseña correctamente."
+        buttonText="Aceptar"
+      />
+    </main>
+  );
 }

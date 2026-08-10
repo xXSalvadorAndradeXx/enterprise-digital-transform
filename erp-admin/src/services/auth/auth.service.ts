@@ -84,7 +84,8 @@ function isPublicAuthSession(
   return (
     isRecord(value) &&
     isAuthUser(value.user) &&
-    value.isAuthenticated === true
+    value.isAuthenticated === true &&
+    typeof value.mustChangePassword === "boolean"
   );
 }
 

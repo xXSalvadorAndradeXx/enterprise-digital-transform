@@ -71,7 +71,8 @@ export class UsersController {
               }
             }
           }
-        }
+        },
+        temporaryPassword: { type: 'string', example: 'AbC123!@#' }
       }
     }
   })
@@ -124,12 +125,13 @@ export class UsersController {
   })
   @ApiBody({ type: CreateUserDto, description: 'Datos del nuevo usuario a crear' })
   async create(@Body() createUserDto: CreateUserDto) {
-    const { user } = await this.usersService.create(createUserDto);
+    const { user, temporaryPassword } = await this.usersService.create(createUserDto);
     const serializedUser = plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true });
     return {
       status: 'success',
       message: 'Usuario creado exitosamente',
       data: serializedUser,
+      temporaryPassword,
     };
   }
 
@@ -633,5 +635,241 @@ export class UsersController {
   })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     await this.usersService.remove(id);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users:update')
+  @ApiOperation({
+    summary: 'Generar nueva contraseña temporal para un usuario',
+    description: 'Genera una nueva contraseña temporal compleja para el usuario especificado, actualiza su hash en base de datos, marca mustChangePassword en true y reinicia sus contadores de intentos fallidos y bloqueos.',
+  })
+  @Post(':id/generate-temporary-password')
+  @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario (UUID v4)', example: 'f8d3848b-d113-49cd-a5d6-8c4d5865dec9' })
+  @ApiOkResponse({
+    description: 'La contraseña temporal ha sido generada exitosamente.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        message: { type: 'string', example: 'Contraseña temporal generada exitosamente' },
+        temporaryPassword: { type: 'string', example: 'AbC123!@#$%' }
+      }
+    }
+  })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso users:update requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: El usuario especificado no existe en la base de datos.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Usuario no encontrado' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
+  async generateTemporaryPassword(@Param('id', ParseUUIDPipe) id: string) {
+    const { temporaryPassword } = await this.usersService.generateTemporaryPassword(id);
+    return {
+      status: 'success',
+      message: 'Contraseña temporal generada exitosamente',
+      temporaryPassword,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users:update')
+  @ApiOperation({
+    summary: 'Desbloquear un usuario bloqueado',
+    description: 'Desbloquea una cuenta de usuario que ha sido bloqueada debido a intentos fallidos de inicio de sesión, reiniciando su contador de intentos, expirando su bloqueo y asegurando que esté activo.',
+  })
+  @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario (UUID v4)', example: 'f8d3848b-d113-49cd-a5d6-8c4d5865dec9' })
+  @ApiOkResponse({
+    description: 'El usuario ha sido desbloqueado exitosamente.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        message: { type: 'string', example: 'Usuario desbloqueado exitosamente' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'f8d3848b-d113-49cd-a5d6-8c4d5865dec9' },
+            firstName: { type: 'string', example: 'Juan' },
+            lastName: { type: 'string', example: 'Pérez' },
+            email: { type: 'string', example: 'juan.perez@ecommerce.local' },
+            isActive: { type: 'boolean', example: true },
+            isBlocked: { type: 'boolean', example: false },
+            mustChangePassword: { type: 'boolean', example: true },
+            failedLoginAttempts: { type: 'integer', example: 0 },
+            lockedUntil: { type: 'string', format: 'date-time', example: null, nullable: true },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-07-22T21:29:03.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-07-22T21:29:03.000Z' },
+            roles: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'b3b16384-c113-49cd-b5d6-8c4d5865dec2' },
+                  name: { type: 'string', example: 'CLIENTE' },
+                  description: { type: 'string', example: 'Cliente de la tienda' },
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso users:update requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: El usuario especificado no existe en la base de datos.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Usuario no encontrado' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
+  @Patch(':id/unlock')
+  async unlockUser(@Param('id', ParseUUIDPipe) id: string) {
+    const result = await this.usersService.unlockUser(id);
+    const serializedUser = plainToInstance(UserResponseDto, result, { excludeExtraneousValues: true });
+    return {
+      status: 'success',
+      message: 'Usuario desbloqueado exitosamente',
+      data: serializedUser,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('users:update')
+  @ApiOperation({
+    summary: 'Desbloquear un usuario y restablecer su contraseña',
+    description: 'Desbloquea la cuenta del usuario reiniciando sus contadores de bloqueo, lo activa si estaba inactivo y genera de forma atómica una contraseña temporal.',
+  })
+  @ApiParam({ name: 'id', type: String, description: 'Identificador único del usuario (UUID v4)', example: 'f8d3848b-d113-49cd-a5d6-8c4d5865dec9' })
+  @ApiOkResponse({
+    description: 'El usuario ha sido desbloqueado y su contraseña ha sido restablecida exitosamente.',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        message: { type: 'string', example: 'Usuario desbloqueado y contraseña restablecida exitosamente' },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'f8d3848b-d113-49cd-a5d6-8c4d5865dec9' },
+            firstName: { type: 'string', example: 'Juan' },
+            lastName: { type: 'string', example: 'Pérez' },
+            email: { type: 'string', example: 'juan.perez@ecommerce.local' },
+            isActive: { type: 'boolean', example: true },
+            isBlocked: { type: 'boolean', example: false },
+            mustChangePassword: { type: 'boolean', example: true },
+            failedLoginAttempts: { type: 'integer', example: 0 },
+            lockedUntil: { type: 'string', format: 'date-time', example: null, nullable: true },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-07-22T21:29:03.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-07-22T21:29:03.000Z' },
+            roles: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'b3b16384-c113-49cd-b5d6-8c4d5865dec2' },
+                  name: { type: 'string', example: 'CLIENTE' },
+                  description: { type: 'string', example: 'Cliente de la tienda' },
+                }
+              }
+            }
+          }
+        },
+        temporaryPassword: { type: 'string', example: 'AbC123!@#$%' }
+      }
+    }
+  })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 401 },
+        message: { type: 'string', example: 'Unauthorized' }
+      }
+    }
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso users:update requerido.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 403 },
+        message: { type: 'string', example: 'Forbidden resource' },
+        error: { type: 'string', example: 'Forbidden' }
+      }
+    }
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: El usuario especificado no existe en la base de datos.',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'integer', example: 404 },
+        message: { type: 'string', example: 'Usuario no encontrado' },
+        error: { type: 'string', example: 'Not Found' }
+      }
+    }
+  })
+  @Patch(':id/unlock-and-reset-password')
+  async unlockAndResetPassword(@Param('id', ParseUUIDPipe) id: string) {
+    const { user, temporaryPassword } = await this.usersService.unlockAndResetPassword(id);
+    const serializedUser = plainToInstance(UserResponseDto, user, { excludeExtraneousValues: true });
+    return {
+      status: 'success',
+      message: 'Usuario desbloqueado y contraseña restablecida exitosamente',
+      data: serializedUser,
+      temporaryPassword,
+    };
   }
 }

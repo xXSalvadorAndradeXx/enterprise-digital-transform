@@ -251,6 +251,8 @@ export class UsersService {
             'Operación rechazada: No se puede desactivar al último administrador activo en el sistema.'
           );
         }
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
+        await this.refreshTokenService.revokeAllUserTokens(id);
       }
       user.isActive = updateUserDto.isActive;
     }
@@ -296,6 +298,7 @@ export class UsersService {
 
       // Desactivar y aplicar soft-delete
       user.isActive = false;
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
       await userRepo.save(user);
       return userRepo.softRemove(user);
     });
@@ -304,5 +307,81 @@ export class UsersService {
     await this.refreshTokenService.revokeAllUserTokens(id);
 
     return removedUser;
+  }
+
+  
+  async generateTemporaryPassword(id: string): Promise<{ temporaryPassword: string }> {
+    const user = await this.userRepository.findOneBy({ id });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const temporaryPassword = generateTemporaryPassword(12);
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+    user.passwordHash = passwordHash;
+    user.mustChangePassword = true;
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.isBlocked = false;
+
+    await this.userRepository.save(user);
+
+    this.logger.log(
+      `[TEMPORARY PASSWORD GENERATED] Contraseña temporal generada para usuario ${user.email}: ${temporaryPassword}`
+    );
+
+    return { temporaryPassword };
+  }
+
+  async unlockUser(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['roles'],
+    });
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.isBlocked = false;
+    user.isActive = true;
+
+    return this.userRepository.save(user);
+  }
+
+  async unlockAndResetPassword(id: string): Promise<{ user: User; temporaryPassword: string }> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['roles'],
+    });
+    if (!user) {
+      throw new NotFoundException(`Usuario con ID ${id} no encontrado`);
+    }
+
+    // 1. Lógica de desbloqueo
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.isBlocked = false;
+    user.isActive = true;
+
+    // 2. Generar contraseña temporal segura
+    const temporaryPassword = generateTemporaryPassword(12);
+    const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+
+    user.passwordHash = passwordHash;
+    user.mustChangePassword = true;
+
+    const savedUser = await this.userRepository.save(user);
+
+    this.logger.log(
+      `[TEMPORARY PASSWORD GENERATED] Contraseña temporal generada para usuario ${savedUser.email} (durante desbloqueo): ${temporaryPassword}`
+    );
+
+    return {
+      user: savedUser,
+      temporaryPassword,
+    };
   }
 }

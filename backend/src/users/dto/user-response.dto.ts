@@ -28,6 +28,9 @@ export class UserResponseDto {
   isActive!: boolean;
 
   @Expose()
+  isBlocked!: boolean;
+
+  @Expose()
   mustChangePassword!: boolean;
 
   @Expose()

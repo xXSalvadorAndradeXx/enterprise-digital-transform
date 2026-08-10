@@ -160,6 +160,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       rol,
+      tokenVersion: user.tokenVersion,
     };
 
     const secret = this.configService.get<string>('JWT_SECRET') || 'default_secret';

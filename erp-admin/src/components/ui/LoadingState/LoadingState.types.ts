@@ -1,1 +1,1 @@
-export interface LoadingStateProps {}
+export type LoadingStateProps = Record<string, never>;

@@ -3,51 +3,19 @@
 import { Search } from "lucide-react";
 import { SearchBarProps } from "./SearchBar.types";
 
-const SearchBar = ({
-  value,
-  onChange,
-  placeholder = "Buscar Proveedor",
-  disabled = false,
-  className = "",
-}: SearchBarProps) => {
+export function SearchBar({ value, onChange, placeholder = "Buscar", className = "" }: SearchBarProps) {
   return (
-    <div className={`relative w-[382px] ${className}`}>
-      <Search
-        size={16}
-        strokeWidth={2}
-        className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7280]"
-      />
-
+    <div
+      className={`flex w-full max-w-xs items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 transition-colors focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 ${className}`}
+    >
+      <Search size={16} className="shrink-0 text-gray-400" />
       <input
         type="text"
         value={value}
-        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="
-          h-[42px]
-          w-full
-          rounded-[4px]
-          border
-          border-[#808080]
-          bg-white
-          pl-11
-          pr-4
-          text-[14px]
-          font-normal
-          text-[#1F2937]
-          placeholder:text-[#6B7280]
-          outline-none
-          transition-all
-          focus:border-[#4F46E5]
-          focus:ring-1
-          focus:ring-[#4F46E5]
-          disabled:bg-gray-100
-          disabled:cursor-not-allowed
-        "
+        className="w-full bg-transparent text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none"
       />
     </div>
   );
-};
-
-export default SearchBar;
+}

@@ -36,6 +36,7 @@ interface Props {
 rules: {
 minLength: boolean;
 uppercase: boolean;
+lowercase: boolean;
 number: boolean;
 symbol: boolean;
 };
@@ -91,6 +92,16 @@ rules.uppercase
 }
 >
 • Una letra mayúscula
+</li>
+
+<li
+className={
+rules.lowercase
+    ? "text-[#4CAF50]"
+    : "text-[#F44336]"
+}
+>
+• Una letra minúscula
 </li>
 
 {/* =====================================================

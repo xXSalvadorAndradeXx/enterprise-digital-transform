@@ -43,17 +43,9 @@ async function bootstrap() {
     .setTitle('Ecommerce API')
     .setDescription('Backend RESTful para el sistema de Ecommerce')
     .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'Authorization',
-        in: 'header',
-      },
-      'JWT',
-    )
+    .addBearerAuth()
     .build();
+
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 

@@ -22,7 +22,7 @@ type AuthContextUser = AuthUser & {
 
 interface AuthContextValue {
   user: AuthContextUser | null;
-  mustChangePassword: false;
+  mustChangePassword: boolean;
   isAuthenticated: boolean;
   isInitializing: boolean;
   establishSession: (
@@ -57,7 +57,8 @@ function isPublicAuthSession(value: unknown): value is PublicAuthSession {
   return (
     isRecord(value) &&
     isAuthUser(value.user) &&
-    value.isAuthenticated === true
+    value.isAuthenticated === true &&
+    typeof value.mustChangePassword === "boolean"
   );
 }
 
@@ -73,16 +74,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     useRef<Promise<PublicAuthSession | null> | null>(null);
   const [user, setUser] = useState<AuthContextUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [mustChangePassword, setMustChangePassword] =
+    useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
   const clearAuthState = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
+    setMustChangePassword(false);
   }, []);
 
   const applyPublicSession = useCallback((session: PublicAuthSession) => {
     setUser(toAuthContextUser(session.user));
     setIsAuthenticated(true);
+    setMustChangePassword(session.mustChangePassword);
   }, []);
 
   const establishSession = useCallback(
@@ -165,7 +170,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      mustChangePassword: false,
+      mustChangePassword,
       isAuthenticated,
       isInitializing,
       establishSession,
@@ -174,6 +179,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }),
     [
       user,
+      mustChangePassword,
       isAuthenticated,
       isInitializing,
       establishSession,

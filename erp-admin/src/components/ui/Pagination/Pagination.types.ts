@@ -2,5 +2,6 @@ export interface PaginationProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-  className?: string;
+  /** How many pages to show around the current page. Defaults to 1. */
+  siblingCount?: number;
 }

@@ -47,6 +47,9 @@ export class User {
   @Column({ name: 'locked_until', type: 'timestamptz', nullable: true })
   lockedUntil!: Date | null;
 
+  @Column({ name: 'token_version', type: 'integer', default: 0, nullable: false })
+  tokenVersion!: number;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
