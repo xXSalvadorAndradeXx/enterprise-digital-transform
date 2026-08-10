@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { AddedProduct } from "./AddedProductsTable";
 import type { PurchaseVariantField, PurchaseVariantValue } from "./VariantRow";
+import { ColorHexInput } from "./ColorHexInput";
 
 type IncomeDetailsPanelProps = {
   product: AddedProduct;
@@ -106,29 +107,40 @@ export function IncomeDetailsPanel({
           {variants.map((variant, index) => (
             <div
               key={variant.id}
-              className="grid grid-cols-1 items-center gap-y-3 lg:grid-cols-[minmax(150px,1fr)_minmax(180px,1fr)_minmax(230px,1fr)_32px] lg:gap-x-8"
+              className="grid grid-cols-1 items-center gap-y-3 lg:grid-cols-[minmax(130px,1fr)_minmax(150px,1fr)_minmax(160px,1fr)_minmax(190px,1fr)_32px] lg:gap-x-5"
             >
-              {(["size", "quantity", "unitCost"] as const).map((field) => (
+              {(["size", "color", "quantity", "unitCost"] as const).map((field) => (
                 <label
                   key={field}
                   className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[#4A4A4A] sm:flex-row sm:items-center sm:gap-2"
                 >
                   {field === "size"
                     ? "Talla"
+                    : field === "color"
+                      ? "Color"
                     : field === "quantity"
                       ? "Cantidad"
                       : "Costo Unitario"}
-                  <input
-                    ref={index === 0 && field === "size" ? firstInputRef : undefined}
-                    type="text"
-                    value={variant[field]}
-                    onChange={(event) =>
-                      updateVariant(variant.id, field, event.target.value)
-                    }
-                    className={`h-8 w-full rounded-[4px] border border-[#878A92] bg-white px-2 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1] ${
-                      field === "unitCost" ? "lg:w-[84px]" : "lg:w-[70px]"
-                    }`}
-                  />
+                  {field === "color" ? (
+                    <ColorHexInput
+                      value={variant.color}
+                      ariaLabel={`Color de variante ${index + 1}`}
+                      onChange={(color) => updateVariant(variant.id, "color", color)}
+                      className="w-full lg:w-[118px]"
+                    />
+                  ) : (
+                    <input
+                      ref={index === 0 && field === "size" ? firstInputRef : undefined}
+                      type="text"
+                      value={variant[field]}
+                      onChange={(event) =>
+                        updateVariant(variant.id, field, event.target.value)
+                      }
+                      className={`h-8 w-full rounded-[4px] border border-[#878A92] bg-white px-2 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1] ${
+                        field === "unitCost" ? "lg:w-[84px]" : "lg:w-[70px]"
+                      }`}
+                    />
+                  )}
                 </label>
               ))}
               <button

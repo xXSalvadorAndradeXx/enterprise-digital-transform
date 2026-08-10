@@ -2,6 +2,7 @@
 
 export type MockInventoryVariant = {
   size: string;
+  color: string;
   stock: number;
   unitCost: number;
 };
@@ -11,6 +12,7 @@ export type MockInventoryProduct = {
   name: string;
   sku: string;
   category: string;
+  brand: string;
   variants: MockInventoryVariant[];
 };
 
@@ -22,10 +24,11 @@ export const DEFAULT_MOCK_INVENTORY: readonly MockInventoryProduct[] = [
     name: "Raw Black T-Shirt",
     sku: "RAW-BLACK-001",
     category: "Moda",
+    brand: "Raw",
     variants: [
-      { size: "S", stock: 35, unitCost: 5 },
-      { size: "M", stock: 12, unitCost: 5 },
-      { size: "L", stock: 28, unitCost: 5 },
+      { size: "S", color: "#000000", stock: 35, unitCost: 5 },
+      { size: "M", color: "#000000", stock: 12, unitCost: 5 },
+      { size: "L", color: "#000000", stock: 28, unitCost: 5 },
     ],
   },
   {
@@ -33,10 +36,11 @@ export const DEFAULT_MOCK_INVENTORY: readonly MockInventoryProduct[] = [
     name: "Camisa blanca",
     sku: "CAM-BLANCA-002",
     category: "Moda",
+    brand: "Woden",
     variants: [
-      { size: "S", stock: 14, unitCost: 7.5 },
-      { size: "M", stock: 20, unitCost: 7.5 },
-      { size: "L", stock: 9, unitCost: 7.5 },
+      { size: "S", color: "#FFFFFF", stock: 14, unitCost: 7.5 },
+      { size: "M", color: "#FFFFFF", stock: 20, unitCost: 7.5 },
+      { size: "L", color: "#FFFFFF", stock: 9, unitCost: 7.5 },
     ],
   },
   {
@@ -44,10 +48,11 @@ export const DEFAULT_MOCK_INVENTORY: readonly MockInventoryProduct[] = [
     name: "Jeans azul",
     sku: "JEANS-AZUL-003",
     category: "Moda",
+    brand: "Denim Co.",
     variants: [
-      { size: "28", stock: 8, unitCost: 12 },
-      { size: "30", stock: 11, unitCost: 12 },
-      { size: "32", stock: 6, unitCost: 12 },
+      { size: "28", color: "#1E3A8A", stock: 8, unitCost: 12 },
+      { size: "30", color: "#1E3A8A", stock: 11, unitCost: 12 },
+      { size: "32", color: "#1E3A8A", stock: 6, unitCost: 12 },
     ],
   },
 ];

@@ -1,96 +1,86 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 
 import { PurchaseForm } from "../../components/form";
-import {
-  getLocalPurchasesServerSnapshot,
-  getLocalPurchasesSnapshot,
-  subscribeToLocalPurchases,
-} from "../../data/localPurchases";
+import { getPurchaseById } from "../../services/purchases.service";
 import type { EditablePurchase } from "../../types/purchaseEdit.types";
+import type { PurchaseResponse } from "../../types/purchases.types";
 
 type LocalPurchaseEditorProps = {
   id: string;
 };
 
-function toIsoDate(value: string): string {
-  const [day, month, year] = value.split("-");
-  return day && month && year ? `${year}-${month}-${day}` : value;
-}
-
-function toEditablePurchase(
-  row: ReturnType<typeof getLocalPurchasesSnapshot>[number],
-): EditablePurchase {
-  const details = row.editDetails;
-  const numericTotal = Number(row.total.replace(/[^0-9.-]/g, ""));
-  const unitCost =
-    row.stockEntered > 0 && Number.isFinite(numericTotal)
-      ? numericTotal / row.stockEntered
-      : 0;
+function toEditablePurchase(purchase: PurchaseResponse): EditablePurchase {
+  const invoiceIsPdf = purchase.invoiceUrl.toLowerCase().includes(".pdf");
 
   return {
-    id: row.id,
-    reference: row.reference,
-    date: details?.purchaseDate ?? toIsoDate(row.date),
-    // El nombre funciona como respaldo para registros creados antes del detalle.
-    supplierId: details?.supplierId ?? row.supplier,
+    id: purchase.id,
+    reference: purchase.reference,
+    date: purchase.purchaseDate,
+    supplierId: purchase.supplier.id,
     product: {
-      id: details?.productId ?? `local-product-${row.id}`,
-      name: row.product,
-      sku: details?.productSku ?? `LOCAL-${row.id}`,
-      category: details?.category ?? "fashion",
-      variants:
-        details?.variants ?? [
-          {
-            id: `local-${row.id}-variant`,
-            size: "Única",
-            quantity: String(row.stockEntered),
-            unitCost: unitCost.toFixed(2),
-          },
-        ],
+      id: purchase.id,
+      name: purchase.productName,
+      sku: purchase.items[0]?.sku ?? `PURCHASE-${purchase.id}`,
+      category: purchase.categoryId ?? "fashion",
+      brand: purchase.brand ?? "Sin marca",
+      variants: purchase.items.map((item) => ({
+        id: item.id,
+        size: item.size,
+        color: item.color,
+        quantity: String(item.quantity),
+        unitCost: String(item.unitCost),
+      })),
     },
     existingInvoice: {
-      name: `factura-${row.reference}.pdf`,
-      mimeType: "application/pdf",
-      url: "data:application/pdf;base64,JVBERi0xLjQKJSVFT0Y=",
+      name: `factura-${purchase.reference}.${invoiceIsPdf ? "pdf" : "jpg"}`,
+      mimeType: invoiceIsPdf ? "application/pdf" : "image/jpeg",
+      url: purchase.invoiceUrl,
     },
   };
 }
 
 export function LocalPurchaseEditor({ id }: LocalPurchaseEditorProps) {
-  const purchases = useSyncExternalStore(
-    subscribeToLocalPurchases,
-    getLocalPurchasesSnapshot,
-    getLocalPurchasesServerSnapshot,
-  );
-  const row = purchases.find((purchase) => purchase.id === id);
+  const [purchase, setPurchase] = useState<EditablePurchase | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  if (!row) {
+  useEffect(() => {
+    let cancelled = false;
+
+    void Promise.resolve().then(async () => {
+      try {
+        const response = await getPurchaseById(id);
+        if (!cancelled) setPurchase(toEditablePurchase(response));
+      } catch (caught) {
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : "No se pudo cargar la compra.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) return <p role="status">Cargando compra...</p>;
+
+  if (!purchase || error) {
     return (
       <section className="rounded-lg border border-[#D9DAE0] bg-white p-8">
         <h1 className="text-2xl font-bold">Compra no encontrada</h1>
-        <p className="mt-2 text-[#4A4A4A]">
-          El registro mock no existe o fue eliminado del almacenamiento local.
-        </p>
-        <Link
-          href="/compras"
-          className="mt-6 inline-flex rounded-md bg-[#1C21D1] px-5 py-3 font-semibold text-white"
-        >
+        <p className="mt-2 text-[#4A4A4A]">{error || "El registro no existe."}</p>
+        <Link href="/compras" className="mt-6 inline-flex rounded-md bg-[#1C21D1] px-5 py-3 font-semibold text-white">
           Volver a compras
         </Link>
       </section>
     );
   }
 
-  const purchase = toEditablePurchase(row);
-
-  return (
-    <PurchaseForm
-      mode="edit"
-      initialData={purchase}
-      reference={purchase.reference}
-    />
-  );
+  return <PurchaseForm mode="edit" initialData={purchase} reference={purchase.reference} />;
 }

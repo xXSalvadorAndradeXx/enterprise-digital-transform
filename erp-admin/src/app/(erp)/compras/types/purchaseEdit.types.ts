@@ -16,6 +16,7 @@ export type EditablePurchase = {
     name: string;
     sku: string;
     category: string;
+    brand?: string;
     variants: PurchaseVariantValue[];
   };
   existingInvoice: ExistingInvoice | null;

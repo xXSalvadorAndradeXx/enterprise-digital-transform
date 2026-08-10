@@ -41,7 +41,7 @@ export function Table<T>({
                 <th
                   key={column.id}
                   scope="col"
-                  className={`px-3 text-sm font-normal ${alignment} ${column.className ?? ""}`}
+                  className={`overflow-hidden px-3 text-sm font-normal [overflow-wrap:anywhere] ${alignment} ${column.className ?? ""}`}
                 >
                   {column.header}
                 </th>
@@ -58,7 +58,7 @@ export function Table<T>({
                 return (
                   <td
                     key={column.id}
-                    className={`px-3 align-middle text-sm font-normal ${alignment} ${column.className ?? ""}`}
+                    className={`overflow-hidden px-3 align-middle text-sm font-normal [overflow-wrap:anywhere] ${alignment} ${column.className ?? ""}`}
                   >
                     {column.render(row)}
                   </td>

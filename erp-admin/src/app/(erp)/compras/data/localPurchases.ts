@@ -19,6 +19,7 @@ export type LocalPurchaseRow = {
     variants: Array<{
       id: string;
       size: string;
+      color?: string;
       quantity: string;
       unitCost: string;
     }>;

@@ -5,6 +5,7 @@ export type PurchaseEditSnapshot = {
   supplierId: string;
   productId: string;
   productName: string;
+  brand: string;
   categoryId: string;
   variants: PurchaseVariantValue[];
 };
@@ -20,6 +21,7 @@ export type PurchaseChangedFields = {
   supplierId?: string;
   productId?: string;
   productName?: string;
+  brand?: string;
   categoryId?: string;
   variants?: VariantChanges;
   replacementInvoice?: File;
@@ -36,6 +38,7 @@ function variantValuesDiffer(
 ): boolean {
   return (
     original.size.trim() !== current.size.trim() ||
+    original.color.trim().toUpperCase() !== current.color.trim().toUpperCase() ||
     original.quantity.trim() !== current.quantity.trim() ||
     original.unitCost.trim() !== current.unitCost.trim()
   );
@@ -57,6 +60,9 @@ export function getPurchaseChanges(
   }
   if (original.productName.trim() !== current.productName.trim()) {
     changedFields.productName = current.productName.trim();
+  }
+  if (original.brand.trim() !== current.brand.trim()) {
+    changedFields.brand = current.brand.trim();
   }
   if (original.categoryId !== current.categoryId) {
     changedFields.categoryId = current.categoryId;

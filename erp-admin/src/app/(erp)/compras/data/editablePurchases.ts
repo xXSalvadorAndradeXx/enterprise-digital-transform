@@ -18,9 +18,9 @@ export const EDITABLE_PURCHASES: readonly EditablePurchase[] = [
       sku: "NK-FORD-001",
       category: "fashion",
       variants: [
-        { id: "mock-001-s", size: "S", quantity: "35", unitCost: "3.10" },
-        { id: "mock-001-m", size: "M", quantity: "30", unitCost: "3.10" },
-        { id: "mock-001-l", size: "L", quantity: "35", unitCost: "3.10" },
+        { id: "mock-001-s", size: "S", color: "#000000", quantity: "35", unitCost: "3.10" },
+        { id: "mock-001-m", size: "M", color: "#000000", quantity: "30", unitCost: "3.10" },
+        { id: "mock-001-l", size: "L", color: "#000000", quantity: "35", unitCost: "3.10" },
       ],
     },
     existingInvoice: {
@@ -40,9 +40,9 @@ export const EDITABLE_PURCHASES: readonly EditablePurchase[] = [
       sku: "NK-LOW-002",
       category: "footwear",
       variants: [
-        { id: "mock-002-38", size: "38", quantity: "30", unitCost: "3.50" },
-        { id: "mock-002-39", size: "39", quantity: "30", unitCost: "3.50" },
-        { id: "mock-002-40", size: "40", quantity: "30", unitCost: "3.50" },
+        { id: "mock-002-38", size: "38", color: "#FFFFFF", quantity: "30", unitCost: "3.50" },
+        { id: "mock-002-39", size: "39", color: "#FFFFFF", quantity: "30", unitCost: "3.50" },
+        { id: "mock-002-40", size: "40", color: "#FFFFFF", quantity: "30", unitCost: "3.50" },
       ],
     },
     existingInvoice: {

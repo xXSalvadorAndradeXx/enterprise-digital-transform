@@ -41,14 +41,11 @@ import { DeletePurchaseConfirmModal } from "../DeletePurchaseConfirmModal";
 import { DeletePurchaseSuccessModal } from "../DeletePurchaseSuccessModal";
 import { usePurchaseSuppliers } from "../../hooks/usePurchaseSuppliers";
 import {
-  addLocalPurchase,
-  getNextLocalPurchaseIdentifiers,
-  updateLocalPurchase,
-} from "../../data/localPurchases";
-import {
-  applyMockRestock,
-  findMockInventoryProduct,
-} from "../../data/mockInventory";
+  createNewProductPurchase,
+  createRestockPurchase,
+  updatePurchase,
+  uploadPurchaseInvoice,
+} from "../../services/purchases.service";
 
 type PurchaseTab = "new-product" | "restock-product";
 
@@ -81,6 +78,7 @@ function mapNewProductErrors(
   for (const issue of issues) {
     const [section, index, field] = issue.path;
     if (section === "name" && !errors.name) errors.name = issue.message;
+    if (section === "brand" && !errors.brand) errors.brand = issue.message;
     if (section === "category" && !errors.category) errors.category = issue.message;
     if (section !== "variants") continue;
     if (typeof index !== "number") {
@@ -90,7 +88,7 @@ function mapNewProductErrors(
     const variant = draft.variants[index];
     if (!variant || typeof field !== "string") continue;
     const variantErrors = errors.variants?.[variant.id] ?? {};
-    if (field === "size" || field === "quantity" || field === "unitCost") {
+    if (field === "size" || field === "quantity" || field === "unitCost" || field === "color") {
       variantErrors[field] ??= issue.message;
     }
     if (errors.variants) errors.variants[variant.id] = variantErrors;
@@ -114,8 +112,8 @@ function mapRestockErrors(
       continue;
     }
     const row = draft.sizes[index];
-    if (row && errors.sizes && !errors.sizes[row.size]) {
-      errors.sizes[row.size] = issue.message;
+    if (row && errors.sizes && !errors.sizes[row.id]) {
+      errors.sizes[row.id] = issue.message;
     }
   }
   return errors;
@@ -140,6 +138,7 @@ export function PurchaseForm({
           supplierId: initialData.supplierId,
           productId: initialData.product.id,
           productName: initialData.product.name,
+          brand: initialData.product.brand ?? "",
           categoryId: initialData.product.category,
           variants: initialData.product.variants.map((variant) => ({ ...variant })),
         }
@@ -152,10 +151,12 @@ export function PurchaseForm({
   const [registerError, setRegisterError] = useState("");
   const [invoice, setInvoice] = useState<File | null>(null);
   const [invoiceError, setInvoiceError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [newProduct, setNewProduct] = useState<NewProductDraft>(() =>
     initialData
       ? {
           name: initialData.product.name,
+          brand: initialData.product.brand ?? "",
           category: initialData.product.category,
           variants: initialData.product.variants.map((variant) => ({ ...variant })),
         }
@@ -215,7 +216,7 @@ export function PurchaseForm({
     setInvoiceError("");
   };
 
-  const handleAddPurchase = () => {
+  const handleAddPurchase = async () => {
     setSupplierValidationVisible(true);
     if (!supplierId) return;
 
@@ -226,6 +227,7 @@ export function PurchaseForm({
         supplierId,
         productId: initialData?.product.id ?? "",
         name: newProduct.name,
+        brand: newProduct.brand,
         category: newProduct.category,
         variants: newProduct.variants,
         existingInvoice: initialData?.existingInvoice ?? null,
@@ -240,52 +242,38 @@ export function PurchaseForm({
         return;
       }
 
-      // Resumen local para TASK 691. No se envía ni persiste.
-      void editChanges.changedFields;
       if (initialData) {
-        const quantity = newProduct.variants.reduce(
-          (sum, variant) => sum + Number(variant.quantity || 0),
-          0,
-        );
-        const total = newProduct.variants.reduce(
-          (sum, variant) =>
-            sum +
-            Number(variant.quantity || 0) *
-              Number(variant.unitCost || 0),
-          0,
-        );
-        const selectedSupplier = suppliers.find(
-          (supplier) => supplier.id === supplierId,
-        );
-        const [year, month, day] = purchaseDate.split("-");
-
-        updateLocalPurchase(initialData.id, {
-          date:
-            year && month && day
-              ? `${day}-${month}-${year}`
-              : purchaseDate,
-          supplier: selectedSupplier?.provider ?? supplierId,
-          product: newProduct.name.trim(),
-          total: total.toLocaleString("en-US", {
-            style: "currency",
-            currency: "USD",
-          }),
-          stockEntered: quantity,
-          invoiceType:
-            invoice?.type === "application/pdf"
-              ? "pdf"
-              : initialData.existingInvoice?.mimeType === "application/pdf"
-                ? "pdf"
-                : "image",
-          editDetails: {
+        setIsSubmitting(true);
+        setRegisterError("");
+        try {
+          const invoiceUrl = invoice
+            ? (await uploadPurchaseInvoice(invoice)).invoiceUrl
+            : initialData.existingInvoice?.url ?? "";
+          const updated = await updatePurchase(initialData.id, {
             supplierId,
             purchaseDate,
-            productId: initialData.product.id,
-            productSku: initialData.product.sku,
-            category: newProduct.category,
-            variants: newProduct.variants.map((variant) => ({ ...variant })),
-          },
-        });
+            productName: newProduct.name.trim(),
+            categoryId: newProduct.category,
+            brand: newProduct.brand.trim(),
+            invoiceUrl,
+            variants: newProduct.variants.map((variant) => ({
+              size: variant.size.trim(),
+              color: variant.color.toUpperCase(),
+              quantity: Number(variant.quantity),
+              unitCost: Number(variant.unitCost),
+            })),
+          });
+          setPurchaseNumber(updated.reference);
+        } catch (caught) {
+          setRegisterError(
+            caught instanceof Error
+              ? caught.message
+              : "No se pudo modificar la compra.",
+          );
+          return;
+        } finally {
+          setIsSubmitting(false);
+        }
       }
       setModalOpen(true);
       return;
@@ -331,6 +319,7 @@ export function PurchaseForm({
           unitCost: validCosts[0] ?? 0,
           total,
           category: newProduct.category,
+          brand: newProduct.brand.trim(),
         },
       ]);
       setInvoice(null);
@@ -346,10 +335,6 @@ export function PurchaseForm({
         setInvoiceError(getInvoiceIssue(validation.error.issues));
         return;
       }
-      const inventoryProduct = findMockInventoryProduct(
-        restock.selectedProductId,
-      );
-      if (!inventoryProduct) return;
       const localSequence = productSequenceRef.current++;
       const quantity = restock.sizes.reduce(
         (sum, row) => sum + Number(row.quantity || 0),
@@ -360,30 +345,25 @@ export function PurchaseForm({
         {
           id: `qa-local-restock-${localSequence}`,
           reference: `CP-${String(sequenceRef.current).padStart(4, "0")}`,
-          name: inventoryProduct.name,
-          sku: inventoryProduct.sku,
+          name: restock.search.trim(),
+          sku: restock.sizes.find((row) => !row.isNew)?.id ?? "NUEVA-VARIANTE",
           invoiceFile: invoice,
           variants: restock.sizes.map((row) => {
-            const inventoryVariant = inventoryProduct.variants.find(
-              (variant) => variant.size === row.size,
-            );
             return {
               id: `restock-${localSequence}-${row.size}`,
               size: row.size,
+              color: row.color,
               quantity: row.quantity,
-              unitCost: String(inventoryVariant?.unitCost ?? 0),
+              unitCost: row.unitCost,
             };
           }),
           quantity,
-          unitCost: inventoryProduct.variants[0]?.unitCost ?? 0,
+          unitCost: Number(restock.sizes[0]?.unitCost ?? 0),
           total: restock.sizes.reduce((sum, row) => {
-            const inventoryVariant = inventoryProduct.variants.find(
-              (variant) => variant.size === row.size,
-            );
-            return sum + Number(row.quantity || 0) * (inventoryVariant?.unitCost ?? 0);
+            return sum + Number(row.quantity || 0) * Number(row.unitCost || 0);
           }, 0),
-          inventoryProductId: inventoryProduct.id,
-          category: inventoryProduct.category,
+          inventoryProductId: restock.selectedProductId,
+          restockRows: restock.sizes.map((row) => ({ ...row })),
         },
       ]);
       setInvoice(null);
@@ -398,7 +378,7 @@ export function PurchaseForm({
     // Reemplazar por el número devuelto por Backend.
   };
 
-  const handleRegisterPurchase = () => {
+  const handleRegisterPurchase = async () => {
     setSupplierValidationVisible(true);
 
     if (!supplierId) {
@@ -411,61 +391,41 @@ export function PurchaseForm({
       return;
     }
 
-    const { id, reference } = getNextLocalPurchaseIdentifiers();
-    const supplier = suppliers.find((item) => item.id === supplierId);
-    const total = addedProducts.reduce((sum, product) => sum + product.total, 0);
-    const stockEntered = addedProducts.reduce(
-      (sum, product) => sum + product.quantity,
-      0,
-    );
-    const invoiceFile = addedProducts.find(
-      (product) => product.invoiceFile,
-    )?.invoiceFile;
-    const invoiceType =
-      invoiceFile?.type === "application/pdf" ? "pdf" : "image";
-    const [year, month, day] = purchaseDate.split("-");
-
-    addLocalPurchase({
-      id,
-      reference,
-      date:
-        year && month && day
-          ? `${day}-${month}-${year}`
-          : purchaseDate,
-      supplier: supplier?.provider ?? "Proveedor seleccionado",
-      product: addedProducts.map((product) => product.name).join(", "),
-      total: total.toLocaleString("en-US", {
-        style: "currency",
-        currency: "USD",
-      }),
-      stockEntered,
-      invoiceUrl: "",
-      invoiceType,
-      editDetails: {
-        supplierId,
-        purchaseDate,
-        productId: addedProducts[0]?.id ?? `local-product-${id}`,
-        productSku: addedProducts[0]?.sku ?? `LOCAL-${id}`,
-        category: addedProducts[0]?.category ?? "fashion",
-        variants:
-          addedProducts[0]?.variants.map((variant) => ({ ...variant })) ?? [],
-      },
-    });
-    addedProducts.forEach((product) => {
-      if (!product.inventoryProductId) return;
-      applyMockRestock(
-        product.inventoryProductId,
-        product.variants.map((variant) => ({
-          size: variant.size,
-          quantity: Number(variant.quantity || 0),
-        })),
-      );
-    });
-
+    setIsSubmitting(true);
     setRegisterError("");
-    setPurchaseNumber(reference);
-    sequenceRef.current += 1;
-    setModalOpen(true);
+    try {
+      let lastReference = "";
+      for (const product of addedProducts) {
+        if (!product.invoiceFile) throw new Error("La factura es obligatoria.");
+        const invoice = await uploadPurchaseInvoice(product.invoiceFile);
+        const response = product.inventoryProductId
+          ? await createRestockPurchase({
+              supplierId,
+              inventoryId: product.inventoryProductId,
+              purchaseDate,
+              invoiceUrl: invoice.invoiceUrl,
+              existingVariants: (product.restockRows ?? []).filter((row) => !row.isNew && Number(row.quantity) > 0).map((row) => ({ inventoryDetailId: row.id, quantity: Number(row.quantity), unitCost: Number(row.unitCost) })),
+              newVariants: (product.restockRows ?? []).filter((row) => row.isNew && Number(row.quantity) > 0).map((row) => ({ size: row.size.trim(), color: row.color.toUpperCase(), quantity: Number(row.quantity), unitCost: Number(row.unitCost) })),
+            })
+          : await createNewProductPurchase({
+              supplierId,
+              purchaseDate,
+              productName: product.name,
+              categoryId: product.category ?? "",
+              brand: product.brand ?? "",
+              invoiceUrl: invoice.invoiceUrl,
+              variants: product.variants.map((variant) => ({ size: variant.size.trim(), color: variant.color.toUpperCase(), quantity: Number(variant.quantity), unitCost: Number(variant.unitCost) })),
+            });
+        lastReference = response.reference;
+      }
+      setPurchaseNumber(lastReference);
+      setAddedProducts([]);
+      setModalOpen(true);
+    } catch (error) {
+      setRegisterError(error instanceof Error ? error.message : "No se pudo registrar la compra.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const closeIncomeDetails = useCallback(() => {
@@ -542,6 +502,7 @@ export function PurchaseForm({
     supplierId,
     productId: initialData?.product.id ?? "",
     name: newProduct.name,
+    brand: newProduct.brand,
     category: newProduct.category,
     variants: newProduct.variants,
     existingInvoice: initialData?.existingInvoice ?? null,
@@ -552,6 +513,7 @@ export function PurchaseForm({
     supplierId,
     productId: initialData?.product.id ?? "",
     productName: newProduct.name,
+    brand: newProduct.brand,
     categoryId: newProduct.category,
     variants: newProduct.variants,
   };
@@ -861,7 +823,7 @@ export function PurchaseForm({
               onClick={handleAddPurchase}
               disabled={
                 isEdit
-                  ? !editValidation.success || !editChanges.hasChanges
+                  ? isSubmitting || !editValidation.success || !editChanges.hasChanges
                   : !supplierId || !activeValidation.success
               }
               className="h-11 rounded-[5px] bg-[#1C21D1] px-7 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1] sm:min-w-40"
@@ -886,7 +848,7 @@ export function PurchaseForm({
             setDeleteConfirmOpen(true);
           }}
           onRegister={handleRegisterPurchase}
-          registerDisabled={addedProducts.length === 0}
+          registerDisabled={addedProducts.length === 0 || isSubmitting}
           registerError={registerError}
         />
       )}

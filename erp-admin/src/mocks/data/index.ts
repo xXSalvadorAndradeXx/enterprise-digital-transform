@@ -4,4 +4,4 @@
  * Cada módulo debe mantener sus datos en un archivo independiente,
  * por ejemplo `purchases.mock.ts` o `suppliers.mock.ts`.
  */
-export {};
+export { mockPurchases, mockRestockInventories } from "./purchases.mock";

@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 
 import type { PurchaseVariantValue } from "./VariantRow";
+import type { RestockSize } from "./RestockTable";
 
 export type AddedProduct = {
   id: string;
@@ -16,6 +17,8 @@ export type AddedProduct = {
   total: number;
   inventoryProductId?: string;
   category?: string;
+  brand?: string;
+  restockRows?: RestockSize[];
 };
 
 type AddedProductsTableProps = {

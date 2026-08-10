@@ -1,182 +1,60 @@
 "use client";
 
-import { getMockInventory } from "../../data/mockInventory";
+import { Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { getRestockInventoryOptions, getRestockPreview } from "../../services/purchases.service";
+import type { RestockInventoryOption, RestockPreviewResponse } from "../../types/purchases.types";
 import { SearchBar } from "../SearchBar";
 import { RestockTable, type RestockSize } from "./RestockTable";
 
-export type RestockDraft = {
-  search: string;
-  selectedProductId: string;
-  sizes: RestockSize[];
-};
+export type RestockDraft = { search: string; selectedProductId: string; sizes: RestockSize[] };
+export type RestockFormErrors = { selectedProductId?: string; sizes?: Record<string, string | undefined>; sizesGeneral?: string };
+type Props = { value: RestockDraft; onChange: (value: RestockDraft) => void; errors?: RestockFormErrors };
 
-export type RestockFormErrors = {
-  selectedProductId?: string;
-  sizes?: Record<string, string | undefined>;
-  sizesGeneral?: string;
-};
+export function createInitialRestockDraft(): RestockDraft { return { search: "", selectedProductId: "", sizes: [] }; }
+export const INITIAL_RESTOCK_DRAFT = createInitialRestockDraft();
+function createNewRow(): RestockSize { return { id: `new-${crypto.randomUUID()}`, size: "", color: "", currentStock: 0, quantity: "", unitCost: "", isNew: true }; }
 
-type RestockProductFormProps = {
-  value: RestockDraft;
-  onChange: (value: RestockDraft) => void;
-  errors?: RestockFormErrors;
-};
+export function RestockProductForm({ value, onChange, errors }: Props) {
+  const [options, setOptions] = useState<RestockInventoryOption[]>([]);
+  const [preview, setPreview] = useState<RestockPreviewResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [requestError, setRequestError] = useState("");
 
-export const MOCK_RESTOCK_PRODUCT_ID = "mock-raw-black-t-shirt";
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      void getRestockInventoryOptions(value.search).then((data) => { if (!controller.signal.aborted) setOptions(data); }).catch(() => { if (!controller.signal.aborted) setRequestError("No se pudo consultar el inventario."); });
+    }, 250);
+    return () => { controller.abort(); clearTimeout(timeout); };
+  }, [value.search]);
 
-export function createInitialRestockDraft(): RestockDraft {
-  return {
-    search: "",
-    selectedProductId: "",
-    sizes: [],
+  const selectProduct = async (option: RestockInventoryOption) => {
+    setLoading(true); setRequestError("");
+    try {
+      const result = await getRestockPreview(option.id);
+      setPreview(result);
+      onChange({ search: option.productName, selectedProductId: option.id, sizes: result.details.map((detail) => ({ id: detail.inventoryDetailId, size: detail.size, color: detail.color, currentStock: detail.currentStock, quantity: "", unitCost: String(detail.currentUnitCost) })) });
+    } catch { setRequestError("No se pudo cargar el detalle del producto."); } finally { setLoading(false); }
   };
-}
 
-export const INITIAL_RESTOCK_DRAFT: RestockDraft = createInitialRestockDraft();
-
-export function RestockProductForm({
-  value,
-  onChange,
-  errors,
-}: RestockProductFormProps) {
-  const inventory = getMockInventory();
-  const normalizedSearch = value.search.trim().toLocaleLowerCase();
-  const matchingProducts = inventory.filter((product) => {
-    if (!normalizedSearch) return true;
-    return (
-      product.name.toLocaleLowerCase().includes(normalizedSearch) ||
-      product.sku.toLocaleLowerCase().includes(normalizedSearch)
-    );
-  });
-  const selectedProduct = inventory.find(
-    (product) => product.id === value.selectedProductId,
-  );
-  const total = value.sizes.reduce((sum, row) => {
-    const quantity = Number(row.quantity);
-    return Number.isFinite(quantity) && quantity >= 0 ? sum + quantity : sum;
-  }, 0);
-
-  const selectProduct = (productId: string) => {
-    const product = inventory.find((item) => item.id === productId);
-    onChange({
-      ...value,
-      selectedProductId: productId,
-      search: product?.name ?? value.search,
-      sizes:
-        product?.variants.map((variant) => ({
-          size: variant.size,
-          currentStock: variant.stock,
-          quantity: "",
-        })) ?? [],
-    });
-  };
+  const total = value.sizes.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+  const updateRow = (id: string, field: "size" | "color" | "quantity" | "unitCost", fieldValue: string) => onChange({ ...value, sizes: value.sizes.map((row) => row.id === id ? { ...row, [field]: fieldValue } : row) });
 
   return (
-    <section
-      aria-labelledby="restock-product-title"
-      className="w-full max-w-[820px] pb-11"
-    >
-      <h2 id="restock-product-title" className="text-xl font-semibold text-[#202124]">
-        Reabastecer producto
-      </h2>
-
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,500px)_210px] lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex w-full min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
-            <span className="shrink-0 text-sm font-medium">Buscar producto:</span>
-            <SearchBar
-              value={value.search}
-              placeholder="Buscar por nombre o SKU"
-              ariaLabel="Buscar producto en el inventario"
-              onChange={(search) =>
-                onChange({
-                  ...value,
-                  search,
-                  selectedProductId: "",
-                  sizes: [],
-                })
-              }
-              className="w-full lg:w-[300px]"
-            />
-          </div>
-
-          {!selectedProduct && (
-            <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-[#D9DAE0] bg-white">
-              {matchingProducts.length > 0 ? (
-                matchingProducts.map((product) => (
-                  <button
-                    key={product.id}
-                    type="button"
-                    onClick={() => selectProduct(product.id)}
-                    className="flex w-full items-center justify-between border-b border-[#E1E4E9] px-3 py-2 text-left text-sm last:border-b-0 hover:bg-[#F5F7FA] focus-visible:outline-2 focus-visible:outline-[#1C21D1]"
-                  >
-                    <span>{product.name}</span>
-                    <span className="text-xs text-[#6B6F78]">{product.sku}</span>
-                  </button>
-                ))
-              ) : (
-                <p className="px-3 py-3 text-sm text-[#4A4A4A]">
-                  No se encontraron productos.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="min-h-6 pt-1">
-            {errors?.selectedProductId && (
-              <p role="alert" className="text-xs text-red-600">
-                {errors.selectedProductId}
-              </p>
-            )}
-          </div>
+    <section aria-labelledby="restock-product-title" className="w-full pb-8">
+      <h2 id="restock-product-title" className="text-xl font-semibold">Reabastecer producto</h2>
+      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,500px)_210px] lg:justify-between">
+        <div className="relative">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4"><span className="text-sm font-medium">Buscar producto:</span><SearchBar value={value.search} placeholder="Buscar en el inventario" ariaLabel="Buscar producto" onChange={(search) => { setPreview(null); onChange({ search, selectedProductId: "", sizes: [] }); }} className="w-full sm:w-[300px]" /></div>
+          {!preview && value.search.trim() && <div className="mt-2 max-h-44 overflow-y-auto rounded border bg-white">{options.map((option) => <button key={option.id} type="button" onClick={() => void selectProduct(option)} className="flex w-full justify-between border-b px-3 py-2 text-left text-sm hover:bg-[#F5F7FA]"><span>{option.productName}</span><span className="text-xs text-[#6B6F78]">{option.sku}</span></button>)}</div>}
+          {loading && <p role="status" className="mt-2 text-sm">Cargando producto...</p>}
+          {(requestError || errors?.selectedProductId) && <p role="alert" className="mt-1 text-xs text-red-600">{requestError || errors?.selectedProductId}</p>}
         </div>
-
-        <div>
-          <p className="text-xs text-[#6B6F78]">Categoría</p>
-          <p className="mt-2 border-b border-[#B7BAC2] pb-2 text-sm">
-            {selectedProduct?.category ?? "Sin seleccionar"}
-          </p>
-        </div>
+        <div><p className="text-xs text-[#6B6F78]">Categoría</p><p className="mt-2 border-b pb-2 text-sm">{preview?.inventory.category.name ?? "Sin seleccionar"}</p>{preview && <p className="mt-3 text-sm"><b>Marca:</b> {preview.inventory.brand}</p>}</div>
       </div>
-
-      {selectedProduct && (
-        <div className="mt-8">
-          <div className="mb-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            <p><span className="font-semibold">Producto:</span> {selectedProduct.name}</p>
-            <p><span className="font-semibold">SKU:</span> {selectedProduct.sku}</p>
-          </div>
-          <RestockTable
-            rows={value.sizes}
-            errors={errors?.sizes}
-            onQuantityChange={(size, quantity) =>
-              onChange({
-                ...value,
-                sizes: value.sizes.map((row) =>
-                  row.size === size ? { ...row, quantity } : row,
-                ),
-              })
-            }
-          />
-          <div className="min-h-6 pt-1">
-            {errors?.sizesGeneral && (
-              <p role="alert" className="text-xs text-red-600">
-                {errors.sizesGeneral}
-              </p>
-            )}
-          </div>
-          <div className="mt-4 flex items-center justify-end gap-3">
-            <span className="text-base font-semibold text-[#202124]">
-              Total a reabastecer
-            </span>
-            <output
-              aria-label="Total a reabastecer"
-              className="flex h-8 w-[88px] items-center justify-center rounded-[4px] border border-[#D9DAE0] bg-[#F7F7F8] px-3 text-sm font-semibold"
-            >
-              {total}
-            </output>
-          </div>
-        </div>
-      )}
+      {preview && <div className="mt-8"><div className="mb-3 flex gap-6 text-sm"><p><b>Producto:</b> {preview.inventory.productName}</p></div><RestockTable rows={value.sizes} errors={errors?.sizes} onChange={updateRow} onRemoveNew={(id) => onChange({ ...value, sizes: value.sizes.filter((row) => row.id !== id) })} /><button type="button" onClick={() => onChange({ ...value, sizes: [...value.sizes, createNewRow()] })} className="mt-3 inline-flex items-center gap-2 font-semibold text-[#1C21D1]"><Plus aria-hidden="true" size={18} className="rounded-full border" />Agregar más talla</button>{errors?.sizesGeneral && <p role="alert" className="mt-2 text-xs text-red-600">{errors.sizesGeneral}</p>}<div className="mt-4 flex justify-end gap-3"><b>Total a reabastecer</b><output className="flex h-8 w-20 items-center justify-center rounded border bg-[#F7F7F8]">{total}</output></div></div>}
     </section>
   );
 }
