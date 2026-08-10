@@ -6,7 +6,5 @@ export const INVENTORY_ENDPOINTS = {
 } as const;
 
 export const MOVEMENT_ENDPOINTS = {
-  LIST: "/api/inventory/movements",
-  DETAIL: (id: string) => `/api/inventory/movements/${id}`,
-  ADJUSTMENTS: "/api/inventory/adjust",
+  LIST: "/api/inventory-movements",
 } as const;

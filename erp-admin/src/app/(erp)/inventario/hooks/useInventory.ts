@@ -73,7 +73,7 @@ export function useInventory() {
   }, [query]);
 
   useEffect(() => {
-    void loadInventory();
+    void Promise.resolve().then(loadInventory);
   }, [loadInventory]);
 
   const updateQuery = useCallback(
@@ -102,9 +102,9 @@ export function useInventory() {
 
     const response = await getInventoryVariants(id);
 
-    variantsCache.current[id] = response.data;
+    variantsCache.current[id] = response;
 
-    return response.data;
+    return response;
   }, []);
 
   return {

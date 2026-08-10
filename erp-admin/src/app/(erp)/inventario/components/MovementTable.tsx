@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useMovements } from "../hooks/useMovements";
-import { MovementChannel, MovementType } from "../types";
+import { MovementChannel, MovementDirection } from "../types";
 import {
   Search,
   ArrowUp,
@@ -116,15 +116,15 @@ useEffect(() => {
   return () => clearTimeout(timeout);
 }, [searchInput, updateQuery]);
 
-const CHANNEL_STYLES: Record<MovementCanal, ChannelStyle> = {
-  "Tienda en línea": { icon: Monitor, color: "text-blue-500" },
-  "Tienda física": { icon: Store, color: "text-fuchsia-500" },
+const CHANNEL_STYLES: Record<MovementChannel, ChannelStyle> = {
+  [MovementChannel.ECOMMERCE]: { icon: Monitor, color: "text-blue-500" },
+  [MovementChannel.TIENDA_FISICA]: { icon: Store, color: "text-fuchsia-500" },
 };
-  const [tipo, setTipo] = useState<MovementTipo | null>(null);
-  const [canal, setCanal] = useState<MovementCanal | "Todos">("Todos");
+  const [tipo, setTipo] = useState<MovementDirection | null>(null);
+  const [canal, setCanal] = useState<MovementChannel | "TODOS">("TODOS");
   const [fecha, setFecha] = useState("");
   const [dateError, setDateError] = useState("");
-  const [searchError, setSearchError] = useState("");
+  const [searchError] = useState("");
 
 
 
@@ -183,6 +183,7 @@ if (error) {
           <Dropdown<string>
             label="Fecha"
             display={fecha || "Fecha"}
+            selected={fecha || null}
             options={[
               { value: "Hoy", label: "Hoy" },
               { value: "Esta semana", label: "Esta semana" },
@@ -206,39 +207,34 @@ if (error) {
 }}
           />
 
-          <Dropdown<MovementTipo>
+          <Dropdown<MovementDirection>
             label="Tipo"
-            display={tipo || "Tipo"}
+            display={tipo === MovementDirection.ENTRADA ? "Entrada" : tipo === MovementDirection.SALIDA ? "Salida" : "Tipo"}
             options={[
-              { value: "Entrada", label: "Entrada" },
-              { value: "Salida", label: "Salida" },
+              { value: MovementDirection.ENTRADA, label: "Entrada" },
+              { value: MovementDirection.SALIDA, label: "Salida" },
             ]}
             selected={tipo}
             onSelect={(value) => {
              setTipo(value);
 
-               updateQuery({
-  type:
-    value === "Entrada"
-      ? MovementType.NUEVO_PRODUCTO
-      : MovementType.SALIDA,
-});
+               updateQuery({ direction: value });
                 }}
                 />
 
-          <Dropdown<MovementCanal | "Todos">
+          <Dropdown<MovementChannel | "TODOS">
             label="Canal"
-            display={canal === "Todos" ? "Canal: Todos" : `Canal: ${canal}`}
+            display={canal === "TODOS" ? "Canal: Todos" : canal === MovementChannel.ECOMMERCE ? "Canal: Tienda en línea" : "Canal: Tienda física"}
             options={[
-              { value: "Todos", label: "Todos los canales" },
+              { value: "TODOS", label: "Todos los canales" },
               {
-                value: "Tienda en línea",
+                value: MovementChannel.ECOMMERCE,
                 label: "Tienda en línea",
                 icon: Monitor,
                 iconColor: "text-blue-500",
               },
               {
-                value: "Tienda física",
+                value: MovementChannel.TIENDA_FISICA,
                 label: "Tienda física",
                 icon: Store,
                 iconColor: "text-fuchsia-500",
@@ -250,11 +246,9 @@ if (error) {
 
             updateQuery({
   channel:
-    value === "Todos"
+    value === "TODOS"
       ? undefined
-      : value === "Tienda física"
-      ? MovementChannel.TIENDA_FISICA
-      : MovementChannel.ECOMMERCE,
+      : value,
 });
              }}
           />
@@ -278,18 +272,19 @@ if (error) {
           </thead>
 
           <tbody>
-            {items.map((item, index) => {
-              const isEntrada = item.direction === "ENTRADA";
-              const channel =
-                item.channel === "ECOMMERCE"
-                 ? CHANNEL_STYLES["Tienda en línea"]
-                  : CHANNEL_STYLES["Tienda física"];
-
-                 const ChannelIcon = channel.icon;
+            {items.map((item) => {
+              const isEntrada = item.direction === MovementDirection.ENTRADA;
+              const channel = item.channel
+                ? CHANNEL_STYLES[item.channel]
+                : null;
+              const ChannelIcon = channel?.icon;
+              const responsibleName = item.responsibleUser
+                ? `${item.responsibleUser.firstName} ${item.responsibleUser.lastName}`
+                : "—";
 
               return (
                 <tr
-                  key={index}
+                  key={item.id}
                   className="h-16 border-b border-gray-100 text-center text-sm text-gray-700"
                 >
                   <td className="text-gray-700">{new Date(item.createdAt).toLocaleDateString()}</td>
@@ -305,19 +300,19 @@ if (error) {
                       ) : (
                         <ArrowDown className="h-3.5 w-3.5" />
                       )}
-                      {item.direction}
+                      {isEntrada ? "Entrada" : "Salida"}
                     </span>
                   </td>
                   <td className="text-gray-700">{item.quantity}</td>
                   <td>
                     <span className="inline-flex items-center gap-1.5 text-gray-700">
-                      <ChannelIcon className={`h-4 w-4 ${channel.color}`} />
-                      {item.channel}
+                      {ChannelIcon && channel ? (
+                        <ChannelIcon className={`h-4 w-4 ${channel.color}`} />
+                      ) : null}
+                      {item.channel ?? "Sin canal"}
                     </span>
                   </td>
-                  <td className="text-gray-700">{item.responsibleUser
-                                                    ? `${item.responsibleUser.firstName} ${item.responsibleUser.lastName}`
-                                                     : "-"}</td>
+                  <td className="text-gray-700">{responsibleName}</td>
                 </tr>
               );
             })}

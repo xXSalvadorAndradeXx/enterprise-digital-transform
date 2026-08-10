@@ -4,7 +4,7 @@ import { forwardInventoryRequest } from "@/app/(erp)/inventario/lib/inventory-ap
 
 export async function GET(request: NextRequest) {
   return forwardInventoryRequest(
-    `/inventory-movements${request.nextUrl.search}`,
+    `/inventory/movements${request.nextUrl.search}`,
     {
       method: "GET",
     },

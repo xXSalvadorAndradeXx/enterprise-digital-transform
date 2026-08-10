@@ -53,3 +53,17 @@ export interface CreateAdjustmentDto {
   readonly quantity: number;
   readonly comment: string;
 }
+
+/**
+ * Modelo estable que consume la tabla. Aísla la UI de las diferencias entre
+ * el contrato actual de Backend y el contrato objetivo del módulo.
+ */
+export interface MovementListItem {
+  readonly id: string;
+  readonly direction: MovementDirection;
+  readonly quantity: number;
+  readonly channel: MovementChannel | null;
+  readonly inventoryName: string;
+  readonly responsibleUser: ResponsibleUserRefDto | null;
+  readonly createdAt: string;
+}

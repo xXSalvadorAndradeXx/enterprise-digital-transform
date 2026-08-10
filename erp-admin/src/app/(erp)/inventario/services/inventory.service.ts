@@ -42,12 +42,18 @@ export async function getInventoryById(
 export async function getInventoryVariants(
   id: string,
   token?: string
-): Promise<ApiItemResponseDto<readonly InventoryDetailDto[]>> {
-  return apiRequest<ApiItemResponseDto<readonly InventoryDetailDto[]>>(
+): Promise<readonly InventoryDetailDto[]> {
+  const response = await apiRequest<
+    readonly InventoryDetailDto[] | ApiItemResponseDto<readonly InventoryDetailDto[]>
+  >(
     INVENTORY_ENDPOINTS.DETAILS(id),
     {
       method: "GET",
       token,
     }
   );
+
+  // Backend actualmente responde el arreglo directamente. Esta normalización
+  // también admite el envoltorio { data } definido por el contrato acordado.
+  return "data" in response ? response.data : response;
 }

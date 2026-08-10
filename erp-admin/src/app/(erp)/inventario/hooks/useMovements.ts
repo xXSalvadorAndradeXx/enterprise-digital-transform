@@ -7,7 +7,7 @@ import { getMovements } from "../services/movement.service";
 
 import type {
   MovementQueryDto,
-  MovementResponseDto,
+  MovementListItem,
   PaginationMetaDto,
 } from "../types";
 
@@ -28,7 +28,7 @@ export function useMovements() {
   const requestId = useRef(0);
   const [query, setQuery] = useState<MovementQueryDto>(INITIAL_QUERY);
 
-  const [items, setItems] = useState<MovementResponseDto[]>([]);
+  const [items, setItems] = useState<MovementListItem[]>([]);
   const [meta, setMeta] = useState<PaginationMetaDto>(EMPTY_META);
 
   const [loading, setLoading] = useState(false);
@@ -65,7 +65,7 @@ setMeta(response.meta);
   }, [query]);
 
   useEffect(() => {
-    void loadMovements();
+    void Promise.resolve().then(loadMovements);
   }, [loadMovements]);
 
   const updateQuery = useCallback(
