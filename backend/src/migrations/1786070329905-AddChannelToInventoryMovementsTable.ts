@@ -35,7 +35,7 @@ export class AddChannelToInventoryMovementsTable1786070329905
         "reference_id" uuid,
         "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "product_id" uuid NOT NULL,
-        "created_by" uuid NOT NULL,
+        "created_by" uuid,
         CONSTRAINT "PK_inventory_movements_id" PRIMARY KEY ("id")
       );
     `);

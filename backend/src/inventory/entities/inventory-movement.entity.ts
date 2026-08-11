@@ -68,12 +68,13 @@ export class InventoryMovement {
   @Column({ name: 'product_id', type: 'uuid' })
   productId!: string;
 
-  @ManyToOne(() => User, { eager: true })
+  @ApiPropertyOptional({ type: () => User })
+  @ManyToOne(() => User, { eager: true, nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by' })
-  createdBy!: User;
+  createdBy!: User | null;
 
-  @Column({ name: 'created_by', type: 'uuid' })
-  createdById!: string;
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdById!: string | null;
 
   @ApiPropertyOptional({ type: () => InventoryDetail })
   @ManyToOne(() => InventoryDetail, { nullable: true, onDelete: 'SET NULL' })
