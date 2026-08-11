@@ -700,24 +700,67 @@ describe('InventoryService', () => {
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[{ id: 'mov-1' }], 1]),
+        getManyAndCount: jest
+          .fn()
+          .mockResolvedValue([[{ id: 'mov-1', createdAt: new Date() }], 1]),
       };
       movementRepo.createQueryBuilder.mockReturnValue(mockQb);
 
       const result = await service.findMovements({
+        search: 'Laptop',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-12-31',
+        channel: 'TIENDA_FISICA',
+        responsibleUserId: 'user-uuid-1',
         productId: 'prod-1',
-        type: MovementType.PURCHASE,
+        type: MovementType.IN,
         page: 1,
         limit: 10,
       });
 
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'product.nombre ILIKE :search',
+        { search: '%Laptop%' },
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith('m.channel = :channel', {
+        channel: 'TIENDA_FISICA',
+      });
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'm.created_by = :responsibleUserId',
+        { responsibleUserId: 'user-uuid-1' },
+      );
 
       // findMovements sin parámetros para cubrir branches por defecto
       const defaultResult = await service.findMovements({});
       expect(defaultResult.meta.page).toBe(1);
       expect(defaultResult.meta.limit).toBe(20);
+    });
+
+    it('findMovements debe lanzar BadRequestException si dateFrom es posterior a dateTo', async () => {
+      await expect(
+        service.findMovements({
+          dateFrom: '2026-12-31',
+          dateTo: '2026-01-01',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('findMovements debe retornar 200 con data: [] cuando no hay resultados', async () => {
+      const mockQb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      movementRepo.createQueryBuilder.mockReturnValue(mockQb);
+
+      const result = await service.findMovements({ search: 'Inexistente' });
+      expect(result.data).toEqual([]);
+      expect(result.meta.total).toBe(0);
     });
 
     it('findOne debe manejar inventarios con relaciones nulas correctamente', async () => {
@@ -764,12 +807,12 @@ describe('InventoryService', () => {
       );
 
       const result = await service.adjust(
-        { productId: 'prod-1', quantity: 5, type: MovementType.ADJUSTMENT },
+        { productId: 'prod-1', quantity: 5, type: MovementType.IN },
         'user-uuid-1',
       );
 
       expect(mockInventory.stock).toBe(15);
-      expect(result.type).toBe(MovementType.ADJUSTMENT);
+      expect(result.type).toBe(MovementType.IN);
     });
 
     it('adjust debe lanzar BadRequestException si stock final es negativo', async () => {
@@ -790,7 +833,7 @@ describe('InventoryService', () => {
 
       await expect(
         service.adjust(
-          { productId: 'prod-1', quantity: -5, type: MovementType.ADJUSTMENT },
+          { productId: 'prod-1', quantity: -5, type: MovementType.OUT },
           'user-uuid-1',
         ),
       ).rejects.toThrow(BadRequestException);
@@ -816,7 +859,7 @@ describe('InventoryService', () => {
           {
             productId: 'prod-none',
             quantity: 5,
-            type: MovementType.ADJUSTMENT,
+            type: MovementType.IN,
           },
           'user-uuid-1',
         ),

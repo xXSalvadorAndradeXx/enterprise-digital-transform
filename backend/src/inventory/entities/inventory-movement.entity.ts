@@ -42,6 +42,13 @@ export class InventoryMovement {
   @Column({ name: 'reference_id', type: 'uuid', nullable: true })
   referenceId!: string | null;
 
+  @ApiPropertyOptional({
+    example: 'TIENDA_FISICA',
+    enum: ['TIENDA_FISICA', 'ECOMMERCE'],
+  })
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  channel!: 'TIENDA_FISICA' | 'ECOMMERCE' | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

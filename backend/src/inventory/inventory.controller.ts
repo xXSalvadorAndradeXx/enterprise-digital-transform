@@ -85,14 +85,59 @@ export class InventoryController {
   @Get('movements')
   @RequirePermissions('inventory:read')
   @ApiOperation({ summary: 'Historial paginado de movimientos de inventario' })
-  @ApiQuery({ name: 'productId', required: false, type: String, example: 'uuid' })
-  @ApiQuery({ name: 'type', required: false, type: String, example: 'PURCHASE' })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Búsqueda por nombre del producto',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    type: String,
+    description: 'Fecha inicial del movimiento (ISO 8601 o YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    type: String,
+    description: 'Fecha final del movimiento (ISO 8601 o YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'channel',
+    required: false,
+    enum: ['TIENDA_FISICA', 'ECOMMERCE'],
+    description: 'Canal de origen del movimiento',
+  })
+  @ApiQuery({
+    name: 'responsibleUserId',
+    required: false,
+    type: String,
+    description: 'ID del usuario responsable (UUID)',
+  })
+  @ApiQuery({
+    name: 'productId',
+    required: false,
+    type: String,
+    description: 'ID del producto (UUID)',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    type: String,
+    description: 'Tipo de movimiento',
+    example: 'PURCHASE',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiResponse({
     status: 200,
     type: PaginatedMovementsResponseDto,
     description: 'Movimientos obtenidos exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Solicitud inválida (ej. dateFrom posterior a dateTo)',
   })
   @ApiResponse({
     status: 403,

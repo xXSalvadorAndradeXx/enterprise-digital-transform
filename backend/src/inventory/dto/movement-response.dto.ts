@@ -42,6 +42,12 @@ export class MovementResponseDto {
   @ApiPropertyOptional({ example: 'uuid-de-referencia' })
   referenceId!: string | null;
 
+  @ApiPropertyOptional({
+    example: 'TIENDA_FISICA',
+    enum: ['TIENDA_FISICA', 'ECOMMERCE'],
+  })
+  channel?: 'TIENDA_FISICA' | 'ECOMMERCE' | null;
+
   @ApiProperty({ example: '2026-08-06T20:17:10Z' })
   createdAt!: string;
 
