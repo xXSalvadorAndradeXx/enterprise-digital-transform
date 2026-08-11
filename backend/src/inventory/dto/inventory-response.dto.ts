@@ -45,6 +45,13 @@ export class InventoryResponseDto {
   @ApiProperty({ example: 3 })
   totalVariants!: number;
 
+  @ApiProperty({
+    example: 475.5,
+    description:
+      'Costo total del inventario calculado como SUM(stock * unit_cost)',
+  })
+  totalInventoryCost!: number;
+
   @ApiProperty({ example: '2026-08-06T20:17:10Z' })
   createdAt!: Date;
 }

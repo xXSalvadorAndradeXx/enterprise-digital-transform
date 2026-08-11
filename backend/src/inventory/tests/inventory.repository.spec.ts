@@ -21,7 +21,9 @@ describe('Inventory Repository Specs', () => {
       getCount: jest.fn().mockResolvedValue(1),
       getRawAndEntities: jest.fn().mockResolvedValue({
         entities: [{ id: 'inv-1', productName: 'Producto Test' }],
-        raw: [{ totalStock: '20', totalVariants: '2' }],
+        raw: [
+          { totalStock: '20', totalVariants: '2', totalInventoryCost: '475.5' },
+        ],
       }),
       getManyAndCount: jest
         .fn()
@@ -81,6 +83,7 @@ describe('Inventory Repository Specs', () => {
         expect(count).toBe(1);
         expect(entities[0].totalStock).toBe(20);
         expect(entities[0].totalVariants).toBe(2);
+        expect(entities[0].totalInventoryCost).toBe(475.5);
       });
 
       it('debe aplicar ILIKE sobre productName cuando search esté definido', async () => {

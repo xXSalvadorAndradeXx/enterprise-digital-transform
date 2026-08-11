@@ -36,6 +36,17 @@ export class InventoryRepository extends Repository<Inventory> {
         .where('d.inventory_id = inventory.id');
     }, 'totalVariants');
 
+    // Subconsulta para calcular totalInventoryCost dinámicamente mediante SUM(details.stock * details.unit_cost)
+    qb.addSelect((subQuery) => {
+      return subQuery
+        .select(
+          'COALESCE(SUM(d.stock * d.unit_cost), 0)',
+          'total_inventory_cost',
+        )
+        .from(InventoryDetail, 'd')
+        .where('d.inventory_id = inventory.id');
+    }, 'totalInventoryCost');
+
     // Excluir registros eliminados de inventario aplicando el filtro deleted_at IS NULL
     qb.andWhere('inventory.deletedAt IS NULL');
 
@@ -97,9 +108,14 @@ export class InventoryRepository extends Repository<Inventory> {
       const totalStockVal = rawItem?.totalStock ?? rawItem?.totalstock ?? 0;
       const totalVariantsVal =
         rawItem?.totalVariants ?? rawItem?.totalvariants ?? 0;
+      const totalInventoryCostVal =
+        rawItem?.totalInventoryCost ?? rawItem?.totalinventorycost ?? 0;
 
       entity.totalStock = Number(totalStockVal);
       entity.totalVariants = Number(totalVariantsVal);
+      entity.totalInventoryCost = Number(
+        parseFloat(String(totalInventoryCostVal)).toFixed(2),
+      );
       return entity;
     });
 

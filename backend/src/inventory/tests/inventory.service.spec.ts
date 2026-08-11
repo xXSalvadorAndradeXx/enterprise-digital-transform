@@ -105,6 +105,7 @@ describe('InventoryService', () => {
       status: InventoryStatus.ACTIVE,
       totalStock: 50,
       totalVariants: 2,
+      totalInventoryCost: 475.5,
       createdAt: new Date('2026-08-08T00:00:00.000Z'),
       category: { id: 1, nombre: 'Calzado' },
       supplier: { id: 'sup-uuid-1', name: 'Nike Corp' },
@@ -124,6 +125,7 @@ describe('InventoryService', () => {
       expect(result.data).toHaveLength(1);
       expect(result.data[0].id).toBe('inv-uuid-1');
       expect(result.data[0].productName).toBe('Zapato Deportivo');
+      expect(result.data[0].totalInventoryCost).toBe(475.5);
       expect(result.data[0].category).toEqual({ id: 1, name: 'Calzado' });
       expect(result.data[0].supplier).toEqual({
         id: 'sup-uuid-1',

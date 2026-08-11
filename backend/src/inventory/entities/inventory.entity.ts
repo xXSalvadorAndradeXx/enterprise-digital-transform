@@ -130,4 +130,7 @@ export class Inventory {
 
   @ApiPropertyOptional({ example: 5 })
   totalVariants?: number;
+
+  @ApiPropertyOptional({ example: 475.5 })
+  totalInventoryCost?: number;
 }

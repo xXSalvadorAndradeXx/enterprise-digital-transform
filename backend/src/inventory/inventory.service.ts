@@ -72,6 +72,7 @@ export class InventoryService {
         status: inv.status,
         totalStock: inv.totalStock ?? 0,
         totalVariants: inv.totalVariants ?? 0,
+        totalInventoryCost: inv.totalInventoryCost ?? 0,
         createdAt: inv.createdAt ? inv.createdAt.toISOString() : null,
         category: inv.category
           ? { id: inv.category.id, name: inv.category.nombre }
@@ -113,6 +114,11 @@ export class InventoryService {
     const details = inventory.details || [];
     const totalStock = details.reduce((sum, d) => sum + Number(d.stock), 0);
     const totalVariants = details.length;
+    const totalInventoryCost = Number(
+      details
+        .reduce((sum, d) => sum + Number(d.stock) * Number(d.unitCost), 0)
+        .toFixed(2),
+    );
 
     const mappedInventory = {
       id: inventory.id,
@@ -122,6 +128,7 @@ export class InventoryService {
       status: inventory.status,
       totalStock,
       totalVariants,
+      totalInventoryCost,
       createdAt: inventory.createdAt ? inventory.createdAt.toISOString() : null,
       category: inventory.category
         ? { id: inventory.category.id, name: inventory.category.nombre }
