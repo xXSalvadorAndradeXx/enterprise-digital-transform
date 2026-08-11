@@ -702,9 +702,21 @@ describe('InventoryService', () => {
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
-        getManyAndCount: jest
-          .fn()
-          .mockResolvedValue([[{ id: 'mov-1', createdAt: new Date() }], 1]),
+        getManyAndCount: jest.fn().mockResolvedValue([
+          [
+            {
+              id: 'mov-1',
+              createdAt: new Date(),
+              inventoryDetail: {
+                id: 'detail-1',
+                sku: 'CAMISA-NEGRA-M',
+                size: 'M',
+                color: '#000000',
+              },
+            },
+          ],
+          1,
+        ]),
       };
       movementRepo.createQueryBuilder.mockReturnValue(mockQb);
 
@@ -715,6 +727,7 @@ describe('InventoryService', () => {
         channel: 'TIENDA_FISICA',
         responsibleUserId: 'user-uuid-1',
         productId: 'prod-1',
+        inventoryDetailId: 'detail-1',
         type: MovementType.IN,
         page: 1,
         limit: 10,
@@ -722,6 +735,12 @@ describe('InventoryService', () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
+      expect(result.data[0].inventoryDetail).toEqual({
+        id: 'detail-1',
+        sku: 'CAMISA-NEGRA-M',
+        size: 'M',
+        color: '#000000',
+      });
       expect(mockQb.andWhere).toHaveBeenCalledWith(
         'product.nombre ILIKE :search',
         { search: '%Laptop%' },
@@ -732,6 +751,10 @@ describe('InventoryService', () => {
       expect(mockQb.andWhere).toHaveBeenCalledWith(
         'm.created_by = :responsibleUserId',
         { responsibleUserId: 'user-uuid-1' },
+      );
+      expect(mockQb.andWhere).toHaveBeenCalledWith(
+        'm.inventory_detail_id = :inventoryDetailId',
+        { inventoryDetailId: 'detail-1' },
       );
 
       // findMovements sin parámetros para cubrir branches por defecto
@@ -792,10 +815,14 @@ describe('InventoryService', () => {
 
     it('adjust debe actualizar stock y registrar movimiento', async () => {
       const mockInventory = { id: 'inv-1', stock: 10 };
+      const mockDetail = { id: 'detail-1', sku: 'SKU-1', stock: 4 };
       const mockQb = {
         setLock: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(mockInventory),
+        getOne: jest
+          .fn()
+          .mockResolvedValueOnce(mockInventory) // para inventario
+          .mockResolvedValueOnce(mockDetail), // para variante
       };
 
       const mockTxManager = {
@@ -809,12 +836,19 @@ describe('InventoryService', () => {
       );
 
       const result = await service.adjust(
-        { productId: 'prod-1', quantity: 5, type: MovementType.IN },
+        {
+          productId: 'prod-1',
+          inventoryDetailId: 'detail-1',
+          quantity: 5,
+          type: MovementType.IN,
+        },
         'user-uuid-1',
       );
 
       expect(mockInventory.stock).toBe(15);
+      expect(mockDetail.stock).toBe(9);
       expect(result.type).toBe(MovementType.IN);
+      expect(result.inventoryDetailId).toBe('detail-1');
     });
 
     it('adjust debe lanzar BadRequestException si stock final es negativo', async () => {

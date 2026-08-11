@@ -16,6 +16,15 @@ export class AdjustStockDto {
   @IsUUID('4')
   productId: string;
 
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'ID de la variante afectada (inventory_details.id)',
+    example: 'd3b07384-d113-4ec5-a581-22920268a044',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  inventoryDetailId?: string;
+
   @ApiProperty({
     example: 10,
     description: 'Positivo = entrada, negativo = salida',

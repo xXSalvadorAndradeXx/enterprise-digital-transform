@@ -12,6 +12,7 @@ import { Product } from '../../products/entities/product.entity';
 import { User } from '../../users/entities/user.entity';
 import { MovementType } from '../enums/movement-type.enum';
 import { MovementChannel } from '../enums/movement-channel.enum';
+import { InventoryDetail } from './inventory-detail.entity';
 
 @Entity('inventory_movements')
 export class InventoryMovement {
@@ -73,4 +74,12 @@ export class InventoryMovement {
 
   @Column({ name: 'created_by', type: 'uuid' })
   createdById!: string;
+
+  @ApiPropertyOptional({ type: () => InventoryDetail })
+  @ManyToOne(() => InventoryDetail, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'inventory_detail_id' })
+  inventoryDetail!: InventoryDetail | null;
+
+  @Column({ name: 'inventory_detail_id', type: 'uuid', nullable: true })
+  inventoryDetailId!: string | null;
 }

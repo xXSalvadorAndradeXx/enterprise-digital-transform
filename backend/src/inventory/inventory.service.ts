@@ -254,13 +254,14 @@ export class InventoryService {
       channel,
       responsibleUserId,
       productId,
+      inventoryDetailId,
       type,
       page = 1,
       limit = 20,
     } = query;
 
     this.logger.log(
-      `Consultando movimientos - page: ${page}, limit: ${limit}, search: ${search ?? 'ninguno'}, dateFrom: ${dateFrom ?? 'ninguna'}, dateTo: ${dateTo ?? 'ninguna'}, channel: ${channel ?? 'todos'}, responsibleUserId: ${responsibleUserId ?? 'todos'}, productId: ${productId ?? 'todos'}, type: ${type ?? 'todos'}`,
+      `Consultando movimientos - page: ${page}, limit: ${limit}, search: ${search ?? 'ninguno'}, dateFrom: ${dateFrom ?? 'ninguna'}, dateTo: ${dateTo ?? 'ninguna'}, channel: ${channel ?? 'todos'}, responsibleUserId: ${responsibleUserId ?? 'todos'}, productId: ${productId ?? 'todos'}, inventoryDetailId: ${inventoryDetailId ?? 'todas'}, type: ${type ?? 'todos'}`,
     );
 
     // Validación de rango de fechas: dateFrom <= dateTo
@@ -285,6 +286,7 @@ export class InventoryService {
       .createQueryBuilder('m')
       .leftJoinAndSelect('m.product', 'product')
       .leftJoinAndSelect('m.createdBy', 'createdBy')
+      .leftJoinAndSelect('m.inventoryDetail', 'inventoryDetail')
       .orderBy('m.created_at', 'DESC');
 
     // Regla: search buscará exclusivamente por nombre del producto
@@ -322,6 +324,12 @@ export class InventoryService {
       qb.andWhere('m.product_id = :productId', { productId });
     }
 
+    if (inventoryDetailId) {
+      qb.andWhere('m.inventory_detail_id = :inventoryDetailId', {
+        inventoryDetailId,
+      });
+    }
+
     if (type) {
       qb.andWhere('m.type = :type', { type });
     }
@@ -339,7 +347,7 @@ export class InventoryService {
       stockAfter: Number(m.stockAfter),
       notes: m.notes,
       referenceId: m.referenceId,
-      channel: m.channel ?? null,
+      channel: m.channel,
       createdAt: m.createdAt
         ? m.createdAt.toISOString()
         : new Date().toISOString(),
@@ -351,6 +359,14 @@ export class InventoryService {
             id: m.createdBy.id,
             firstName: m.createdBy.firstName,
             lastName: m.createdBy.lastName,
+          }
+        : null,
+      inventoryDetail: m.inventoryDetail
+        ? {
+            id: m.inventoryDetail.id,
+            sku: m.inventoryDetail.sku,
+            size: m.inventoryDetail.size,
+            color: m.inventoryDetail.color,
           }
         : null,
     }));
@@ -395,6 +411,33 @@ export class InventoryService {
         );
       }
 
+      // Si se especificó una variante, ajustar también el stock de la variante
+      if (dto.inventoryDetailId) {
+        const detail = await manager
+          .createQueryBuilder(InventoryDetail, 'd')
+          .setLock('pessimistic_write')
+          .where('d.id = :id', { id: dto.inventoryDetailId })
+          .getOne();
+
+        if (!detail) {
+          throw new NotFoundException(
+            `Variante con ID ${dto.inventoryDetailId} no encontrada`,
+          );
+        }
+
+        const detailStockBefore = Number(detail.stock);
+        const detailStockAfter = detailStockBefore + Number(dto.quantity);
+
+        if (detailStockAfter < 0) {
+          throw new BadRequestException(
+            `Stock insuficiente en variante ${detail.sku}. Disponible: ${detailStockBefore}, solicitado: ${dto.quantity}`,
+          );
+        }
+
+        detail.stock = detailStockAfter;
+        await manager.save(InventoryDetail, detail);
+      }
+
       // Actualizar stock
       inventory.stock = stockAfter;
       await manager.save(Inventory, inventory);
@@ -402,6 +445,7 @@ export class InventoryService {
       // Registrar movimiento
       const movement = manager.create(InventoryMovement, {
         productId: dto.productId,
+        inventoryDetailId: dto.inventoryDetailId ?? null,
         type: dto.type,
         quantity: dto.quantity,
         stockBefore,
@@ -419,7 +463,11 @@ export class InventoryService {
   // ── Usado por PurchasesService al recibir una compra ───────────────────
 
   async applyPurchaseReceipt(
-    items: { productId: string; quantity: number }[],
+    items: {
+      productId: string;
+      quantity: number;
+      inventoryDetailId?: string;
+    }[],
     purchaseId: string,
     userId: string,
   ): Promise<void> {
@@ -446,6 +494,7 @@ export class InventoryService {
 
         const movement = manager.create(InventoryMovement, {
           productId: item.productId,
+          inventoryDetailId: item.inventoryDetailId ?? null,
           type: MovementType.IN,
           quantity: item.quantity,
           stockBefore,

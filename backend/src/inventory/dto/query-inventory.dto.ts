@@ -21,6 +21,7 @@ export interface QueryInventoryMovementsDto {
   channel?: 'TIENDA_FISICA' | 'ECOMMERCE';
   responsibleUserId?: string;
   productId?: string;
+  inventoryDetailId?: string;
   type?: MovementType;
   page?: number;
   limit?: number;
@@ -76,6 +77,14 @@ export class QueryMovementsDto implements QueryInventoryMovementsDto {
   @IsOptional()
   @IsUUID('4')
   productId?: string;
+
+  @ApiPropertyOptional({
+    description: 'ID de la variante (inventory_details.id)',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  inventoryDetailId?: string;
 
   @ApiPropertyOptional({
     enum: MovementType,

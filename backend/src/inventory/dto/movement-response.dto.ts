@@ -21,6 +21,20 @@ export class MovementUserDto {
   lastName!: string;
 }
 
+export class MovementInventoryDetailDto {
+  @ApiProperty({ example: 'd3b07384-d113-4ec5-a581-22920268a044' })
+  id!: string;
+
+  @ApiProperty({ example: 'CAMISA-NEGRA-M' })
+  sku!: string;
+
+  @ApiProperty({ example: 'M' })
+  size!: string;
+
+  @ApiProperty({ example: '#000000' })
+  color!: string;
+}
+
 export class MovementResponseDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
@@ -58,4 +72,7 @@ export class MovementResponseDto {
 
   @ApiPropertyOptional({ type: MovementUserDto })
   createdBy!: MovementUserDto | null;
+
+  @ApiPropertyOptional({ type: MovementInventoryDetailDto })
+  inventoryDetail!: MovementInventoryDetailDto | null;
 }

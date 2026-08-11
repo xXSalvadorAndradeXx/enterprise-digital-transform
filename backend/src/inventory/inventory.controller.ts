@@ -122,11 +122,17 @@ export class InventoryController {
     description: 'ID del producto (UUID)',
   })
   @ApiQuery({
+    name: 'inventoryDetailId',
+    required: false,
+    type: String,
+    description: 'ID de la variante (UUID)',
+  })
+  @ApiQuery({
     name: 'type',
     required: false,
     type: String,
     description: 'Tipo de movimiento',
-    example: 'PURCHASE',
+    example: 'Entrada',
   })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
