@@ -11,6 +11,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Product } from '../../products/entities/product.entity';
 import { User } from '../../users/entities/user.entity';
 import { MovementType } from '../enums/movement-type.enum';
+import { MovementChannel } from '../enums/movement-channel.enum';
 
 @Entity('inventory_movements')
 export class InventoryMovement {
@@ -42,12 +43,19 @@ export class InventoryMovement {
   @Column({ name: 'reference_id', type: 'uuid', nullable: true })
   referenceId!: string | null;
 
-  @ApiPropertyOptional({
-    example: 'TIENDA_FISICA',
-    enum: ['TIENDA_FISICA', 'ECOMMERCE'],
+  @ApiProperty({
+    enum: MovementChannel,
+    example: MovementChannel.TIENDA_FISICA,
+    description: 'Canal de origen del movimiento (TIENDA_FISICA o ECOMMERCE)',
   })
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  channel!: 'TIENDA_FISICA' | 'ECOMMERCE' | null;
+  @Column({
+    type: 'enum',
+    enum: MovementChannel,
+    enumName: 'inventory_movement_channel_enum',
+    nullable: false,
+    default: MovementChannel.TIENDA_FISICA,
+  })
+  channel!: MovementChannel;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

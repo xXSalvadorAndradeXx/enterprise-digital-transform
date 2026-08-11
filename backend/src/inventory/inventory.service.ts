@@ -17,6 +17,7 @@ import { Product } from '../products/entities/product.entity';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { QueryMovementsDto } from './dto/query-inventory.dto';
 import { MovementType } from './enums/movement-type.enum';
+import { MovementChannel } from './enums/movement-channel.enum';
 import { InventoryRepository } from './repositories/inventory.repository';
 import { InventoryDetailRepository } from './repositories/inventory-detail.repository';
 import { InventoryQueryDto } from './dto/inventory-query.dto';
@@ -400,6 +401,7 @@ export class InventoryService {
         stockAfter,
         notes: dto.notes ?? null,
         referenceId: dto.referenceId ?? null,
+        channel: dto.channel ?? MovementChannel.TIENDA_FISICA,
         createdById: userId,
       });
 
@@ -443,6 +445,7 @@ export class InventoryService {
           stockAfter,
           notes: 'Recepción de orden de compra',
           referenceId: purchaseId,
+          channel: MovementChannel.TIENDA_FISICA,
           createdById: userId,
         });
 

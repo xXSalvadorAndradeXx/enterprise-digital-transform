@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MovementType } from '../enums/movement-type.enum';
+import { MovementChannel } from '../enums/movement-channel.enum';
 
 export class MovementProductDto {
   @ApiProperty({ example: 1 })
@@ -42,11 +43,12 @@ export class MovementResponseDto {
   @ApiPropertyOptional({ example: 'uuid-de-referencia' })
   referenceId!: string | null;
 
-  @ApiPropertyOptional({
-    example: 'TIENDA_FISICA',
-    enum: ['TIENDA_FISICA', 'ECOMMERCE'],
+  @ApiProperty({
+    enum: MovementChannel,
+    example: MovementChannel.TIENDA_FISICA,
+    description: 'Canal de origen del movimiento',
   })
-  channel?: 'TIENDA_FISICA' | 'ECOMMERCE' | null;
+  channel!: MovementChannel;
 
   @ApiProperty({ example: '2026-08-06T20:17:10Z' })
   createdAt!: string;

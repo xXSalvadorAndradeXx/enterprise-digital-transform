@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MovementType } from '../enums/movement-type.enum';
+import { MovementChannel } from '../enums/movement-channel.enum';
 
 export class AdjustStockDto {
   @ApiProperty({ format: 'uuid' })
@@ -26,6 +27,15 @@ export class AdjustStockDto {
   @ApiProperty({ enum: MovementType, example: MovementType.IN })
   @IsEnum(MovementType)
   type: MovementType;
+
+  @ApiPropertyOptional({
+    enum: MovementChannel,
+    example: MovementChannel.TIENDA_FISICA,
+    description: 'Canal de origen del movimiento (TIENDA_FISICA o ECOMMERCE)',
+  })
+  @IsOptional()
+  @IsEnum(MovementChannel)
+  channel?: MovementChannel;
 
   @ApiPropertyOptional({ example: 'Ajuste por conteo físico' })
   @IsOptional()
