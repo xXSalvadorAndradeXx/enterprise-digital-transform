@@ -17,6 +17,7 @@ import { Product } from '../products/entities/product.entity';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { QueryMovementsDto } from './dto/query-inventory.dto';
 import { MovementType } from './enums/movement-type.enum';
+import { MovementChannel } from './enums/movement-channel.enum';
 import { InventoryRepository } from './repositories/inventory.repository';
 import { InventoryDetailRepository } from './repositories/inventory-detail.repository';
 import { InventoryQueryDto } from './dto/inventory-query.dto';
@@ -71,6 +72,7 @@ export class InventoryService {
         status: inv.status,
         totalStock: inv.totalStock ?? 0,
         totalVariants: inv.totalVariants ?? 0,
+        totalInventoryCost: inv.totalInventoryCost ?? 0,
         createdAt: inv.createdAt ? inv.createdAt.toISOString() : null,
         category: inv.category
           ? { id: inv.category.id, name: inv.category.nombre }
@@ -112,6 +114,11 @@ export class InventoryService {
     const details = inventory.details || [];
     const totalStock = details.reduce((sum, d) => sum + Number(d.stock), 0);
     const totalVariants = details.length;
+    const totalInventoryCost = Number(
+      details
+        .reduce((sum, d) => sum + Number(d.stock) * Number(d.unitCost), 0)
+        .toFixed(2),
+    );
 
     const mappedInventory = {
       id: inventory.id,
@@ -121,6 +128,7 @@ export class InventoryService {
       status: inventory.status,
       totalStock,
       totalVariants,
+      totalInventoryCost,
       createdAt: inventory.createdAt ? inventory.createdAt.toISOString() : null,
       category: inventory.category
         ? { id: inventory.category.id, name: inventory.category.nombre }
@@ -237,59 +245,142 @@ export class InventoryService {
   // ── Movimientos ─────────────────────────────────────────────────────────
 
   async findMovements(
-  query: QueryMovementsDto,
-): Promise<PaginatedMovementsResponseDto> {
-  const { productId, type, page = 1, limit = 20 } = query;
-  const skip = (page - 1) * limit;
+    query: QueryMovementsDto,
+  ): Promise<PaginatedMovementsResponseDto> {
+    const {
+      search,
+      dateFrom,
+      dateTo,
+      channel,
+      responsibleUserId,
+      productId,
+      inventoryDetailId,
+      type,
+      page = 1,
+      limit = 20,
+    } = query;
 
-  this.logger.log(
-    `Consultando movimientos - page: ${page}, limit: ${limit}, productId: ${productId ?? 'todos'}, type: ${type ?? 'todos'}`,
-  );
+    this.logger.log(
+      `Consultando movimientos - page: ${page}, limit: ${limit}, search: ${search ?? 'ninguno'}, dateFrom: ${dateFrom ?? 'ninguna'}, dateTo: ${dateTo ?? 'ninguna'}, channel: ${channel ?? 'todos'}, responsibleUserId: ${responsibleUserId ?? 'todos'}, productId: ${productId ?? 'todos'}, inventoryDetailId: ${inventoryDetailId ?? 'todas'}, type: ${type ?? 'todos'}`,
+    );
 
-  const qb = this.movementRepo
-    .createQueryBuilder('m')
-    .leftJoinAndSelect('m.product', 'product')
-    .leftJoinAndSelect('m.createdBy', 'createdBy')
-    .orderBy('m.createdAt', 'DESC')
-    .skip(skip)
-    .take(limit);
+    // Validación de rango de fechas: dateFrom <= dateTo
+    if (dateFrom && dateTo) {
+      const from = new Date(dateFrom);
+      const to = new Date(dateTo);
+      if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+        throw new BadRequestException(
+          'Formato de fecha inválido en dateFrom o dateTo',
+        );
+      }
+      if (from > to) {
+        throw new BadRequestException(
+          'dateFrom no puede ser posterior a dateTo',
+        );
+      }
+    }
 
-  if (productId) qb.andWhere('m.product_id = :productId', { productId });
-  if (type) qb.andWhere('m.type = :type', { type });
+    const skip = (page - 1) * limit;
 
-  const [movements, total] = await qb.getManyAndCount();
+    const qb = this.movementRepo
+      .createQueryBuilder('m')
+      .leftJoinAndSelect('m.product', 'product')
+      .leftJoinAndSelect('m.createdBy', 'createdBy')
+      .leftJoinAndSelect('m.inventoryDetail', 'inventoryDetail')
+      .orderBy('m.created_at', 'DESC');
 
-  const data: MovementResponseDto[] = movements.map((m) => ({
-    id: m.id,
-    type: m.type,
-    quantity: Number(m.quantity),
-    stockBefore: Number(m.stockBefore),
-    stockAfter: Number(m.stockAfter),
-    notes: m.notes,
-    referenceId: m.referenceId,
-    createdAt: m.createdAt.toISOString(),
-    product: m.product
-      ? { id: m.product.id, nombre: m.product.nombre }
-      : null,
-    createdBy: m.createdBy
-      ? {
-          id: m.createdBy.id,
-          firstName: m.createdBy.firstName,
-          lastName: m.createdBy.lastName,
-        }
-      : null,
-  }));
+    // Regla: search buscará exclusivamente por nombre del producto
+    if (search && search.trim()) {
+      qb.andWhere('product.nombre ILIKE :search', {
+        search: `%${search.trim()}%`,
+      });
+    }
 
-  return {
-    data,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-}
+    // Regla: dateFrom fecha inicial
+    if (dateFrom) {
+      const fromDate = dateFrom.includes('T')
+        ? new Date(dateFrom)
+        : new Date(`${dateFrom}T00:00:00.000Z`);
+      qb.andWhere('m.created_at >= :dateFrom', { dateFrom: fromDate });
+    }
+
+    // Regla: dateTo fecha final
+    if (dateTo) {
+      const toDate = dateTo.includes('T')
+        ? new Date(dateTo)
+        : new Date(`${dateTo}T23:59:59.999Z`);
+      qb.andWhere('m.created_at <= :dateTo', { dateTo: toDate });
+    }
+
+    if (channel) {
+      qb.andWhere('m.channel = :channel', { channel });
+    }
+
+    if (responsibleUserId) {
+      qb.andWhere('m.created_by = :responsibleUserId', { responsibleUserId });
+    }
+
+    if (productId) {
+      qb.andWhere('m.product_id = :productId', { productId });
+    }
+
+    if (inventoryDetailId) {
+      qb.andWhere('m.inventory_detail_id = :inventoryDetailId', {
+        inventoryDetailId,
+      });
+    }
+
+    if (type) {
+      qb.andWhere('m.type = :type', { type });
+    }
+
+    // Los filtros deben aplicarse antes de calcular la paginación
+    qb.skip(skip).take(limit);
+
+    const [movements, total] = await qb.getManyAndCount();
+
+    const data: MovementResponseDto[] = movements.map((m) => ({
+      id: m.id,
+      type: m.type,
+      quantity: Number(m.quantity),
+      stockBefore: Number(m.stockBefore),
+      stockAfter: Number(m.stockAfter),
+      notes: m.notes,
+      referenceId: m.referenceId,
+      channel: m.channel,
+      createdAt: m.createdAt
+        ? m.createdAt.toISOString()
+        : new Date().toISOString(),
+      product: m.product
+        ? { id: m.product.id, nombre: m.product.nombre }
+        : null,
+      createdBy: m.createdBy
+        ? {
+            id: m.createdBy.id,
+            firstName: m.createdBy.firstName,
+            lastName: m.createdBy.lastName,
+          }
+        : null,
+      inventoryDetail: m.inventoryDetail
+        ? {
+            id: m.inventoryDetail.id,
+            sku: m.inventoryDetail.sku,
+            size: m.inventoryDetail.size,
+            color: m.inventoryDetail.color,
+          }
+        : null,
+    }));
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
 
   // ── Ajuste manual ───────────────────────────────────────────────────────
 
@@ -320,6 +411,33 @@ export class InventoryService {
         );
       }
 
+      // Si se especificó una variante, ajustar también el stock de la variante
+      if (dto.inventoryDetailId) {
+        const detail = await manager
+          .createQueryBuilder(InventoryDetail, 'd')
+          .setLock('pessimistic_write')
+          .where('d.id = :id', { id: dto.inventoryDetailId })
+          .getOne();
+
+        if (!detail) {
+          throw new NotFoundException(
+            `Variante con ID ${dto.inventoryDetailId} no encontrada`,
+          );
+        }
+
+        const detailStockBefore = Number(detail.stock);
+        const detailStockAfter = detailStockBefore + Number(dto.quantity);
+
+        if (detailStockAfter < 0) {
+          throw new BadRequestException(
+            `Stock insuficiente en variante ${detail.sku}. Disponible: ${detailStockBefore}, solicitado: ${dto.quantity}`,
+          );
+        }
+
+        detail.stock = detailStockAfter;
+        await manager.save(InventoryDetail, detail);
+      }
+
       // Actualizar stock
       inventory.stock = stockAfter;
       await manager.save(Inventory, inventory);
@@ -327,12 +445,14 @@ export class InventoryService {
       // Registrar movimiento
       const movement = manager.create(InventoryMovement, {
         productId: dto.productId,
+        inventoryDetailId: dto.inventoryDetailId ?? null,
         type: dto.type,
         quantity: dto.quantity,
         stockBefore,
         stockAfter,
         notes: dto.notes ?? null,
         referenceId: dto.referenceId ?? null,
+        channel: dto.channel ?? MovementChannel.TIENDA_FISICA,
         createdById: userId,
       });
 
@@ -343,7 +463,11 @@ export class InventoryService {
   // ── Usado por PurchasesService al recibir una compra ───────────────────
 
   async applyPurchaseReceipt(
-    items: { productId: string; quantity: number }[],
+    items: {
+      productId: string;
+      quantity: number;
+      inventoryDetailId?: string;
+    }[],
     purchaseId: string,
     userId: string,
   ): Promise<void> {
@@ -370,12 +494,14 @@ export class InventoryService {
 
         const movement = manager.create(InventoryMovement, {
           productId: item.productId,
+          inventoryDetailId: item.inventoryDetailId ?? null,
           type: MovementType.IN,
           quantity: item.quantity,
           stockBefore,
           stockAfter,
           notes: 'Recepción de orden de compra',
           referenceId: purchaseId,
+          channel: MovementChannel.TIENDA_FISICA,
           createdById: userId,
         });
 

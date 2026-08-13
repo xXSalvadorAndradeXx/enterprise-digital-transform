@@ -11,6 +11,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Product } from '../../products/entities/product.entity';
 import { User } from '../../users/entities/user.entity';
 import { MovementType } from '../enums/movement-type.enum';
+import { MovementChannel } from '../enums/movement-channel.enum';
+import { InventoryDetail } from './inventory-detail.entity';
 
 @Entity('inventory_movements')
 export class InventoryMovement {
@@ -42,6 +44,20 @@ export class InventoryMovement {
   @Column({ name: 'reference_id', type: 'uuid', nullable: true })
   referenceId!: string | null;
 
+  @ApiProperty({
+    enum: MovementChannel,
+    example: MovementChannel.TIENDA_FISICA,
+    description: 'Canal de origen del movimiento (TIENDA_FISICA o ECOMMERCE)',
+  })
+  @Column({
+    type: 'enum',
+    enum: MovementChannel,
+    enumName: 'inventory_movement_channel_enum',
+    nullable: false,
+    default: MovementChannel.TIENDA_FISICA,
+  })
+  channel!: MovementChannel;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
@@ -52,10 +68,19 @@ export class InventoryMovement {
   @Column({ name: 'product_id', type: 'uuid' })
   productId!: string;
 
-  @ManyToOne(() => User, { eager: true })
+  @ApiPropertyOptional({ type: () => User })
+  @ManyToOne(() => User, { eager: true, nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by' })
-  createdBy!: User;
+  createdBy!: User | null;
 
-  @Column({ name: 'created_by', type: 'uuid' })
-  createdById!: string;
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdById!: string | null;
+
+  @ApiPropertyOptional({ type: () => InventoryDetail })
+  @ManyToOne(() => InventoryDetail, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'inventory_detail_id' })
+  inventoryDetail!: InventoryDetail | null;
+
+  @Column({ name: 'inventory_detail_id', type: 'uuid', nullable: true })
+  inventoryDetailId!: string | null;
 }
