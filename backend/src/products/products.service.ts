@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginatedResponse } from '../common/interfaces/api-response.interface';
-import { Repository } from 'typeorm';
+import { Repository, DeepPartial } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -15,33 +15,31 @@ export class ProductsService {
   ) {}
 
   async findAll(filterDto: ProductFilterDto): Promise<PaginatedResponse<Product>> {
-    const { limit = 10, page = 1, search, minPrice, maxPrice, categoryId, sortBy = 'createdAt', order = SortOrder.DESC } = filterDto;
+    const { limit = 10, page = 1, search, minPrice, maxPrice, sortBy = 'createdAt', order = SortOrder.DESC } = filterDto;
     
     const skip = (page - 1) * limit;
 
     const query = this.productRepository.createQueryBuilder('product')
-      .leftJoinAndSelect('product.category', 'category');
+      .leftJoinAndSelect('product.images', 'images')
+      .leftJoinAndSelect('product.tags', 'tags')
+      .leftJoinAndSelect('product.variantConfigs', 'variantConfigs');
 
     if (search) {
       const fromChars = 'áéíóúäëïöüàèìòù';
       const toChars = 'aeiouaeiouaeiou';
       query.andWhere(
-        `(translate(LOWER(product.nombre), :fromChars, :toChars) LIKE translate(LOWER(:search), :fromChars, :toChars) OR 
-          translate(LOWER(product.descripcion), :fromChars, :toChars) LIKE translate(LOWER(:search), :fromChars, :toChars))`,
+        `(translate(LOWER(product.commercialName), :fromChars, :toChars) LIKE translate(LOWER(:search), :fromChars, :toChars) OR 
+          translate(LOWER(product.description), :fromChars, :toChars) LIKE translate(LOWER(:search), :fromChars, :toChars))`,
         { search: `%${search}%`, fromChars, toChars }
       );
     }
 
     if (minPrice !== undefined) {
-      query.andWhere('product.precio >= :minPrice', { minPrice });
+      query.andWhere('product.salePrice >= :minPrice', { minPrice });
     }
 
     if (maxPrice !== undefined) {
-      query.andWhere('product.precio <= :maxPrice', { maxPrice });
-    }
-
-    if (categoryId) {
-      query.andWhere('product.categoryId = :categoryId', { categoryId });
+      query.andWhere('product.salePrice <= :maxPrice', { maxPrice });
     }
 
     // Apply sorting
@@ -54,45 +52,31 @@ export class ProductsService {
     return { data, total, page, limit };
   }
 
-  async findOne(id: number) {
+  async findOne(id: string): Promise<Product> {
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ['category'],
+      relations: ['images', 'tags', 'variantConfigs', 'inventory'],
     });
 
     if (!product) {
-      // Usamos el exception filter de NestJS para devolver automáticamente un 404 Not Found
       throw new NotFoundException(`Producto con id ${id} no encontrado`);
     }
 
     return product;
   }
 
-  async create(createProductDto: CreateProductDto) {
-    const { categoryId, ...productData } = createProductDto;
-    
-    const product = this.productRepository.create({
-      ...productData,
-      category: { id: categoryId },
-    });
-
-    return await this.productRepository.save(product);
+  async create(createProductDto: CreateProductDto): Promise<Product> {
+    const product = this.productRepository.create(createProductDto as DeepPartial<Product>);
+    return (await this.productRepository.save(product)) as Product;
   }
 
-  async update(id: number, updateProductDto: UpdateProductDto) {
+  async update(id: string, updateProductDto: UpdateProductDto): Promise<Product> {
     const product = await this.findOne(id);
-    const { categoryId, ...productData } = updateProductDto;
-
-    const updateData: any = { ...productData };
-    if (categoryId) {
-      updateData.category = { id: categoryId };
-    }
-
-    this.productRepository.merge(product, updateData);
-    return await this.productRepository.save(product);
+    this.productRepository.merge(product, updateProductDto as DeepPartial<Product>);
+    return (await this.productRepository.save(product)) as Product;
   }
 
-  async remove(id: number) {
+  async remove(id: string): Promise<Product> {
     const product = await this.findOne(id);
     await this.productRepository.softRemove(product);
     return product;

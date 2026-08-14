@@ -352,7 +352,7 @@ export class InventoryService {
         ? m.createdAt.toISOString()
         : new Date().toISOString(),
       product: m.product
-        ? { id: m.product.id, nombre: m.product.nombre }
+        ? { id: m.product.id, commercialName: m.product.commercialName }
         : null,
       createdBy: m.createdBy
         ? {

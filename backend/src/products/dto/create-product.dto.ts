@@ -1,27 +1,32 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsUrl } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, IsEnum, IsUUID, IsDateString } from 'class-validator';
+import { ProductStatus } from '../enums/product-status.enum';
 
 export class CreateProductDto {
-  @IsString()
-  @IsNotEmpty()
-  nombre!: string;
+  @IsUUID()
+  @IsOptional()
+  inventoryId?: string;
 
   @IsString()
   @IsNotEmpty()
-  descripcion!: string;
+  commercialName!: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
 
   @IsNumber()
   @IsNotEmpty()
-  precio!: number;
+  salePrice!: number;
 
   @IsNumber()
-  @IsNotEmpty()
-  stock!: number;
+  @IsOptional()
+  discount?: number;
 
-  @IsUrl()
-  @IsNotEmpty()
-  imagenUrl!: string;
+  @IsDateString()
+  @IsOptional()
+  discountEndsAt?: string;
 
-  @IsNumber()
-  @IsNotEmpty()
-  categoryId!: number;
+  @IsEnum(ProductStatus)
+  @IsOptional()
+  status?: ProductStatus;
 }

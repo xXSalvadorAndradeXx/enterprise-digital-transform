@@ -1,13 +1,14 @@
 import { IsOptional, IsString, IsNumber, Min, IsEnum, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { ProductStatus } from '../enums/product-status.enum';
 
 export enum SortOrder {
   ASC = 'ASC',
   DESC = 'DESC',
 }
 
-const ALLOWED_SORT_FIELDS = ['precio', 'stock', 'createdAt'];
+const ALLOWED_SORT_FIELDS = ['salePrice', 'createdAt', 'status'];
 
 export class ProductFilterDto extends PaginationDto {
   @IsOptional()
@@ -27,9 +28,8 @@ export class ProductFilterDto extends PaginationDto {
   maxPrice?: number;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  categoryId?: number;
+  @IsEnum(ProductStatus)
+  status?: ProductStatus;
 
   @IsOptional()
   @IsString()

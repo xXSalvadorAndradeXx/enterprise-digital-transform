@@ -3,11 +3,11 @@ import { MovementType } from '../enums/movement-type.enum';
 import { MovementChannel } from '../enums/movement-channel.enum';
 
 export class MovementProductDto {
-  @ApiProperty({ example: 1 })
-  id!: number;
+  @ApiProperty({ example: 'uuid' })
+  id!: string;
 
   @ApiProperty({ example: 'Audífonos Bluetooth' })
-  nombre!: string;
+  commercialName!: string;
 }
 
 export class MovementUserDto {

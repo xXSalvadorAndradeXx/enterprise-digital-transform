@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Query, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Query, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { ProductFilterDto } from './dto/product-filter.dto';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -19,7 +19,7 @@ export class ProductsController {
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<SingleResponse<Product>> {
+  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<SingleResponse<Product>> {
     const product = await this.productsService.findOne(id);
     return { data: product };
   }
@@ -36,7 +36,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProductDto: UpdateProductDto,
   ): Promise<SingleResponse<Product>> {
     const product = await this.productsService.update(id, updateProductDto);
@@ -46,8 +46,8 @@ export class ProductsController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<SingleResponse<Product>> {
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<SingleResponse<Product>> {
     const product = await this.productsService.remove(id);
     return { data: product };
   }
-}
+}
