@@ -14,6 +14,7 @@ import { ProductsService } from './products.service';
 import { ProductFilterDto } from './dto/product-filter.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -60,6 +61,18 @@ export class ProductsController {
     @CurrentUser() user: any,
   ): Promise<SingleResponse<ProductResponseDto>> {
     const product = await this.productsService.update(id, updateProductDto, user);
+    return { data: product };
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('products:update')
+  async updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateStatusDto: UpdateProductStatusDto,
+    @CurrentUser() user: any,
+  ): Promise<SingleResponse<ProductResponseDto>> {
+    const product = await this.productsService.updateStatus(id, updateStatusDto, user);
     return { data: product };
   }
 

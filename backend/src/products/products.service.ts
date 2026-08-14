@@ -15,8 +15,10 @@ import { Inventory } from '../inventory/entities/inventory.entity';
 import { InventoryDetail } from '../inventory/entities/inventory-detail.entity';
 import { InventoryStatus } from '../inventory/enums/inventory-status.enum';
 import { ProductStatus } from './enums/product-status.enum';
+import { PRODUCT_STATUS_TRANSITIONS } from './constants/product-status-transitions.constant';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
 import { PaginatedResponse } from '../common/interfaces/api-response.interface';
@@ -441,9 +443,85 @@ export class ProductsService {
     }
   }
 
+  async updateStatus(
+    id: string,
+    updateStatusDto: UpdateProductStatusDto,
+    user?: any,
+  ): Promise<ProductResponseDto> {
+    const product = await this.findOneEntity(id);
+    const currentStatus = product.status;
+    const newStatus = updateStatusDto.status;
+
+    // Validación de máquina de estados
+    const allowedTransitions = PRODUCT_STATUS_TRANSITIONS[currentStatus] || [];
+    if (!allowedTransitions.includes(newStatus)) {
+      throw new ConflictException(
+        `La transición ${currentStatus} → ${newStatus} no está permitida`,
+      );
+    }
+
+    // Activación del producto: verificar stock de inventario
+    if (newStatus === ProductStatus.ACTIVE && product.inventoryId) {
+      const inventory = await this.dataSource
+        .getRepository(Inventory)
+        .findOne({ where: { id: product.inventoryId } });
+
+      if (inventory && inventory.status === InventoryStatus.OUT_OF_STOCK) {
+        throw new ConflictException(
+          'El inventario seleccionado no tiene stock disponible',
+        );
+      }
+    }
+
+    const actorId = user?.id ?? user?.userId ?? null;
+
+    // Descontinuación del producto: Soft Delete atómico
+    if (newStatus === ProductStatus.DISCONTINUED) {
+      await this.productRepository.update(
+        { id },
+        {
+          status: newStatus,
+          deletedAt: new Date(),
+          updatedById: actorId,
+        },
+      );
+    } else {
+      await this.productRepository.update(
+        { id },
+        {
+          status: newStatus,
+          updatedById: actorId,
+        },
+      );
+    }
+
+    const updatedProduct = await this.findOneEntityWithDeleted(id);
+    return ProductResponseDto.fromEntity(updatedProduct);
+  }
+
   async findOneEntity(id: string): Promise<Product> {
     const product = await this.productRepository.findOne({
       where: { id },
+      relations: [
+        'images',
+        'tags',
+        'variantConfigs',
+        'variantConfigs.inventoryDetail',
+        'inventory',
+      ],
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con id ${id} no encontrado`);
+    }
+
+    return product;
+  }
+
+  async findOneEntityWithDeleted(id: string): Promise<Product> {
+    const product = await this.productRepository.findOne({
+      where: { id },
+      withDeleted: true,
       relations: [
         'images',
         'tags',
