@@ -13,6 +13,7 @@ import { InventoryDetail } from '../inventory/entities/inventory-detail.entity';
 import { InventoryStatus } from '../inventory/enums/inventory-status.enum';
 import { ProductStatus } from './enums/product-status.enum';
 import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -120,11 +121,15 @@ describe('ProductsService', () => {
           return { id: 'generated-uuid', ...entity };
         }),
         update: jest.fn().mockResolvedValue({ affected: 1 }),
+        delete: jest.fn().mockResolvedValue({ affected: 1 }),
       },
     };
 
     dataSourceMock = {
       createQueryRunner: jest.fn().mockReturnValue(queryRunnerMock),
+      getRepository: jest.fn().mockReturnValue({
+        findOne: jest.fn().mockResolvedValue(mockInventoryDetail),
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -155,7 +160,7 @@ describe('ProductsService', () => {
       description: 'Cancelación de ruido',
       salePrice: 199.99,
       imageUrls: ['https://img.com/1.jpg'],
-      tags: ['audio', 'sony', 'audio'], // Incluye duplicado para probar deduplicación silenciosa
+      tags: ['audio', 'sony', 'audio'],
       variantConfigs: [
         {
           inventoryDetailId: 'inv-detail-uuid-1',
@@ -166,9 +171,9 @@ describe('ProductsService', () => {
 
     it('debe crear un producto exitosamente dentro de la transacción T7-1 y deduplicar etiquetas', async () => {
       queryRunnerMock.manager.findOne
-        .mockResolvedValueOnce(mockInventory) // Inventario
-        .mockResolvedValueOnce(mockInventoryDetail); // Variante
-      createQueryBuilderMock.getOne.mockResolvedValue(null); // No hay producto activo duplicado
+        .mockResolvedValueOnce(mockInventory)
+        .mockResolvedValueOnce(mockInventoryDetail);
+      createQueryBuilderMock.getOne.mockResolvedValue(null);
 
       productRepositoryMock.findOne.mockResolvedValue(mockProduct);
 
@@ -258,7 +263,7 @@ describe('ProductsService', () => {
     it('debe lanzar UnprocessableEntityException si la variante no pertenece al inventario seleccionado', async () => {
       queryRunnerMock.manager.findOne
         .mockResolvedValueOnce(mockInventory)
-        .mockResolvedValueOnce(null); // Variante no encontrada en ese inventario
+        .mockResolvedValueOnce(null);
       createQueryBuilderMock.getOne.mockResolvedValue(null);
 
       await expect(service.create(validDto)).rejects.toThrow(
@@ -286,6 +291,116 @@ describe('ProductsService', () => {
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('precio de venta igual a cero'),
       );
+    });
+  });
+
+  describe('update (Transacción T7-2 y Reglas de Negocio)', () => {
+    it('debe actualizar un producto exitosamente dentro de la transacción T7-2', async () => {
+      productRepositoryMock.findOne.mockResolvedValue(mockProduct);
+
+      const updateDto: UpdateProductDto = {
+        commercialName: 'Audífonos Sony Pro Max V2',
+        salePrice: 249.99,
+        imageUrls: ['https://img.com/v2.jpg'],
+        tags: ['audio', 'sony-v2'],
+        variantConfigs: [
+          {
+            inventoryDetailId: 'inv-detail-uuid-1',
+            minStock: 8,
+          },
+        ],
+      };
+
+      const result = await service.update('prod-uuid-1', updateDto, {
+        id: 'user-uuid-1',
+      });
+
+      expect(queryRunnerMock.connect).toHaveBeenCalled();
+      expect(queryRunnerMock.startTransaction).toHaveBeenCalled();
+      expect(queryRunnerMock.manager.update).toHaveBeenCalledWith(
+        Product,
+        { id: 'prod-uuid-1' },
+        expect.objectContaining({ commercialName: 'Audífonos Sony Pro Max V2' }),
+      );
+      expect(queryRunnerMock.manager.delete).toHaveBeenCalledTimes(3); // images, tags, variantConfigs
+      expect(queryRunnerMock.commitTransaction).toHaveBeenCalled();
+      expect(queryRunnerMock.release).toHaveBeenCalled();
+      expect(result.id).toBe(mockProduct.id);
+    });
+
+    it('debe lanzar UnprocessableEntityException si se incluye inventoryId en el DTO de actualización', async () => {
+      const updateDtoWithInventory: UpdateProductDto = {
+        inventoryId: 'nuevo-inv-uuid',
+      };
+
+      await expect(
+        service.update('prod-uuid-1', updateDtoWithInventory),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('debe lanzar ConflictException si el producto tiene status === DISCONTINUED', async () => {
+      const discontinuedProduct = {
+        ...mockProduct,
+        status: ProductStatus.DISCONTINUED,
+      };
+      productRepositoryMock.findOne.mockResolvedValue(discontinuedProduct);
+
+      const updateDto: UpdateProductDto = {
+        commercialName: 'Nuevo Nombre',
+      };
+
+      await expect(
+        service.update('prod-uuid-1', updateDto),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('debe lanzar UnprocessableEntityException (RN-P-005) si se asigna descuento sin fecha de fin', async () => {
+      productRepositoryMock.findOne.mockResolvedValue(mockProduct);
+
+      const updateDtoDiscountNoDate: UpdateProductDto = {
+        discount: 20,
+        discountEndsAt: undefined,
+      };
+
+      await expect(
+        service.update('prod-uuid-1', updateDtoDiscountNoDate),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('debe lanzar UnprocessableEntityException si la variante no pertenece al inventario del producto', async () => {
+      productRepositoryMock.findOne.mockResolvedValue(mockProduct);
+      dataSourceMock.getRepository().findOne.mockResolvedValueOnce(null);
+
+      const updateDtoInvalidVariant: UpdateProductDto = {
+        variantConfigs: [
+          {
+            inventoryDetailId: 'variante-ajena',
+            minStock: 2,
+          },
+        ],
+      };
+
+      await expect(
+        service.update('prod-uuid-1', updateDtoInvalidVariant),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('debe ejecutar rollbackTransaction y liberar queryRunner en caso de error durante la transacción', async () => {
+      productRepositoryMock.findOne.mockResolvedValue(mockProduct);
+      queryRunnerMock.manager.update.mockRejectedValueOnce(
+        new Error('Fallo simulado en BD'),
+      );
+
+      const updateDto: UpdateProductDto = {
+        commercialName: 'Fallo BD',
+      };
+
+      await expect(
+        service.update('prod-uuid-1', updateDto),
+      ).rejects.toThrow('Fallo simulado en BD');
+
+      expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
+      expect(queryRunnerMock.release).toHaveBeenCalled();
     });
   });
 });

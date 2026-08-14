@@ -57,8 +57,9 @@ export class ProductsController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProductDto: UpdateProductDto,
+    @CurrentUser() user: any,
   ): Promise<SingleResponse<ProductResponseDto>> {
-    const product = await this.productsService.update(id, updateProductDto);
+    const product = await this.productsService.update(id, updateProductDto, user);
     return { data: product };
   }
 

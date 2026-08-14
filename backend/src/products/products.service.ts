@@ -60,7 +60,7 @@ export class ProductsService {
       );
     }
 
-    // Regla RN--005: Validaciones de descuento
+    // Regla RN-P-005: Validaciones de descuento
     if (discount && Number(discount) > 0) {
       if (!discountEndsAt) {
         throw new UnprocessableEntityException(
@@ -155,6 +155,7 @@ export class ProductsService {
       }
 
       // --- Transacción T7-1: Inserción secuencial ---
+
       // Step 1: INSERT products
       const productEntity = queryRunner.manager.create(Product, {
         inventoryId: inventoryId ?? null,
@@ -225,6 +226,213 @@ export class ProductsService {
       await queryRunner.rollbackTransaction();
       this.logger.error(
         `Error en transacción T7-1 al crear producto: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    user?: any,
+  ): Promise<ProductResponseDto> {
+    // 1. Restricción de inventoryId: no se permite modificar la relación de inventario
+    if (updateProductDto.inventoryId !== undefined) {
+      throw new UnprocessableEntityException(
+        'No se permite modificar el inventario asociado al producto',
+      );
+    }
+
+    // 2. Validación del producto existente y estado
+    const product = await this.findOneEntity(id);
+
+    if (product.status === ProductStatus.DISCONTINUED) {
+      throw new ConflictException(
+        'Un producto discontinuado no puede ser modificado',
+      );
+    }
+
+    // 3. Validaciones combinadas de descuento (RN-P-005)
+    const effectiveDiscount =
+      updateProductDto.discount !== undefined
+        ? updateProductDto.discount
+        : product.discount;
+    const effectiveDiscountEndsAt =
+      updateProductDto.discountEndsAt !== undefined
+        ? updateProductDto.discountEndsAt
+        : product.discountEndsAt;
+
+    if (effectiveDiscount && Number(effectiveDiscount) > 0) {
+      if (!effectiveDiscountEndsAt) {
+        throw new UnprocessableEntityException(
+          'Debe proporcionar una fecha de fin para el descuento',
+        );
+      }
+      const discountEndDate = new Date(effectiveDiscountEndsAt);
+      if (isNaN(discountEndDate.getTime()) || discountEndDate < new Date()) {
+        throw new UnprocessableEntityException(
+          'La fecha de fin del descuento debe ser una fecha válida mayor a la fecha actual',
+        );
+      }
+    }
+
+    // Validaciones opcionales de arreglos si vienen en el DTO
+    if (updateProductDto.imageUrls !== undefined) {
+      const safeImageUrls = updateProductDto.imageUrls || [];
+      if (safeImageUrls.length > 10) {
+        throw new UnprocessableEntityException(
+          'Se permite un máximo de 10 imágenes por producto',
+        );
+      }
+    }
+
+    if (updateProductDto.tags !== undefined) {
+      const safeTags = updateProductDto.tags || [];
+      if (safeTags.length > 20) {
+        throw new UnprocessableEntityException(
+          'Se permite un máximo de 20 etiquetas por producto',
+        );
+      }
+    }
+
+    if (updateProductDto.variantConfigs !== undefined) {
+      const safeVariantConfigs = updateProductDto.variantConfigs || [];
+      if (safeVariantConfigs.length > 0) {
+        if (!product.inventoryId) {
+          throw new UnprocessableEntityException(
+            'El producto no tiene un inventario asociado para configurar variantes',
+          );
+        }
+
+        for (const vc of safeVariantConfigs) {
+          const detail = await this.dataSource
+            .getRepository(InventoryDetail)
+            .findOne({
+              where: {
+                id: vc.inventoryDetailId,
+                inventoryId: product.inventoryId,
+              },
+            });
+
+          if (!detail) {
+            throw new UnprocessableEntityException(
+              `La variante con ID ${vc.inventoryDetailId} no pertenece al inventario del producto`,
+            );
+          }
+        }
+      }
+    }
+
+    const actorId = user?.id ?? user?.userId ?? null;
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Paso 1 — Actualizar products (partial merge)
+      const updateData: any = {};
+      if (updateProductDto.commercialName !== undefined) {
+        updateData.commercialName = updateProductDto.commercialName;
+      }
+      if (updateProductDto.description !== undefined) {
+        updateData.description = updateProductDto.description;
+      }
+      if (updateProductDto.salePrice !== undefined) {
+        updateData.salePrice = updateProductDto.salePrice;
+      }
+      if (updateProductDto.discount !== undefined) {
+        updateData.discount = updateProductDto.discount;
+      }
+      if (updateProductDto.discountEndsAt !== undefined) {
+        updateData.discountEndsAt = updateProductDto.discountEndsAt
+          ? new Date(updateProductDto.discountEndsAt)
+          : null;
+      }
+      if (updateProductDto.status !== undefined) {
+        updateData.status = updateProductDto.status;
+      }
+      if (actorId) {
+        updateData.updatedById = actorId;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await queryRunner.manager.update(Product, { id }, updateData);
+      }
+
+      // Paso 2 — Actualizar imágenes (si imageUrls viene en DTO)
+      if (updateProductDto.imageUrls !== undefined) {
+        await queryRunner.manager.delete(ProductImage, { productId: id });
+        const safeImageUrls = updateProductDto.imageUrls || [];
+        if (safeImageUrls.length > 0) {
+          const imageEntities = safeImageUrls.map((url, index) =>
+            queryRunner.manager.create(ProductImage, {
+              productId: id,
+              imageUrl: url,
+              sortOrder: index,
+            }),
+          );
+          await queryRunner.manager.save(ProductImage, imageEntities);
+        }
+      }
+
+      // Paso 3 — Actualizar etiquetas (si tags viene en DTO)
+      if (updateProductDto.tags !== undefined) {
+        await queryRunner.manager.delete(ProductTag, { productId: id });
+        const safeTags = updateProductDto.tags || [];
+        const deduplicatedTags = Array.from(
+          new Set(safeTags.map((t) => t.trim())),
+        ).filter((t) => t.length > 0);
+
+        if (deduplicatedTags.length > 0) {
+          const tagEntities = deduplicatedTags.map((tag) =>
+            queryRunner.manager.create(ProductTag, {
+              productId: id,
+              tag,
+            }),
+          );
+          await queryRunner.manager.save(ProductTag, tagEntities);
+        }
+      }
+
+      // Paso 4 — Actualizar variantes (si variantConfigs viene en DTO)
+      if (updateProductDto.variantConfigs !== undefined) {
+        await queryRunner.manager.delete(ProductVariantConfig, {
+          productId: id,
+        });
+        const safeVariantConfigs = updateProductDto.variantConfigs || [];
+
+        if (safeVariantConfigs.length > 0) {
+          const variantEntities = safeVariantConfigs.map((vc) =>
+            queryRunner.manager.create(ProductVariantConfig, {
+              productId: id,
+              inventoryDetailId: vc.inventoryDetailId,
+              minStock: vc.minStock,
+            }),
+          );
+          await queryRunner.manager.save(ProductVariantConfig, variantEntities);
+
+          // Paso 5 — Actualizar min_stock en inventory_details
+          for (const vc of safeVariantConfigs) {
+            await queryRunner.manager.update(
+              InventoryDetail,
+              { id: vc.inventoryDetailId },
+              { minStock: vc.minStock },
+            );
+          }
+        }
+      }
+
+      await queryRunner.commitTransaction();
+
+      const updatedProduct = await this.findOneEntity(id);
+      return ProductResponseDto.fromEntity(updatedProduct);
+    } catch (error: any) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(
+        `Error en transacción T7-2 al actualizar producto con ID ${id}: ${error.message}`,
         error.stack,
       );
       throw error;
@@ -317,19 +525,6 @@ export class ProductsService {
       page,
       limit,
     };
-  }
-
-  async update(
-    id: string,
-    updateProductDto: UpdateProductDto,
-  ): Promise<ProductResponseDto> {
-    const product = await this.findOneEntity(id);
-    this.productRepository.merge(
-      product,
-      updateProductDto as DeepPartial<Product>,
-    );
-    const updated = await this.productRepository.save(product);
-    return ProductResponseDto.fromEntity(updated);
   }
 
   async remove(id: string): Promise<ProductResponseDto> {
