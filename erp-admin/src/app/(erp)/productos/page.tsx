@@ -1,9 +1,5 @@
-export default function DashboardPage() {
-return (
-<div>
-<h1 className="text-3xl font-bold">PRODUCTO</h1>
+import { ProductsCatalog } from "@/components/productos/ProductsCatalog";
 
-
-</div>
-);
+export default function ProductosPage() {
+  return <ProductsCatalog />;
 }

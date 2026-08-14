@@ -19,6 +19,7 @@ export function Table<T>({
   selectedRows,
   onSelectionChange,
   actions,
+  actionsHeader = "Acción",
   bulkActions,
   sortConfig,
   onSortChange,
@@ -105,7 +106,7 @@ export function Table<T>({
                   )}
                 </th>
               ))}
-              {actions && actions.length > 0 && <th className="px-4 py-3 text-center font-medium">Acción</th>}
+              {actions && actions.length > 0 && <th className="px-4 py-3 text-center font-medium">{actionsHeader}</th>}
             </tr>
           </thead>
           <tbody>
