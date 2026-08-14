@@ -10,7 +10,6 @@ import type { ProductTableItem } from "@/types/productos";
 
 interface ProductsTableProps {
   products: ProductTableItem[];
-  isLoading?: boolean;
   search: string;
   onView: (product: ProductTableItem) => void;
   onDelete: (product: ProductTableItem) => void;
@@ -26,7 +25,6 @@ function formatCurrency(value: number): string {
 
 export function ProductsTable({
   products,
-  isLoading = false,
   search,
   onView,
   onDelete,
@@ -35,23 +33,23 @@ export function ProductsTable({
     <Table<ProductTableItem>
       data={products}
       rowKey={(product) => product.id}
-      isLoading={isLoading}
       actionsHeader="Acciones"
       columns={[
         {
-            key: "image",
-            header: "Foto",
-            width: "70px",
-            accessor: (product) => (
-                <ProductImage
-                src={product.imageUrl}
-                alt={product.name}
-                />
-            ),
+          key: "image",
+          header: "Foto",
+          width: "70px",
+          accessor: (product) => (
+            <ProductImage
+              src={product.imageUrl}
+              alt={product.name}
+            />
+          ),
         },
         {
           key: "name",
           header: "Nombre",
+          sortable: true,
           accessor: (product) => (
             <div
               className="max-w-[220px] truncate font-medium text-gray-700"
@@ -83,7 +81,9 @@ export function ProductsTable({
           key: "stock",
           header: "Stock",
           accessor: (product) =>
-            product.stock.toLocaleString("en-US"),
+            product.stock.toLocaleString(
+              "en-US",
+            ),
         },
         {
           key: "stockStatus",
@@ -101,20 +101,20 @@ export function ProductsTable({
           icon: Eye,
           onClick: onView,
           className:
-            "rounded border border-gray-400 p-1 text-gray-900 transition-colors hover:bg-gray-100",
+            "rounded border border-gray-400 p-1 text-gray-900 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-400",
         },
         {
           label: "Eliminar",
           icon: Trash2,
           onClick: onDelete,
           className:
-            "rounded border border-gray-300 p-1 text-red-500 transition-colors hover:border-red-300 hover:bg-red-50",
+            "rounded border border-gray-300 p-1 text-red-500 transition-colors hover:border-red-300 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300",
         },
       ]}
       emptyMessage={
         search.trim()
           ? `No se encontraron productos para "${search.trim()}".`
-          : "Todavía no hay productos registrados."
+          : "No hay productos aún."
       }
     />
   );
