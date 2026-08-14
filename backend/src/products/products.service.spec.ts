@@ -442,4 +442,41 @@ describe('ProductsService', () => {
       ).rejects.toThrow(ConflictException);
     });
   });
+
+  describe('remove (Soft Delete Idempotente)', () => {
+    it('debe descontinuar y aplicar Soft Delete a un producto activo por primera vez', async () => {
+      productRepositoryMock.findOne.mockResolvedValue(mockProduct);
+
+      await service.remove('prod-uuid-1', { id: 'user-uuid-1' });
+
+      expect(productRepositoryMock.update).toHaveBeenCalledWith(
+        { id: 'prod-uuid-1' },
+        expect.objectContaining({
+          status: ProductStatus.DISCONTINUED,
+          deletedAt: expect.any(Date),
+        }),
+      );
+    });
+
+    it('debe ser idempotente y no re-ejecutar UPDATE si el producto ya fue eliminado previamente', async () => {
+      const deletedProduct = {
+        ...mockProduct,
+        status: ProductStatus.DISCONTINUED,
+        deletedAt: new Date(),
+      };
+      productRepositoryMock.findOne.mockResolvedValue(deletedProduct);
+
+      await service.remove('prod-uuid-1');
+
+      expect(productRepositoryMock.update).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar NotFoundException si el producto no existe', async () => {
+      productRepositoryMock.findOne.mockResolvedValue(null);
+
+      await expect(service.remove('id-inexistente')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
 });

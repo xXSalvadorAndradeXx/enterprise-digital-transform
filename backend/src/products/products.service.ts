@@ -605,9 +605,31 @@ export class ProductsService {
     };
   }
 
-  async remove(id: string): Promise<ProductResponseDto> {
-    const product = await this.findOneEntity(id);
-    const softRemoved = await this.productRepository.softRemove(product);
-    return ProductResponseDto.fromEntity(softRemoved);
+  async remove(id: string, user?: any): Promise<void> {
+    const product = await this.productRepository.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con id ${id} no encontrado`);
+    }
+
+    // Eliminación idempotente: si ya está eliminado por Soft Delete, retornar void
+    if (product.deletedAt !== null) {
+      return;
+    }
+
+    const actorId = user?.id ?? user?.userId ?? null;
+
+    // Eliminación lógica atómica: status = DISCONTINUED y deleted_at = NOW()
+    await this.productRepository.update(
+      { id },
+      {
+        status: ProductStatus.DISCONTINUED,
+        deletedAt: new Date(),
+        updatedById: actorId,
+      },
+    );
   }
 }

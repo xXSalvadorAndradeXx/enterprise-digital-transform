@@ -9,6 +9,8 @@ import {
   Param,
   ParseUUIDPipe,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { ProductFilterDto } from './dto/product-filter.dto';
@@ -77,12 +79,13 @@ export class ProductsController {
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('products:delete')
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<SingleResponse<ProductResponseDto>> {
-    const product = await this.productsService.remove(id);
-    return { data: product };
+    @CurrentUser() user: any,
+  ): Promise<void> {
+    await this.productsService.remove(id, user);
   }
 }
