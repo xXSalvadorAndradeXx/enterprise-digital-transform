@@ -1,52 +1,73 @@
-import { Controller, Get, Post, Patch, Delete, Body, Query, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Query,
+  Param,
+  ParseUUIDPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { ProductFilterDto } from './dto/product-filter.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ProductResponseDto } from './dto/product-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PaginatedResponse, SingleResponse } from '../common/interfaces/api-response.interface';
-import { Product } from './entities/product.entity';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  async findAll(@Query() filterDto: ProductFilterDto): Promise<PaginatedResponse<Product>> {
+  async findAll(
+    @Query() filterDto: ProductFilterDto,
+  ): Promise<PaginatedResponse<ProductResponseDto>> {
     return this.productsService.findAll(filterDto);
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<SingleResponse<Product>> {
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SingleResponse<ProductResponseDto>> {
     const product = await this.productsService.findOne(id);
     return { data: product };
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  async create(@Body() createProductDto: CreateProductDto): Promise<SingleResponse<Product>> {
-    const product = await this.productsService.create(createProductDto);
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('products:create')
+  async create(
+    @Body() createProductDto: CreateProductDto,
+    @CurrentUser() user: any,
+  ): Promise<SingleResponse<ProductResponseDto>> {
+    const product = await this.productsService.create(createProductDto, user);
     return { data: product };
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('products:update')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateProductDto: UpdateProductDto,
-  ): Promise<SingleResponse<Product>> {
+  ): Promise<SingleResponse<ProductResponseDto>> {
     const product = await this.productsService.update(id, updateProductDto);
     return { data: product };
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<SingleResponse<Product>> {
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('products:delete')
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SingleResponse<ProductResponseDto>> {
     const product = await this.productsService.remove(id);
     return { data: product };
   }

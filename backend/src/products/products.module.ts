@@ -6,6 +6,7 @@ import { ProductTag } from './entities/product-tag.entity';
 import { ProductVariantConfig } from './entities/product-variant-config.entity';
 import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ProductsController } from './products.controller';
       ProductTag,
       ProductVariantConfig,
     ]),
+    UsersModule,
   ],
   controllers: [ProductsController],
   providers: [ProductsService],
