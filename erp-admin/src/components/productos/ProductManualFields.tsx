@@ -14,18 +14,24 @@ import type {
   Control,
   FieldErrors,
   UseFormRegister,
+  UseFormSetValue,
   UseFormWatch,
 } from "react-hook-form";
 
 import type {
-  ProductFormSchema,
+  ProductFormInput,
 } from "@/types/productos/schemas";
 
 interface ProductManualFieldsProps {
-  register: UseFormRegister<ProductFormSchema>;
-  control: Control<ProductFormSchema>;
-  errors: FieldErrors<ProductFormSchema>;
-  watch: UseFormWatch<ProductFormSchema>;
+  register: UseFormRegister<ProductFormInput>;
+
+  control: Control<ProductFormInput>;
+
+  errors: FieldErrors<ProductFormInput>;
+
+  watch: UseFormWatch<ProductFormInput>;
+
+  setValue: UseFormSetValue<ProductFormInput>;
 
   onAddImages: () => void;
 
@@ -41,6 +47,7 @@ export function ProductManualFields({
   control,
   errors,
   watch,
+  setValue,
   onAddImages,
   onRemoveImage,
 }: ProductManualFieldsProps) {
@@ -106,10 +113,41 @@ export function ProductManualFields({
       <div className="mt-7">
         <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-gray-900">
           <input
-            {...register(
-              "applyDiscount",
-            )}
             type="checkbox"
+            checked={applyDiscount}
+            onChange={(event) => {
+              const checked =
+                event.target.checked;
+
+              setValue(
+                "applyDiscount",
+                checked,
+                {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                },
+              );
+
+              if (!checked) {
+                setValue(
+                  "discount",
+                  "",
+                  {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  },
+                );
+
+                setValue(
+                  "discountEndsAt",
+                  "",
+                  {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  },
+                );
+              }
+            }}
             className="h-5 w-5 accent-[#1C21D1]"
           />
 
@@ -126,7 +164,8 @@ export function ProductManualFields({
 
             <select
                 {...register("discount")}
-                className={inputClass}
+                disabled={!applyDiscount}
+                className={`${inputClass} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400`}
             >
                 {PRODUCT_DISCOUNT_OPTIONS.map((option) => (
                 <option
@@ -160,7 +199,8 @@ export function ProductManualFields({
                   "discountEndsAt",
                 )}
                 type="date"
-                className={inputClass}
+                disabled={!applyDiscount}
+                className={`${inputClass} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400`}
               />
 
               {errors.discountEndsAt && (

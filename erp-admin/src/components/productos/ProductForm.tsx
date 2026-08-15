@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  useForm,
-} from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { ProductInventoryPanel } from "./ProductInventoryPanel";
@@ -11,6 +9,7 @@ import { ProductManualFields } from "./ProductManualFields";
 
 import {
   productFormSchema,
+  type ProductFormInput,
   type ProductFormSchema,
 } from "@/types/productos/schemas";
 
@@ -24,7 +23,7 @@ interface ProductFormProps {
 
   inventory?: InventoryProductView | null;
 
-  defaultValues?: Partial<ProductFormSchema>;
+  defaultValues?: Partial<ProductFormInput>;
 
   onClose: () => void;
 
@@ -63,13 +62,20 @@ export function ProductForm({
       errors,
       isSubmitting,
     },
-  } = useForm<ProductFormSchema>({
+  } = useForm<
+    ProductFormInput,
+    unknown,
+    ProductFormSchema
+  >({
     resolver: zodResolver(
       productFormSchema,
     ),
+
     mode: "onChange",
 
     defaultValues: {
+      inventoryId: "",
+
       commercialName: "",
       salePrice: "",
 
@@ -116,9 +122,8 @@ export function ProductForm({
 
   return (
     <form
-      onSubmit={handleSubmit(
-        onSubmit,
-      )}
+      onSubmit={handleSubmit(onSubmit)}
+      noValidate
     >
       <div className="overflow-hidden rounded-xl border border-gray-300 bg-white">
         <div className="grid grid-cols-1 lg:grid-cols-2">
@@ -134,6 +139,10 @@ export function ProductForm({
             onSearch={
               handleInventorySearch
             }
+            error={
+              errors.inventoryId
+                ?.message
+            }
           />
 
           <ProductManualFields
@@ -141,6 +150,7 @@ export function ProductForm({
             control={control}
             errors={errors}
             watch={watch}
+            setValue={setValue}
             onAddImages={() =>
               onAddImages?.()
             }

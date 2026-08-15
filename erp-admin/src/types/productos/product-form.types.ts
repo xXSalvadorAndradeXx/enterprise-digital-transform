@@ -5,6 +5,8 @@ export type ProductPublicationStatus =
   | "ACTIVE";
 
 export interface ProductFormValues {
+  inventoryId: string;
+
   commercialName: string;
   salePrice: string;
 
@@ -15,10 +17,12 @@ export interface ProductFormValues {
   description: string;
 
   tags: string[];
-
   imageUrls: string[];
 
-  status: ProductPublicationStatus | "";
+  status:
+    | "DRAFT"
+    | "ACTIVE"
+    | "";
 }
 
 export interface InventoryVariantView {

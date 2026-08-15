@@ -13,6 +13,7 @@ import type {
 interface ProductInventoryPanelProps {
   mode: ProductFormMode;
   inventory: InventoryProductView | null;
+  error?: string;
 
   inventorySearch: string;
   onInventorySearchChange: (
@@ -25,6 +26,7 @@ interface ProductInventoryPanelProps {
 export function ProductInventoryPanel({
   mode,
   inventory,
+  error,
   inventorySearch,
   onInventorySearchChange,
   onSearch,
@@ -35,48 +37,67 @@ export function ProductInventoryPanel({
         Selección automática
       </h2>
 
-      {mode === "create" && (
-        <div className="mt-4">
-          <label
-            htmlFor="inventory-search"
-            className="mb-2 block text-sm font-medium text-gray-900"
-          >
-            Buscar producto en inventario
-          </label>
+{mode === "create" && (
+  <div className="mt-4">
+    <label
+      htmlFor="inventory-search"
+      className="mb-2 block text-sm font-medium text-gray-900"
+    >
+      Buscar producto en inventario
+    </label>
 
-          <div className="flex overflow-hidden rounded-md border border-gray-300 bg-white focus-within:border-[#1C21D1]">
-            <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
-              <Search
-                size={16}
-                className="shrink-0 text-gray-500"
-                aria-hidden="true"
-              />
+    <div
+      className={`flex overflow-hidden rounded-md border bg-white transition-colors focus-within:ring-1 ${
+        error
+          ? "border-red-400 focus-within:border-red-400 focus-within:ring-red-200"
+          : "border-gray-300 focus-within:border-[#1C21D1] focus-within:ring-[#1C21D1]"
+      }`}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
+        <Search
+          size={16}
+          className="shrink-0 text-gray-500"
+          aria-hidden="true"
+        />
 
-              <input
-                id="inventory-search"
-                type="search"
-                value={inventorySearch}
-                onChange={(event) =>
-                  onInventorySearchChange(
-                    event.target.value,
-                  )
-                }
-                placeholder="Buscar por ID, inventario o código de producto"
-                className="h-10 w-full min-w-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:text-sm placeholder:font-normal placeholder:text-gray-400"
+        <input
+          id="inventory-search"
+          type="search"
+          value={inventorySearch}
+          onChange={(event) =>
+            onInventorySearchChange(event.target.value)
+          }
+          placeholder="Buscar por ID, inventario o código de producto"
+          aria-invalid={Boolean(error)}
+          aria-describedby={
+            error ? "inventory-search-error" : undefined
+          }
+          className="h-10 w-full min-w-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:text-sm placeholder:font-normal placeholder:text-gray-400"
+        />
+      </div>
 
-              />
-            </div>
+      <button
+        type="button"
+        onClick={onSearch}
+        className="m-1 rounded-md bg-[#1C21D1] px-5 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] focus:outline-none focus:ring-2 focus:ring-[#1C21D1] focus:ring-offset-1"
+      >
+        Buscar
+      </button>
+    </div>
 
-            <button
-              type="button"
-              onClick={onSearch}
-              className="m-1 rounded-md bg-[#1C21D1] px-5 text-sm font-medium text-white transition-colors hover:bg-[#171AAD]"
-            >
-              Buscar
-            </button>
-          </div>
-        </div>
-      )}
+    {error && (
+      <p
+        id="inventory-search-error"
+        role="alert"
+        className="mt-1 text-xs text-red-500"
+      >
+        {error}
+      </p>
+    )}
+  </div>
+)}
+
+      
 
       {inventory ? (
         <>
@@ -158,7 +179,7 @@ export function ProductInventoryPanel({
             </h3>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] border-collapse text-left text-sm">
+              <table className="w-full min-w-120 border-collapse text-left text-sm">
                 <thead>
                   <tr className="bg-gray-100">
                     <th className="px-4 py-3 font-medium">
@@ -248,7 +269,7 @@ export function ProductInventoryPanel({
           </div>
         </>
       ) : (
-        <div className="mt-4 flex min-h-[280px] items-center justify-center rounded-md border border-dashed border-gray-300 p-6 text-center">
+        <div className="mt-4 flex min-h-70 items-center justify-center rounded-md border border-dashed border-gray-300 p-6 text-center">
           <p className="max-w-xs text-sm text-gray-500">
             Selecciona un producto del inventario para mostrar su información física.
           </p>
