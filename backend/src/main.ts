@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as express from 'express';
+import { join } from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,6 +19,9 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 3000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
   const host = 'http://localhost';
+
+  // Servir estáticamente la carpeta uploads
+  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // Prefijo global de la API
   app.setGlobalPrefix(apiPrefix);
@@ -45,7 +50,6 @@ async function bootstrap() {
     .setVersion('1.0')
     .addBearerAuth()
     .build();
-
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 

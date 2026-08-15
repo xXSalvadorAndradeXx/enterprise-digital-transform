@@ -4,8 +4,10 @@ import {
   NotFoundException,
   ConflictException,
   UnprocessableEntityException,
+  BadRequestException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import * as fs from 'fs';
 import { ProductsService } from './products.service';
 import { Product } from './entities/product.entity';
 import { Inventory } from '../inventory/entities/inventory.entity';
@@ -166,6 +168,37 @@ describe('ProductsService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('uploadProductImage (Carga de Imágenes)', () => {
+    it('debe guardar la imagen y retornar la estructura esperada con statusCode 201', async () => {
+      const mockFile = {
+        fieldname: 'file',
+        originalname: 'test-product.png',
+        encoding: '7bit',
+        mimetype: 'image/png',
+        buffer: Buffer.from('fake-image-content'),
+        size: 1024,
+      } as Express.Multer.File;
+
+      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+      jest.spyOn(fs, 'mkdirSync').mockImplementation();
+      jest.spyOn(fs, 'writeFileSync').mockImplementation();
+
+      const response = await service.uploadProductImage(mockFile);
+
+      expect(response.statusCode).toBe(201);
+      expect(response.data.sizeBytes).toBe(1024);
+      expect(response.data.fileName).toMatch(/\.png$/);
+      expect(response.data.imageUrl).toContain('http://localhost:3000/uploads/products/');
+      expect(fs.writeFileSync).toHaveBeenCalled();
+    });
+
+    it('debe lanzar BadRequestException si no se envía ningún archivo', async () => {
+      await expect(service.uploadProductImage(undefined)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
   });
 
   describe('calcEffectivePrice (Cálculo y Expiración de Descuento)', () => {

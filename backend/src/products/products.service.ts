@@ -3,10 +3,14 @@ import {
   NotFoundException,
   ConflictException,
   UnprocessableEntityException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, DeepPartial } from 'typeorm';
+import { randomUUID } from 'crypto';
+import { extname, join } from 'path';
+import * as fs from 'fs';
 import { Product } from './entities/product.entity';
 import { ProductImage } from './entities/product-image.entity';
 import { ProductTag } from './entities/product-tag.entity';
@@ -21,6 +25,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
+import { UploadImageResponseDto } from './dto/upload-image-response.dto';
 import {
   PaginatedResponseDto,
   createPaginatedResponse,
@@ -61,6 +66,36 @@ export class ProductsService {
 
     const effectivePrice = price * (1 - disc / 100);
     return Number(effectivePrice.toFixed(2));
+  }
+
+  async uploadProductImage(
+    file?: Express.Multer.File,
+  ): Promise<UploadImageResponseDto> {
+    if (!file) {
+      throw new BadRequestException('Debe proporcionar un archivo de imagen');
+    }
+
+    const fileExt = extname(file.originalname).toLowerCase();
+    const fileName = `${randomUUID()}${fileExt}`;
+    const uploadDir = join(process.cwd(), 'uploads', 'products');
+
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const filePath = join(uploadDir, fileName);
+    fs.writeFileSync(filePath, file.buffer);
+
+    const imageUrl = `http://localhost:3000/uploads/products/${fileName}`;
+
+    return {
+      data: {
+        imageUrl,
+        fileName,
+        sizeBytes: file.size,
+      },
+      statusCode: 201,
+    };
   }
 
   async create(
@@ -605,7 +640,6 @@ export class ProductsService {
     return ProductResponseDto.fromEntity(
       product,
       this.calcEffectivePrice(
-
         product.salePrice,
         product.discount,
         product.discountEndsAt,
