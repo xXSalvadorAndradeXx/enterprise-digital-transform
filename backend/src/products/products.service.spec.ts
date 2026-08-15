@@ -71,7 +71,7 @@ describe('ProductsService', () => {
     description: 'Audífonos inalámbricos con cancelación de ruido',
     salePrice: 200.0,
     discount: 10,
-    discountEndsAt: new Date(Date.now() + 86400000),
+    discountEndsAt: new Date(Date.now() + 86400000), // Válido por 1 día
     status: ProductStatus.ACTIVE,
     createdById: 'user-uuid-1',
     updatedById: 'user-uuid-1',
@@ -228,7 +228,7 @@ describe('ProductsService', () => {
     });
   });
 
-  describe('create (Transacción T7-1 y Reglas de Negocio)', () => {
+  describe('create (Transacción T7-1 y Reglas de Negocio - BE-PDT-13)', () => {
     const validDto: CreateProductDto = {
       inventoryId: 'inv-uuid-1',
       commercialName: 'Audífonos Sony Pro',
@@ -271,14 +271,16 @@ describe('ProductsService', () => {
       expect(queryRunnerMock.release).toHaveBeenCalled();
     });
 
-    it('debe lanzar ConflictException (RN-P-001) si el inventario está OUT_OF_STOCK', async () => {
+    it('debe lanzar ConflictException (RN-P-001) si el inventario está OUT_OF_STOCK con mensaje explícito', async () => {
       const outOfStockInventory = {
         ...mockInventory,
         status: InventoryStatus.OUT_OF_STOCK,
       };
       queryRunnerMock.manager.findOne.mockResolvedValueOnce(outOfStockInventory);
 
-      await expect(service.create(validDto)).rejects.toThrow(ConflictException);
+      await expect(service.create(validDto)).rejects.toThrow(
+        new ConflictException('El inventario seleccionado no tiene stock disponible'),
+      );
       expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
     });
 
@@ -286,7 +288,11 @@ describe('ProductsService', () => {
       queryRunnerMock.manager.findOne.mockResolvedValueOnce(mockInventory);
       managerQueryBuilderMock.getOne.mockResolvedValue({ id: 'otro-prod-id' });
 
-      await expect(service.create(validDto)).rejects.toThrow(ConflictException);
+      await expect(service.create(validDto)).rejects.toThrow(
+        new ConflictException(
+          'El inventario seleccionado ya se encuentra asociado a un producto activo',
+        ),
+      );
       expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
     });
 
@@ -368,6 +374,24 @@ describe('ProductsService', () => {
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('precio de venta igual a cero'),
       );
+    });
+
+    it('debe ejecutar rollbackTransaction y release cuando ocurre un error durante la transacción', async () => {
+      queryRunnerMock.manager.findOne
+        .mockResolvedValueOnce(mockInventory)
+        .mockResolvedValueOnce(mockInventoryDetail);
+      managerQueryBuilderMock.getOne.mockResolvedValue(null);
+      queryRunnerMock.manager.save.mockRejectedValueOnce(
+        new Error('DB Error en inserción'),
+      );
+
+      await expect(service.create(validDto, { id: 'user-uuid-1' })).rejects.toThrow(
+        'DB Error en inserción',
+      );
+
+      expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
+      expect(queryRunnerMock.commitTransaction).not.toHaveBeenCalled();
+      expect(queryRunnerMock.release).toHaveBeenCalled();
     });
   });
 
