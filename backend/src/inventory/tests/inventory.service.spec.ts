@@ -928,4 +928,57 @@ describe('InventoryService', () => {
       expect(mockTxManager.save).toHaveBeenCalled();
     });
   });
+
+  describe('checkAndPauseProductsOnOutOfStock (Hook BE-PDT-11)', () => {
+    it('debe actualizar productos ACTIVE asociados al inventario a status PAUSED dentro de la transacción y registrar Logger.log', async () => {
+      const mockUpdateQb = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 2 }),
+      };
+
+      const mockManager = {
+        createQueryBuilder: jest.fn().mockReturnValue(mockUpdateQb),
+      } as any;
+
+      const logSpy = jest.spyOn((service as any).logger, 'log');
+
+      await service.checkAndPauseProductsOnOutOfStock(
+        'inv-uuid-1',
+        InventoryStatus.OUT_OF_STOCK,
+        mockManager,
+      );
+
+      expect(mockManager.createQueryBuilder).toHaveBeenCalled();
+      expect(mockUpdateQb.update).toHaveBeenCalledWith(Product);
+      expect(mockUpdateQb.set).toHaveBeenCalledWith({ status: 'PAUSED' });
+      expect(mockUpdateQb.where).toHaveBeenCalledWith('inventory_id = :inventoryId', {
+        inventoryId: 'inv-uuid-1',
+      });
+      expect(mockUpdateQb.andWhere).toHaveBeenCalledWith('status = :activeStatus', {
+        activeStatus: 'ACTIVE',
+      });
+      expect(mockUpdateQb.andWhere).toHaveBeenCalledWith('deleted_at IS NULL');
+      expect(logSpy).toHaveBeenCalledWith(
+        'Productos pausados por OUT_OF_STOCK en inventario inv-uuid-1',
+      );
+    });
+
+    it('no debe ejecutar la actualización si el nuevo estado del inventario no es OUT_OF_STOCK', async () => {
+      const mockManager = {
+        createQueryBuilder: jest.fn(),
+      } as any;
+
+      await service.checkAndPauseProductsOnOutOfStock(
+        'inv-uuid-1',
+        InventoryStatus.ACTIVE,
+        mockManager,
+      );
+
+      expect(mockManager.createQueryBuilder).not.toHaveBeenCalled();
+    });
+  });
 });
+

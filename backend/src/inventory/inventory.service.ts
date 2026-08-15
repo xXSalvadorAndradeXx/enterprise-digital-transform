@@ -14,6 +14,8 @@ import { Inventory } from './entities/inventory.entity';
 import { InventoryDetail } from './entities/inventory-detail.entity';
 import { InventoryMovement } from './entities/inventory-movement.entity';
 import { Product } from '../products/entities/product.entity';
+import { ProductStatus } from '../products/enums/product-status.enum';
+import { InventoryStatus } from './enums/inventory-status.enum';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { QueryMovementsDto } from './dto/query-inventory.dto';
 import { MovementType } from './enums/movement-type.enum';
@@ -44,6 +46,35 @@ export class InventoryService {
     private readonly productRepo: Repository<Product>,
     private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * Hook: Pausa automáticamente productos ACTIVE asociados a un inventario cuando pasa a OUT_OF_STOCK.
+   * Ejecutado dentro de la misma transacción (EntityManager).
+   */
+  async checkAndPauseProductsOnOutOfStock(
+    inventoryId: string,
+    newStatus: InventoryStatus,
+    manager: EntityManager,
+  ): Promise<void> {
+    if (newStatus === InventoryStatus.OUT_OF_STOCK) {
+      const result = await manager
+        .createQueryBuilder()
+        .update(Product)
+        .set({ status: ProductStatus.PAUSED })
+        .where('inventory_id = :inventoryId', { inventoryId })
+        .andWhere('status = :activeStatus', {
+          activeStatus: ProductStatus.ACTIVE,
+        })
+        .andWhere('deleted_at IS NULL')
+        .execute();
+
+      if (result.affected && result.affected > 0) {
+        this.logger.log(
+          `Productos pausados por OUT_OF_STOCK en inventario ${inventoryId}`,
+        );
+      }
+    }
+  }
 
   // ── Stock actual ────────────────────────────────────────────────────────
 
@@ -438,9 +469,20 @@ export class InventoryService {
         await manager.save(InventoryDetail, detail);
       }
 
-      // Actualizar stock
+      // Actualizar stock y estado del inventario
       inventory.stock = stockAfter;
+      if (stockAfter <= 0) {
+        inventory.status = InventoryStatus.OUT_OF_STOCK;
+      }
       await manager.save(Inventory, inventory);
+
+      if (inventory.status === InventoryStatus.OUT_OF_STOCK) {
+        await this.checkAndPauseProductsOnOutOfStock(
+          inventory.id,
+          InventoryStatus.OUT_OF_STOCK,
+          manager,
+        );
+      }
 
       // Registrar movimiento
       const movement = manager.create(InventoryMovement, {
@@ -460,7 +502,7 @@ export class InventoryService {
     });
   }
 
-  // ── Usado por PurchasesService al recibir una compra ───────────────────
+  // ── Recepción de compras ────────────────────────────────────────────────
 
   async applyPurchaseReceipt(
     items: {
@@ -566,7 +608,6 @@ export class InventoryService {
     }
 
     // RN-I-008: Validación de unicidad de SKU
-    // RN-I-008
     const existingSku = await manager.findOne(InventoryDetail, {
       where: { sku: data.sku },
     });
@@ -591,7 +632,6 @@ export class InventoryService {
    * Actualiza el stock de una variante de inventario (InventoryDetail) dentro de una transacción.
    * Aplica RN-I-003 para prevenir stocks negativos utilizando bloqueo pesimista.
    */
-  // RN-I-002
   async updateStock(
     inventoryDetailId: string,
     delta: number,
@@ -616,7 +656,6 @@ export class InventoryService {
       );
 
       // Bloquear el registro con SELECT FOR UPDATE para evitar condiciones de carrera (RN-I-003)
-      // RN-I-003
       const detail = await manager
         .createQueryBuilder(InventoryDetail, 'detail')
         .setLock('pessimistic_write')
@@ -632,7 +671,6 @@ export class InventoryService {
       const newStock = detail.stock + delta;
 
       // RN-I-003: Validación de no negatividad de stock
-      // RN-I-003
       if (newStock < 0) {
         this.logger.warn(
           `[RN-I-003] Intento de decremento fallido: Stock insuficiente para variante ${inventoryDetailId}. Stock actual: ${detail.stock}, delta: ${delta}`,
@@ -644,6 +682,37 @@ export class InventoryService {
 
       detail.stock = newStock;
       await manager.save(InventoryDetail, detail);
+
+      // Recalcular stock total y pausar productos si el inventario queda en OUT_OF_STOCK
+      const inventory = await manager.findOne(Inventory, {
+        where: { id: detail.inventoryId },
+      });
+
+      if (inventory) {
+        const allDetails = await manager.find(InventoryDetail, {
+          where: { inventoryId: detail.inventoryId },
+        });
+
+        const totalStock = allDetails.reduce(
+          (sum, d) => sum + Number(d.stock),
+          0,
+        );
+
+        inventory.stock = totalStock;
+        if (totalStock <= 0) {
+          inventory.status = InventoryStatus.OUT_OF_STOCK;
+        }
+
+        await manager.save(Inventory, inventory);
+
+        if (inventory.status === InventoryStatus.OUT_OF_STOCK) {
+          await this.checkAndPauseProductsOnOutOfStock(
+            inventory.id,
+            InventoryStatus.OUT_OF_STOCK,
+            manager,
+          );
+        }
+      }
     }
   }
 }
