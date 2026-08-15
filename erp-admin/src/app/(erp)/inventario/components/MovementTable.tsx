@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useMovements } from "../hooks/useMovements";
 import { MovementChannel, MovementDirection } from "../types";
@@ -111,7 +110,7 @@ useEffect(() => {
     updateQuery({
       search: searchInput || undefined,
     });
-  }, 400);
+  }, 300);
 
   return () => clearTimeout(timeout);
 }, [searchInput, updateQuery]);
@@ -120,9 +119,9 @@ const CHANNEL_STYLES: Record<MovementChannel, ChannelStyle> = {
   [MovementChannel.ECOMMERCE]: { icon: Monitor, color: "text-blue-500" },
   [MovementChannel.TIENDA_FISICA]: { icon: Store, color: "text-fuchsia-500" },
 };
-  const [tipo, setTipo] = useState<MovementDirection | null>(null);
+  const [tipo, setTipo] = useState<MovementDirection | "TODOS">("TODOS");
   const [canal, setCanal] = useState<MovementChannel | "TODOS">("TODOS");
-  const [fecha, setFecha] = useState("");
+  const [fecha, setFecha] = useState("TODAS");
   const [dateError, setDateError] = useState("");
   const [searchError] = useState("");
 
@@ -130,8 +129,7 @@ const CHANNEL_STYLES: Record<MovementChannel, ChannelStyle> = {
 
   
 
-  const router = useRouter();
-  if (loading) {
+  if (loading && items.length === 0) {
   return (
     <div className="flex min-h-[250px] items-center justify-center">
       <p className="text-sm text-gray-500">
@@ -141,7 +139,7 @@ const CHANNEL_STYLES: Record<MovementChannel, ChannelStyle> = {
   );
 }
 
-if (error) {
+if (error && items.length === 0) {
   return (
     <div className="flex min-h-[250px] flex-col items-center justify-center gap-3">
       <p className="text-sm text-red-500">
@@ -164,11 +162,11 @@ if (error) {
   
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:rounded-2xl">
       {/* Barra superior */}
       <div className="flex flex-col gap-3 border-b border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-6">
         {/* Buscar */}
-        <div className="relative w-full sm:w-56">
+        <div className="relative w-full sm:max-w-xs sm:flex-1 lg:w-64 lg:flex-none">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
   value={searchInput}
@@ -179,12 +177,13 @@ if (error) {
           {searchError && <p className="mt-1 text-xs text-red-500">{searchError}</p>}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="grid w-full grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-3">
           <Dropdown<string>
             label="Fecha"
-            display={fecha || "Fecha"}
-            selected={fecha || null}
+            display={fecha === "TODAS" ? "Fecha: Todas" : fecha}
+            selected={fecha}
             options={[
+              { value: "TODAS", label: "Todas las fechas" },
               { value: "Hoy", label: "Hoy" },
               { value: "Esta semana", label: "Esta semana" },
               { value: "Este mes", label: "Este mes" },
@@ -207,10 +206,11 @@ if (error) {
 }}
           />
 
-          <Dropdown<MovementDirection>
+          <Dropdown<MovementDirection | "TODOS">
             label="Tipo"
-            display={tipo === MovementDirection.ENTRADA ? "Entrada" : tipo === MovementDirection.SALIDA ? "Salida" : "Tipo"}
+            display={tipo === "TODOS" ? "Tipo: Todos" : tipo === MovementDirection.ENTRADA ? "Entrada" : "Salida"}
             options={[
+              { value: "TODOS", label: "Todos los tipos" },
               { value: MovementDirection.ENTRADA, label: "Entrada" },
               { value: MovementDirection.SALIDA, label: "Salida" },
             ]}
@@ -218,7 +218,9 @@ if (error) {
             onSelect={(value) => {
              setTipo(value);
 
-               updateQuery({ direction: value });
+               updateQuery({
+                 direction: value === "TODOS" ? undefined : value,
+               });
                 }}
                 />
 
@@ -256,6 +258,21 @@ if (error) {
       </div>
 
       {dateError && <p className="px-6 pt-2 text-sm text-red-500">{dateError}</p>}
+
+      {loading && items.length > 0 && (
+        <p className="border-b border-gray-100 px-4 py-2 text-xs text-gray-500 sm:px-6" role="status">
+          Actualizando resultados...
+        </p>
+      )}
+
+      {error && items.length > 0 && (
+        <div className="flex flex-col gap-2 border-b border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <span>{error}</span>
+          <button type="button" onClick={retry} className="self-start font-semibold underline sm:self-auto">
+            Reintentar
+          </button>
+        </div>
+      )}
 
       {/* Tabla */}
       <div className="overflow-x-auto">
@@ -331,7 +348,7 @@ if (error) {
       
 
       {/* Paginación */}
-      <div className="flex flex-wrap items-center justify-center gap-2 px-4 py-6 text-sm text-gray-500 sm:justify-end sm:px-8">
+      <div className="flex items-center justify-center gap-2 px-4 py-5 text-sm text-gray-500 sm:justify-end sm:px-8">
         <button
   onClick={() =>
     updateQuery({
@@ -359,14 +376,6 @@ if (error) {
 >
   <ChevronRight className="h-4 w-4" />
 </button>
-<div className="flex justify-center px-4 pb-6 pt-4 sm:justify-end sm:px-8">
-  <button
-    onClick={() => router.push("/inventario")}
-    className="h-12 w-full max-w-xs rounded border-2 border-blue-600 text-lg font-medium text-blue-600 transition hover:bg-blue-50 sm:w-36"
-  >
-    Volver
-  </button>
-</div>
       </div>
     </div>
   );
@@ -405,12 +414,13 @@ function Dropdown<T extends string>({ label, display, options, selected, onSelec
   const hasOptions = options.length > 0;
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative w-full sm:w-auto">
+
       <button
         type="button"
         aria-label={label}
         onClick={() => hasOptions && setOpen((o) => !o)}
-        className={`flex h-10 items-center gap-2 whitespace-nowrap rounded-md border px-3 text-sm ${
+        className={`flex h-10 w-41.75 items-center justify-between gap-2 whitespace-nowrap rounded-md border px-3 text-sm sm:w-auto ${
           open ? "border-blue-500 text-blue-600" : "border-gray-300 text-gray-700"
         } bg-white`}
       >
@@ -419,7 +429,7 @@ function Dropdown<T extends string>({ label, display, options, selected, onSelec
       </button>
 
       {open && hasOptions && (
-        <div className="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-gray-200 bg-white py-2 shadow-lg sm:left-0 sm:right-auto">
+        <div className="absolute left-0 right-0 z-20 mt-2 min-w-56 rounded-lg border border-gray-200 bg-white py-2 shadow-lg sm:right-auto sm:w-56">
           {options.map((opt) => {
             const Icon = opt.icon;
             const isSelected = selected === opt.value;

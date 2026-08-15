@@ -101,8 +101,8 @@ export default function InventoryTable({ inventory }: InventoryTableProps) {
   }
 
   return (
-    <div className="overflow-x-auto border-t border-[#AEB4BF]">
-      <table className="min-w-[860px] w-full table-fixed border-collapse">
+    <div className="overflow-x-auto border-t border-[#AEB4BF] overscroll-x-contain">
+      <table className="w-full min-w-[860px] table-fixed border-collapse">
         <thead className="bg-[#EFEEFF]">
           <tr className="h-10 text-[13px] font-medium text-[#232323]">
             <th className="w-14 text-center" aria-label="Desplegar detalle">↕</th>
@@ -229,7 +229,7 @@ export default function InventoryTable({ inventory }: InventoryTableProps) {
         </tbody>
       </table>
 
-      <div className="flex min-h-24 items-end justify-end gap-4 px-6 pb-4 text-sm text-[#202020]">
+      <div className="sticky left-0 flex min-h-20 w-[calc(100vw-2rem)] max-w-full items-end justify-center gap-2 px-3 pb-4 text-sm text-[#202020] sm:min-h-24 sm:justify-end sm:gap-4 sm:px-6">
         <button
           type="button"
           disabled={meta.page <= 1}
