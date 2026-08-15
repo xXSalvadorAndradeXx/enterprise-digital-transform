@@ -123,7 +123,10 @@ export class ProductResponseDto {
   @ApiProperty({ type: [ProductVariantConfigResponseDto] })
   variantConfigs!: ProductVariantConfigResponseDto[];
 
-  static fromEntity(product: Product): ProductResponseDto {
+  static fromEntity(
+    product: Product,
+    calculatedEffectivePrice?: number,
+  ): ProductResponseDto {
     const dto = new ProductResponseDto();
     dto.id = product.id;
     dto.inventoryId = product.inventoryId ?? null;
@@ -132,14 +135,27 @@ export class ProductResponseDto {
     dto.salePrice = Number(product.salePrice);
     dto.discount = product.discount !== null ? Number(product.discount) : null;
 
-    const salePriceNum = Number(product.salePrice);
-    const discountNum =
-      product.discount !== null && product.discount !== undefined
-        ? Number(product.discount)
-        : 0;
-    dto.effectivePrice = Number(
-      (salePriceNum * (1 - discountNum / 100)).toFixed(2),
-    );
+    if (calculatedEffectivePrice !== undefined) {
+      dto.effectivePrice = calculatedEffectivePrice;
+    } else {
+      const salePriceNum = Number(product.salePrice);
+      const discountNum =
+        product.discount !== null && product.discount !== undefined
+          ? Number(product.discount)
+          : 0;
+
+      const isExpired =
+        product.discountEndsAt &&
+        new Date(product.discountEndsAt) < new Date();
+
+      if (discountNum > 0 && !isExpired) {
+        dto.effectivePrice = Number(
+          (salePriceNum * (1 - discountNum / 100)).toFixed(2),
+        );
+      } else {
+        dto.effectivePrice = salePriceNum;
+      }
+    }
 
     dto.discountEndsAt = product.discountEndsAt ?? null;
     dto.status = product.status;

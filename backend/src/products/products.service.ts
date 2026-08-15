@@ -36,6 +36,33 @@ export class ProductsService {
     private readonly dataSource: DataSource,
   ) {}
 
+  private calcEffectivePrice(
+    salePrice: number,
+    discount: number | null,
+    discountEndsAt?: Date | null,
+  ): number {
+    const price = Number(salePrice);
+    const disc =
+      discount !== null && discount !== undefined ? Number(discount) : 0;
+
+    if (disc === 0) {
+      return price;
+    }
+
+    if (discountEndsAt) {
+      const endsAt = new Date(discountEndsAt);
+      if (!isNaN(endsAt.getTime()) && endsAt < new Date()) {
+        this.logger.warn(
+          `Descuento de ${disc}% expiró el ${endsAt.toISOString()} para el producto con precio $${price}`,
+        );
+        return price;
+      }
+    }
+
+    const effectivePrice = price * (1 - disc / 100);
+    return Number(effectivePrice.toFixed(2));
+  }
+
   async create(
     createProductDto: CreateProductDto,
     user?: any,
@@ -226,7 +253,14 @@ export class ProductsService {
 
       // Consulta final post-commit
       const createdProduct = await this.findOneEntity(savedProduct.id);
-      return ProductResponseDto.fromEntity(createdProduct);
+      return ProductResponseDto.fromEntity(
+        createdProduct,
+        this.calcEffectivePrice(
+          createdProduct.salePrice,
+          createdProduct.discount,
+          createdProduct.discountEndsAt,
+        ),
+      );
     } catch (error: any) {
       await queryRunner.rollbackTransaction();
       this.logger.error(
@@ -433,7 +467,14 @@ export class ProductsService {
       await queryRunner.commitTransaction();
 
       const updatedProduct = await this.findOneEntity(id);
-      return ProductResponseDto.fromEntity(updatedProduct);
+      return ProductResponseDto.fromEntity(
+        updatedProduct,
+        this.calcEffectivePrice(
+          updatedProduct.salePrice,
+          updatedProduct.discount,
+          updatedProduct.discountEndsAt,
+        ),
+      );
     } catch (error: any) {
       await queryRunner.rollbackTransaction();
       this.logger.error(
@@ -499,7 +540,14 @@ export class ProductsService {
     }
 
     const updatedProduct = await this.findOneEntityWithDeleted(id);
-    return ProductResponseDto.fromEntity(updatedProduct);
+    return ProductResponseDto.fromEntity(
+      updatedProduct,
+      this.calcEffectivePrice(
+        updatedProduct.salePrice,
+        updatedProduct.discount,
+        updatedProduct.discountEndsAt,
+      ),
+    );
   }
 
   async findOneEntity(id: string): Promise<Product> {
@@ -554,7 +602,15 @@ export class ProductsService {
 
   async findOne(id: string): Promise<ProductResponseDto> {
     const product = await this.findOneEntity(id);
-    return ProductResponseDto.fromEntity(product);
+    return ProductResponseDto.fromEntity(
+      product,
+      this.calcEffectivePrice(
+
+        product.salePrice,
+        product.discount,
+        product.discountEndsAt,
+      ),
+    );
   }
 
   async findAll(
@@ -653,7 +709,12 @@ export class ProductsService {
     query.skip(skip).take(limit);
 
     const [products, total] = await query.getManyAndCount();
-    const data = products.map((p) => ProductResponseDto.fromEntity(p));
+    const data = products.map((p) =>
+      ProductResponseDto.fromEntity(
+        p,
+        this.calcEffectivePrice(p.salePrice, p.discount, p.discountEndsAt),
+      ),
+    );
 
     return createPaginatedResponse(data, total, page, limit);
   }

@@ -168,6 +168,33 @@ describe('ProductsService', () => {
     jest.clearAllMocks();
   });
 
+  describe('calcEffectivePrice (Cálculo y Expiración de Descuento)', () => {
+    it('debe calcular el precio efectivo correctamente cuando el descuento está activo y no expirado', () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 5);
+
+      const effectivePrice = (service as any).calcEffectivePrice(100, 15, futureDate);
+      expect(effectivePrice).toBe(85.0);
+    });
+
+    it('debe ignorar el descuento y registrar Logger.warn cuando el descuento está expirado', () => {
+      const pastDate = new Date('2020-01-01T00:00:00Z');
+      const warnSpy = jest.spyOn((service as any).logger, 'warn');
+
+      const effectivePrice = (service as any).calcEffectivePrice(100, 15, pastDate);
+
+      expect(effectivePrice).toBe(100.0);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('expiró el'),
+      );
+    });
+
+    it('debe retornar salePrice directamente si discount === 0', () => {
+      const effectivePrice = (service as any).calcEffectivePrice(100, 0);
+      expect(effectivePrice).toBe(100.0);
+    });
+  });
+
   describe('create (Transacción T7-1 y Reglas de Negocio)', () => {
     const validDto: CreateProductDto = {
       inventoryId: 'inv-uuid-1',
