@@ -1,56 +1,95 @@
-export type ProductStatus =
-  | "DRAFT"
-  | "ACTIVE"
-  | "PAUSED"
-  | "DISCONTINUED";
+import type { ProductStatus } from "./product.types";
 
-export interface ProductImageDto {
-  id: string;
-  imageUrl: string;
-  sortOrder: number;
-}
+import type { ProductImage } from "./product-image.types";
 
-export interface ProductVariantConfigDto {
-  inventoryDetailId: string;
-  minStock: number;
-  sku: string;
-  size: string;
-  color: string;
-  stock: number;
-  stockStatus: string;
-}
+import type { ProductCreatedBy } from "./product-user.types";
 
-export interface ProductCreatedByDto {
-  id: string;
-  firstName: string;
-  lastName: string;
-}
+import type { ProductVariantDetail } from "./product-variant.types";
 
-/*
- * El contrato indica que inventory corresponde a InventoryResponseDto,
- * pero este documento no detalla aquí la estructura completa de ese DTO.
+/**
+ * Representa la respuesta completa de un producto.
  *
- * No inventamos propiedades dentro del DTO de API.
+ * Nota:
+ * El contrato de Backend indica que `inventory`
+ * corresponde a `InventoryResponseDto`.
+ *
+ * Ese tipo pertenece al módulo Inventario y todavía
+ * no está expuesto en Frontend, por lo que se mantiene
+ * temporalmente como `unknown` para no duplicar ni
+ * inventar el contrato de otro módulo.
  */
-export interface ProductResponseDto {
+export interface ProductDetail {
   id: string;
   commercialName: string;
   description: string | null;
   salePrice: number;
   discount: number;
   discountEndsAt: string | null;
+
+  /**
+   * Valor calculado por Backend.
+   * Frontend únicamente lo consume.
+   */
   effectivePrice: number;
+
   status: ProductStatus;
+
   tags: string[];
-  images: ProductImageDto[];
+
+  images: ProductImage[];
+
+  /**
+   * Pendiente de sustituir por InventoryResponseDto
+   * cuando el módulo Inventario exponga el tipo
+   * correspondiente en Frontend.
+   */
   inventory: unknown;
-  variantConfigs: ProductVariantConfigDto[];
-  createdBy: ProductCreatedByDto;
+
+  variantConfigs: ProductVariantDetail[];
+
+  createdBy: ProductCreatedBy;
+
   createdAt: string;
   updatedAt: string;
 }
 
-export interface GetProductByIdResponse {
-  data: ProductResponseDto;
+/**
+ * El contrato actual no define un DTO resumido
+ * independiente para el listado.
+ *
+ * GET /products devuelve la misma estructura
+ * de producto dentro de data[].
+ */
+export type ProductSummary = ProductDetail;
+
+/**
+ * GET /products/:id
+ */
+export interface ProductDetailResponse {
+  data: ProductDetail;
+  statusCode: 200;
+}
+
+/**
+ * POST /products
+ */
+export interface CreateProductResponse {
+  data: ProductDetail;
+  statusCode: 201;
+}
+
+/**
+ * PATCH /products/:id
+ */
+export interface UpdateProductResponse {
+  data: ProductDetail;
+  statusCode: 200;
+}
+
+/**
+ * PATCH /products/:id/status
+ */
+export interface UpdateProductStatusResponse {
+  data: ProductDetail;
   statusCode: 200;
 }
