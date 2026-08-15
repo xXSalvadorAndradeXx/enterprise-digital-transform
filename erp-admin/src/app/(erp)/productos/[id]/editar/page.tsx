@@ -1,6 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import {
+  useRouter,
+} from "next/navigation";
 
 import { ProductForm } from "@/components/productos/ProductForm";
 
@@ -9,14 +11,15 @@ import type {
 } from "@/types/productos/schemas";
 
 export default function EditarProductoPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   const handleSubmit = async (
     _values: ProductFormSchema,
   ): Promise<void> => {
     /*
-     * La actualización real se conectará mediante
-     * service + MSW siguiendo UpdateProductDto.
+     * La actualización real
+     * se conectará posteriormente.
      */
   };
 
@@ -31,7 +34,9 @@ export default function EditarProductoPage() {
         onClose={() =>
           router.back()
         }
-        onSubmit={handleSubmit}
+        onSubmit={
+          handleSubmit
+        }
       />
     </main>
   );

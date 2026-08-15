@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { ProductInventoryPanel } from "./ProductInventoryPanel";
 import { ProductManualFields } from "./ProductManualFields";
+
+import { useInventorySelection } from "@/hooks/productos/useInventorySelection";
 
 import {
   productFormSchema,
@@ -21,9 +22,16 @@ import type {
 interface ProductFormProps {
   mode: ProductFormMode;
 
-  inventory?: InventoryProductView | null;
+  /**
+   * Inventario ya vinculado.
+   * Se utiliza principalmente en edición.
+   */
+  inventory?:
+    | InventoryProductView
+    | null;
 
-  defaultValues?: Partial<ProductFormInput>;
+  defaultValues?:
+    Partial<ProductFormInput>;
 
   onClose: () => void;
 
@@ -31,9 +39,15 @@ interface ProductFormProps {
     values: ProductFormSchema,
   ) => Promise<void> | void;
 
-  onInventorySearch?: (
+  /**
+   * Función que posteriormente será
+   * conectada con el módulo Inventario.
+   */
+  searchInventory?: (
     search: string,
-  ) => void;
+  ) => Promise<
+    InventoryProductView[]
+  >;
 
   onAddImages?: () => void;
 }
@@ -44,20 +58,16 @@ export function ProductForm({
   defaultValues,
   onClose,
   onSubmit,
-  onInventorySearch,
+  searchInventory,
   onAddImages,
 }: ProductFormProps) {
-  const [
-    inventorySearch,
-    setInventorySearch,
-  ] = useState("");
-
   const {
     register,
     control,
     watch,
     setValue,
     handleSubmit,
+
     formState: {
       errors,
       isSubmitting,
@@ -74,45 +84,103 @@ export function ProductForm({
     mode: "onChange",
 
     defaultValues: {
-      inventoryId: "",
+      inventoryId:
+        defaultValues
+          ?.inventoryId ??
+        "",
 
       commercialName: "",
+
       salePrice: "",
 
-      applyDiscount: false,
-      discount: "10",
-      discountEndsAt: "",
+      applyDiscount:
+        false,
 
-      description: "",
+      discount:
+        "10",
+
+      discountEndsAt:
+        "",
+
+      description:
+        "",
 
       tags: [],
-      imageUrls: [],
 
-      status: "DRAFT",
+      imageUrls:
+        [],
+
+      status:
+        "DRAFT",
 
       ...defaultValues,
     },
   });
 
-  const handleInventorySearch =
-    (): void => {
-      onInventorySearch?.(
-        inventorySearch.trim(),
-      );
-    };
+  const {
+    search:
+      inventorySearch,
 
-  const handleRemoveImage = (
-    index: number,
+    results:
+      inventoryResults,
+
+    selectedInventory,
+
+    isLoading:
+      isSearchingInventory,
+
+    error:
+      inventorySearchError,
+
+    hasSearched,
+
+    setSearch:
+      setInventorySearch,
+
+    selectInventory,
+
+  } = useInventorySelection({
+    searchInventory,
+  });
+
+  /**
+   * En edición utilizamos el inventario
+   * que ya tiene vinculado el producto.
+   *
+   * En creación utilizamos el inventario
+   * seleccionado desde la búsqueda.
+   */
+  const currentInventory =
+    mode === "edit"
+      ? inventory
+      : selectedInventory;
+
+  /**
+   * Vincula la selección visual con
+   * React Hook Form.
+   */
+  const handleSelectInventory = (
+    selected: InventoryProductView,
   ): void => {
-    const images =
-      watch("imageUrls");
+    /*
+     * OUT_OF_STOCK ya está bloqueado
+     * visualmente, pero mantenemos la
+     * validación defensiva.
+     */
+    if (
+      selected.inventoryStatus ===
+      "OUT_OF_STOCK"
+    ) {
+      return;
+    }
+
+    selectInventory(
+      selected,
+    );
 
     setValue(
-      "imageUrls",
-      images.filter(
-        (_, imageIndex) =>
-          imageIndex !== index,
-      ),
+      "inventoryId",
+      selected.inventoryId,
       {
         shouldDirty: true,
         shouldValidate: true,
@@ -120,37 +188,94 @@ export function ProductForm({
     );
   };
 
+  const handleRemoveImage = (
+    index: number,
+  ): void => {
+    const images =
+      watch(
+        "imageUrls",
+      );
+
+    setValue(
+      "imageUrls",
+      images.filter(
+        (
+          _,
+          imageIndex,
+        ) =>
+          imageIndex !==
+          index,
+      ),
+      {
+        shouldDirty:
+          true,
+
+        shouldValidate:
+          true,
+      },
+    );
+  };
+
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(
+        onSubmit,
+      )}
       noValidate
     >
       <div className="overflow-hidden rounded-xl border border-gray-300 bg-white">
         <div className="grid grid-cols-1 lg:grid-cols-2">
           <ProductInventoryPanel
-            mode={mode}
-            inventory={inventory}
+            mode={
+              mode
+            }
+            inventory={
+              currentInventory
+            }
             inventorySearch={
               inventorySearch
             }
             onInventorySearchChange={
               setInventorySearch
             }
-            onSearch={
-              handleInventorySearch
+            searchResults={
+              inventoryResults
+            }
+            isSearching={
+              isSearchingInventory
+            }
+            searchError={
+              inventorySearchError
+            }
+            hasSearched={
+              hasSearched
+            }
+            onSelectInventory={
+              handleSelectInventory
             }
             error={
-              errors.inventoryId
+              errors
+                .inventoryId
                 ?.message
             }
           />
 
           <ProductManualFields
-            register={register}
-            control={control}
-            errors={errors}
-            watch={watch}
-            setValue={setValue}
+            register={
+              register
+            }
+            control={
+              control
+            }
+            errors={
+              errors
+            }
+            watch={
+              watch
+            }
+            setValue={
+              setValue
+            }
             onAddImages={() =>
               onAddImages?.()
             }
@@ -163,8 +288,12 @@ export function ProductForm({
         <div className="flex flex-col-reverse gap-3 border-t border-gray-200 px-6 py-5 sm:flex-row sm:justify-end">
           <button
             type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
+            onClick={
+              onClose
+            }
+            disabled={
+              isSubmitting
+            }
             className="min-w-32 rounded-md border border-[#1C21D1] px-6 py-2 text-sm font-medium text-[#1C21D1] transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cerrar
@@ -172,7 +301,9 @@ export function ProductForm({
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={
+              isSubmitting
+            }
             className="min-w-32 rounded-md bg-[#1C21D1] px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting
