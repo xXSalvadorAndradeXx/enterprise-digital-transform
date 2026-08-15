@@ -503,16 +503,22 @@ export class ProductsService {
   }
 
   async findOneEntity(id: string): Promise<Product> {
-    const product = await this.productRepository.findOne({
-      where: { id },
-      relations: [
-        'images',
-        'tags',
-        'variantConfigs',
-        'variantConfigs.inventoryDetail',
-        'inventory',
-      ],
-    });
+    const product = await this.productRepository
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.inventory', 'inventory')
+      .leftJoinAndSelect('inventory.category', 'category')
+      .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoinAndSelect('inventory.details', 'inventory_details')
+      .leftJoinAndSelect('p.images', 'product_images')
+      .leftJoinAndSelect('p.tags', 'product_tags')
+      .leftJoinAndSelect('p.variantConfigs', 'product_variant_config')
+      .leftJoinAndSelect(
+        'product_variant_config.inventoryDetail',
+        'inventoryDetail',
+      )
+      .where('p.id = :id', { id })
+      .andWhere('p.deleted_at IS NULL')
+      .getOne();
 
     if (!product) {
       throw new NotFoundException(`Producto con id ${id} no encontrado`);
@@ -522,17 +528,22 @@ export class ProductsService {
   }
 
   async findOneEntityWithDeleted(id: string): Promise<Product> {
-    const product = await this.productRepository.findOne({
-      where: { id },
-      withDeleted: true,
-      relations: [
-        'images',
-        'tags',
-        'variantConfigs',
-        'variantConfigs.inventoryDetail',
-        'inventory',
-      ],
-    });
+    const product = await this.productRepository
+      .createQueryBuilder('p')
+      .withDeleted()
+      .leftJoinAndSelect('p.inventory', 'inventory')
+      .leftJoinAndSelect('inventory.category', 'category')
+      .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoinAndSelect('inventory.details', 'inventory_details')
+      .leftJoinAndSelect('p.images', 'product_images')
+      .leftJoinAndSelect('p.tags', 'product_tags')
+      .leftJoinAndSelect('p.variantConfigs', 'product_variant_config')
+      .leftJoinAndSelect(
+        'product_variant_config.inventoryDetail',
+        'inventoryDetail',
+      )
+      .where('p.id = :id', { id })
+      .getOne();
 
     if (!product) {
       throw new NotFoundException(`Producto con id ${id} no encontrado`);

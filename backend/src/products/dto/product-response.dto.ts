@@ -2,6 +2,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Product } from '../entities/product.entity';
 import { ProductStatus } from '../enums/product-status.enum';
 
+export function calculateStockStatus(stock: number, minStock: number): string {
+  if (stock <= 0) return 'OUT_OF_STOCK';
+  if (stock <= minStock) return 'LOW_STOCK';
+  return 'IN_STOCK';
+}
+
 export class ProductImageResponseDto {
   @ApiProperty()
   id!: string;
@@ -36,6 +42,24 @@ export class ProductVariantConfigResponseDto {
 
   @ApiProperty()
   minStock!: number;
+
+  @ApiPropertyOptional({ example: 'SKU-SHIRT-M-RED' })
+  sku?: string | null;
+
+  @ApiPropertyOptional({ example: 'M' })
+  size?: string | null;
+
+  @ApiPropertyOptional({ example: '#FF0000' })
+  color?: string | null;
+
+  @ApiPropertyOptional({ example: 100 })
+  stock?: number | null;
+
+  @ApiPropertyOptional({
+    example: 'IN_STOCK',
+    description: 'Estado de stock (OUT_OF_STOCK, LOW_STOCK, IN_STOCK)',
+  })
+  stockStatus?: string | null;
 
   @ApiPropertyOptional()
   inventoryDetail?: any;
@@ -109,8 +133,13 @@ export class ProductResponseDto {
     dto.discount = product.discount !== null ? Number(product.discount) : null;
 
     const salePriceNum = Number(product.salePrice);
-    const discountNum = product.discount !== null && product.discount !== undefined ? Number(product.discount) : 0;
-    dto.effectivePrice = Number((salePriceNum * (1 - discountNum / 100)).toFixed(2));
+    const discountNum =
+      product.discount !== null && product.discount !== undefined
+        ? Number(product.discount)
+        : 0;
+    dto.effectivePrice = Number(
+      (salePriceNum * (1 - discountNum / 100)).toFixed(2),
+    );
 
     dto.discountEndsAt = product.discountEndsAt ?? null;
     dto.status = product.status;
@@ -118,26 +147,56 @@ export class ProductResponseDto {
     dto.updatedById = product.updatedById ?? null;
     dto.createdAt = product.createdAt;
     dto.updatedAt = product.updatedAt;
-    dto.inventory = product.inventory ?? null;
+
+    if (product.inventory) {
+      const inv = product.inventory;
+      dto.inventory = {
+        ...inv,
+        details: (inv.details || []).map((d) => ({
+          ...d,
+          stockStatus: calculateStockStatus(
+            Number(d.stock),
+            Number(d.minStock),
+          ),
+        })),
+      };
+    } else {
+      dto.inventory = null;
+    }
+
     dto.images = (product.images || []).map((img) => ({
       id: img.id,
       imageUrl: img.imageUrl,
       sortOrder: img.sortOrder,
       createdAt: img.createdAt,
     }));
+
     dto.tags = (product.tags || []).map((t) => ({
       id: t.id,
       tag: t.tag,
       createdAt: t.createdAt,
     }));
-    dto.variantConfigs = (product.variantConfigs || []).map((vc) => ({
-      id: vc.id,
-      inventoryDetailId: vc.inventoryDetailId,
-      minStock: vc.minStock,
-      inventoryDetail: vc.inventoryDetail ?? null,
-      createdAt: vc.createdAt,
-      updatedAt: vc.updatedAt,
-    }));
+
+    dto.variantConfigs = (product.variantConfigs || []).map((vc) => {
+      const detail = vc.inventoryDetail;
+      const stock = detail ? Number(detail.stock) : 0;
+      const minStock = vc.minStock !== undefined ? Number(vc.minStock) : 0;
+
+      return {
+        id: vc.id,
+        inventoryDetailId: vc.inventoryDetailId,
+        minStock: vc.minStock,
+        sku: detail?.sku ?? null,
+        size: detail?.size ?? null,
+        color: detail?.color ?? null,
+        stock: detail ? Number(detail.stock) : null,
+        stockStatus: detail ? calculateStockStatus(stock, minStock) : null,
+        inventoryDetail: detail ?? null,
+        createdAt: vc.createdAt,
+        updatedAt: vc.updatedAt,
+      };
+    });
+
     return dto;
   }
 }
