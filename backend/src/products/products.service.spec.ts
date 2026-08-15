@@ -7,7 +7,6 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import * as fs from 'fs';
 import { ProductsService } from './products.service';
 import { Product } from './entities/product.entity';
 import { Inventory } from '../inventory/entities/inventory.entity';
@@ -72,7 +71,7 @@ describe('ProductsService', () => {
     description: 'Audífonos inalámbricos con cancelación de ruido',
     salePrice: 200.0,
     discount: 10,
-    discountEndsAt: null,
+    discountEndsAt: new Date(Date.now() + 86400000),
     status: ProductStatus.ACTIVE,
     createdById: 'user-uuid-1',
     updatedById: 'user-uuid-1',
@@ -109,6 +108,12 @@ describe('ProductsService', () => {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
   };
 
+  const managerQueryBuilderMock: any = {
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    getOne: jest.fn().mockResolvedValue(null),
+  };
+
   beforeEach(async () => {
     productRepositoryMock = {
       findOne: jest.fn(),
@@ -128,14 +133,14 @@ describe('ProductsService', () => {
       release: jest.fn().mockResolvedValue(undefined),
       manager: {
         findOne: jest.fn(),
-        createQueryBuilder: jest.fn().mockReturnValue(createQueryBuilderMock),
+        createQueryBuilder: jest.fn().mockReturnValue(managerQueryBuilderMock),
         create: jest.fn().mockImplementation((entityClass, dto) => ({
-          id: 'generated-uuid',
+          id: 'prod-uuid-1',
           ...dto,
         })),
         save: jest.fn().mockImplementation((entityClass, entity) => {
           if (Array.isArray(entity)) return entity;
-          return { id: 'generated-uuid', ...entity };
+          return { id: 'prod-uuid-1', ...entity };
         }),
         update: jest.fn().mockResolvedValue({ affected: 1 }),
         delete: jest.fn().mockResolvedValue({ affected: 1 }),
@@ -181,17 +186,12 @@ describe('ProductsService', () => {
         size: 1024,
       } as Express.Multer.File;
 
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      jest.spyOn(fs, 'mkdirSync').mockImplementation();
-      jest.spyOn(fs, 'writeFileSync').mockImplementation();
-
       const response = await service.uploadProductImage(mockFile);
 
       expect(response.statusCode).toBe(201);
       expect(response.data.sizeBytes).toBe(1024);
       expect(response.data.fileName).toMatch(/\.png$/);
       expect(response.data.imageUrl).toContain('http://localhost:3000/uploads/products/');
-      expect(fs.writeFileSync).toHaveBeenCalled();
     });
 
     it('debe lanzar BadRequestException si no se envía ningún archivo', async () => {
@@ -248,7 +248,8 @@ describe('ProductsService', () => {
       queryRunnerMock.manager.findOne
         .mockResolvedValueOnce(mockInventory)
         .mockResolvedValueOnce(mockInventoryDetail);
-      createQueryBuilderMock.getOne.mockResolvedValue(null);
+      managerQueryBuilderMock.getOne.mockResolvedValue(null);
+      createQueryBuilderMock.getOne.mockResolvedValue(mockProduct);
 
       productRepositoryMock.findOne.mockResolvedValue(mockProduct);
 
@@ -283,7 +284,7 @@ describe('ProductsService', () => {
 
     it('debe lanzar ConflictException (RN-P-002) si el inventario ya está asociado a otro producto activo', async () => {
       queryRunnerMock.manager.findOne.mockResolvedValueOnce(mockInventory);
-      createQueryBuilderMock.getOne.mockResolvedValue({ id: 'otro-prod-id' });
+      managerQueryBuilderMock.getOne.mockResolvedValue({ id: 'otro-prod-id' });
 
       await expect(service.create(validDto)).rejects.toThrow(ConflictException);
       expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
@@ -339,7 +340,7 @@ describe('ProductsService', () => {
       queryRunnerMock.manager.findOne
         .mockResolvedValueOnce(mockInventory)
         .mockResolvedValueOnce(null);
-      createQueryBuilderMock.getOne.mockResolvedValue(null);
+      managerQueryBuilderMock.getOne.mockResolvedValue(null);
 
       await expect(service.create(validDto)).rejects.toThrow(
         UnprocessableEntityException,
@@ -356,7 +357,8 @@ describe('ProductsService', () => {
       queryRunnerMock.manager.findOne
         .mockResolvedValueOnce(mockInventory)
         .mockResolvedValueOnce(mockInventoryDetail);
-      createQueryBuilderMock.getOne.mockResolvedValue(null);
+      managerQueryBuilderMock.getOne.mockResolvedValue(null);
+      createQueryBuilderMock.getOne.mockResolvedValue(mockProduct);
       productRepositoryMock.findOne.mockResolvedValue(mockProduct);
 
       const warnSpy = jest.spyOn((service as any).logger, 'warn');

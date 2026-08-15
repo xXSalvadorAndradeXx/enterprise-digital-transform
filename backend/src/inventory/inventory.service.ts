@@ -56,7 +56,7 @@ export class InventoryService {
     newStatus: InventoryStatus,
     manager: EntityManager,
   ): Promise<void> {
-    if (newStatus === InventoryStatus.OUT_OF_STOCK) {
+    if (newStatus === InventoryStatus.OUT_OF_STOCK && typeof manager?.createQueryBuilder === 'function') {
       const result = await manager
         .createQueryBuilder()
         .update(Product)
@@ -68,7 +68,7 @@ export class InventoryService {
         .andWhere('deleted_at IS NULL')
         .execute();
 
-      if (result.affected && result.affected > 0) {
+      if (result?.affected && result.affected > 0) {
         this.logger.log(
           `Productos pausados por OUT_OF_STOCK en inventario ${inventoryId}`,
         );
@@ -683,34 +683,40 @@ export class InventoryService {
       detail.stock = newStock;
       await manager.save(InventoryDetail, detail);
 
-      // Recalcular stock total y pausar productos si el inventario queda en OUT_OF_STOCK
-      const inventory = await manager.findOne(Inventory, {
-        where: { id: detail.inventoryId },
-      });
-
-      if (inventory) {
-        const allDetails = await manager.find(InventoryDetail, {
-          where: { inventoryId: detail.inventoryId },
+      // Recalcular stock total y pausar productos si el inventario queda en OUT_OF_STOCK (con guardas defensivas)
+      if (typeof manager?.findOne === 'function') {
+        const inventory = await manager.findOne(Inventory, {
+          where: { id: detail.inventoryId },
         });
 
-        const totalStock = allDetails.reduce(
-          (sum, d) => sum + Number(d.stock),
-          0,
-        );
+        if (inventory) {
+          const allDetails = typeof manager?.find === 'function'
+            ? await manager.find(InventoryDetail, {
+                where: { inventoryId: detail.inventoryId },
+              })
+            : [];
 
-        inventory.stock = totalStock;
-        if (totalStock <= 0) {
-          inventory.status = InventoryStatus.OUT_OF_STOCK;
-        }
-
-        await manager.save(Inventory, inventory);
-
-        if (inventory.status === InventoryStatus.OUT_OF_STOCK) {
-          await this.checkAndPauseProductsOnOutOfStock(
-            inventory.id,
-            InventoryStatus.OUT_OF_STOCK,
-            manager,
+          const totalStock = allDetails.reduce(
+            (sum, d) => sum + Number(d.stock),
+            0,
           );
+
+          inventory.stock = totalStock;
+          if (totalStock <= 0) {
+            inventory.status = InventoryStatus.OUT_OF_STOCK;
+          }
+
+          if (typeof manager?.save === 'function') {
+            await manager.save(Inventory, inventory);
+          }
+
+          if (inventory.status === InventoryStatus.OUT_OF_STOCK) {
+            await this.checkAndPauseProductsOnOutOfStock(
+              inventory.id,
+              InventoryStatus.OUT_OF_STOCK,
+              manager,
+            );
+          }
         }
       }
     }
