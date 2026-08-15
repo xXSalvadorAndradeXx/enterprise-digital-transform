@@ -564,7 +564,7 @@ describe('ProductsService', () => {
     });
   });
 
-  describe('updateStatus (Máquina de Estados de Productos)', () => {
+  describe('updateStatus (Máquina de Estados de Productos - BE-PDT-14)', () => {
     it('debe permitir la transición DRAFT -> ACTIVE si el inventario tiene stock', async () => {
       const draftProduct = { ...mockProduct, status: ProductStatus.DRAFT };
       createQueryBuilderMock.getOne.mockResolvedValue(draftProduct);
@@ -582,7 +582,81 @@ describe('ProductsService', () => {
       expect(result.id).toBe(mockProduct.id);
     });
 
-    it('debe rechazar la transición DRAFT -> ACTIVE si el inventario está OUT_OF_STOCK', async () => {
+    it('debe permitir la transición ACTIVE -> PAUSED', async () => {
+      const activeProduct = { ...mockProduct, status: ProductStatus.ACTIVE };
+      createQueryBuilderMock.getOne.mockResolvedValue(activeProduct);
+
+      const updateStatusDto: UpdateProductStatusDto = {
+        status: ProductStatus.PAUSED,
+      };
+
+      const result = await service.updateStatus('prod-uuid-1', updateStatusDto);
+
+      expect(productRepositoryMock.update).toHaveBeenCalledWith(
+        { id: 'prod-uuid-1' },
+        expect.objectContaining({ status: ProductStatus.PAUSED }),
+      );
+      expect(result.id).toBe(mockProduct.id);
+    });
+
+    it('debe permitir la transición ACTIVE -> DISCONTINUED y establecer deleted_at', async () => {
+      const activeProduct = { ...mockProduct, status: ProductStatus.ACTIVE };
+      createQueryBuilderMock.getOne.mockResolvedValue(activeProduct);
+
+      const updateStatusDto: UpdateProductStatusDto = {
+        status: ProductStatus.DISCONTINUED,
+      };
+
+      const result = await service.updateStatus('prod-uuid-1', updateStatusDto);
+
+      expect(productRepositoryMock.update).toHaveBeenCalledWith(
+        { id: 'prod-uuid-1' },
+        expect.objectContaining({
+          status: ProductStatus.DISCONTINUED,
+          deletedAt: expect.any(Date),
+        }),
+      );
+      expect(result.id).toBe(mockProduct.id);
+    });
+
+    it('debe permitir la transición PAUSED -> ACTIVE si el inventario tiene stock', async () => {
+      const pausedProduct = { ...mockProduct, status: ProductStatus.PAUSED };
+      createQueryBuilderMock.getOne.mockResolvedValue(pausedProduct);
+
+      const updateStatusDto: UpdateProductStatusDto = {
+        status: ProductStatus.ACTIVE,
+      };
+
+      const result = await service.updateStatus('prod-uuid-1', updateStatusDto);
+
+      expect(productRepositoryMock.update).toHaveBeenCalledWith(
+        { id: 'prod-uuid-1' },
+        expect.objectContaining({ status: ProductStatus.ACTIVE }),
+      );
+      expect(result.id).toBe(mockProduct.id);
+    });
+
+    it('debe permitir la transición PAUSED -> DISCONTINUED y establecer deleted_at', async () => {
+      const pausedProduct = { ...mockProduct, status: ProductStatus.PAUSED };
+      createQueryBuilderMock.getOne.mockResolvedValue(pausedProduct);
+
+      const updateStatusDto: UpdateProductStatusDto = {
+        status: ProductStatus.DISCONTINUED,
+      };
+
+      const result = await service.updateStatus('prod-uuid-1', updateStatusDto);
+
+      expect(productRepositoryMock.update).toHaveBeenCalledWith(
+        { id: 'prod-uuid-1' },
+        expect.objectContaining({
+          status: ProductStatus.DISCONTINUED,
+          deletedAt: expect.any(Date),
+        }),
+      );
+      expect(result.id).toBe(mockProduct.id);
+    });
+
+    it('debe lanzar ConflictException al activar DRAFT si el inventario está OUT_OF_STOCK y conservar el estado anterior', async () => {
       const draftProduct = { ...mockProduct, status: ProductStatus.DRAFT };
       createQueryBuilderMock.getOne.mockResolvedValue(draftProduct);
 
@@ -597,7 +671,100 @@ describe('ProductsService', () => {
 
       await expect(
         service.updateStatus('prod-uuid-1', updateStatusDto),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toThrow(
+        new ConflictException('El inventario seleccionado no tiene stock disponible'),
+      );
+      expect(productRepositoryMock.update).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar ConflictException al activar PAUSED si el inventario está OUT_OF_STOCK y conservar el estado anterior', async () => {
+      const pausedProduct = { ...mockProduct, status: ProductStatus.PAUSED };
+      createQueryBuilderMock.getOne.mockResolvedValue(pausedProduct);
+
+      dataSourceMock.getRepository().findOne.mockResolvedValueOnce({
+        ...mockInventory,
+        status: InventoryStatus.OUT_OF_STOCK,
+      });
+
+      const updateStatusDto: UpdateProductStatusDto = {
+        status: ProductStatus.ACTIVE,
+      };
+
+      await expect(
+        service.updateStatus('prod-uuid-1', updateStatusDto),
+      ).rejects.toThrow(
+        new ConflictException('El inventario seleccionado no tiene stock disponible'),
+      );
+      expect(productRepositoryMock.update).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar ConflictException al intentar la transición inválida DISCONTINUED -> ACTIVE', async () => {
+      const discontinuedProduct = {
+        ...mockProduct,
+        status: ProductStatus.DISCONTINUED,
+      };
+      createQueryBuilderMock.getOne.mockResolvedValue(discontinuedProduct);
+
+      const updateStatusDto: UpdateProductStatusDto = {
+        status: ProductStatus.ACTIVE,
+      };
+
+      await expect(
+        service.updateStatus('prod-uuid-1', updateStatusDto),
+      ).rejects.toThrow(
+        new ConflictException('La transición DISCONTINUED → ACTIVE no está permitida'),
+      );
+      
+      expect(productRepositoryMock.update).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar ConflictException al intentar la transición inválida DISCONTINUED -> PAUSED', async () => {
+      const discontinuedProduct = {
+        ...mockProduct,
+        status: ProductStatus.DISCONTINUED,
+      };
+      createQueryBuilderMock.getOne.mockResolvedValue(discontinuedProduct);
+
+      const updateStatusDto: UpdateProductStatusDto = {
+        status: ProductStatus.PAUSED,
+      };
+
+      await expect(
+        service.updateStatus('prod-uuid-1', updateStatusDto),
+      ).rejects.toThrow(
+        new ConflictException('La transición DISCONTINUED → PAUSED no está permitida'),
+      );
+      expect(productRepositoryMock.update).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar ConflictException al intentar la transición inválida DRAFT -> PAUSED', async () => {
+      const draftProduct = { ...mockProduct, status: ProductStatus.DRAFT };
+      createQueryBuilderMock.getOne.mockResolvedValue(draftProduct);
+
+      const updateStatusDto: UpdateProductStatusDto = {
+        status: ProductStatus.PAUSED,
+      };
+
+      await expect(
+        service.updateStatus('prod-uuid-1', updateStatusDto),
+      ).rejects.toThrow(
+        new ConflictException('La transición DRAFT → PAUSED no está permitida'),
+      );
+      expect(productRepositoryMock.update).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar NotFoundException si el id no corresponde a ningún producto y no ejecutar UPDATE', async () => {
+      createQueryBuilderMock.getOne.mockResolvedValue(null);
+
+      const updateStatusDto: UpdateProductStatusDto = {
+        status: ProductStatus.ACTIVE,
+      };
+
+      await expect(
+        service.updateStatus('id-inexistente', updateStatusDto),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(productRepositoryMock.update).not.toHaveBeenCalled();
     });
   });
 
