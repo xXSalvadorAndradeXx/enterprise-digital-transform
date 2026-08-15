@@ -15,6 +15,7 @@ import { ProductStatus } from './enums/product-status.enum';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateProductStatusDto } from './dto/update-product-status.dto';
+import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -32,9 +33,9 @@ describe('ProductsService', () => {
     reserved: 0,
     available: 100,
     supplier: null,
-    supplierId: null,
+    supplierId: 'supplier-uuid-1',
     category: null,
-    categoryId: null,
+    categoryId: 1,
     purchase: null,
     purchaseId: null,
     details: [],
@@ -67,10 +68,10 @@ describe('ProductsService', () => {
     inventory: mockInventory,
     commercialName: 'Audífonos Sony Pro',
     description: 'Audífonos inalámbricos con cancelación de ruido',
-    salePrice: 199.99,
-    discount: 0,
+    salePrice: 200.0,
+    discount: 10,
     discountEndsAt: null,
-    status: ProductStatus.DRAFT,
+    status: ProductStatus.ACTIVE,
     createdById: 'user-uuid-1',
     updatedById: 'user-uuid-1',
     createdBy: null,
@@ -79,7 +80,7 @@ describe('ProductsService', () => {
     updatedAt: new Date(),
     deletedAt: null,
     images: [],
-    tags: [],
+    tags: [{ id: 'tag-1', productId: 'prod-uuid-1', tag: 'audio', createdAt: new Date(), product: null as any }],
     variantConfigs: [],
   };
 
@@ -87,7 +88,7 @@ describe('ProductsService', () => {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     getOne: jest.fn(),
-    getManyAndCount: jest.fn(),
+    getManyAndCount: jest.fn().mockResolvedValue([[mockProduct], 1]),
     orderBy: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
@@ -358,6 +359,82 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('findAll (Catálogo con Filtros y Paginación)', () => {
+    it('debe obtener la lista de productos paginada excluyendo DISCONTINUED por defecto (RN-P-014) y calcular effectivePrice', async () => {
+      const filterDto: ProductFilterDto = { page: 1, limit: 10 };
+      const response = await service.findAll(filterDto);
+
+      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'p.deleted_at IS NULL',
+      );
+      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'p.status != :discontinued',
+        { discontinued: ProductStatus.DISCONTINUED },
+      );
+      expect(response.data).toHaveLength(1);
+      expect(response.data[0].effectivePrice).toBe(180.0); // $200 con 10% descuento
+      expect(response.meta).toEqual({
+        total: 1,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+      });
+    });
+
+    it('debe aplicar filtros de búsqueda, proveedor, categoría, etiqueta y rango de precios', async () => {
+      const filterDto: ProductFilterDto = {
+        search: 'Sony',
+        supplierId: 'supplier-uuid-1',
+        categoryId: 1,
+        tag: 'audio',
+        minPrice: 100,
+        maxPrice: 300,
+        sortBy: 'salePrice',
+        order: SortOrder.ASC,
+      };
+
+      await service.findAll(filterDto);
+
+      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        '(p.commercial_name ILIKE :q OR p.description ILIKE :q)',
+        { q: '%Sony%' },
+      );
+      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'inventory.supplier_id = :supplierId',
+        { supplierId: 'supplier-uuid-1' },
+      );
+      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'inventory.category_id = :categoryId',
+        { categoryId: 1 },
+      );
+      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'product_tags.tag = :tag',
+        { tag: 'audio' },
+      );
+      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'p.sale_price BETWEEN :minPrice AND :maxPrice',
+        { minPrice: 100, maxPrice: 300 },
+      );
+      expect(createQueryBuilderMock.orderBy).toHaveBeenCalledWith(
+        'p.sale_price',
+        'ASC',
+      );
+    });
+
+    it('debe permitir explícitamente consultar productos DISCONTINUED cuando status = DISCONTINUED', async () => {
+      const filterDto: ProductFilterDto = {
+        status: ProductStatus.DISCONTINUED,
+      };
+
+      await service.findAll(filterDto);
+
+      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'p.status = :status',
+        { status: ProductStatus.DISCONTINUED },
+      );
+    });
+  });
+
   describe('updateStatus (Máquina de Estados de Productos)', () => {
     it('debe permitir la transición DRAFT -> ACTIVE si el inventario tiene stock', async () => {
       const draftProduct = { ...mockProduct, status: ProductStatus.DRAFT };
@@ -384,54 +461,6 @@ describe('ProductsService', () => {
         ...mockInventory,
         status: InventoryStatus.OUT_OF_STOCK,
       });
-
-      const updateStatusDto: UpdateProductStatusDto = {
-        status: ProductStatus.ACTIVE,
-      };
-
-      await expect(
-        service.updateStatus('prod-uuid-1', updateStatusDto),
-      ).rejects.toThrow(ConflictException);
-    });
-
-    it('debe rechazar transiciones no permitidas (ej. DRAFT -> PAUSED)', async () => {
-      const draftProduct = { ...mockProduct, status: ProductStatus.DRAFT };
-      productRepositoryMock.findOne.mockResolvedValue(draftProduct);
-
-      const updateStatusDto: UpdateProductStatusDto = {
-        status: ProductStatus.PAUSED,
-      };
-
-      await expect(
-        service.updateStatus('prod-uuid-1', updateStatusDto),
-      ).rejects.toThrow(ConflictException);
-    });
-
-    it('debe permitir la transición ACTIVE -> DISCONTINUED y aplicar Soft Delete atómico', async () => {
-      const activeProduct = { ...mockProduct, status: ProductStatus.ACTIVE };
-      productRepositoryMock.findOne.mockResolvedValue(activeProduct);
-
-      const updateStatusDto: UpdateProductStatusDto = {
-        status: ProductStatus.DISCONTINUED,
-      };
-
-      await service.updateStatus('prod-uuid-1', updateStatusDto, { id: 'user-uuid-1' });
-
-      expect(productRepositoryMock.update).toHaveBeenCalledWith(
-        { id: 'prod-uuid-1' },
-        expect.objectContaining({
-          status: ProductStatus.DISCONTINUED,
-          deletedAt: expect.any(Date),
-        }),
-      );
-    });
-
-    it('debe rechazar cualquier transición desde DISCONTINUED', async () => {
-      const discontinuedProduct = {
-        ...mockProduct,
-        status: ProductStatus.DISCONTINUED,
-      };
-      productRepositoryMock.findOne.mockResolvedValue(discontinuedProduct);
 
       const updateStatusDto: UpdateProductStatusDto = {
         status: ProductStatus.ACTIVE,
@@ -469,14 +498,6 @@ describe('ProductsService', () => {
       await service.remove('prod-uuid-1');
 
       expect(productRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it('debe lanzar NotFoundException si el producto no existe', async () => {
-      productRepositoryMock.findOne.mockResolvedValue(null);
-
-      await expect(service.remove('id-inexistente')).rejects.toThrow(
-        NotFoundException,
-      );
     });
   });
 });

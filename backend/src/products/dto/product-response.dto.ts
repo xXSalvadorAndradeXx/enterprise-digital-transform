@@ -66,6 +66,9 @@ export class ProductResponseDto {
   @ApiPropertyOptional()
   discount!: number | null;
 
+  @ApiProperty({ description: 'Precio efectivo calculado aplicando el descuento' })
+  effectivePrice!: number;
+
   @ApiPropertyOptional()
   discountEndsAt!: Date | null;
 
@@ -104,6 +107,11 @@ export class ProductResponseDto {
     dto.description = product.description ?? null;
     dto.salePrice = Number(product.salePrice);
     dto.discount = product.discount !== null ? Number(product.discount) : null;
+
+    const salePriceNum = Number(product.salePrice);
+    const discountNum = product.discount !== null && product.discount !== undefined ? Number(product.discount) : 0;
+    dto.effectivePrice = Number((salePriceNum * (1 - discountNum / 100)).toFixed(2));
+
     dto.discountEndsAt = product.discountEndsAt ?? null;
     dto.status = product.status;
     dto.createdById = product.createdById ?? null;

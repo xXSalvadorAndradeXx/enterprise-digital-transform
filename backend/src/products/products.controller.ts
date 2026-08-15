@@ -22,7 +22,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { PaginatedResponse, SingleResponse } from '../common/interfaces/api-response.interface';
+import { SingleResponse } from '../common/interfaces/api-response.interface';
+import { PaginatedResponseDto } from '../common/dto/paginated-response.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -31,7 +32,7 @@ export class ProductsController {
   @Get()
   async findAll(
     @Query() filterDto: ProductFilterDto,
-  ): Promise<PaginatedResponse<ProductResponseDto>> {
+  ): Promise<PaginatedResponseDto<ProductResponseDto>> {
     return this.productsService.findAll(filterDto);
   }
 

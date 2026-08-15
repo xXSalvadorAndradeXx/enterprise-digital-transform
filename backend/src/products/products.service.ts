@@ -21,7 +21,10 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
-import { PaginatedResponse } from '../common/interfaces/api-response.interface';
+import {
+  PaginatedResponseDto,
+  createPaginatedResponse,
+} from '../common/dto/paginated-response.dto';
 
 @Injectable()
 export class ProductsService {
@@ -545,14 +548,17 @@ export class ProductsService {
 
   async findAll(
     filterDto: ProductFilterDto,
-  ): Promise<PaginatedResponse<ProductResponseDto>> {
+  ): Promise<PaginatedResponseDto<ProductResponseDto>> {
     const {
       limit = 10,
       page = 1,
       search,
+      status,
+      supplierId,
+      categoryId,
+      tag,
       minPrice,
       maxPrice,
-      status,
       sortBy = 'createdAt',
       order = SortOrder.DESC,
     } = filterDto;
@@ -560,49 +566,85 @@ export class ProductsService {
     const skip = (page - 1) * limit;
 
     const query = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.images', 'images')
-      .leftJoinAndSelect('product.tags', 'tags')
-      .leftJoinAndSelect('product.variantConfigs', 'variantConfigs')
-      .leftJoinAndSelect(
-        'variantConfigs.inventoryDetail',
-        'inventoryDetail',
-      )
-      .leftJoinAndSelect('product.inventory', 'inventory');
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.inventory', 'inventory')
+      .leftJoinAndSelect('inventory.category', 'category')
+      .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoinAndSelect('p.images', 'product_images')
+      .leftJoinAndSelect('p.tags', 'product_tags')
+      .leftJoinAndSelect('p.variantConfigs', 'product_variant_config')
+      .leftJoinAndSelect('product_variant_config.inventoryDetail', 'inventoryDetail');
 
+    // 1. Filtro de productos no eliminados por defecto
+    query.andWhere('p.deleted_at IS NULL');
+
+    // 2. Búsqueda textual parcial en commercial_name y description
     if (search) {
-      const fromChars = 'áéíóúäëïöüàèìòù';
-      const toChars = 'aeiouaeiouaeiou';
       query.andWhere(
-        `(translate(LOWER(product.commercialName), :fromChars, :toChars) LIKE translate(LOWER(:search), :fromChars, :toChars) OR 
-          translate(LOWER(product.description), :fromChars, :toChars) LIKE translate(LOWER(:search), :fromChars, :toChars))`,
-        { search: `%${search}%`, fromChars, toChars },
+        '(p.commercial_name ILIKE :q OR p.description ILIKE :q)',
+        { q: `%${search}%` },
       );
     }
 
-    if (minPrice !== undefined) {
-      query.andWhere('product.salePrice >= :minPrice', { minPrice });
-    }
-
-    if (maxPrice !== undefined) {
-      query.andWhere('product.salePrice <= :maxPrice', { maxPrice });
-    }
-
+    // 3. Filtro por estado & Regla RN-P-014 (Exclusión de DISCONTINUED por defecto)
     if (status) {
-      query.andWhere('product.status = :status', { status });
+      query.andWhere('p.status = :status', { status });
+    } else {
+      query.andWhere('p.status != :discontinued', {
+        discontinued: ProductStatus.DISCONTINUED,
+      });
     }
 
-    query.orderBy(`product.${sortBy}`, order);
-    query.take(limit).skip(skip);
+    // 4. Filtros relacionados
+    if (supplierId) {
+      query.andWhere('inventory.supplier_id = :supplierId', { supplierId });
+    }
 
-    const [data, total] = await query.getManyAndCount();
+    if (categoryId !== undefined) {
+      query.andWhere('inventory.category_id = :categoryId', { categoryId });
+    }
 
-    return {
-      data: data.map((p) => ProductResponseDto.fromEntity(p)),
-      total,
-      page,
-      limit,
+    if (tag) {
+      query.andWhere('product_tags.tag = :tag', { tag });
+    }
+
+    // 5. Filtro por rango de precio
+    if (minPrice !== undefined && maxPrice !== undefined) {
+      if (minPrice > maxPrice) {
+        throw new UnprocessableEntityException(
+          'minPrice no puede ser mayor que maxPrice',
+        );
+      }
+      query.andWhere('p.sale_price BETWEEN :minPrice AND :maxPrice', {
+        minPrice,
+        maxPrice,
+      });
+    } else if (minPrice !== undefined) {
+      query.andWhere('p.sale_price >= :minPrice', { minPrice });
+    } else if (maxPrice !== undefined) {
+      query.andWhere('p.sale_price <= :maxPrice', { maxPrice });
+    }
+
+    // 6. Ordenamiento dinámico seguro (Whitelist)
+    const sortFieldMap: Record<string, string> = {
+      createdAt: 'p.created_at',
+      created_at: 'p.created_at',
+      salePrice: 'p.sale_price',
+      sale_price: 'p.sale_price',
+      commercialName: 'p.commercial_name',
+      commercial_name: 'p.commercial_name',
     };
+
+    const sortColumn = sortFieldMap[sortBy] || 'p.created_at';
+    const sortDirection = order === SortOrder.ASC ? 'ASC' : 'DESC';
+
+    query.orderBy(sortColumn, sortDirection);
+    query.skip(skip).take(limit);
+
+    const [products, total] = await query.getManyAndCount();
+    const data = products.map((p) => ProductResponseDto.fromEntity(p));
+
+    return createPaginatedResponse(data, total, page, limit);
   }
 
   async remove(id: string, user?: any): Promise<void> {
