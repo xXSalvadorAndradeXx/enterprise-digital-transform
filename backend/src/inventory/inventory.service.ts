@@ -318,7 +318,7 @@ export class InventoryService {
       .leftJoinAndSelect('m.product', 'product')
       .leftJoinAndSelect('m.createdBy', 'createdBy')
       .leftJoinAndSelect('m.inventoryDetail', 'inventoryDetail')
-      .orderBy('m.created_at', 'DESC');
+      .orderBy('m.createdAt', 'DESC');
 
     // Regla: search buscará exclusivamente por nombre del producto
     if (search && search.trim()) {
