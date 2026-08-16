@@ -9,16 +9,6 @@ import type {
 export function mapProductFormToCreateRequest(
   values: ProductFormSchema,
 ): CreateProductRequest {
-  const discount =
-    values.applyDiscount
-      ? Number(values.discount)
-      : 0;
-
-  const discountEndsAt =
-    values.applyDiscount
-      ? values.discountEndsAt
-      : null;
-
   return {
     inventoryId:
       values.inventoryId,
@@ -31,11 +21,21 @@ export function mapProductFormToCreateRequest(
       null,
 
     salePrice:
-      Number(values.salePrice),
+      Number(
+        values.salePrice,
+      ),
 
-    discount,
+    discount:
+      values.applyDiscount
+        ? Number(
+            values.discount,
+          )
+        : 0,
 
-    discountEndsAt,
+    discountEndsAt:
+      values.applyDiscount
+        ? values.discountEndsAt
+        : null,
 
     status:
       values.status,

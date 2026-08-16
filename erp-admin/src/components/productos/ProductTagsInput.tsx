@@ -4,6 +4,7 @@ import {
   KeyboardEvent,
   useState,
 } from "react";
+
 import { X } from "lucide-react";
 
 interface ProductTagsInputProps {
@@ -12,29 +13,69 @@ interface ProductTagsInputProps {
   error?: string;
 }
 
+const MAX_TAGS = 20;
+
 export function ProductTagsInput({
   value,
   onChange,
   error,
 }: ProductTagsInputProps) {
-  const [input, setInput] = useState("");
+  const [input, setInput] =
+    useState("");
+
+  const [
+    localError,
+    setLocalError,
+  ] = useState<string | null>(
+    null,
+  );
 
   const addTag = (): void => {
-    const tag = input.trim();
+    const normalizedTag =
+      input.trim();
 
-    if (!tag) return;
+    if (!normalizedTag) {
+      setLocalError(
+        "La etiqueta no puede estar vacía.",
+      );
 
-    if (value.includes(tag)) {
+      return;
+    }
+
+    if (value.length >= MAX_TAGS) {
+      setLocalError(
+        "Se permite un máximo de 20 etiquetas.",
+      );
+
+      return;
+    }
+
+    const alreadyExists =
+      value.some(
+        (tag) =>
+          tag
+            .trim()
+            .toLowerCase() ===
+          normalizedTag.toLowerCase(),
+      );
+
+    if (alreadyExists) {
+      setLocalError(
+        "La etiqueta ya fue agregada.",
+      );
+
       setInput("");
+
       return;
     }
 
-    if (value.length >= 20) {
-      return;
-    }
+    onChange([
+      ...value,
+      normalizedTag,
+    ]);
 
-    onChange([...value, tag]);
     setInput("");
+    setLocalError(null);
   };
 
   const handleKeyDown = (
@@ -45,6 +86,7 @@ export function ProductTagsInput({
       event.key === ","
     ) {
       event.preventDefault();
+
       addTag();
     }
   };
@@ -54,10 +96,16 @@ export function ProductTagsInput({
   ): void => {
     onChange(
       value.filter(
-        (tag) => tag !== tagToRemove,
+        (tag) =>
+          tag !== tagToRemove,
       ),
     );
+
+    setLocalError(null);
   };
+
+  const displayedError =
+    error ?? localError;
 
   return (
     <div>
@@ -68,25 +116,46 @@ export function ProductTagsInput({
         Etiquetas
       </label>
 
-            <div
+      <div
         className={`rounded-md border bg-white transition-colors ${
-            error
-            ? "border-red-400"
+          displayedError
+            ? "border-red-400 focus-within:border-red-400 focus-within:ring-1 focus-within:ring-red-200"
             : "border-gray-300 focus-within:border-[#1C21D1] focus-within:ring-1 focus-within:ring-[#1C21D1]"
         }`}
-        >
+      >
         <input
-        id="product-tags"
-        value={input}
-        onChange={(event) =>
-            setInput(event.target.value)
-        }
-        onKeyDown={handleKeyDown}
-        onBlur={addTag}
-        placeholder="Agregar Etiqueta aquí..."
-        className="h-11 w-full border-b border-gray-300  px-3 text-sm leading-5 text-gray-800 outline-none placeholder:text-gray-400"
+          id="product-tags"
+          type="text"
+          value={input}
+          onChange={(event) => {
+            setInput(
+              event.target.value,
+            );
 
-
+            setLocalError(null);
+          }}
+          onKeyDown={
+            handleKeyDown
+          }
+          onBlur={() => {
+            if (
+              input.trim() !== ""
+            ) {
+              addTag();
+            }
+          }}
+          aria-invalid={
+            Boolean(
+              displayedError,
+            )
+          }
+          aria-describedby={
+            displayedError
+              ? "product-tags-error"
+              : undefined
+          }
+          placeholder="Agregar Etiqueta aquí..."
+          className="h-11 w-full border-b border-gray-300 bg-white px-3 text-sm leading-5 text-gray-800 outline-none placeholder:text-gray-400"
         />
 
         <div className="flex min-h-14 flex-wrap items-center gap-2 p-2">
@@ -117,12 +186,13 @@ export function ProductTagsInput({
         </div>
       </div>
 
-      {error && (
+      {displayedError && (
         <p
+          id="product-tags-error"
           role="alert"
           className="mt-1 text-xs text-red-500"
         >
-          {error}
+          {displayedError}
         </p>
       )}
     </div>

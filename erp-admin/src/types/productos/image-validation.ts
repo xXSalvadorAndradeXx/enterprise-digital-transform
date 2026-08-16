@@ -1,3 +1,5 @@
+export const MAX_PRODUCT_IMAGES = 5;
+
 export const MAX_PRODUCT_IMAGE_SIZE =
   5 * 1024 * 1024;
 
@@ -14,15 +16,10 @@ export interface ProductImageValidationResult {
 export function validateProductImage(
   file: File,
 ): ProductImageValidationResult {
-  const allowedTypes:
-    readonly string[] =
-      ALLOWED_PRODUCT_IMAGE_TYPES;
+  const allowedTypes: readonly string[] =
+    ALLOWED_PRODUCT_IMAGE_TYPES;
 
-  if (
-    !allowedTypes.includes(
-      file.type,
-    )
-  ) {
+  if (!allowedTypes.includes(file.type)) {
     return {
       valid: false,
       message:
@@ -30,10 +27,7 @@ export function validateProductImage(
     };
   }
 
-  if (
-    file.size >
-    MAX_PRODUCT_IMAGE_SIZE
-  ) {
+  if (file.size > MAX_PRODUCT_IMAGE_SIZE) {
     return {
       valid: false,
       message:

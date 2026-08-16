@@ -22,21 +22,42 @@ import type {
   ProductFormInput,
 } from "@/types/productos/schemas";
 
+import { useMemo } from "react";
+
+import { calculateProductPreviewPrice } from "@/utils/calculateProductPreviewPrice";
+
+import type {
+  ProductImagePreview,
+} from "@/types/productos/product-image-form.types";
+
 interface ProductManualFieldsProps {
-  register: UseFormRegister<ProductFormInput>;
+  register:
+    UseFormRegister<ProductFormInput>;
 
-  control: Control<ProductFormInput>;
+  control:
+    Control<ProductFormInput>;
 
-  errors: FieldErrors<ProductFormInput>;
+  errors:
+    FieldErrors<ProductFormInput>;
 
-  watch: UseFormWatch<ProductFormInput>;
+  watch:
+    UseFormWatch<ProductFormInput>;
 
-  setValue: UseFormSetValue<ProductFormInput>;
+  setValue:
+    UseFormSetValue<ProductFormInput>;
 
-  onAddImages: () => void;
+  images:
+    ProductImagePreview[];
+
+  imageError:
+    string | null;
+
+  onFilesSelected: (
+    files: File[],
+  ) => void;
 
   onRemoveImage: (
-    index: number,
+    id: string,
   ) => void;
 }
 
@@ -48,14 +69,35 @@ export function ProductManualFields({
   errors,
   watch,
   setValue,
-  onAddImages,
+
+  images,
+  imageError,
+  onFilesSelected,
   onRemoveImage,
 }: ProductManualFieldsProps) {
-  const applyDiscount =
-    watch("applyDiscount");
+ const applyDiscount =
+  watch("applyDiscount");
 
-  const images =
-    watch("imageUrls");
+const salePrice =
+  watch("salePrice");
+
+const discount =
+  watch("discount");
+
+const previewPrice =
+  useMemo(
+    () =>
+      calculateProductPreviewPrice(
+        salePrice,
+        discount,
+        applyDiscount,
+      ),
+    [
+      salePrice,
+      discount,
+      applyDiscount,
+    ],
+  );
 
   return (
     <section className="min-w-0 border-t border-gray-300 p-6 lg:border-l lg:border-t-0">
@@ -113,49 +155,49 @@ export function ProductManualFields({
       <div className="mt-7">
         <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-gray-900">
           <input
-            type="checkbox"
-            checked={applyDiscount}
-            onChange={(event) => {
-              const checked =
-                event.target.checked;
+          type="checkbox"
+          checked={applyDiscount}
+          onChange={(event) => {
+            const checked =
+              event.target.checked;
 
+            setValue(
+              "applyDiscount",
+              checked,
+              {
+                shouldDirty: true,
+                shouldValidate: true,
+              },
+            );
+
+            if (!checked) {
               setValue(
-                "applyDiscount",
-                checked,
+                "discount",
+                "",
                 {
                   shouldDirty: true,
                   shouldValidate: true,
                 },
               );
 
-              if (!checked) {
-                setValue(
-                  "discount",
-                  "",
-                  {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  },
-                );
-
-                setValue(
-                  "discountEndsAt",
-                  "",
-                  {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  },
-                );
-              }
-            }}
-            className="h-5 w-5 accent-[#1C21D1]"
-          />
+              setValue(
+                "discountEndsAt",
+                "",
+                {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                },
+              );
+            }
+          }}
+          className="h-5 w-5 accent-[#1C21D1]"
+        />
 
           Aplicar descuento
         </label>
       </div>
 
-      {applyDiscount && (
+      
         <div className="mt-4 space-y-6">
           <div className="w-full max-w-[220px]">
             <label className="mb-2 block text-sm font-medium text-gray-900">
@@ -215,7 +257,7 @@ export function ProductManualFields({
             </div>
           </div>
         </div>
-      )}
+      
 
       <div className="mt-7">
         <label className="mb-2 block text-sm font-medium text-gray-900">
@@ -258,19 +300,45 @@ export function ProductManualFields({
         />
       </div>
 
+      {applyDiscount &&
+  previewPrice !== null && (
+    <div className="mt-4 rounded-md bg-[#F2F5FC] px-4 py-3 text-sm">
+      <span className="text-gray-500">
+        Precio de vista previa:
+      </span>
+
+      <span className="ml-2 font-semibold text-[#1C21D1]">
+        {new Intl.NumberFormat(
+          "en-US",
+          {
+            style: "currency",
+            currency: "USD",
+          },
+        ).format(
+          previewPrice,
+        )}
+      </span>
+    </div>
+  )}
+
       <div className="mt-7">
         <ProductImagesField
-          value={images}
-          onAddImages={onAddImages}
-          onRemoveImage={
-            onRemoveImage
-          }
-          error={
-            errors.imageUrls
-              ?.message
-          }
-        />
+        images={images}
+        onFilesSelected={
+          onFilesSelected
+        }
+        onRemoveImage={
+          onRemoveImage
+        }
+        error={
+          imageError ??
+          errors.imageUrls
+            ?.message
+        }
+      />
       </div>
+
+      
 
 <div className="mt-7 w-full max-w-[300px]">
   <label

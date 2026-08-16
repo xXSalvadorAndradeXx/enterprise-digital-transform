@@ -1,7 +1,16 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  useState,
+} from "react";
+
+import {
+  useForm,
+} from "react-hook-form";
+
+import {
+  zodResolver,
+} from "@hookform/resolvers/zod";
 
 import { ProductInventoryPanel } from "./ProductInventoryPanel";
 import { ProductManualFields } from "./ProductManualFields";
@@ -18,6 +27,15 @@ import type {
   InventoryProductView,
   ProductFormMode,
 } from "@/types/productos/product-form.types";
+
+import {
+  MAX_PRODUCT_IMAGES,
+  validateProductImage,
+} from "@/types/productos/image-validation";
+
+import type {
+  ProductImagePreview,
+} from "@/types/productos/product-image-form.types";
 
 interface ProductFormProps {
   mode: ProductFormMode;
@@ -40,16 +58,15 @@ interface ProductFormProps {
   ) => Promise<void> | void;
 
   /**
-   * Función que posteriormente será
-   * conectada con el módulo Inventario.
+   * Búsqueda de inventario.
+   * Será conectada posteriormente con
+   * el service correspondiente.
    */
   searchInventory?: (
     search: string,
   ) => Promise<
     InventoryProductView[]
   >;
-
-  onAddImages?: () => void;
 }
 
 export function ProductForm({
@@ -59,8 +76,28 @@ export function ProductForm({
   onClose,
   onSubmit,
   searchInventory,
-  onAddImages,
 }: ProductFormProps) {
+  /**
+   * Imágenes seleccionadas localmente
+   * para mostrar su preview.
+   *
+   * Todavía no contienen la URL final
+   * entregada por Backend.
+   */
+  const [
+    images,
+    setImages,
+  ] = useState<
+    ProductImagePreview[]
+  >([]);
+
+  const [
+    imageError,
+    setImageError,
+  ] = useState<
+    string | null
+  >(null);
+
   const {
     register,
     control,
@@ -89,9 +126,11 @@ export function ProductForm({
           ?.inventoryId ??
         "",
 
-      commercialName: "",
+      commercialName:
+        "",
 
-      salePrice: "",
+      salePrice:
+        "",
 
       applyDiscount:
         false,
@@ -105,7 +144,8 @@ export function ProductForm({
       description:
         "",
 
-      tags: [],
+      tags:
+        [],
 
       imageUrls:
         [],
@@ -156,16 +196,16 @@ export function ProductForm({
       : selectedInventory;
 
   /**
-   * Vincula la selección visual con
-   * React Hook Form.
+   * Vincula el inventario seleccionado
+   * con React Hook Form.
    */
   const handleSelectInventory = (
     selected: InventoryProductView,
   ): void => {
     /*
-     * OUT_OF_STOCK ya está bloqueado
-     * visualmente, pero mantenemos la
-     * validación defensiva.
+     * Validación defensiva.
+     * Un inventario sin stock no puede
+     * vincularse al producto.
      */
     if (
       selected.inventoryStatus ===
@@ -182,37 +222,154 @@ export function ProductForm({
       "inventoryId",
       selected.inventoryId,
       {
-        shouldDirty: true,
-        shouldValidate: true,
-      },
-    );
-  };
-
-  const handleRemoveImage = (
-    index: number,
-  ): void => {
-    const images =
-      watch(
-        "imageUrls",
-      );
-
-    setValue(
-      "imageUrls",
-      images.filter(
-        (
-          _,
-          imageIndex,
-        ) =>
-          imageIndex !==
-          index,
-      ),
-      {
         shouldDirty:
           true,
 
         shouldValidate:
           true,
       },
+    );
+  };
+
+  /**
+   * Valida y prepara múltiples imágenes
+   * seleccionadas desde el equipo.
+   */
+  const handleFilesSelected = (
+    files: File[],
+  ): void => {
+    setImageError(
+      null,
+    );
+
+    const availableSlots =
+      MAX_PRODUCT_IMAGES -
+      images.length;
+
+    if (
+      availableSlots <= 0
+    ) {
+      setImageError(
+        `Se permite un máximo de ${MAX_PRODUCT_IMAGES} imágenes.`,
+      );
+
+      return;
+    }
+
+    if (
+      files.length >
+      availableSlots
+    ) {
+      setImageError(
+        `Solo puedes agregar ${availableSlots} ${
+          availableSlots === 1
+            ? "imagen"
+            : "imágenes"
+        } más.`,
+      );
+
+      return;
+    }
+
+    const newImages:
+      ProductImagePreview[] =
+        [];
+
+    for (
+      const file of files
+    ) {
+      const validation =
+        validateProductImage(
+          file,
+        );
+
+      if (
+        !validation.valid
+      ) {
+        /*
+         * Si alguna imagen no es válida,
+         * liberamos las URLs creadas
+         * anteriormente en esta misma
+         * selección.
+         */
+        newImages.forEach(
+          (image) => {
+            if (
+              image.previewUrl.startsWith(
+                "blob:",
+              )
+            ) {
+              URL.revokeObjectURL(
+                image.previewUrl,
+              );
+            }
+          },
+        );
+
+        setImageError(
+          validation.message ??
+            "La imagen seleccionada no es válida.",
+        );
+
+        return;
+      }
+
+      newImages.push({
+        id:
+          crypto.randomUUID(),
+
+        file,
+
+        previewUrl:
+          URL.createObjectURL(
+            file,
+          ),
+      });
+    }
+
+    setImages(
+      (current) => [
+        ...current,
+        ...newImages,
+      ],
+    );
+  };
+
+  /**
+   * Elimina una imagen del preview.
+   */
+  const handleRemoveImage = (
+    id: string,
+  ): void => {
+    setImages(
+      (current) => {
+        const image =
+          current.find(
+            (item) =>
+              item.id ===
+              id,
+          );
+
+        if (
+          image?.previewUrl.startsWith(
+            "blob:",
+          )
+        ) {
+          URL.revokeObjectURL(
+            image.previewUrl,
+          );
+        }
+
+        return current.filter(
+          (item) =>
+            item.id !==
+            id,
+        );
+      },
+    );
+
+    setImageError(
+      null,
     );
   };
 
@@ -276,9 +433,19 @@ export function ProductForm({
             setValue={
               setValue
             }
-            onAddImages={() =>
-              onAddImages?.()
+
+            images={
+              images
             }
+
+            imageError={
+              imageError
+            }
+
+            onFilesSelected={
+              handleFilesSelected
+            }
+
             onRemoveImage={
               handleRemoveImage
             }

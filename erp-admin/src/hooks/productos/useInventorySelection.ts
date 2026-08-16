@@ -46,7 +46,7 @@ export function useInventorySelection({
 }: UseInventorySelectionProps): UseInventorySelectionReturn {
   const [
     search,
-    setSearch,
+    setSearchState,
   ] = useState("");
 
   const [
@@ -82,45 +82,37 @@ export function useInventorySelection({
     setHasSearched,
   ] = useState(false);
 
-  useEffect(() => {
-    const normalizedSearch =
-      search.trim();
+  const setSearch = (
+    value: string,
+  ): void => {
+    setSearchState(value);
 
-    /*
-     * Evitamos realizar búsquedas demasiado
-     * cortas y limpiamos resultados previos.
-     */
+    const normalized =
+      value.trim();
+
     if (
-      normalizedSearch.length < 2
+      normalized.length < 2
     ) {
       setResults([]);
       setHasSearched(false);
       setIsLoading(false);
       setError(null);
-
-      return;
     }
+  };
 
-    /*
-     * Mientras Inventario no esté conectado,
-     * no intentamos ejecutar una consulta.
-     */
-    if (!searchInventory) {
-      setResults([]);
-      setHasSearched(false);
-      setIsLoading(false);
-      setError(null);
+  useEffect(() => {
+    const normalizedSearch =
+      search.trim();
 
+    if (
+      normalizedSearch.length < 2 ||
+      !searchInventory
+    ) {
       return;
     }
 
     let isCancelled = false;
 
-    /*
-     * Debounce:
-     * Esperamos 400 ms después de la última
-     * escritura antes de realizar la búsqueda.
-     */
     const timeoutId =
       window.setTimeout(
         async () => {
@@ -133,26 +125,31 @@ export function useInventorySelection({
                 normalizedSearch,
               );
 
-            if (isCancelled) {
+            if (
+              isCancelled
+            ) {
               return;
             }
 
             setResults(data);
             setHasSearched(true);
           } catch {
-            if (isCancelled) {
+            if (
+              isCancelled
+            ) {
               return;
             }
 
             setResults([]);
-
             setHasSearched(true);
 
             setError(
               "No se pudo realizar la búsqueda de inventario.",
             );
           } finally {
-            if (!isCancelled) {
+            if (
+              !isCancelled
+            ) {
               setIsLoading(
                 false,
               );
@@ -177,24 +174,19 @@ export function useInventorySelection({
   const selectInventory = (
     inventory: InventoryProductView,
   ): void => {
-    /*
-     * Solo puede existir un inventario seleccionado.
-     */
     setSelectedInventory(
       inventory,
     );
 
-    /*
-     * Una vez seleccionado, cerramos los
-     * resultados de búsqueda.
-     */
     setResults([]);
 
-    setSearch("");
+    setSearchState("");
 
     setHasSearched(false);
 
     setError(null);
+
+    setIsLoading(false);
   };
 
   const clearSelection =
@@ -202,7 +194,7 @@ export function useInventorySelection({
       setSelectedInventory(
         null,
       );
-    };
+  };
 
   return {
     search,
