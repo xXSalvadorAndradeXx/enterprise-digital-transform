@@ -1,10 +1,12 @@
+// src/purchases/dto/create-restock-purchase.dto.ts
 import {
-  IsUUID, IsOptional, IsString,
-  IsArray, ArrayMinSize, ValidateNested,
+  IsUUID, IsOptional, IsString, IsDateString,
+  IsArray, ValidateNested, ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { RestockVariantDto } from './restock-variant.dto';
+import { RestockExistingVariantDto } from './restock-existing-variant.dto';
+import { RestockNewVariantDto }      from './restock-new-variant.dto';
 
 export class CreateRestockPurchaseDto {
   /** RN-024 */
@@ -17,16 +19,30 @@ export class CreateRestockPurchaseDto {
   @IsUUID('4')
   inventoryId!: string;
 
-  @ApiPropertyOptional()
+  // ── CAMPO AÑADIDO: fecha de compra ───────────────────────────────────────
+  @ApiProperty({ example: '2026-08-16' })
+  @IsDateString()
+  purchaseDate!: string;
+
+  @ApiPropertyOptional({ example: 'https://storage.example.com/invoices/factura-002.pdf' })
   @IsOptional()
   @IsString()
   invoiceUrl?: string;
 
-  /** RN-026 */
-  @ApiProperty({ type: [RestockVariantDto] })
+  // ── CORREGIDO: antes era un solo variants[], ahora son dos arreglos ───────
+  /** Variantes que ya existen en el inventario (se actualiza su stock y costo) */
+  @ApiPropertyOptional({ type: [RestockExistingVariantDto] })
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => RestockVariantDto)
-  variants!: RestockVariantDto[];
+  @Type(() => RestockExistingVariantDto)
+  existingVariants?: RestockExistingVariantDto[];
+
+  /** Nuevas tallas o colores que se agregan durante el reabastecimiento */
+  @ApiPropertyOptional({ type: [RestockNewVariantDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RestockNewVariantDto)
+  newVariants?: RestockNewVariantDto[];
 }

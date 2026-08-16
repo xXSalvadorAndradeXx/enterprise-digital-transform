@@ -2,13 +2,16 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
   CreateDateColumn, UpdateDateColumn, DeleteDateColumn,
-  OneToMany,
+  OneToMany, ManyToOne, JoinColumn, Index,
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PurchaseStatus } from '../enums/purchase-status.enum';
 import { PurchaseType }   from '../enums/purchase-type.enum';
-import { SupplierPurchaseItem } from './supplier-purchase-item.entity';
-import { PurchaseStatusHistory } from './purchase-status-history.entity';
+import { ProductGender }  from '../enums/product-gender.enum';
+import { SupplierPurchaseItem }   from './supplier-purchase-item.entity';
+import { PurchaseStatusHistory }  from './purchase-status-history.entity';
+import { Supplier } from '../../suppliers/entities/supplier.entity';
+import { User }     from '../../users/entities/user.entity';
 
 @Entity('supplier_purchases')
 export class SupplierPurchase {
@@ -16,9 +19,37 @@ export class SupplierPurchase {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ApiProperty({ format: 'uuid' })
-  @Column({ name: 'supplier_id', type: 'uuid' })
-  supplierId!: string;
+  // ── CAMPO AÑADIDO: referencia legible única (CP-0001, CP-0002…) ──────────
+  @ApiProperty({ example: 'CP-0007' })
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  reference!: string | null;
+
+  // ── CAMPO AÑADIDO: fecha de la compra (diferente a createdAt) ────────────
+  @ApiProperty({ example: '2026-08-16' })
+  @Column({ name: 'purchase_date', type: 'date', nullable: true })
+  purchaseDate!: string | null;
+
+  // ── CAMPO AÑADIDO: marca del producto ────────────────────────────────────
+  @ApiProperty({ example: 'Nike' })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  brand!: string | null;
+
+  // ── CAMPO AÑADIDO: categoría (integer, no UUID) ──────────────────────────
+  @ApiPropertyOptional({ example: 1 })
+  @Index()
+  @Column({ name: 'category_id', type: 'integer', nullable: true })
+  categoryId!: number | null;
+
+  // ── CAMPO AÑADIDO: género del producto ───────────────────────────────────
+  @ApiPropertyOptional({ enum: ProductGender, nullable: true })
+  @Column({
+    type: 'enum',
+    enum: ProductGender,
+    enumName: 'product_gender_enum',
+    nullable: true,
+  })
+  gender!: ProductGender | null;
 
   /** RN-001: tipo inmutable desde la creación */
   @ApiProperty({ enum: PurchaseType })
@@ -49,10 +80,26 @@ export class SupplierPurchase {
   @Column({ type: 'varchar', length: 20, default: PurchaseStatus.COMPLETED })
   status!: PurchaseStatus;
 
-  /** Referencia al inventario generado — se establece post-transacción (RN-015) */
+  /** Referencia al inventario generado (RN-015) */
   @ApiPropertyOptional({ format: 'uuid' })
   @Column({ name: 'inventory_id', type: 'uuid', nullable: true })
   inventoryId!: string | null;
+
+  // ── RELACIÓN: proveedor completo (para devolver name en la respuesta) ────
+  @ApiPropertyOptional({ type: () => Supplier })
+  @ManyToOne(() => Supplier, { onDelete: 'SET NULL', nullable: true, eager: false })
+  @JoinColumn({ name: 'supplier_id' })
+  supplier!: Supplier | null;
+
+  @ApiProperty({ format: 'uuid' })
+  @Column({ name: 'supplier_id', type: 'uuid' })
+  supplierId!: string;
+
+  // ── RELACIÓN: usuario creador (para devolver firstName/lastName) ─────────
+  @ApiPropertyOptional({ type: () => User })
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true, eager: false })
+  @JoinColumn({ name: 'created_by' })
+  createdByUser!: User | null;
 
   /** RN-028 */
   @ApiProperty({ format: 'uuid' })
