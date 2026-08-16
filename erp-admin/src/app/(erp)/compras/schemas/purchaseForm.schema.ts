@@ -26,6 +26,7 @@ export const newProductSchema = z.object({
   name: requiredText("*El nombre del producto es requerido."),
   brand: requiredText("*La marca es requerida."),
   category: requiredText("*Selecciona una categoría."),
+  gender: z.enum(["FEMALE", "MALE", "UNISEX", "EMPTY", ""]),
   variants: z.array(newProductVariantSchema).min(1),
   invoice: invoiceSchema,
 }).superRefine((form, context) => {
@@ -61,7 +62,7 @@ export const restockSchema = z.object({
 });
 
 export const editPurchaseSchema = z.object({
-  date: requiredText("*Selecciona la fecha."), supplierId: requiredText("*Selecciona el proveedor."), productId: z.string().min(1), name: requiredText("*El nombre del producto es requerido."), brand: requiredText("*La marca es requerida."), category: requiredText("*Selecciona una categoría."), variants: z.array(newProductVariantSchema).min(1),
+  date: requiredText("*Selecciona la fecha."), supplierId: requiredText("*Selecciona el proveedor."), productId: z.string().min(1), name: requiredText("*El nombre del producto es requerido."), brand: requiredText("*La marca es requerida."), category: requiredText("*Selecciona una categoría."), gender: z.enum(["FEMALE", "MALE", "UNISEX", "EMPTY", ""]), variants: z.array(newProductVariantSchema).min(1),
   existingInvoice: z.object({ name: z.string(), mimeType: z.string(), url: z.string() }).nullable(), replacementInvoice: invoiceSchema.nullable(),
 }).superRefine((form, context) => { if (!form.existingInvoice && !form.replacementInvoice) context.addIssue({ code: "custom", path: ["replacementInvoice"], message: "*Por favor, adjunta tu factura." }); });
 

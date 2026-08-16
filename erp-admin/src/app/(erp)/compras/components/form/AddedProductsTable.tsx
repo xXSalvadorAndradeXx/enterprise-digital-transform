@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 
 import type { PurchaseVariantValue } from "./VariantRow";
 import type { RestockSize } from "./RestockTable";
+import type { ProductGender } from "../../types/purchases.types";
 
 export type AddedProduct = {
   id: string;
@@ -18,6 +19,7 @@ export type AddedProduct = {
   inventoryProductId?: string;
   category?: string;
   brand?: string;
+  gender?: ProductGender | null;
   restockRows?: RestockSize[];
 };
 

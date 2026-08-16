@@ -140,6 +140,7 @@ export function PurchaseForm({
           productName: initialData.product.name,
           brand: initialData.product.brand ?? "",
           categoryId: initialData.product.category,
+          gender: initialData.product.gender ?? null,
           variants: initialData.product.variants.map((variant) => ({ ...variant })),
         }
       : null,
@@ -158,6 +159,7 @@ export function PurchaseForm({
           name: initialData.product.name,
           brand: initialData.product.brand ?? "",
           category: initialData.product.category,
+          gender: initialData.product.gender ?? "EMPTY",
           variants: initialData.product.variants.map((variant) => ({ ...variant })),
         }
       : createInitialNewProductDraft(),
@@ -229,6 +231,7 @@ export function PurchaseForm({
         name: newProduct.name,
         brand: newProduct.brand,
         category: newProduct.category,
+        gender: newProduct.gender,
         variants: newProduct.variants,
         existingInvoice: initialData?.existingInvoice ?? null,
         replacementInvoice: invoice,
@@ -255,6 +258,10 @@ export function PurchaseForm({
             productName: newProduct.name.trim(),
             categoryId: newProduct.category,
             brand: newProduct.brand.trim(),
+            gender:
+              newProduct.gender === "" || newProduct.gender === "EMPTY"
+                ? null
+                : newProduct.gender,
             invoiceUrl,
             variants: newProduct.variants.map((variant) => ({
               size: variant.size.trim(),
@@ -320,6 +327,10 @@ export function PurchaseForm({
           total,
           category: newProduct.category,
           brand: newProduct.brand.trim(),
+          gender:
+            newProduct.gender === "" || newProduct.gender === "EMPTY"
+              ? null
+              : newProduct.gender,
         },
       ]);
       setInvoice(null);
@@ -413,6 +424,7 @@ export function PurchaseForm({
               productName: product.name,
               categoryId: product.category ?? "",
               brand: product.brand ?? "",
+              gender: product.gender ?? null,
               invoiceUrl: invoice.invoiceUrl,
               variants: product.variants.map((variant) => ({ size: variant.size.trim(), color: variant.color.toUpperCase(), quantity: Number(variant.quantity), unitCost: Number(variant.unitCost) })),
             });
@@ -504,6 +516,7 @@ export function PurchaseForm({
     name: newProduct.name,
     brand: newProduct.brand,
     category: newProduct.category,
+    gender: newProduct.gender,
     variants: newProduct.variants,
     existingInvoice: initialData?.existingInvoice ?? null,
     replacementInvoice: invoice,
@@ -515,6 +528,10 @@ export function PurchaseForm({
     productName: newProduct.name,
     brand: newProduct.brand,
     categoryId: newProduct.category,
+    gender:
+      newProduct.gender === "" || newProduct.gender === "EMPTY"
+        ? null
+        : newProduct.gender,
     variants: newProduct.variants,
   };
   const editChanges = originalEditData

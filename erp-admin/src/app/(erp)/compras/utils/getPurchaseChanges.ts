@@ -1,4 +1,5 @@
 import type { PurchaseVariantValue } from "../components/form/VariantRow";
+import type { ProductGender } from "../types/purchases.types";
 
 export type PurchaseEditSnapshot = {
   date: string;
@@ -7,6 +8,7 @@ export type PurchaseEditSnapshot = {
   productName: string;
   brand: string;
   categoryId: string;
+  gender: ProductGender | null;
   variants: PurchaseVariantValue[];
 };
 
@@ -23,6 +25,7 @@ export type PurchaseChangedFields = {
   productName?: string;
   brand?: string;
   categoryId?: string;
+  gender?: ProductGender | null;
   variants?: VariantChanges;
   replacementInvoice?: File;
 };
@@ -66,6 +69,9 @@ export function getPurchaseChanges(
   }
   if (original.categoryId !== current.categoryId) {
     changedFields.categoryId = current.categoryId;
+  }
+  if (original.gender !== current.gender) {
+    changedFields.gender = current.gender;
   }
 
   const originalById = new Map(

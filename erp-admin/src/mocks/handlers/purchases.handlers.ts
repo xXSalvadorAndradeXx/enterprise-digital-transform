@@ -6,11 +6,11 @@ import { mockPurchaseSuppliers, mockPurchases, mockRestockInventories } from "..
 const apiUrl = (process.env.BACKEND_API_URL ?? "http://localhost:3000/api/v1").replace(/\/+$/, "");
 const makeId = () => crypto.randomUUID();
 
-function createResponse(input: { type: PurchaseResponse["type"]; supplierId: string; productName: string; purchaseDate: string; invoiceUrl: string; brand?: string; categoryId?: string; variants: Array<{ sku?: string; size: string; color: string; quantity: number; unitCost: number }> }): PurchaseResponse {
+function createResponse(input: { type: PurchaseResponse["type"]; supplierId: string; productName: string; purchaseDate: string; invoiceUrl: string; brand?: string; categoryId?: string; gender?: PurchaseResponse["gender"]; variants: Array<{ sku?: string; size: string; color: string; quantity: number; unitCost: number }> }): PurchaseResponse {
   const totalQuantity = input.variants.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = input.variants.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
   return {
-    id: makeId(), reference: `CP-${String(mockPurchases.length + 1).padStart(4, "0")}`, type: input.type, productName: input.productName, brand: input.brand, categoryId: input.categoryId, purchaseDate: input.purchaseDate, totalAmount, totalQuantity, invoiceUrl: input.invoiceUrl, status: "COMPLETED",
+    id: makeId(), reference: `CP-${String(mockPurchases.length + 1).padStart(4, "0")}`, type: input.type, productName: input.productName, brand: input.brand, categoryId: input.categoryId, gender: input.gender, purchaseDate: input.purchaseDate, totalAmount, totalQuantity, invoiceUrl: input.invoiceUrl, status: "COMPLETED",
     supplier: { id: input.supplierId, name: mockPurchaseSuppliers.find((supplier) => supplier.id === input.supplierId)?.name ?? "Proveedor seleccionado" },
     items: input.variants.map((item, index) => ({ id: makeId(), sku: item.sku ?? `MOCK-${Date.now()}-${index + 1}`, size: item.size, color: item.color.toUpperCase(), quantity: item.quantity, unitCost: item.unitCost, subtotal: item.quantity * item.unitCost })),
     createdBy: { id: "90000000-0000-4000-8000-000000000001", firstName: "Admin", lastName: "ERP" }, createdAt: new Date().toISOString(), deletedAt: null,
@@ -48,7 +48,7 @@ export const purchasesHandlers = [
   http.post(`${apiUrl}/purchases/nuevo-producto`, async ({ request }) => {
     const body = await request.json() as CreateNewProductPurchaseRequest;
     if (!body.invoiceUrl || !body.purchaseDate || !body.brand || body.variants.length === 0) return HttpResponse.json<Record<string, unknown>>({ message: "La compra contiene campos obligatorios incompletos." }, { status: 422 });
-    const purchase = createResponse({ type: "NUEVO_PRODUCTO", supplierId: body.supplierId, productName: body.productName, brand: body.brand, categoryId: body.categoryId, purchaseDate: body.purchaseDate, invoiceUrl: body.invoiceUrl, variants: body.variants });
+    const purchase = createResponse({ type: "NUEVO_PRODUCTO", supplierId: body.supplierId, productName: body.productName, brand: body.brand, categoryId: body.categoryId, gender: body.gender, purchaseDate: body.purchaseDate, invoiceUrl: body.invoiceUrl, variants: body.variants });
     mockPurchases.unshift(purchase);
     return HttpResponse.json<Record<string, unknown>>({ data: purchase, statusCode: 201 }, { status: 201 });
   }),

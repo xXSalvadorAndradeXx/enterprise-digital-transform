@@ -1,4 +1,5 @@
 export type PurchaseType = "NUEVO_PRODUCTO" | "REABASTECIMIENTO";
+export type ProductGender = "FEMALE" | "MALE" | "UNISEX";
 
 export interface PurchaseVariantResponse {
   id: string;
@@ -17,6 +18,7 @@ export interface PurchaseResponse {
   productName: string;
   brand?: string;
   categoryId?: string;
+  gender?: ProductGender | null;
   purchaseDate: string;
   totalAmount: number;
   totalQuantity: number;
@@ -35,6 +37,7 @@ export interface UpdatePurchaseRequest {
   productName: string;
   categoryId: string;
   brand: string;
+  gender?: ProductGender | null;
   invoiceUrl: string;
   variants: CreatePurchaseVariantRequest[];
 }
@@ -70,6 +73,7 @@ export interface CreateNewProductPurchaseRequest {
   productName: string;
   categoryId: string;
   brand: string;
+  gender: ProductGender | null;
   invoiceUrl: string;
   variants: CreatePurchaseVariantRequest[];
 }

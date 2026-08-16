@@ -11,8 +11,11 @@ export type NewProductDraft = {
   name: string;
   brand: string;
   category: string;
+  gender: ProductGender;
   variants: PurchaseVariantValue[];
 };
+
+export type ProductGender = "FEMALE" | "MALE" | "UNISEX" | "EMPTY" | "";
 
 type NewProductFormProps = {
   value: NewProductDraft;
@@ -47,7 +50,13 @@ function createVariant(id?: string): PurchaseVariantValue {
 }
 
 export function createInitialNewProductDraft(): NewProductDraft {
-  return { name: "", brand: "", category: "", variants: [createVariant()] };
+  return {
+    name: "",
+    brand: "",
+    category: "",
+    gender: "",
+    variants: [createVariant()],
+  };
 }
 
 export function NewProductForm({
@@ -144,27 +153,52 @@ export function NewProductForm({
         </div>
       </div>
 
-      <div className="mt-2 max-w-[535px]">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-          <label htmlFor="purchase-product-brand" className="shrink-0 text-sm font-medium sm:w-[89px]">
-            Marca:
-          </label>
-          <input
-            id="purchase-product-brand"
-            type="text"
-            value={value.brand}
-            aria-invalid={errors?.brand ? true : undefined}
-            aria-describedby={errors?.brand ? "purchase-product-brand-error" : undefined}
-            onChange={(event) => onChange({ ...value, brand: event.target.value })}
-            className="h-11 w-full rounded-[5px] border border-[#878A92] bg-white px-3 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1] sm:max-w-[430px]"
-          />
+      <div className="mt-2 grid gap-6 lg:grid-cols-[minmax(0,535px)_210px] lg:items-start lg:gap-12">
+        <div className="max-w-[535px]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <label htmlFor="purchase-product-brand" className="shrink-0 text-sm font-medium sm:w-[89px]">
+              Marca:
+            </label>
+            <input
+              id="purchase-product-brand"
+              type="text"
+              value={value.brand}
+              aria-invalid={errors?.brand ? true : undefined}
+              aria-describedby={errors?.brand ? "purchase-product-brand-error" : undefined}
+              onChange={(event) => onChange({ ...value, brand: event.target.value })}
+              className="h-11 w-full rounded-[5px] border border-[#878A92] bg-white px-3 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1] sm:max-w-[430px]"
+            />
+          </div>
+          <div className="min-h-6 pt-1 sm:pl-[105px]">
+            {errors?.brand && (
+              <p id="purchase-product-brand-error" role="alert" className="text-xs text-red-600">
+                {errors.brand}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="min-h-6 pt-1 sm:pl-[105px]">
-          {errors?.brand && (
-            <p id="purchase-product-brand-error" role="alert" className="text-xs text-red-600">
-              {errors.brand}
-            </p>
-          )}
+
+        <div className="min-w-0 lg:w-[210px]">
+          <label htmlFor="purchase-product-gender" className="sr-only">
+            Género
+          </label>
+          <select
+            id="purchase-product-gender"
+            value={value.gender}
+            onChange={(event) =>
+              onChange({
+                ...value,
+                gender: event.target.value as ProductGender,
+              })
+            }
+            className="h-11 w-full rounded-[5px] border border-[#878A92] bg-white px-3 pr-8 text-sm outline-none focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1]"
+          >
+            <option value="" disabled>Género</option>
+            <option value="FEMALE">Femenino</option>
+            <option value="MALE">Masculino</option>
+            <option value="UNISEX">Unisex</option>
+            <option value="EMPTY">Vacío</option>
+          </select>
         </div>
       </div>
 

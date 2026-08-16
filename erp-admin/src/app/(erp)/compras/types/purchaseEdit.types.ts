@@ -1,4 +1,5 @@
 import type { PurchaseVariantValue } from "../components/form/VariantRow";
+import type { ProductGender } from "./purchases.types";
 
 export type ExistingInvoice = {
   name: string;
@@ -17,6 +18,7 @@ export type EditablePurchase = {
     sku: string;
     category: string;
     brand?: string;
+    gender?: ProductGender | null;
     variants: PurchaseVariantValue[];
   };
   existingInvoice: ExistingInvoice | null;
