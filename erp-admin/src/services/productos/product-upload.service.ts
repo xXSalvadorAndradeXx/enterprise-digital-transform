@@ -12,17 +12,13 @@ import {
 
 function getAuthorizationHeader(): HeadersInit {
   const token =
-    typeof window !==
-    "undefined"
-      ? localStorage.getItem(
-          "token",
-        )
+    typeof window !== "undefined"
+      ? localStorage.getItem("token")
       : null;
 
   return token
     ? {
-        Authorization:
-          `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       }
     : {};
 }
@@ -31,8 +27,7 @@ export async function uploadProductImage(
   file: File,
   signal?: AbortSignal,
 ): Promise<ProductImageUploadResponse> {
-  const formData =
-    new FormData();
+  const formData = new FormData();
 
   formData.append(
     "file",
@@ -44,13 +39,9 @@ export async function uploadProductImage(
       `${API_BASE_URL}/products/upload-image`,
       {
         method: "POST",
-
         headers:
           getAuthorizationHeader(),
-
-        body:
-          formData,
-
+        body: formData,
         signal,
       },
     );

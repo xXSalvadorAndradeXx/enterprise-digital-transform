@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useRef,
   useState,
 } from "react";
 
@@ -19,16 +20,14 @@ import type {
 } from "@/types/productos";
 
 interface UseCreateProductResult {
-  create:
-    (
-      request:
-        CreateProductRequest,
-    ) => Promise<
-      ProductDetail | null
-    >;
+  create: (
+    request:
+      CreateProductRequest,
+  ) => Promise<
+    ProductDetail | null
+  >;
 
-  isLoading:
-    boolean;
+  isLoading: boolean;
 
   error:
     ProductHttpError | null;
@@ -48,50 +47,60 @@ export function useCreateProduct(): UseCreateProductResult {
       null,
     );
 
-  const create =
-    async (
-      request:
-        CreateProductRequest,
-    ): Promise<
-      ProductDetail | null
-    > => {
-      if (isLoading) {
-        return null;
+  const submittingRef =
+    useRef(false);
+
+  const create = async (
+    request:
+      CreateProductRequest,
+  ): Promise<
+    ProductDetail | null
+  > => {
+    if (
+      submittingRef.current
+    ) {
+      return null;
+    }
+
+    submittingRef.current =
+      true;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response =
+        await createProduct(
+          request,
+        );
+
+      return response.data;
+    } catch (caughtError) {
+      if (
+        isProductHttpError(
+          caughtError,
+        )
+      ) {
+        setError(
+          caughtError,
+        );
+      } else {
+        setError({
+          status: 0,
+          type: "UNKNOWN",
+          message:
+            "No se pudo crear el producto.",
+        });
       }
 
-      setIsLoading(true);
-      setError(null);
+      return null;
+    } finally {
+      submittingRef.current =
+        false;
 
-      try {
-        const response =
-          await createProduct(
-            request,
-          );
-
-        return response.data;
-      } catch (caughtError) {
-        if (
-          isProductHttpError(
-            caughtError,
-          )
-        ) {
-          setError(
-            caughtError,
-          );
-        } else {
-          setError({
-            status: 0,
-            type: "UNKNOWN",
-            message:
-              "No se pudo crear el producto.",
-          });
-        }
-
-        return null;
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      setIsLoading(false);
+    }
+  };
 
   return {
     create,

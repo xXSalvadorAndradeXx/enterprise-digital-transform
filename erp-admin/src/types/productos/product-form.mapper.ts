@@ -6,30 +6,29 @@ import type {
   ProductFormSchema,
 } from "./schemas";
 
+interface MapProductFormOptions {
+  imageUrls: string[];
+}
+
 export function mapProductFormToCreateRequest(
   values: ProductFormSchema,
+  options: MapProductFormOptions,
 ): CreateProductRequest {
   return {
-    inventoryId:
-      values.inventoryId,
+    inventoryId: values.inventoryId,
 
     commercialName:
       values.commercialName.trim(),
 
     description:
-      values.description.trim() ||
-      null,
+      values.description.trim() || null,
 
     salePrice:
-      Number(
-        values.salePrice,
-      ),
+      Number(values.salePrice),
 
     discount:
       values.applyDiscount
-        ? Number(
-            values.discount,
-          )
+        ? Number(values.discount)
         : 0,
 
     discountEndsAt:
@@ -42,11 +41,10 @@ export function mapProductFormToCreateRequest(
 
     tags:
       values.tags.map(
-        (tag) =>
-          tag.trim(),
+        (tag) => tag.trim(),
       ),
 
     imageUrls:
-      values.imageUrls,
+      options.imageUrls,
   };
 }
