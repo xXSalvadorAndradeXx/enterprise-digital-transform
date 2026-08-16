@@ -40,17 +40,10 @@ export class CartService {
       throw new NotFoundException(`El producto con ID ${dto.productId} no existe`);
     }
 
-    if (dto.quantity > product.stock) {
-      throw new BadRequestException(`Stock insuficiente. Solo hay ${product.stock} unidades disponibles.`);
-    }
-
     const existingItem = cart.items?.find(item => item.product.id === dto.productId);
 
     if (existingItem) {
       const newQuantity = existingItem.quantity + dto.quantity;
-      if (newQuantity > product.stock) {
-        throw new BadRequestException(`Stock insuficiente. Ya tienes ${existingItem.quantity} en tu carrito y solo quedan ${product.stock} unidades disponibles en total.`);
-      }
       existingItem.quantity = newQuantity;
       existingItem.subtotal = newQuantity * existingItem.unitPrice;
       await this.cartItemRepository.save(existingItem);
@@ -59,8 +52,8 @@ export class CartService {
         cart: { id: cart.id },
         product: { id: product.id },
         quantity: dto.quantity,
-        unitPrice: product.precio,
-        subtotal: dto.quantity * product.precio,
+        unitPrice: Number(product.salePrice),
+        subtotal: dto.quantity * Number(product.salePrice),
       });
       await this.cartItemRepository.save(newItem);
     }
@@ -80,12 +73,7 @@ export class CartService {
     }
 
     if (cartItem.cart.user.id !== userId) {
-      // Devolvemos NotFound para no revelar que el ítem pertenece a otro usuario
       throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
-    }
-
-    if (quantity > cartItem.product.stock) {
-      throw new BadRequestException(`Stock insuficiente. Solo hay ${cartItem.product.stock} unidades disponibles.`);
     }
 
     cartItem.quantity = quantity;
@@ -106,7 +94,6 @@ export class CartService {
     }
 
     if (cartItem.cart.user.id !== userId) {
-      // Devolvemos NotFound para no revelar información
       throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
     }
 
@@ -118,7 +105,6 @@ export class CartService {
   async clearCart(userId: string) {
     const cart = await this.findUserCart(userId);
 
-    // Eliminamos todos los items asociados a este carrito
     await this.cartItemRepository.delete({ cart: { id: cart.id } });
 
     return this.findUserCart(userId);

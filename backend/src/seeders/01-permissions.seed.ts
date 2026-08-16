@@ -27,16 +27,16 @@ const PERMISSIONS = [
   { code: 'purchases:receive',  description: 'Recibir compras' },
   { code: 'purchases:delete',   description: 'Eliminar compras' },
   // products
-  { code: 'products:read',      description: 'Ver productos' },
-  { code: 'products:create',    description: 'Crear productos' },
-  { code: 'products:update',    description: 'Actualizar productos' },
-  { code: 'products:delete',    description: 'Eliminar productos' },
+  { code: 'products:create',    description: 'Permite crear productos' },
+  { code: 'products:read',      description: 'Permite consultar productos' },
+  { code: 'products:update',    description: 'Permite modificar productos y su estado' },
+  { code: 'products:delete',    description: 'Permite eliminar productos lógicamente' },
   // product-categories
   { code: 'product-categories:read',   description: 'Ver categorías' },
   { code: 'product-categories:create', description: 'Crear categorías' },
   { code: 'product-categories:update', description: 'Actualizar categorías' },
   { code: 'product-categories:delete', description: 'Eliminar categorías' },
-  // Módulo de Inventario (Introducido por el módulo de Inventario)
+  // Módulo de Inventario
   { code: 'inventory:read',     description: 'Permite consultar inventarios y sus variantes' },
   { code: 'inventory:adjust',   description: 'Ajustar stock manualmente' },
   // customers
@@ -55,7 +55,7 @@ export async function seedPermissions(dataSource: DataSource): Promise<Permissio
       .insert()
       .into(Permission)
       .values(perm)
-      .orIgnore()
+      .orUpdate(['description'], ['code'])
       .execute();
   }
 

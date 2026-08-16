@@ -5,7 +5,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { CreatePurchaseItemDto } from './create-purchase-item.dto';
+import { CreatePurchaseVariantDto } from './create-purchase-variant.dto';
 
 export class UpdatePurchaseDto {
   @ApiPropertyOptional()
@@ -13,11 +13,7 @@ export class UpdatePurchaseDto {
   @IsUrl()
   invoiceUrl?: string;
 
-  @ApiPropertyOptional({ type: [CreatePurchaseItemDto] })
-  @IsOptional()
-  @IsArray()
-  @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => CreatePurchaseItemDto)
-  items?: CreatePurchaseItemDto[];
+@ApiPropertyOptional({ type: [CreatePurchaseVariantDto] })
+@Type(() => CreatePurchaseVariantDto)
+items?: CreatePurchaseVariantDto[];
 }

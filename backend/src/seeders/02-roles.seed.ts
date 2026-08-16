@@ -52,7 +52,7 @@ export async function seedRoles(dataSource: DataSource): Promise<void> {
   }
   admin.permissions = allPermissions;
   await roleRepo.save(admin);
-  console.log('✓ Rol ADMIN sincronizado con todos los permisos (incluye inventory:read).');
+  console.log('✓ Rol ADMIN sincronizado con todos los permisos (incluye products:create, products:read, products:update, products:delete).');
 
   // ── Rol EMPLEADO ─────────────────────────────────────────────────────
   let empleado = await roleRepo.findOne({ where: { name: 'EMPLEADO' }, relations: ['permissions'] });
@@ -65,7 +65,7 @@ export async function seedRoles(dataSource: DataSource): Promise<void> {
   }
   empleado.permissions = empleadoPerms;
   await roleRepo.save(empleado);
-  console.log('✓ Rol EMPLEADO sincronizado con permisos operativos (incluye inventory:read).');
+  console.log('✓ Rol EMPLEADO sincronizado con permisos operativos.');
 
   // ── Rol VENDEDOR ─────────────────────────────────────────────────────
   let vendedor = await roleRepo.findOne({ where: { name: 'VENDEDOR' }, relations: ['permissions'] });
@@ -78,5 +78,14 @@ export async function seedRoles(dataSource: DataSource): Promise<void> {
   }
   vendedor.permissions = vendedorPerms;
   await roleRepo.save(vendedor);
-  console.log('✓ Rol VENDEDOR sincronizado con permisos (incluye inventory:read).');
+  console.log('✓ Rol VENDEDOR sincronizado con permisos.');
+
+  // ── Rol VIEWER (Si existe) ───────────────────────────────────────────
+  let viewer = await roleRepo.findOne({ where: { name: 'VIEWER' }, relations: ['permissions'] });
+  if (viewer) {
+    const viewerPerms = allPermissions.filter((p) => p.code === 'products:read');
+    viewer.permissions = viewerPerms;
+    await roleRepo.save(viewer);
+    console.log('✓ Rol VIEWER sincronizado únicamente con permiso products:read.');
+  }
 }
