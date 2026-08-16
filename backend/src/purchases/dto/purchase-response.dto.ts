@@ -1,24 +1,38 @@
-// src/purchases/dto/purchase-response.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PurchaseStatus } from '../enums/purchase-status.enum';
 
 export class PurchaseItemResponseDto {
-  @ApiProperty() id: string;
-  @ApiProperty() productId: string;
-  @ApiProperty() quantity: number;
-  @ApiProperty() unitCost: number;
-  @ApiProperty() subtotal: number;
+  @ApiProperty() id!: string;
+  @ApiProperty() sku!: string;
+  @ApiProperty() size!: string;
+  @ApiProperty() color!: string;
+  @ApiProperty() quantity!: number;
+  @ApiProperty() unitCost!: number;
+  @ApiProperty() subtotal!: number;
+}
+
+export class SupplierSummaryDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+}
+
+export class UserSummaryDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() firstName!: string;
+  @ApiProperty() lastName!: string;
 }
 
 export class PurchaseResponseDto {
-  @ApiProperty() id: string;
-  @ApiProperty() supplierId: string;
-  @ApiProperty() totalAmount: number;
-  @ApiProperty({ enum: PurchaseStatus }) status: PurchaseStatus;
-  @ApiPropertyOptional() receivedAt: Date | null;
-  @ApiPropertyOptional() invoiceUrl: string | null;
-  @ApiProperty() createdBy: string;
-  @ApiProperty() createdAt: Date;
-  @ApiProperty() updatedAt: Date;
-  @ApiProperty({ type: [PurchaseItemResponseDto] }) items: PurchaseItemResponseDto[];
+  @ApiProperty() id!: string;
+  @ApiProperty() type!: string;
+  @ApiProperty() productName!: string;
+  @ApiProperty() totalAmount!: number;
+  @ApiProperty() totalQuantity!: number;
+  @ApiPropertyOptional() invoiceUrl!: string | null;
+  @ApiProperty() status!: string;
+  @ApiPropertyOptional({ format: 'uuid' }) inventoryId!: string | null;
+  @ApiProperty({ type: () => SupplierSummaryDto }) supplier!: SupplierSummaryDto;
+  @ApiProperty({ type: [PurchaseItemResponseDto] }) items!: PurchaseItemResponseDto[];
+  @ApiProperty({ type: () => UserSummaryDto }) createdBy!: UserSummaryDto;
+  @ApiProperty() createdAt!: Date;
+  @ApiPropertyOptional() deletedAt!: Date | null;
 }
