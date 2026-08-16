@@ -1,81 +1,111 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import {
+  useMemo,
+  useState,
+} from "react";
+
+import { useProducts } from "./useProducts";
 
 import type {
-  ProductCatalogFilters,
-  ProductStockStatus,
-  ProductTableItem,
+  ProductQuery,
+  ProductStatus,
 } from "@/types/productos";
 
-interface ProductCategoryOption {
-  label: string;
-  value: string;
+export interface ProductCatalogFilters {
+  search: string;
+  categoryId: string;
+  status: ProductStatus | "";
 }
 
 interface UseProductsCatalogReturn {
-  products: ProductTableItem[];
-  categories: ProductCategoryOption[];
   filters: ProductCatalogFilters;
 
   page: number;
-  totalPages: number;
+  limit: number;
+
+  products: ReturnType<typeof useProducts>["products"];
+  meta: ReturnType<typeof useProducts>["meta"];
 
   isLoading: boolean;
-  isRetrying: boolean;
-
-  error: string | null;
+  error: ReturnType<typeof useProducts>["error"];
 
   setSearch: (value: string) => void;
   setCategory: (value: string) => void;
-  setStockStatus: (
-    value: ProductStockStatus | "",
+  setStatus: (
+    value: ProductStatus | "",
   ) => void;
 
   setPage: (page: number) => void;
 
-  refetch: () => Promise<void>;
+  goToPreviousPage: () => void;
+  goToNextPage: () => void;
+
+  refetch: () => void;
 }
 
 export function useProductsCatalog(): UseProductsCatalogReturn {
-  const [filters, setFilters] =
+  const [
+    filters,
+    setFilters,
+  ] =
     useState<ProductCatalogFilters>({
       search: "",
-      category: "",
-      stockStatus: "",
+      categoryId: "",
+      status: "",
     });
 
-  const [page, setPage] = useState(1);
+  const [
+    page,
+    setPage,
+  ] = useState(1);
 
-  /*
-   * FE-PROD-03:
-   * Los estados de carga, vacío y error ya están separados
-   * visualmente.
-   *
-   * La información real será obtenida mediante Service + MSW
-   * cuando se implemente el contrato de API del catálogo.
-   */
+  const limit = 20;
 
-  const products: ProductTableItem[] = [];
+  const query =
+    useMemo<ProductQuery>(
+      () => ({
+        page,
+        limit,
 
-  const categories: ProductCategoryOption[] = [];
+        search:
+          filters.search.trim() ||
+          undefined,
 
-  const totalPages = 1;
+        categoryId:
+          filters.categoryId ||
+          undefined,
 
-  const isLoading = false;
+        status:
+          filters.status ||
+          undefined,
 
-  const isRetrying = false;
+        sortBy:
+          "created_at",
 
-  /*
-   * null = la petición no produjo un error.
-   *
-   * Un arreglo vacío de productos NO debe utilizarse para
-   * representar un error de comunicación.
-   */
-  const error: string | null =  "No se pudieron cargar los productos.";
+        order:
+          "DESC",
+      }),
+      [
+        page,
+        limit,
+        filters.search,
+        filters.categoryId,
+        filters.status,
+      ],
+    );
 
+  const {
+    products,
+    meta,
+    isLoading,
+    error,
+    refetch,
+  } = useProducts(query);
 
-  const setSearch = (value: string): void => {
+  const setSearch = (
+    value: string,
+  ): void => {
     setFilters((current) => ({
       ...current,
       search: value,
@@ -89,49 +119,69 @@ export function useProductsCatalog(): UseProductsCatalogReturn {
   ): void => {
     setFilters((current) => ({
       ...current,
-      category: value,
+      categoryId: value,
     }));
 
     setPage(1);
   };
 
-  const setStockStatus = (
-    value: ProductStockStatus | "",
+  const setStatus = (
+    value:
+      | ProductStatus
+      | "",
   ): void => {
     setFilters((current) => ({
       ...current,
-      stockStatus: value,
+      status: value,
     }));
 
     setPage(1);
   };
 
-  const refetch =
-    useCallback(async (): Promise<void> => {
-      /*
-       * Se conectará al Service cuando esté disponible
-       * el contrato del endpoint del catálogo.
-       */
-    }, []);
+  const goToPreviousPage =
+    (): void => {
+      setPage((current) =>
+        Math.max(
+          1,
+          current - 1,
+        ),
+      );
+    };
+
+  const goToNextPage =
+    (): void => {
+      setPage((current) => {
+        if (!meta) {
+          return current;
+        }
+
+        return Math.min(
+          meta.totalPages,
+          current + 1,
+        );
+      });
+    };
 
   return {
-    products,
-    categories,
     filters,
 
     page,
-    totalPages,
+    limit,
+
+    products,
+    meta,
 
     isLoading,
-    isRetrying,
-
     error,
 
     setSearch,
     setCategory,
-    setStockStatus,
+    setStatus,
 
     setPage,
+
+    goToPreviousPage,
+    goToNextPage,
 
     refetch,
   };

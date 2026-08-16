@@ -8,11 +8,25 @@ import { ProductStockStatus } from "./ProductStockStatus";
 
 import type { ProductTableItem } from "@/types/productos";
 
+import type {
+  ProductSummary,
+} from "@/types/productos";
+
 interface ProductsTableProps {
-  products: ProductTableItem[];
+  products:
+    ProductSummary[];
+
   search: string;
-  onView: (product: ProductTableItem) => void;
-  onDelete: (product: ProductTableItem) => void;
+
+  onView: (
+    product:
+      ProductSummary,
+  ) => void;
+
+  onDelete: (
+    product:
+      ProductSummary,
+  ) => void;
 }
 
 function formatCurrency(value: number): string {

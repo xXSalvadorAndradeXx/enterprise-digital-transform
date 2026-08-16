@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  useRouter,
+} from "next/navigation";
+
 import { Pagination } from "@/components/ui/Pagination";
 
 import { ProductsEmptyState } from "./ProductsEmptyState";
@@ -10,41 +14,66 @@ import { ProductsToolbar } from "./ProductsToolbar";
 
 import { useProductsCatalog } from "@/hooks/productos/useProductsCatalog";
 
+import type {
+  ProductSummary,
+} from "@/types/productos";
+
 export function ProductsCatalog() {
+  const router =
+    useRouter();
+
   const {
-    products,
-    categories,
     filters,
 
     page,
-    totalPages,
+
+    products,
+    meta,
 
     isLoading,
-    isRetrying,
-
     error,
 
     setSearch,
     setCategory,
-    setStockStatus,
+    setStatus,
 
     setPage,
 
     refetch,
   } = useProductsCatalog();
 
-  const handleView = (): void => {
-    // Se implementará en la funcionalidad de detalle.
+  /*
+   * Las categorías reales deberán
+   * provenir del módulo correspondiente.
+   */
+  const categories: Array<{
+    label: string;
+    value: string;
+  }> = [];
+
+  const handleView = (
+    product:
+      ProductSummary,
+  ): void => {
+    router.push(
+      `/productos/${product.id}`,
+    );
   };
 
-  const handleDelete = (): void => {
-    // Se conectará al endpoint definido por contrato.
+  const handleDelete = (
+    _product:
+      ProductSummary,
+  ): void => {
+    /*
+     * Se conectará con useDeleteProduct
+     * en la tarea/flujo de eliminación.
+     */
   };
 
   const hasActiveFilters =
     filters.search.trim() !== "" ||
-    filters.category !== "" ||
-    filters.stockStatus !== "";
+    filters.categoryId !== "" ||
+    filters.status !== "";
 
   const isCatalogEmpty =
     !isLoading &&
@@ -55,14 +84,32 @@ export function ProductsCatalog() {
   return (
     <div
       className="overflow-hidden rounded-xl border border-gray-200 bg-white"
-      aria-busy={isLoading}
+      aria-busy={
+        isLoading
+      }
     >
       <ProductsToolbar
-        filters={filters}
-        categories={categories}
-        onSearchChange={setSearch}
-        onCategoryChange={setCategory}
-        onStockStatusChange={setStockStatus}
+        search={
+          filters.search
+        }
+        categoryId={
+          filters.categoryId
+        }
+        status={
+          filters.status
+        }
+        categories={
+          categories
+        }
+        onSearchChange={
+          setSearch
+        }
+        onCategoryChange={
+          setCategory
+        }
+        onStatusChange={
+          setStatus
+        }
       />
 
       <div className="min-h-[420px]">
@@ -70,28 +117,47 @@ export function ProductsCatalog() {
           <ProductsTableSkeleton />
         ) : error ? (
           <ProductsErrorState
-            onRetry={refetch}
-            isRetrying={isRetrying}
+            onRetry={
+              refetch
+            }
           />
         ) : isCatalogEmpty ? (
           <ProductsEmptyState />
         ) : (
           <ProductsTable
-            products={products}
-            search={filters.search}
-            onView={handleView}
-            onDelete={handleDelete}
+            products={
+              products
+            }
+            search={
+              filters.search
+            }
+            onView={
+              handleView
+            }
+            onDelete={
+              handleDelete
+            }
           />
         )}
       </div>
 
       {!isLoading &&
         !error &&
-        !isCatalogEmpty && (
+        meta &&
+        meta.totalPages >
+          0 &&
+        products.length >
+          0 && (
           <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
+            currentPage={
+              page
+            }
+            totalPages={
+              meta.totalPages
+            }
+            onPageChange={
+              setPage
+            }
           />
         )}
     </div>
