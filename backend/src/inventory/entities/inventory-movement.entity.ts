@@ -1,4 +1,4 @@
-// src/modules/inventory/entities/inventory-movement.entity.ts
+// src/inventory/entities/inventory-movement.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -8,9 +8,9 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Product } from '../../products/entities/product.entity';
-import { User } from '../../users/entities/user.entity';
-import { MovementType } from '../enums/movement-type.enum';
+import { Product }         from '../../products/entities/product.entity';
+import { User }            from '../../users/entities/user.entity';
+import { MovementType }    from '../enums/movement-type.enum';
 import { MovementChannel } from '../enums/movement-channel.enum';
 import { InventoryDetail } from './inventory-detail.entity';
 
@@ -36,7 +36,7 @@ export class InventoryMovement {
   @Column({ name: 'stock_after', type: 'numeric', precision: 12, scale: 4 })
   stockAfter!: number;
 
-  @ApiPropertyOptional({ example: 'Ajuste por conteo físico' })
+  @ApiPropertyOptional({ example: 'Ingreso por compra de producto nuevo' })
   @Column({ type: 'varchar', length: 255, nullable: true })
   notes!: string | null;
 
@@ -44,11 +44,7 @@ export class InventoryMovement {
   @Column({ name: 'reference_id', type: 'uuid', nullable: true })
   referenceId!: string | null;
 
-  @ApiProperty({
-    enum: MovementChannel,
-    example: MovementChannel.TIENDA_FISICA,
-    description: 'Canal de origen del movimiento (TIENDA_FISICA o ECOMMERCE)',
-  })
+  @ApiProperty({ enum: MovementChannel, example: MovementChannel.TIENDA_FISICA })
   @Column({
     type: 'enum',
     enum: MovementChannel,
@@ -61,12 +57,18 @@ export class InventoryMovement {
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
-  @ManyToOne(() => Product, { eager: true })
+  // ── CORREGIDO: product_id ahora es nullable ────────────────────────────────
+  // Una compra puede crear inventario físico antes de que exista un producto
+  // publicado en el e-commerce. El movimiento se identifica por
+  // inventory_detail_id → inventory_details → inventories → product_name.
+  @ApiPropertyOptional({ type: () => Product })
+  @ManyToOne(() => Product, { eager: true, nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'product_id' })
-  product!: Product;
+  product!: Product | null;
 
-  @Column({ name: 'product_id', type: 'uuid' })
-  productId!: string;
+  // ── CORREGIDO: era NOT NULL, ahora nullable ───────────────────────────────
+  @Column({ name: 'product_id', type: 'uuid', nullable: true })
+  productId!: string | null;
 
   @ApiPropertyOptional({ type: () => User })
   @ManyToOne(() => User, { eager: true, nullable: true, onDelete: 'SET NULL' })

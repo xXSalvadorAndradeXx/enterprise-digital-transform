@@ -41,7 +41,7 @@ export class PurchasesController {
   }
 
   // POST /purchases/nuevo-producto ─────────────────────────────────────────
-  @Post('nuevo-producto')
+  @Post('new-product')
   @RequirePermissions('purchases:create')
   @ApiOperation({
     summary: 'Confirmar compra de nuevo producto — transacción atómica T1',
@@ -61,7 +61,7 @@ export class PurchasesController {
   }
 
   // POST /purchases/reabastecimiento ───────────────────────────────────────
-  @Post('reabastecimiento')
+  @Post('replenishment')
   @RequirePermissions('purchases:create')
   @ApiOperation({
     summary: 'Confirmar reabastecimiento — transacción atómica T2',
