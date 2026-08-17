@@ -1,9 +1,9 @@
-import InventoryCard from "./components/InventoryCard";
+export default function DashboardPage() {
+return (
+<div>
+<h1 className="text-3xl font-bold">INVENTARIO</h1>
 
-export default function InventoryPage() {
-  return (
-    <div className="w-full min-w-0 px-0 py-2 sm:px-2 sm:py-4 lg:px-8 lg:py-8">
-      <InventoryCard />
-    </div>
-  );
+
+</div>
+);
 }

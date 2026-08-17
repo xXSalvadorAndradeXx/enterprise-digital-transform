@@ -1,5 +1,4 @@
 import type { RequestHandler } from "msw";
-import { purchasesHandlers } from "./purchases.handlers";
 
 /**
  * Registro central de handlers de MSW.
@@ -16,6 +15,4 @@ import { purchasesHandlers } from "./purchases.handlers";
  * Los handlers se incorporarán aquí cuando exista un contrato de API
  * acordado para el módulo correspondiente.
  */
-export const handlers: RequestHandler[] = [
-  ...(process.env.MOCK_PURCHASES === "enabled" ? purchasesHandlers : []),
-];
+export const handlers: RequestHandler[] = [];

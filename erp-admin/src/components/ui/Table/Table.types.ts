@@ -38,6 +38,7 @@ export interface TableProps<T> {
   onSelectionChange?: (selected: Set<string | number>) => void;
 
   actions?: TableAction<T>[];
+  actionsHeader?: string;
 
   /** Rendered on the right side of the toolbar that appears while there's an active selection */
   bulkActions?: (selectedCount: number, clearSelection: () => void) => ReactNode;
