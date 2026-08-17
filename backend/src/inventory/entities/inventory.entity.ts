@@ -1,3 +1,4 @@
+// src/inventory/entities/inventory.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -12,12 +13,13 @@ import {
   Index,
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Product } from '../../products/entities/product.entity';
-import { Supplier } from '../../suppliers/entities/supplier.entity';
-import { Category } from '../../categories/entities/category.entity';
+import { Product }          from '../../products/entities/product.entity';
+import { Supplier }         from '../../suppliers/entities/supplier.entity';
+import { Category }         from '../../categories/entities/category.entity';
 import { SupplierPurchase } from '../../purchases/entities/supplier-purchase.entity';
-import { InventoryDetail } from './inventory-detail.entity';
-import { InventoryStatus } from '../enums/inventory-status.enum';
+import { InventoryDetail }  from './inventory-detail.entity';
+import { InventoryStatus }  from '../enums/inventory-status.enum';
+import { ProductGender }    from '../../purchases/enums/product-gender.enum';
 
 @Entity('inventories')
 export class Inventory {
@@ -26,39 +28,37 @@ export class Inventory {
   id!: string;
 
   @ApiProperty({ example: 'Audífonos Inalámbricos' })
-  @Column({
-    name: 'product_name',
-    type: 'varchar',
-    length: 200,
-    nullable: false,
-  })
+  @Column({ name: 'product_name', type: 'varchar', length: 200, nullable: false })
   productName!: string;
 
   @ApiProperty({ example: 'Sony' })
   @Column({ type: 'varchar', length: 100, nullable: false })
   brand!: string;
 
-  @ApiPropertyOptional({ example: 'https://images.com/audifonos.jpg' })
+  // ── CAMPO AÑADIDO: género del producto ────────────────────────────────────
+  // Se almacena aquí porque una compra puede existir antes de que haya
+  // un producto publicado con su propio campo de género.
+  @ApiPropertyOptional({ enum: ProductGender, nullable: true })
   @Column({
-    name: 'main_image_url',
-    type: 'varchar',
-    length: 500,
+    type: 'enum',
+    enum: ProductGender,
+    enumName: 'inventory_gender_enum',
     nullable: true,
   })
+  gender!: ProductGender | null;
+
+  @ApiPropertyOptional({ example: 'https://images.com/audifonos.jpg' })
+  @Column({ name: 'main_image_url', type: 'varchar', length: 500, nullable: true })
   mainImageUrl!: string | null;
 
   @ApiProperty({ enum: InventoryStatus, default: InventoryStatus.ACTIVE })
   @Index()
-  @Column({
-    type: 'enum',
-    enum: InventoryStatus,
-    default: InventoryStatus.ACTIVE,
-  })
+  @Column({ type: 'enum', enum: InventoryStatus, default: InventoryStatus.ACTIVE })
   status!: InventoryStatus;
 
-  // --- Relaciones ---
+  // ── Relaciones ────────────────────────────────────────────────────────────
 
-  @ApiProperty({ type: () => Supplier })
+  @ApiPropertyOptional({ type: () => Supplier })
   @ManyToOne(() => Supplier, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'supplier_id' })
   supplier!: Supplier | null;
@@ -67,7 +67,7 @@ export class Inventory {
   @Column({ name: 'supplier_id', type: 'uuid', nullable: true })
   supplierId!: string | null;
 
-  @ApiProperty({ type: () => Category })
+  @ApiPropertyOptional({ type: () => Category })
   @ManyToOne(() => Category, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'category_id' })
   category!: Category | null;
@@ -76,6 +76,8 @@ export class Inventory {
   @Column({ name: 'category_id', type: 'integer', nullable: true })
   categoryId!: number | null;
 
+  // ── CORREGIDO: purchase_id ya estaba en la entidad pero el servicio
+  // no lo persistía. Ahora el servicio de compras lo establece correctamente.
   @ApiPropertyOptional({ type: () => SupplierPurchase })
   @OneToOne(() => SupplierPurchase, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'purchase_id' })
@@ -89,7 +91,7 @@ export class Inventory {
   })
   details!: InventoryDetail[];
 
-  // --- Columnas de auditoría ---
+  // ── Auditoría ─────────────────────────────────────────────────────────────
 
   @ApiProperty()
   @Index()
@@ -103,13 +105,15 @@ export class Inventory {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
 
-  // --- Compatibilidad con lógica de stock existente ---
+  // ── Stock ─────────────────────────────────────────────────────────────────
+  // Siempre refleja SUM(inventory_details.stock).
+  // El servicio de compras lo recalcula tras cada operación.
 
-  @ApiProperty({ example: 100.0 })
+  @ApiProperty({ example: 100 })
   @Column({ type: 'numeric', precision: 12, scale: 4, default: 0 })
   stock!: number;
 
-  @ApiProperty({ example: 10.0 })
+  @ApiProperty({ example: 10 })
   @Column({ type: 'numeric', precision: 12, scale: 4, default: 0 })
   reserved!: number;
 
@@ -117,7 +121,8 @@ export class Inventory {
     return Number(this.stock) - Number(this.reserved);
   }
 
-  @ApiProperty({ type: () => Product })
+  // ── Relación con producto publicado en e-commerce (opcional) ─────────────
+  @ApiPropertyOptional({ type: () => Product })
   @OneToOne(() => Product, { eager: true, nullable: true })
   @JoinColumn({ name: 'product_id' })
   product!: Product | null;
@@ -125,6 +130,11 @@ export class Inventory {
   @Column({ name: 'product_id', type: 'uuid', nullable: true })
   productId!: string | null;
 
+  // ── Columna de auditoría de creación ─────────────────────────────────────
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdBy!: string | null;
+
+  // ── Campos virtuales para agregaciones ───────────────────────────────────
   @ApiPropertyOptional({ example: 100 })
   totalStock?: number;
 

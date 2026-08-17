@@ -1,34 +1,32 @@
-// src/purchases/dto/create-purchase-variant.dto.ts
+// src/purchases/dto/restock-new-variant.dto.ts
 import {
   IsString, MinLength, MaxLength,
   Matches, IsInt, IsNumber, Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class CreatePurchaseVariantDto {
-  /** RN-004 */
-  @ApiProperty({ example: 'L', description: 'Talla (ej: S, M, L, XL, 38, 40)' })
+export class RestockNewVariantDto {
+  /** Nueva talla que no existe aún en el inventario */
+  @ApiProperty({ example: 'XL' })
   @IsString()
   @MinLength(1)
   @MaxLength(50)
   size!: string;
 
-  /** RN-004 */
-  @ApiProperty({ example: '#FFFFFF', description: 'Color en formato hexadecimal #RRGGBB' })
+  /** Nuevo color en formato hexadecimal */
+  @ApiProperty({ example: '#000000' })
   @IsString()
   @Matches(/^#[0-9A-Fa-f]{6}$/, {
     message: 'color debe ser un código hexadecimal válido (#RRGGBB)',
   })
   color!: string;
 
-  /** RN-008 */
-  @ApiProperty({ example: 10 })
+  @ApiProperty({ example: 15 })
   @IsInt()
   @Min(1)
   quantity!: number;
 
-  /** RN-009 */
-  @ApiProperty({ example: 20.00 })
+  @ApiProperty({ example: 9.50 })
   @IsNumber()
   @Min(0)
   unitCost!: number;

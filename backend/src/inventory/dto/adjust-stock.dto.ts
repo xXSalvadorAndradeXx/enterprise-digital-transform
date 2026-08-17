@@ -1,4 +1,4 @@
-// src/modules/inventory/dto/adjust-stock.dto.ts
+// src/inventory/dto/adjust-stock.dto.ts
 import {
   IsUUID,
   IsNumber,
@@ -8,13 +8,20 @@ import {
   IsNotEmpty,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MovementType } from '../enums/movement-type.enum';
+import { MovementType }    from '../enums/movement-type.enum';
 import { MovementChannel } from '../enums/movement-channel.enum';
 
 export class AdjustStockDto {
-  @ApiProperty({ format: 'uuid' })
+  // ── CORREGIDO: productId es ahora opcional porque un movimiento puede
+  // identificarse únicamente por inventoryDetailId cuando aún no existe
+  // un producto publicado en el e-commerce.
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'ID del producto publicado en e-commerce (opcional)',
+  })
+  @IsOptional()
   @IsUUID('4')
-  productId: string;
+  productId?: string;
 
   @ApiPropertyOptional({
     format: 'uuid',
@@ -31,16 +38,16 @@ export class AdjustStockDto {
   })
   @IsNumber()
   @IsNotEmpty()
-  quantity: number;
+  quantity!: number;
 
+  // ── CORREGIDO: usa los valores actuales del enum ('Entrada' / 'Salida') ───
   @ApiProperty({ enum: MovementType, example: MovementType.IN })
   @IsEnum(MovementType)
-  type: MovementType;
+  type!: MovementType;
 
   @ApiPropertyOptional({
     enum: MovementChannel,
     example: MovementChannel.TIENDA_FISICA,
-    description: 'Canal de origen del movimiento (TIENDA_FISICA o ECOMMERCE)',
   })
   @IsOptional()
   @IsEnum(MovementChannel)

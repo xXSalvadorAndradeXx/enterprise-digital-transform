@@ -1,4 +1,6 @@
+// src/purchases/dto/purchase-response.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ProductGender } from '../enums/product-gender.enum';
 
 export class PurchaseItemResponseDto {
   @ApiProperty() id!: string;
@@ -23,16 +25,55 @@ export class UserSummaryDto {
 
 export class PurchaseResponseDto {
   @ApiProperty() id!: string;
+
+  // ── CAMPO AÑADIDO ────────────────────────────────────────────────────────
+  @ApiProperty({ example: 'CP-0007' })
+  reference!: string;
+
   @ApiProperty() type!: string;
   @ApiProperty() productName!: string;
+
+  // ── CAMPO AÑADIDO ────────────────────────────────────────────────────────
+  @ApiProperty({ example: 'Nike' })
+  brand!: string;
+
+  // ── CAMPO AÑADIDO ────────────────────────────────────────────────────────
+  @ApiProperty({ example: 1 })
+  categoryId!: number;
+
+  // ── CAMPO AÑADIDO ────────────────────────────────────────────────────────
+  @ApiPropertyOptional({ enum: ProductGender, nullable: true })
+  gender!: ProductGender | null;
+
+  // ── CAMPO AÑADIDO ────────────────────────────────────────────────────────
+  @ApiProperty({ example: '2026-08-16' })
+  purchaseDate!: string;
+
   @ApiProperty() totalAmount!: number;
   @ApiProperty() totalQuantity!: number;
+
   @ApiPropertyOptional() invoiceUrl!: string | null;
-  @ApiProperty() status!: string;
+  @ApiProperty()         status!: string;
+
   @ApiPropertyOptional({ format: 'uuid' }) inventoryId!: string | null;
+
   @ApiProperty({ type: () => SupplierSummaryDto }) supplier!: SupplierSummaryDto;
   @ApiProperty({ type: [PurchaseItemResponseDto] }) items!: PurchaseItemResponseDto[];
-  @ApiProperty({ type: () => UserSummaryDto }) createdBy!: UserSummaryDto;
-  @ApiProperty() createdAt!: Date;
+  @ApiProperty({ type: () => UserSummaryDto })      createdBy!: UserSummaryDto;
+
+  @ApiProperty()         createdAt!: Date;
   @ApiPropertyOptional() deletedAt!: Date | null;
+}
+
+// ── Respuesta paginada ───────────────────────────────────────────────────────
+export class PaginationMetaDto {
+  @ApiProperty() total!: number;
+  @ApiProperty() page!: number;
+  @ApiProperty() limit!: number;
+  @ApiProperty() totalPages!: number;
+}
+
+export class PaginatedPurchaseResponseDto {
+  @ApiProperty({ type: [PurchaseResponseDto] }) data!: PurchaseResponseDto[];
+  @ApiProperty({ type: () => PaginationMetaDto }) meta!: PaginationMetaDto;
 }
