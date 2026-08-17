@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Delete,
+  Controller, Get, Post, Patch, Delete,
   Body, Param, Query, ParseUUIDPipe,
   HttpCode, HttpStatus, UseGuards,
   UseInterceptors, UploadedFile,
@@ -11,6 +11,7 @@ import {
 } from '@nestjs/swagger';
 
 import { PurchasesService } from './purchases.service';
+import { UpdatePurchaseMetadataDto } from './dto/update-purchase-metadata.dto';
 import { CreateNewProductPurchaseDto } from './dto/create-new-product-purchase.dto';
 import { CreateRestockPurchaseDto }    from './dto/create-restock-purchase.dto';
 import { QueryPurchaseDto }           from './dto/query-purchase.dto';
@@ -122,6 +123,35 @@ export class PurchasesController {
   @ApiResponse({ status: 404, description: 'Compra no encontrada o eliminada' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.purchasesService.findOne(id);
+  }
+
+  // PATCH /purchases/:id ───────────────────────────────────────────────────
+  @Patch(':id')
+  @RequirePermissions('purchases:update')
+  @ApiOperation({
+    summary: 'Editar compra — transacción atómica T4',
+    description:
+      'Actualiza metadatos (proveedor, fecha, producto, categoría, marca, género, factura) '
+      + 'y variantes (talla, color, cantidad, costo unitario). '
+      + 'Si cambia la cantidad de una variante se registra un movimiento de inventario '
+      + '(Entrada si aumenta, Ajuste si disminuye). '
+      + 'Recalcula totalAmount, totalQuantity y stock del inventario. '
+      + 'Requiere confirmación en el Frontend antes de enviar. '
+      + 'Campos inmutables: type, reference, status, sku.',
+  })
+  @ApiBody({ type: UpdatePurchaseMetadataDto })
+  @ApiResponse({ status: 200, type: PurchaseResponseDto })
+  @ApiResponse({ status: 400, description: 'Payload inválido' })
+  @ApiResponse({ status: 404, description: 'Compra, proveedor, categoría o variante no encontrada' })
+  @ApiResponse({ status: 409, description: 'Combinación talla-color duplicada' })
+  @ApiResponse({ status: 422, description: 'Stock quedaría negativo en alguna variante' })
+  @ApiResponse({ status: 500, description: 'Fallo en transacción — rollback automático' })
+  updatePurchase(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePurchaseMetadataDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.purchasesService.updatePurchase(id, dto, user.id);
   }
 
   // DELETE /purchases/:id ──────────────────────────────────────────────────

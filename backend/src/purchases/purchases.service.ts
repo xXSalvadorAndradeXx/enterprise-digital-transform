@@ -14,6 +14,7 @@ import { SupplierPurchaseItem }       from './entities/supplier-purchase-item.en
 import { CreateNewProductPurchaseDto } from './dto/create-new-product-purchase.dto';
 import { CreateRestockPurchaseDto }    from './dto/create-restock-purchase.dto';
 import { QueryPurchaseDto }            from './dto/query-purchase.dto';
+import { UpdatePurchaseMetadataDto }   from './dto/update-purchase-metadata.dto';
 import { PurchaseStatus }  from './enums/purchase-status.enum';
 import { PurchaseType }    from './enums/purchase-type.enum';
 import {
@@ -637,6 +638,247 @@ export class PurchasesService {
       }
 
       await qr.commitTransaction();
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
+  }
+
+  // ── T4: Edición completa de compra ────────────────────────────────────────
+  /**
+   * Actualiza metadatos y variantes de una compra dentro de una única
+   * transacción atómica. Si algún paso falla se hace rollback completo.
+   *
+   * Campos editables: supplierId, purchaseDate, productName, categoryId,
+   *   brand, gender, invoiceUrl, variants (quantity, unitCost, size, color).
+   *
+   * Campos inmutables: type, reference, status, sku (RN-005).
+   *
+   * Regla de movimientos:
+   *   diferencia > 0 → Entrada (reposición)
+   *   diferencia < 0 → Ajuste con cantidad negativa (corrección)
+   *   diferencia = 0 → solo actualiza unitCost / talla / color, sin movimiento
+   *
+   * No permite que el stock de ninguna variante quede negativo.
+   */
+  async updatePurchase(
+    id: string,
+    dto: UpdatePurchaseMetadataDto,
+    userId: string,
+  ): Promise<PurchaseResponseDto> {
+    // ── 0. Verificar existencia fuera de transacción ──────────────────────
+    const existing = await this.purchaseRepo.findOne({
+      where: { id },
+      relations: ['items'],
+    });
+    if (!existing) throw new NotFoundException(`Compra ${id} no encontrada`);
+
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+
+    try {
+      // ── 1. Validar proveedor si cambia ──────────────────────────────────
+      if (dto.supplierId && dto.supplierId !== existing.supplierId) {
+        const [supplier] = await qr.query(
+          `SELECT id, deleted_at FROM suppliers WHERE id = $1`,
+          [dto.supplierId],
+        );
+        if (!supplier)           throw new NotFoundException(`Proveedor ${dto.supplierId} no encontrado`);
+        if (supplier.deleted_at) throw new NotFoundException('El proveedor ya no está activo');
+      }
+
+      // ── 2. Validar categoría si cambia ──────────────────────────────────
+      if (dto.categoryId !== undefined) {
+        const [cat] = await qr.query(
+          `SELECT id FROM categories WHERE id = $1`,
+          [dto.categoryId],
+        );
+        if (!cat) throw new NotFoundException(`Categoría ${dto.categoryId} no encontrada`);
+      }
+
+      // ── 3. Validar y procesar variantes ─────────────────────────────────
+      if (dto.variants && dto.variants.length > 0) {
+        // 3a. Verificar que no vengan combinaciones talla+color duplicadas
+        this.validateDuplicateVariants(
+          dto.variants.map((v) => ({
+            size:  v.size  ?? '',
+            color: v.color ?? '',
+          })),
+        );
+
+        // 3b. Para cada variante enviada, validar que pertenezca a esta compra
+        for (const v of dto.variants) {
+          if (!v.id) continue; // variante sin id → se ignora en esta iteración
+          const belongs = existing.items.some((i) => i.id === v.id);
+          if (!belongs) {
+            throw new NotFoundException(
+              `La variante ${v.id} no pertenece a la compra ${id}`,
+            );
+          }
+        }
+
+        // 3c. Pre-validar stock negativo antes de abrir la transacción pesada
+        for (const v of dto.variants) {
+          if (!v.id || v.quantity === undefined) continue;
+
+          const item = existing.items.find((i) => i.id === v.id)!;
+          if (!item.inventoryDetailId) continue;
+
+          const [detail] = await qr.query(
+            `SELECT stock FROM inventory_details WHERE id = $1 FOR UPDATE`,
+            [item.inventoryDetailId],
+          );
+          if (!detail) continue;
+
+          const diff = v.quantity - Number(item.quantity);
+          if (Number(detail.stock) + diff < 0) {
+            throw new UnprocessableEntityException(
+              `La variante SKU ${item.sku} quedaría con stock negativo (stock actual: ${detail.stock}, diferencia: ${diff})`,
+            );
+          }
+        }
+      }
+
+      // ── 4. Actualizar supplier_purchases ────────────────────────────────
+      const purchaseChanges: Record<string, unknown> = {};
+      if (dto.supplierId   !== undefined) purchaseChanges['supplier_id']    = dto.supplierId;
+      if (dto.purchaseDate !== undefined) purchaseChanges['purchase_date']  = dto.purchaseDate;
+      if (dto.productName  !== undefined) purchaseChanges['product_name']   = dto.productName;
+      if (dto.categoryId   !== undefined) purchaseChanges['category_id']    = dto.categoryId;
+      if (dto.brand        !== undefined) purchaseChanges['brand']           = dto.brand;
+      if (dto.gender       !== undefined) purchaseChanges['gender']          = dto.gender;
+      if ('invoiceUrl' in dto)            purchaseChanges['invoice_url']     = dto.invoiceUrl ?? null;
+
+      if (Object.keys(purchaseChanges).length > 0) {
+        const setClauses = Object.keys(purchaseChanges)
+          .map((col, i) => `${col} = $${i + 2}`)
+          .join(', ');
+        await qr.query(
+          `UPDATE supplier_purchases SET ${setClauses} WHERE id = $1`,
+          [id, ...Object.values(purchaseChanges)],
+        );
+      }
+
+      // ── 5. Actualizar inventories si hay campos denormalizados ──────────
+      const inventoryId = existing.inventoryId;
+      if (inventoryId) {
+        const invChanges: Record<string, unknown> = {};
+        if (dto.productName !== undefined) invChanges['product_name'] = dto.productName;
+        if (dto.categoryId  !== undefined) invChanges['category_id']  = dto.categoryId;
+        if (dto.brand       !== undefined) invChanges['brand']         = dto.brand;
+        if (dto.gender      !== undefined) invChanges['gender']        = dto.gender;
+        if (dto.supplierId  !== undefined) invChanges['supplier_id']   = dto.supplierId;
+
+        if (Object.keys(invChanges).length > 0) {
+          const setClauses = Object.keys(invChanges)
+            .map((col, i) => `${col} = $${i + 2}`)
+            .join(', ');
+          await qr.query(
+            `UPDATE inventories SET ${setClauses} WHERE id = $1`,
+            [inventoryId, ...Object.values(invChanges)],
+          );
+        }
+      }
+
+      // ── 6. Procesar variantes ────────────────────────────────────────────
+      if (dto.variants && dto.variants.length > 0) {
+        for (const v of dto.variants) {
+          if (!v.id) continue;
+
+          const item = existing.items.find((i) => i.id === v.id)!;
+
+          // 6a. Calcular nueva cantidad y costo
+          const newQty      = v.quantity  ?? Number(item.quantity);
+          const newUnitCost = v.unitCost  ?? Number(item.unitCost);
+          const newSize     = v.size      ?? item.size;
+          const newColor    = v.color     ?? item.color;
+          const newSubtotal = newQty * newUnitCost;
+
+          // 6b. Actualizar supplier_purchase_items
+          await qr.query(
+            `UPDATE supplier_purchase_items
+             SET size = $1, color = $2, quantity = $3,
+                 unit_cost = $4, subtotal = $5
+             WHERE id = $6`,
+            [newSize, newColor, newQty, newUnitCost, newSubtotal, v.id],
+          );
+
+          // 6c. Actualizar inventory_details si está enlazado
+          if (item.inventoryDetailId) {
+            const [detail] = await qr.query(
+              `SELECT stock FROM inventory_details WHERE id = $1`,
+              [item.inventoryDetailId],
+            );
+            if (detail) {
+              const stockBefore = Number(detail.stock);
+              const diff        = newQty - Number(item.quantity);
+              const stockAfter  = stockBefore + diff;
+
+              // Actualizar size, color, unit_cost y stock
+              await qr.query(
+                `UPDATE inventory_details
+                 SET size = $1, color = $2, unit_cost = $3, stock = $4
+                 WHERE id = $5`,
+                [newSize, newColor, newUnitCost, stockAfter, item.inventoryDetailId],
+              );
+
+              // 6d. Registrar movimiento solo si cambia la cantidad
+              if (diff !== 0) {
+                const movType  = diff > 0 ? 'Entrada' : 'Ajuste';
+                const movQty   = Math.abs(diff);
+                const movNotes = diff > 0
+                  ? 'Ajuste por edición de compra — aumento de cantidad'
+                  : 'Ajuste por edición de compra — reducción de cantidad';
+
+                await qr.query(
+                  `INSERT INTO inventory_movements
+                     (inventory_detail_id, type, quantity,
+                      stock_before, stock_after,
+                      notes, reference_id, channel, created_by)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,'TIENDA_FISICA',$8)`,
+                  [
+                    item.inventoryDetailId,
+                    movType,
+                    movQty,
+                    stockBefore,
+                    stockAfter,
+                    movNotes,
+                    id,
+                    userId,
+                  ],
+                );
+              }
+            }
+          }
+        }
+
+        // 6e. Recalcular stock total del inventario
+        if (inventoryId) {
+          await this.recalcInventoryStock(qr, inventoryId);
+        }
+      }
+
+      // ── 7. Recalcular totalAmount y totalQuantity de la compra ──────────
+      const [totals] = await qr.query(
+        `SELECT
+           COALESCE(SUM(quantity), 0)            AS total_quantity,
+           COALESCE(SUM(quantity * unit_cost), 0) AS total_amount
+         FROM supplier_purchase_items
+         WHERE purchase_id = $1`,
+        [id],
+      );
+      await qr.query(
+        `UPDATE supplier_purchases
+         SET total_quantity = $1, total_amount = $2
+         WHERE id = $3`,
+        [totals.total_quantity, totals.total_amount, id],
+      );
+
+      await qr.commitTransaction();
+      return this.findOneDto(id);
     } catch (err) {
       await qr.rollbackTransaction();
       throw err;
