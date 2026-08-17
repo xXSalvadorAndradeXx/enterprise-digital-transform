@@ -34,6 +34,16 @@ export class PurchasesService {
     private readonly dataSource: DataSource,
   ) {}
 
+  // ── Mapa snake_case (query params del DTO) → camelCase (propiedad de la entidad)
+  // TypeORM QueryBuilder resuelve los campos por nombre de propiedad TypeScript,
+  // no por nombre de columna. Sin este mapa, orderBy('p.created_at') no encuentra
+  // la propiedad y lanza un error interno → HTTP 500.
+  private readonly SORT_FIELD_MAP: Record<string, string> = {
+    created_at:   'createdAt',
+    total_amount: 'totalAmount',
+    product_name: 'productName',
+  };
+
   // ── Listado con filtros, relaciones y paginación ─────────────────────────
   async findAll(query: QueryPurchaseDto): Promise<PaginatedPurchaseResponseDto> {
     const {
@@ -45,13 +55,16 @@ export class PurchasesService {
 
     const skip = (page - 1) * limit;
 
-    // ── CORREGIDO: se añaden joins con supplier y createdByUser ─────────────
+    // Traduce el sortBy del DTO (snake_case) al nombre de propiedad de la entidad (camelCase).
+    // Fallback a 'createdAt' si llega un valor desconocido.
+    const sortField = this.SORT_FIELD_MAP[sortBy] ?? 'createdAt';
+
     const qb = this.purchaseRepo
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.items',         'items')
       .leftJoinAndSelect('p.supplier',      'supplier')
       .leftJoinAndSelect('p.createdByUser', 'createdByUser')
-      .orderBy(`p.${sortBy}`, order)
+      .orderBy(`p.${sortField}`, order)
       .skip(skip)
       .take(limit);
 
@@ -59,7 +72,6 @@ export class PurchasesService {
     if (type)           qb.andWhere('p.type = :type', { type });
     if (supplierId)     qb.andWhere('p.supplierId = :supplierId', { supplierId });
 
-    // ── CORREGIDO: búsqueda por referencia, proveedor y producto ────────────
     if (search) {
       qb.andWhere(
         '(p.productName ILIKE :search OR p.reference ILIKE :search OR supplier.name ILIKE :search)',
@@ -70,7 +82,6 @@ export class PurchasesService {
     if (dateFrom) qb.andWhere('p.purchaseDate >= :dateFrom', { dateFrom });
     if (dateTo)   qb.andWhere('p.purchaseDate <= :dateTo',   { dateTo });
 
-    // ── CORREGIDO: tabla vacía devuelve [] con HTTP 200, nunca 500 ──────────
     const [purchases, total] = await qb.getManyAndCount();
 
     return {
@@ -162,7 +173,6 @@ export class PurchasesService {
     );
     if (!inventory) throw new NotFoundException(`Inventario ${inventoryId} no encontrado`);
 
-    // ── CORREGIDO: respuesta con forma del contrato ──────────────────────────
     const details = await this.dataSource.query(
       `SELECT id AS "inventoryDetailId", sku, size, color,
               stock AS "currentStock", unit_cost AS "currentUnitCost"
@@ -243,8 +253,6 @@ export class PurchasesService {
     try {
       // Validaciones previas
       await this.validateActiveSupplier(qr, dto.supplierId);
-
-      // ── CORREGIDO: categoryId ahora es number ─────────────────────────────
       await this.validateCategory(qr, dto.categoryId);
       this.validateDuplicateVariants(dto.variants);
 
@@ -255,7 +263,6 @@ export class PurchasesService {
 
       const skus = await this.generateSkusForVariants(qr, dto.productName, dto.variants.length);
 
-      // ── AÑADIDO: generar referencia única CP-XXXX ─────────────────────────
       const reference = await this.generateReference(qr);
 
       // ── Paso 1: INSERT supplier_purchases ──────────────────────────────────
@@ -306,7 +313,7 @@ export class PurchasesService {
           dto.gender ?? null,
           dto.mainImageUrl ?? null,
           dto.supplierId,
-          savedPurchase.id,   // ── CORREGIDO: se persiste purchase_id ─────────
+          savedPurchase.id,
           userId,
         ],
       );
@@ -323,7 +330,7 @@ export class PurchasesService {
            RETURNING *`,
           [
             inventory.id,
-            savedItems[i].id,   // ── CORREGIDO: se persiste purchase_item_id ──
+            savedItems[i].id,
             skus[i],
             v.size,
             v.color,
@@ -333,7 +340,6 @@ export class PurchasesService {
         );
         inventoryDetailIds.push(detail.id);
 
-        // ── CORREGIDO: movimiento con tipo 'Entrada', stock_before/after, channel, reference_id ──
         await qr.query(
           `INSERT INTO inventory_movements
              (inventory_detail_id, type, quantity,
@@ -347,7 +353,6 @@ export class PurchasesService {
       }
 
       // ── Paso 5: recalcular inventories.stock ──────────────────────────────
-      // ── CORREGIDO: antes no se actualizaba, inventario quedaba en 0 ────────
       await qr.query(
         `UPDATE inventories
          SET stock = (
@@ -386,7 +391,6 @@ export class PurchasesService {
     dto: CreateRestockPurchaseDto,
     userId: string,
   ): Promise<PurchaseResponseDto> {
-    // ── CORREGIDO: validar que al menos un arreglo tenga elementos ────────────
     const existingVariants = dto.existingVariants ?? [];
     const newVariants      = dto.newVariants      ?? [];
 
@@ -411,7 +415,6 @@ export class PurchasesService {
         throw new NotFoundException(`Inventario ${dto.inventoryId} no encontrado o inactivo`);
       }
 
-      // ── CORREGIDO: combinar ambos arreglos para calcular totales ────────────
       const totalQuantity =
         existingVariants.reduce((s, v) => s + v.quantity, 0) +
         newVariants.reduce((s, v) => s + v.quantity, 0);
@@ -421,13 +424,11 @@ export class PurchasesService {
 
       await this.checkDuplicatePurchase(qr, userId, dto.supplierId, totalAmount);
 
-      // Validar y bloquear variantes existentes
       const existingDetailIds = existingVariants.map((v) => v.inventoryDetailId);
       const lockedDetails = existingDetailIds.length > 0
         ? await this.validateAndLockInventoryDetails(qr, dto.inventoryId, existingDetailIds)
         : [];
 
-      // ── AÑADIDO: validar no duplicar talla/color en variantes nuevas ────────
       if (newVariants.length > 0) {
         this.validateDuplicateVariants(newVariants);
         await this.validateNewVariantsDontExist(qr, dto.inventoryId, newVariants);
@@ -460,7 +461,6 @@ export class PurchasesService {
         const stockBefore = Number(detail.stock);
         const stockAfter  = stockBefore + v.quantity;
 
-        // Actualizar stock y costo
         await qr.query(
           `UPDATE inventory_details
            SET stock = $1, unit_cost = $2
@@ -468,8 +468,7 @@ export class PurchasesService {
           [stockAfter, v.unitCost, v.inventoryDetailId],
         );
 
-        // Insertar purchase_item
-        const [savedItem] = await qr.query(
+        await qr.query(
           `INSERT INTO supplier_purchase_items
              (purchase_id, sku, size, color, quantity, unit_cost, subtotal, inventory_detail_id)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -483,7 +482,6 @@ export class PurchasesService {
           ],
         );
 
-        // ── CORREGIDO: movimiento con tipo 'Entrada', stock_before/after ──────
         await qr.query(
           `INSERT INTO inventory_movements
              (inventory_detail_id, type, quantity,
@@ -509,7 +507,6 @@ export class PurchasesService {
         for (let i = 0; i < newVariants.length; i++) {
           const v = newVariants[i];
 
-          // Crear inventory_detail nuevo
           const [detail] = await qr.query(
             `INSERT INTO inventory_details
                (inventory_id, sku, size, color, stock, unit_cost, min_stock)
@@ -518,7 +515,6 @@ export class PurchasesService {
             [dto.inventoryId, skus[i], v.size, v.color, v.quantity, v.unitCost],
           );
 
-          // Insertar purchase_item
           await qr.query(
             `INSERT INTO supplier_purchase_items
                (purchase_id, sku, size, color, quantity, unit_cost, subtotal, inventory_detail_id)
@@ -532,7 +528,6 @@ export class PurchasesService {
             ],
           );
 
-          // Actualizar purchase_item_id en el detail
           await qr.query(
             `UPDATE inventory_details SET purchase_item_id = (
                SELECT id FROM supplier_purchase_items
@@ -541,7 +536,6 @@ export class PurchasesService {
             [savedPurchase.id, skus[i], detail.id],
           );
 
-          // ── CORREGIDO: movimiento con stock_before = 0 ────────────────────
           await qr.query(
             `INSERT INTO inventory_movements
                (inventory_detail_id, type, quantity,
@@ -555,7 +549,7 @@ export class PurchasesService {
         }
       }
 
-      // ── Paso 3: recalcular inventories.stock y estado ─────────────────────
+      // ── Paso 3: recalcular inventories.stock ──────────────────────────────
       await this.recalcInventoryStock(qr, dto.inventoryId);
 
       await qr.commitTransaction();
@@ -619,8 +613,6 @@ export class PurchasesService {
           [stockAfter, item.inventoryDetailId],
         );
 
-        // ── CORREGIDO: parámetros ordenados correctamente, tipo 'Salida',
-        //    sin unit_cost (no existe en la entidad), con stock_before/after ──
         await qr.query(
           `INSERT INTO inventory_movements
              (inventory_detail_id, type, quantity,
@@ -634,13 +626,12 @@ export class PurchasesService {
             item.quantity,
             stockBefore,
             stockAfter,
-            id,       // reference_id = id de la compra eliminada
+            id,
             userId,
           ],
         );
       }
 
-      // Recalcular stock del inventario afectado
       if (purchase.inventoryId) {
         await this.recalcInventoryStock(qr, purchase.inventoryId);
       }
@@ -666,7 +657,6 @@ export class PurchasesService {
     if (supplier.deleted_at) throw new NotFoundException('El proveedor ya no está activo');
   }
 
-  // ── CORREGIDO: recibe number, no string UUID ───────────────────────────────
   private async validateCategory(qr: QueryRunner, categoryId: number): Promise<void> {
     const [category] = await qr.query(
       `SELECT id FROM categories WHERE id = $1`,
@@ -683,6 +673,7 @@ export class PurchasesService {
     totalAmount: number,
   ): Promise<void> {
     const since = new Date(Date.now() - 30_000);
+
     const duplicate = await qr.manager
       .createQueryBuilder(SupplierPurchase, 'p')
       .where('p.createdBy = :userId',      { userId })
@@ -853,7 +844,7 @@ export class PurchasesService {
     );
   }
 
-  // ── AÑADIDO: mapper entidad → DTO de respuesta ─────────────────────────────
+  // ── Mapper entidad → DTO de respuesta ─────────────────────────────────────
   private mapToResponseDto(p: SupplierPurchase): PurchaseResponseDto {
     const dto = new PurchaseResponseDto();
 
@@ -865,7 +856,6 @@ export class PurchasesService {
     dto.categoryId    = p.categoryId ?? 0;
     dto.gender        = p.gender ?? null;
     dto.purchaseDate  = p.purchaseDate ?? '';
-    // ── CORREGIDO: Number() convierte los numeric de PostgreSQL que llegan como string ──
     dto.totalAmount   = Number(p.totalAmount);
     dto.totalQuantity = Number(p.totalQuantity);
     dto.invoiceUrl    = p.invoiceUrl;
