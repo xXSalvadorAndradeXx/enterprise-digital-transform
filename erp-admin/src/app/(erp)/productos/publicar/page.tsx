@@ -9,26 +9,27 @@ import {
 } from "next/navigation";
 
 import { ProductForm } from "@/components/productos/ProductForm";
+import { ConfirmDiscountModal } from "@/components/productos/ConfirmDiscountModal";
+import { ProductResultModal } from "@/components/productos/ProductResultModal";
 
-import {
-  useCreateProduct,
-} from "@/hooks/productos/useCreateProduct";
-
-import {
-  useUploadProductImages,
-} from "@/hooks/productos/useUploadProductImages";
+import { useCreateProduct } from "@/hooks/productos/useCreateProduct";
+import { useUploadProductImages } from "@/hooks/productos/useUploadProductImages";
 
 import {
   mapProductFormToCreateRequest,
 } from "@/types/productos/product-form.mapper";
 
 import {
-  getCreateProductErrorMessage,
-} from "@/services/productos/product-create-error";
+  calculateProductPreviewPrice,
+} from "@/utils/calculateProductPreviewPrice";
 
 import type {
   ProductFormSchema,
 } from "@/types/productos/schemas";
+
+import type {
+  PendingProductSubmission,
+} from "@/types/productos/product-confirmation.types";
 
 import type {
   InventoryProductView,
@@ -56,136 +57,218 @@ export default function PublicarProductoPage() {
     useUploadProductImages();
 
   const [
-    successMessage,
-    setSuccessMessage,
+    pendingSubmission,
+    setPendingSubmission,
   ] =
-    useState<string | null>(
+    useState<PendingProductSubmission | null>(
       null,
     );
 
   const [
-    localError,
-    setLocalError,
-  ] =
-    useState<string | null>(
-      null,
-    );
+    resultModal,
+    setResultModal,
+  ] = useState<{
+    type:
+      | "success"
+      | "error";
 
-  const isSubmitting =
+    title: string;
+
+    message: string;
+  } | null>(
+    null,
+  );
+
+  const isProcessing =
     isCreating ||
     isUploading;
 
-  const handleSubmit = async (
-    values:
-      ProductFormSchema,
-    files:
-      File[],
-  ): Promise<void> => {
-    if (isSubmitting) {
-      return;
-    }
-
-    setSuccessMessage(
-      null,
-    );
-
-    setLocalError(
-      null,
-    );
-
-    /*
-     * 1. Subir imágenes.
-     */
-    const imageUrls =
-      await uploadImages(
-        files,
-      );
-
-    if (
-      imageUrls === null
-    ) {
-      return;
-    }
-
-    /*
-     * 2. Convertir formulario al
-     * CreateProductRequest.
-     */
-    const request =
-      mapProductFormToCreateRequest(
+  const executeCreation =
+    async (
+      submission:
+        PendingProductSubmission,
+    ): Promise<void> => {
+      const {
         values,
-        {
-          imageUrls,
-        },
-      );
+        files,
+      } = submission;
 
-    /*
-     * 3. Crear producto.
-     */
-    const createdProduct =
-      await create(
-        request,
-      );
-
-    if (!createdProduct) {
-      return;
-    }
-
-    /*
-     * 4. Mensaje diferenciado.
-     */
-    if (
-      createdProduct.status ===
-      "ACTIVE"
-    ) {
-      setSuccessMessage(
-        "¡Producto publicado!",
-      );
-    } else {
-      setSuccessMessage(
-        "Producto guardado como borrador.",
-      );
-    }
-
-    /*
-     * Al navegar al catálogo,
-     * useProducts vuelve a ejecutar
-     * GET /products al montarse.
-     */
-    window.setTimeout(
-      () => {
-        router.push(
-          "/productos",
+      const imageUrls =
+        await uploadImages(
+          files,
         );
-      },
-      800,
+
+      if (
+        imageUrls === null
+      ) {
+        setResultModal({
+          type: "error",
+          title:
+            "¡Algo salió mal!",
+          message:
+            uploadError?.message ??
+            "No pudimos subir las imágenes. Por favor, inténtalo nuevamente.",
+        });
+
+        return;
+      }
+
+      const request =
+        mapProductFormToCreateRequest(
+          values,
+          {
+            imageUrls,
+          },
+        );
+
+      const product =
+        await create(
+          request,
+        );
+
+      if (!product) {
+        setResultModal({
+          type: "error",
+          title:
+            "¡Algo salió mal!",
+          message:
+            createError?.message ??
+            "No pudimos completar tu solicitud. Por favor, inténtalo nuevamente.",
+        });
+
+        return;
+      }
+
+      /*
+       * IMPORTANTE:
+       * Aquí el precio definitivo es
+       * product.effectivePrice.
+       */
+      console.info(
+        "Precio definitivo:",
+        product.effectivePrice,
+      );
+
+      if (
+        product.status ===
+        "ACTIVE"
+      ) {
+        setResultModal({
+          type: "success",
+          title:
+            "¡Producto publicado!",
+          message:
+            `El producto "${product.commercialName}" ha sido publicado con éxito y ya está visible para los clientes.`,
+        });
+      } else {
+        setResultModal({
+          type: "success",
+          title:
+            "¡Producto guardado!",
+          message:
+            `El producto "${product.commercialName}" se guardó correctamente como borrador.`,
+        });
+      }
+
+      setPendingSubmission(
+        null,
+      );
+    };
+
+  const handleSubmit =
+    async (
+      values:
+        ProductFormSchema,
+      files:
+        File[],
+    ): Promise<void> => {
+      const submission:
+        PendingProductSubmission =
+        {
+          values,
+          files,
+        };
+
+      /*
+       * Si el descuento está activo,
+       * NO guardamos todavía.
+       */
+      if (
+        values.applyDiscount
+      ) {
+        setPendingSubmission(
+          submission,
+        );
+
+        return;
+      }
+
+      /*
+       * Sin descuento podemos ejecutar
+       * directamente.
+       */
+      await executeCreation(
+        submission,
+      );
+    };
+
+  const handleConfirmDiscount =
+    async (): Promise<void> => {
+      if (
+        !pendingSubmission
+      ) {
+        return;
+      }
+
+      await executeCreation(
+        pendingSubmission,
+      );
+    };
+
+  const discount =
+    pendingSubmission
+      ? Number(
+          pendingSubmission
+            .values.discount,
+        )
+      : 0;
+
+  const originalPrice =
+    pendingSubmission
+      ? Number(
+          pendingSubmission
+            .values.salePrice,
+        )
+      : 0;
+
+  const previewPrice =
+    pendingSubmission
+      ? calculateProductPreviewPrice(
+          pendingSubmission
+            .values.salePrice,
+          pendingSubmission
+            .values.discount,
+          true,
+        ) ?? originalPrice
+      : 0;
+
+  const discountAmount =
+    Math.max(
+      0,
+      originalPrice -
+        previewPrice,
     );
-  };
 
-  const displayError =
-    localError ??
-    (
-      createError
-        ? getCreateProductErrorMessage(
-            createError,
-          )
-        : null
-    ) ??
-    uploadError?.message ??
-    null;
-
-  /**
-   * FE-PROD-08:
-   * La consulta real de Inventario
-   * se conectará cuando el módulo
-   * correspondiente exponga su service.
-   */
   const searchInventory =
     async (
       _search: string,
     ): Promise<
       InventoryProductView[]
     > => {
+      /*
+       * Pendiente del service oficial
+       * del módulo Inventario.
+       */
       return [];
     };
 
@@ -195,33 +278,91 @@ export default function PublicarProductoPage() {
         Añadir producto
       </h1>
 
-      {successMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700"
-        >
-          {successMessage}
-        </div>
-      )}
-
-      {displayError && (
-        <div
-          role="alert"
-          className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
-        >
-          {displayError}
-        </div>
-      )}
-
       <ProductForm
         mode="create"
         onClose={() =>
-          router.push("/productos")
+          router.push(
+            "/productos",
+          )
         }
-        onSubmit={handleSubmit}
-        searchInventory={searchInventory}
-        isProcessing={isSubmitting}
+        onSubmit={
+          handleSubmit
+        }
+        searchInventory={
+          searchInventory
+        }
+        isProcessing={
+          isProcessing
+        }
+      />
+
+      <ConfirmDiscountModal
+        isOpen={
+          pendingSubmission !==
+          null
+        }
+        discount={
+          discount
+        }
+        originalPrice={
+          originalPrice
+        }
+        discountAmount={
+          discountAmount
+        }
+        previewPrice={
+          previewPrice
+        }
+        isLoading={
+          isProcessing
+        }
+        onCancel={() =>
+          setPendingSubmission(
+            null,
+          )
+        }
+        onConfirm={
+          handleConfirmDiscount
+        }
+      />
+
+      <ProductResultModal
+        isOpen={
+          resultModal !==
+          null
+        }
+        type={
+          resultModal?.type ??
+          "success"
+        }
+        title={
+          resultModal?.title ??
+          ""
+        }
+        message={
+          resultModal?.message ??
+          ""
+        }
+        onClose={() => {
+          const wasSuccess =
+            resultModal?.type ===
+            "success";
+
+          setResultModal(
+            null,
+          );
+
+          if (wasSuccess) {
+            router.push(
+              "/productos",
+            );
+          }
+        }}
+        onRetry={() => {
+          setResultModal(
+            null,
+          );
+        }}
       />
     </main>
   );
