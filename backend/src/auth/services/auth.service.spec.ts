@@ -29,6 +29,8 @@ describe('AuthService (Pruebas Unitarias de Seguridad)', () => {
   let hashService: any;
 
   const mockUser: User = {
+    tokenVersion: 0,
+    deletedAt: null,
     id: 'user-uuid-123',
     firstName: 'Juan',
     lastName: 'Pérez',

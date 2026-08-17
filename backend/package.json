@@ -13,6 +13,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint:inventory": "eslint \"src/inventory/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -21,7 +22,7 @@
     "migration:generate": "pnpm typeorm migration:generate",
     "migration:run": "pnpm typeorm migration:run",
     "migration:revert": "pnpm typeorm migration:revert",
-    "seed": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts",
+    "seed": "ts-node -r tsconfig-paths/register src/seeders/index.ts",
     "db:setup": "pnpm migration:run && pnpm seed"
   },
   "dependencies": {
@@ -56,6 +57,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^24.12.4",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",

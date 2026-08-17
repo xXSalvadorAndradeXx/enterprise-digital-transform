@@ -1,8 +1,7 @@
-// src/modules/inventory/enums/movement-type.enum.ts
+// src/inventory/enums/movement-type.enum.ts
 export enum MovementType {
-  PURCHASE   = 'PURCHASE',
-  SALE       = 'SALE',
-  ADJUSTMENT = 'ADJUSTMENT',
-  RETURN     = 'RETURN',
-  TRANSFER   = 'TRANSFER',
+  // ── CORREGIDO: se eliminan NUEVO_PRODUCTO, REABASTECIMIENTO, AJUSTE.
+  // El servicio de Compras usará 'Entrada' para crear y 'Salida' para revertir.
+  IN  = 'Entrada',
+  OUT = 'Salida',
 }

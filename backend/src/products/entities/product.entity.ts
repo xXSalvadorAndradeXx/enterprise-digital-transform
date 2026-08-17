@@ -3,51 +3,109 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
   DeleteDateColumn,
-  ManyToOne,
+  OneToOne,
   OneToMany,
+  ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
-import { Category } from '../../categories/entities/category.entity';
-import { CartItem } from '../../cart/entities/cart-item.entity';
-import { Supplier } from '../../suppliers/entities/supplier.entity';
+import { Inventory } from '../../inventory/entities/inventory.entity';
+import { User } from '../../users/entities/user.entity';
+import { ProductImage } from './product-image.entity';
+import { ProductTag } from './product-tag.entity';
+import { ProductVariantConfig } from './product-variant-config.entity';
+import { ProductStatus } from '../enums/product-status.enum';
 
 @Entity('products')
+@Index(['status'])
+@Index(['salePrice'])
+@Index(['createdAt'])
+@Index(['discountEndsAt'])
 export class Product {
-  @PrimaryGeneratedColumn()
-  id!: number;
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
 
-  @ManyToOne(() => Supplier, (supplier) => supplier.products, {
-  nullable: true,
-  onDelete: 'SET NULL',
-})
-  @JoinColumn({ name: 'supplier_id' })
-  supplier?: Supplier;
+  @Column({ name: 'inventory_id', type: 'uuid', unique: true, nullable: true })
+  inventoryId!: string | null;
 
-  @Column()
-  nombre!: string;
+  @OneToOne(() => Inventory, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'inventory_id' })
+  inventory!: Inventory | null;
 
-  @Column({ type: 'text' })
-  descripcion!: string;
+  @Column({
+    name: 'commercial_name',
+    type: 'varchar',
+    length: 200,
+    nullable: false,
+  })
+  commercialName!: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  precio!: number;
+  @Column({ name: 'description', type: 'text', nullable: true })
+  description!: string | null;
 
-  @Column()
-  stock!: number;
+  @Column({
+    name: 'sale_price',
+    type: 'numeric',
+    precision: 10,
+    scale: 2,
+    nullable: false,
+  })
+  salePrice!: number;
 
-  @Column()
-  imagenUrl!: string;
+  @Column({
+    name: 'discount',
+    type: 'numeric',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+  })
+  discount!: number | null;
 
-  @CreateDateColumn()
+  @Column({ name: 'discount_ends_at', type: 'timestamptz', nullable: true })
+  discountEndsAt!: Date | null;
+
+  @Column({
+    type: 'enum',
+    enum: ProductStatus,
+    default: ProductStatus.DRAFT,
+    nullable: false,
+  })
+  status!: ProductStatus;
+
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdById!: string | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'created_by' })
+  createdBy!: User | null;
+
+  @Column({ name: 'updated_by', type: 'uuid', nullable: true })
+  updatedById!: string | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'updated_by' })
+  updatedBy!: User | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
-  @DeleteDateColumn()
-  deletedAt!: Date;
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
+  updatedAt!: Date;
 
-  @ManyToOne(() => Category, (category) => category.products, { onDelete: 'CASCADE' })
-  category!: Category;
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
+  deletedAt!: Date | null;
 
-  @OneToMany(() => CartItem, (cartItem) => cartItem.product)
-  cartItems!: CartItem[];
+  // --- Relaciones OneToMany ---
+
+  @OneToMany(() => ProductImage, (image) => image.product)
+  images!: ProductImage[];
+
+  @OneToMany(() => ProductTag, (tag) => tag.product)
+  tags!: ProductTag[];
+
+  @OneToMany(() => ProductVariantConfig, (config) => config.product)
+  variantConfigs!: ProductVariantConfig[];
 }

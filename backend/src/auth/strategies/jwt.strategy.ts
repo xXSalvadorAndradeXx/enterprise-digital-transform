@@ -23,6 +23,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: any) {
     const user = await this.userRepository.findOne({
       where: { id: payload.sub },
+      relations: ['roles', 'roles.permissions'],
     });
 
     if (!user) {
@@ -41,6 +42,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Acceso no autorizado. La sesión ha sido invalidada.');
     }
 
-    return { userId: user.id, email: user.email, rol: payload.rol };
+    const roles = user.roles?.map((r) => r.name || '') || [];
+    const permissions = Array.from(
+      new Set(
+        user.roles?.flatMap((r) => r.permissions?.map((p) => p.code || '') || []) || [],
+      ),
+    );
+
+    return {
+      userId: user.id,
+      id: user.id,
+      email: user.email,
+      roles,
+      rol: payload.rol || roles[0] || '',
+      permissions,
+    };
   }
 }

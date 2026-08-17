@@ -10,6 +10,7 @@ Backend RESTful construido con **NestJS**, **TypeScript** y **PostgreSQL**, impl
 - [Requisitos Previos](#-requisitos-previos)
 - [Instalación](#-instalación)
 - [Configuración de la Base de Datos](#-configuración-de-la-base-de-datos)
+- [Permisos del Módulo de Productos](#-permisos-del-módulo-de-productos)
 - [Ejecución](#-ejecución)
 - [Pruebas de Endpoints](#-pruebas-de-endpoints)
 - [Estructura del Proyecto](#-estructura-del-proyecto)
@@ -124,14 +125,29 @@ Este proceso es **idempotente** y se ejecuta automáticamente al correr `npm run
     *   **Contraseña**: `superadmin123` (encriptada dinámicamente usando Bcrypt)
     *   **Carrito**: Se crea automáticamente un registro en la tabla `carts` asociado al usuario.
 
-#### B. Productos y Categorías de Prueba (Sembrado por Script)
-Para poblar el catálogo de productos y categorías de prueba para desarrollo, puedes ejecutar el siguiente script:
+#### B. Permisos y Catálogo (Sembrado por Script `pnpm seed`)
+Para poblar los permisos de todos los módulos (incluyendo los permisos del módulo de productos), roles iniciales (`ADMIN`, `EMPLEADO`, `VENDEDOR`, `VIEWER`) y usuarios de prueba de forma **idempotente**, ejecuta el siguiente comando:
 
 ```bash
-npm run seed
+pnpm seed
 ```
 
-> ⚠️ **Atención:** El comando de seed para productos/categorías realiza una limpieza previa de tablas (`TRUNCATE ... CASCADE`), por lo que no debe ejecutarse en producción.
+---
+
+### 🔐 Permisos del Módulo de Productos
+
+El módulo de productos implementa 4 permisos de grano fino asignados de acuerdo a los roles del sistema:
+
+| Nombre Permiso | Descripción | Módulo | Roles Asignados |
+| :--- | :--- | :--- | :--- |
+| `products:create` | Permite crear productos | `products` | `ADMIN` |
+| `products:read` | Permite consultar productos | `products` | `ADMIN`, `EMPLEADO`, `VENDEDOR`, `VIEWER` *(si existe)* |
+| `products:update` | Permite modificar productos y su estado | `products` | `ADMIN` |
+| `products:delete` | Permite eliminar productos lógicamente | `products` | `ADMIN` |
+
+#### Guía para Desarrolladores (Ejecución del Seed)
+- **Comando principal**: `pnpm seed` (o `pnpm db:setup` para correr migraciones + seed).
+- **Idempotencia**: Puede ejecutarse N veces de forma segura sin duplicar registros ni romper la relación de roles.
 
 ---
 

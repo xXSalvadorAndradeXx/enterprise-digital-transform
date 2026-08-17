@@ -10,39 +10,60 @@ export class InventoryRepository extends Repository<Inventory> {
     super(Inventory, dataSource.createEntityManager());
   }
 
-  async findAllPaginated(query: InventoryQueryDto): Promise<[Inventory[], number]> {
+  async findAllPaginated(
+    query: InventoryQueryDto,
+  ): Promise<[Inventory[], number]> {
     const qb = this.createQueryBuilder('inventory');
 
-    // Cargar relaciones Category y Supplier
+    // RN-I-009: Cargar relaciones e incorporar SupplierPurchase para control de compras eliminadas
     qb.leftJoinAndSelect('inventory.category', 'category')
-      .leftJoinAndSelect('inventory.supplier', 'supplier');
+      .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoin('inventory.purchase', 'purchase');
 
-    // Subconsulta para calcular totalStock mediante SUM(details.stock)
-    qb.addSelect(subQuery => {
+    // RN-I-006: Subconsulta para calcular totalStock dinámicamente mediante SUM(details.stock)
+    qb.addSelect((subQuery) => {
       return subQuery
         .select('COALESCE(SUM(d.stock), 0)', 'total_stock')
         .from(InventoryDetail, 'd')
         .where('d.inventory_id = inventory.id');
     }, 'totalStock');
 
-    // Subconsulta para calcular totalVariants mediante COUNT(details.id)
-    qb.addSelect(subQuery => {
+    // RN-I-006: Subconsulta para calcular totalVariants dinámicamente mediante COUNT(details.id)
+    qb.addSelect((subQuery) => {
       return subQuery
         .select('COUNT(d.id)', 'total_variants')
         .from(InventoryDetail, 'd')
         .where('d.inventory_id = inventory.id');
     }, 'totalVariants');
 
-    // Excluir registros eliminados aplicando el filtro deleted_at IS NULL
+    // Subconsulta para calcular totalInventoryCost dinámicamente mediante SUM(details.stock * details.unit_cost)
+    qb.addSelect((subQuery) => {
+      return subQuery
+        .select(
+          'COALESCE(SUM(d.stock * d.unit_cost), 0)',
+          'total_inventory_cost',
+        )
+        .from(InventoryDetail, 'd')
+        .where('d.inventory_id = inventory.id');
+    }, 'totalInventoryCost');
+
+    // Excluir registros eliminados de inventario aplicando el filtro deleted_at IS NULL
     qb.andWhere('inventory.deletedAt IS NULL');
+
+    // RN-I-009: Excluir inventarios asociados a compras eliminadas (deleted_at IS NOT NULL)
+    qb.andWhere('(inventory.purchaseId IS NULL OR purchase.deletedAt IS NULL)');
 
     // Filtros condicionales
     if (query.supplierId) {
-      qb.andWhere('inventory.supplierId = :supplierId', { supplierId: query.supplierId });
+      qb.andWhere('inventory.supplierId = :supplierId', {
+        supplierId: query.supplierId,
+      });
     }
 
     if (query.categoryId) {
-      qb.andWhere('inventory.categoryId = :categoryId', { categoryId: query.categoryId });
+      qb.andWhere('inventory.categoryId = :categoryId', {
+        categoryId: query.categoryId,
+      });
     }
 
     if (query.status) {
@@ -50,7 +71,9 @@ export class InventoryRepository extends Repository<Inventory> {
     }
 
     if (query.search) {
-      qb.andWhere('inventory.productName ILIKE :search', { search: `%${query.search}%` });
+      qb.andWhere('inventory.productName ILIKE :search', {
+        search: `%${query.search}%`,
+      });
     }
 
     // Ordenamiento dinámico seguro utilizando lista blanca (created_at, product_name, status)
@@ -60,7 +83,8 @@ export class InventoryRepository extends Repository<Inventory> {
       status: 'inventory.status',
     };
 
-    const sortBy = query.sortBy && sortWhitelist[query.sortBy] ? query.sortBy : 'created_at';
+    const sortBy =
+      query.sortBy && sortWhitelist[query.sortBy] ? query.sortBy : 'created_at';
     const sortColumn = sortWhitelist[sortBy];
     const sortOrder = query.order === 'ASC' ? 'ASC' : 'DESC';
 
@@ -82,10 +106,16 @@ export class InventoryRepository extends Repository<Inventory> {
     const mappedEntities = entities.map((entity, index) => {
       const rawItem = raw[index];
       const totalStockVal = rawItem?.totalStock ?? rawItem?.totalstock ?? 0;
-      const totalVariantsVal = rawItem?.totalVariants ?? rawItem?.totalvariants ?? 0;
+      const totalVariantsVal =
+        rawItem?.totalVariants ?? rawItem?.totalvariants ?? 0;
+      const totalInventoryCostVal =
+        rawItem?.totalInventoryCost ?? rawItem?.totalinventorycost ?? 0;
 
       entity.totalStock = Number(totalStockVal);
       entity.totalVariants = Number(totalVariantsVal);
+      entity.totalInventoryCost = Number(
+        parseFloat(String(totalInventoryCostVal)).toFixed(2),
+      );
       return entity;
     });
 
@@ -97,8 +127,10 @@ export class InventoryRepository extends Repository<Inventory> {
       .leftJoinAndSelect('inventory.details', 'details')
       .leftJoinAndSelect('inventory.category', 'category')
       .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoin('inventory.purchase', 'purchase')
       .where('inventory.id = :id', { id })
       .andWhere('inventory.deletedAt IS NULL')
+      .andWhere('(inventory.purchaseId IS NULL OR purchase.deletedAt IS NULL)')
       .getOne();
   }
 }

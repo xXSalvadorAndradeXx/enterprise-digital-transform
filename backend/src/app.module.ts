@@ -51,9 +51,9 @@ import { PurchasesModule } from './purchases/purchases.module';
     SuppliersModule,
     InventoryModule,
     PurchasesModule,
-   
+
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

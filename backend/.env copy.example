@@ -1,0 +1,27 @@
+# ── Aplicación ───────────────────────────────────────────
+NODE_ENV=development
+PORT=3000
+API_PREFIX=api/v1
+CORS_ORIGINS=http://localhost:5173,http://localhost:3001
+
+# ── Base de datos PostgreSQL ─────────────────────────────
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=Admin
+DB_NAME=tienda_db
+
+# ── JWT ──────────────────────────────────────────────────
+JWT_SECRET=cambia_esto_por_un_secreto_largo_minimo_32_chars
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=otro_secreto_diferente_minimo_32_chars
+JWT_REFRESH_EXPIRES_IN=7d
+
+# ── Seeds — credenciales de usuarios de prueba ───────────
+# Estas variables controlan las credenciales del seed.
+# Nunca pongas contraseñas reales aquí; usa tu .env local.
+SEED_ADMIN_EMAIL=admin@erp.local
+SEED_ADMIN_PASSWORD=Admin1234!
+SEED_EMPLEADO_EMAIL=empleado@erp.local
+SEED_EMPLEADO_PASSWORD=Empleado1234!

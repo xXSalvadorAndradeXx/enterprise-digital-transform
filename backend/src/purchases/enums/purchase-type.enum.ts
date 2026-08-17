@@ -1,0 +1,4 @@
+export enum PurchaseType {
+  NUEVO_PRODUCTO   = 'NUEVO_PRODUCTO',
+  REABASTECIMIENTO = 'REABASTECIMIENTO',
+}

@@ -4,6 +4,32 @@ export class CreateInventoryDetailsTable1786070329904 implements MigrationInterf
     name = 'CreateInventoryDetailsTable1786070329904'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`
+            CREATE TABLE IF NOT EXISTS "supplier_purchase_items" (
+                "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+                "purchase_id" uuid NOT NULL,
+                "product_id" uuid NOT NULL,
+                "quantity" numeric(10,2) NOT NULL,
+                "unit_cost" numeric(10,2) NOT NULL,
+                "subtotal" numeric(12,2) NOT NULL,
+                CONSTRAINT "PK_supplier_purchase_items_id" PRIMARY KEY ("id"),
+                CONSTRAINT "FK_supplier_purchase_items_purchase" FOREIGN KEY ("purchase_id") REFERENCES "supplier_purchases"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+            )
+        `);
+
+        await queryRunner.query(`
+            CREATE TABLE IF NOT EXISTS "purchase_status_history" (
+                "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+                "purchase_id" uuid NOT NULL,
+                "from_status" character varying(20),
+                "to_status" character varying(20) NOT NULL,
+                "changed_by" uuid NOT NULL,
+                "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+                CONSTRAINT "PK_purchase_status_history_id" PRIMARY KEY ("id"),
+                CONSTRAINT "FK_purchase_status_history_purchase" FOREIGN KEY ("purchase_id") REFERENCES "supplier_purchases"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+            )
+        `);
+
         await queryRunner.query(
             `CREATE TABLE "inventory_details" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(), 
