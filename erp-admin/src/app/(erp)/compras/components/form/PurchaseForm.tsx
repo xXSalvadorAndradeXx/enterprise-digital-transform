@@ -40,6 +40,7 @@ import {
 import { DeletePurchaseConfirmModal } from "../DeletePurchaseConfirmModal";
 import { DeletePurchaseSuccessModal } from "../DeletePurchaseSuccessModal";
 import { usePurchaseSuppliers } from "../../hooks/usePurchaseSuppliers";
+import { usePurchaseCategories } from "../../hooks/usePurchaseCategories";
 import {
   createNewProductPurchase,
   createRestockPurchase,
@@ -131,6 +132,11 @@ export function PurchaseForm({
     loading: suppliersLoading,
     error: suppliersError,
   } = usePurchaseSuppliers();
+  const {
+    categories,
+    loading: categoriesLoading,
+    error: categoriesError,
+  } = usePurchaseCategories();
   const [originalEditData] = useState<PurchaseEditSnapshot | null>(() =>
     initialData
       ? {
@@ -245,10 +251,22 @@ export function PurchaseForm({
         return;
       }
 
+      const variantChanges = editChanges.changedFields.variants;
+      if (
+        variantChanges &&
+        (variantChanges.added.length > 0 || variantChanges.removed.length > 0)
+      ) {
+        setRegisterError("Error de servidor.");
+        return;
+      }
+
       if (initialData) {
         setIsSubmitting(true);
         setRegisterError("");
         try {
+          const persistedVariantIds = new Set(
+            originalEditData?.variants.map((variant) => variant.id) ?? [],
+          );
           const invoiceUrl = invoice
             ? (await uploadPurchaseInvoice(invoice)).invoiceUrl
             : initialData.existingInvoice?.url ?? "";
@@ -256,7 +274,7 @@ export function PurchaseForm({
             supplierId,
             purchaseDate,
             productName: newProduct.name.trim(),
-            categoryId: newProduct.category,
+            categoryId: Number(newProduct.category),
             brand: newProduct.brand.trim(),
             gender:
               newProduct.gender === "" || newProduct.gender === "EMPTY"
@@ -264,6 +282,9 @@ export function PurchaseForm({
                 : newProduct.gender,
             invoiceUrl,
             variants: newProduct.variants.map((variant) => ({
+              ...(persistedVariantIds.has(variant.id)
+                ? { id: variant.id }
+                : {}),
               size: variant.size.trim(),
               color: variant.color.toUpperCase(),
               quantity: Number(variant.quantity),
@@ -422,7 +443,7 @@ export function PurchaseForm({
               supplierId,
               purchaseDate,
               productName: product.name,
-              categoryId: product.category ?? "",
+              categoryId: Number(product.category),
               brand: product.brand ?? "",
               gender: product.gender ?? null,
               invoiceUrl: invoice.invoiceUrl,
@@ -759,6 +780,9 @@ export function PurchaseForm({
             {activeTab === "new-product" ? (
               <NewProductForm
                 value={newProduct}
+                categories={categories}
+                categoriesLoading={categoriesLoading}
+                categoriesError={categoriesError}
                 onChange={(value) => {
                   setNewProduct(value);
                   setNewProductInteracted(true);
@@ -803,6 +827,16 @@ export function PurchaseForm({
             )}
           </div>
 
+          {isEdit && registerError && (
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="mx-5 mt-5 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 sm:mx-7"
+            >
+              {registerError}
+            </div>
+          )}
+
           <div
             className={`px-5 py-5 sm:px-7 sm:py-6 ${
               isEdit
@@ -845,7 +879,13 @@ export function PurchaseForm({
               }
               className="h-11 rounded-[5px] bg-[#1C21D1] px-7 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1C21D1] sm:min-w-40"
             >
-              {isEdit ? "Guardar cambios" : "Añadir producto"}
+              {isSubmitting
+                ? isEdit
+                  ? "Guardando..."
+                  : "Añadiendo..."
+                : isEdit
+                  ? "Guardar cambios"
+                  : "Añadir producto"}
             </button>
           </div>
         </div>

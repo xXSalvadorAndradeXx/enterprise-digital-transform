@@ -13,7 +13,8 @@ type LocalPurchaseEditorProps = {
 };
 
 function toEditablePurchase(purchase: PurchaseResponse): EditablePurchase {
-  const invoiceIsPdf = purchase.invoiceUrl.toLowerCase().includes(".pdf");
+  const invoiceUrl = purchase.invoiceUrl ?? "";
+  const invoiceIsPdf = invoiceUrl.toLowerCase().includes(".pdf");
 
   return {
     id: purchase.id,
@@ -24,8 +25,9 @@ function toEditablePurchase(purchase: PurchaseResponse): EditablePurchase {
       id: purchase.id,
       name: purchase.productName,
       sku: purchase.items[0]?.sku ?? `PURCHASE-${purchase.id}`,
-      category: purchase.categoryId ?? "fashion",
+      category: purchase.categoryId ? String(purchase.categoryId) : "",
       brand: purchase.brand ?? "Sin marca",
+      gender: purchase.gender ?? null,
       variants: purchase.items.map((item) => ({
         id: item.id,
         size: item.size,
@@ -34,11 +36,13 @@ function toEditablePurchase(purchase: PurchaseResponse): EditablePurchase {
         unitCost: String(item.unitCost),
       })),
     },
-    existingInvoice: {
-      name: `factura-${purchase.reference}.${invoiceIsPdf ? "pdf" : "jpg"}`,
-      mimeType: invoiceIsPdf ? "application/pdf" : "image/jpeg",
-      url: purchase.invoiceUrl,
-    },
+    existingInvoice: invoiceUrl
+      ? {
+          name: `factura-${purchase.reference}.${invoiceIsPdf ? "pdf" : "jpg"}`,
+          mimeType: invoiceIsPdf ? "application/pdf" : "image/jpeg",
+          url: invoiceUrl,
+        }
+      : null,
   };
 }
 

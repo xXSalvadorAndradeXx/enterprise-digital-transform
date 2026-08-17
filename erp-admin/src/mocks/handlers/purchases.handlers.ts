@@ -6,7 +6,7 @@ import { mockPurchaseSuppliers, mockPurchases, mockRestockInventories } from "..
 const apiUrl = (process.env.BACKEND_API_URL ?? "http://localhost:3000/api/v1").replace(/\/+$/, "");
 const makeId = () => crypto.randomUUID();
 
-function createResponse(input: { type: PurchaseResponse["type"]; supplierId: string; productName: string; purchaseDate: string; invoiceUrl: string; brand?: string; categoryId?: string; gender?: PurchaseResponse["gender"]; variants: Array<{ sku?: string; size: string; color: string; quantity: number; unitCost: number }> }): PurchaseResponse {
+function createResponse(input: { type: PurchaseResponse["type"]; supplierId: string; productName: string; purchaseDate: string; invoiceUrl: string; brand?: string; categoryId?: number; gender?: PurchaseResponse["gender"]; variants: Array<{ sku?: string; size: string; color: string; quantity: number; unitCost: number }> }): PurchaseResponse {
   const totalQuantity = input.variants.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = input.variants.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
   return {
@@ -105,13 +105,13 @@ export const purchasesHandlers = [
       productName: body.productName,
       categoryId: body.categoryId,
       brand: body.brand,
+      gender: body.gender ?? null,
       invoiceUrl: body.invoiceUrl,
       totalQuantity,
       totalAmount,
       items: body.variants.map((item, index) => ({
-        id: purchase.items[index]?.id ?? makeId(),
-        sku: purchase.items[index]?.sku ?? `MOCK-${Date.now()}-${index + 1}`,
         ...item,
+        sku: purchase.items[index]?.sku ?? `MOCK-${Date.now()}-${index + 1}`,
         color: item.color.toUpperCase(),
         subtotal: item.quantity * item.unitCost,
       })),

@@ -6,6 +6,7 @@ import {
   type PurchaseVariantField,
   type PurchaseVariantValue,
 } from "./VariantRow";
+import type { PurchaseCategory } from "../../services/categories.service";
 
 export type NewProductDraft = {
   name: string;
@@ -20,6 +21,9 @@ export type ProductGender = "FEMALE" | "MALE" | "UNISEX" | "EMPTY" | "";
 type NewProductFormProps = {
   value: NewProductDraft;
   onChange: (value: NewProductDraft) => void;
+  categories: readonly PurchaseCategory[];
+  categoriesLoading: boolean;
+  categoriesError: string | null;
   errors?: NewProductFormErrors;
   allowVariantRemoval?: boolean;
   showStockTotal?: boolean;
@@ -62,6 +66,9 @@ export function createInitialNewProductDraft(): NewProductDraft {
 export function NewProductForm({
   value,
   onChange,
+  categories,
+  categoriesLoading,
+  categoriesError,
   errors,
   allowVariantRemoval = false,
   showStockTotal = false,
@@ -136,17 +143,28 @@ export function NewProductForm({
             aria-invalid={errors?.category ? true : undefined}
             aria-describedby={errors?.category ? "purchase-category-error" : undefined}
             onChange={(event) => onChange({ ...value, category: event.target.value })}
+            disabled={categoriesLoading || Boolean(categoriesError)}
             className="h-9 w-full border-0 border-b border-[#B7BAC2] bg-white px-1 pr-8 text-sm outline-none focus:border-[#1C21D1] focus:ring-0"
           >
-            <option value="">Categorías</option>
-            {/* Datos temporales exclusivamente visuales para TASK 686. */}
-            <option value="fashion">Moda</option>
-            <option value="footwear">Calzado</option>
+            <option value="">
+              {categoriesLoading
+                ? "Cargando categorías..."
+                : categoriesError
+                  ? "Categorías no disponibles"
+                  : categories.length === 0
+                    ? "No hay categorías"
+                    : "Categorías"}
+            </option>
+            {categories.map((category) => (
+              <option key={category.id} value={String(category.id)}>
+                {category.name}
+              </option>
+            ))}
           </select>
           <div className="min-h-6 pt-1">
-            {errors?.category && (
+            {(errors?.category || categoriesError) && (
               <p id="purchase-category-error" role="alert" className="text-xs text-red-600">
-                {errors.category}
+                {errors?.category ?? categoriesError}
               </p>
             )}
           </div>

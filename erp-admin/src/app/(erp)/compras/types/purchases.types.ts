@@ -17,7 +17,7 @@ export interface PurchaseResponse {
   type: PurchaseType;
   productName: string;
   brand?: string;
-  categoryId?: string;
+  categoryId?: number;
   gender?: ProductGender | null;
   purchaseDate: string;
   totalAmount: number;
@@ -35,11 +35,20 @@ export interface UpdatePurchaseRequest {
   supplierId: string;
   purchaseDate: string;
   productName: string;
-  categoryId: string;
+  categoryId: number;
   brand: string;
   gender?: ProductGender | null;
   invoiceUrl: string;
-  variants: CreatePurchaseVariantRequest[];
+  variants: UpdatePurchaseVariantRequest[];
+}
+
+export interface UpdatePurchaseVariantRequest
+  extends CreatePurchaseVariantRequest {
+  /**
+   * Solo existe para variantes persistidas pertenecientes a la compra.
+   * Las filas creadas localmente durante la edición se envían sin `id`.
+   */
+  id?: string;
 }
 
 export interface PurchasesQuery {
@@ -71,7 +80,7 @@ export interface CreateNewProductPurchaseRequest {
   supplierId: string;
   purchaseDate: string;
   productName: string;
-  categoryId: string;
+  categoryId: number;
   brand: string;
   gender: ProductGender | null;
   invoiceUrl: string;

@@ -13,6 +13,33 @@ import type {
 type ApiEnvelope<T> = { data: T; statusCode?: number };
 type PaginatedEnvelope<T> = { data: T[]; meta: PurchasesPaginationMetadata };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * Backend puede responder el recurso directamente o dentro de `{ data }`.
+ * Esta normalización mantiene el resto del módulo independiente del
+ * formato de transporte utilizado por cada endpoint.
+ */
+function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
+  if (isRecord(payload) && "data" in payload) {
+    return payload.data as T;
+  }
+
+  return payload as T;
+}
+
+function normalizePaginated<T>(
+  payload: PaginatedEnvelope<T> | ApiEnvelope<PaginatedEnvelope<T>>,
+): PaginatedEnvelope<T> {
+  if (isRecord(payload) && "meta" in payload && Array.isArray(payload.data)) {
+    return payload as PaginatedEnvelope<T>;
+  }
+
+  return unwrapData(payload);
+}
+
 export class PurchasesServiceError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -43,36 +70,63 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export async function uploadPurchaseInvoice(file: File): Promise<InvoiceUploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await request<ApiEnvelope<InvoiceUploadResponse>>("/upload-invoice", { method: "POST", body: formData });
-  return response.data;
+  const response = await request<
+    InvoiceUploadResponse | ApiEnvelope<InvoiceUploadResponse>
+  >("/upload-invoice", { method: "POST", body: formData });
+
+  return unwrapData(response);
 }
 
 export async function createNewProductPurchase(payload: CreateNewProductPurchaseRequest): Promise<PurchaseResponse> {
-  const response = await request<ApiEnvelope<PurchaseResponse>>("/nuevo-producto", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-  return response.data;
+  const response = await request<PurchaseResponse | ApiEnvelope<PurchaseResponse>>(
+    "/new-product",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  return unwrapData(response);
 }
 
 export async function createRestockPurchase(payload: CreateRestockPurchaseRequest): Promise<PurchaseResponse> {
-  const response = await request<ApiEnvelope<PurchaseResponse>>("/reabastecimiento", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-  return response.data;
+  const response = await request<PurchaseResponse | ApiEnvelope<PurchaseResponse>>(
+    "/replenishment",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  return unwrapData(response);
 }
 
 export async function getPurchases(query: PurchasesQuery, signal?: AbortSignal): Promise<PaginatedEnvelope<PurchaseResponse>> {
   const params = new URLSearchParams({ page: String(query.page), limit: String(query.limit) });
   if (query.search?.trim()) params.set("search", query.search.trim());
-  return request<PaginatedEnvelope<PurchaseResponse>>(`?${params}`, { signal });
+  const response = await request<
+    | PaginatedEnvelope<PurchaseResponse>
+    | ApiEnvelope<PaginatedEnvelope<PurchaseResponse>>
+  >(`?${params}`, { signal });
+
+  return normalizePaginated(response);
 }
 
 export async function getPurchaseById(purchaseId: string): Promise<PurchaseResponse> {
-  const response = await request<ApiEnvelope<PurchaseResponse>>(`/${encodeURIComponent(purchaseId)}`);
-  return response.data;
+  const response = await request<PurchaseResponse | ApiEnvelope<PurchaseResponse>>(
+    `/${encodeURIComponent(purchaseId)}`,
+  );
+
+  return unwrapData(response);
 }
 
 export async function updatePurchase(
   purchaseId: string,
   payload: UpdatePurchaseRequest,
 ): Promise<PurchaseResponse> {
-  const response = await request<ApiEnvelope<PurchaseResponse>>(
+  const response = await request<PurchaseResponse | ApiEnvelope<PurchaseResponse>>(
     `/${encodeURIComponent(purchaseId)}`,
     {
       method: "PATCH",
@@ -80,19 +134,25 @@ export async function updatePurchase(
       body: JSON.stringify(payload),
     },
   );
-  return response.data;
+  return unwrapData(response);
 }
 
 export async function getRestockInventoryOptions(search = ""): Promise<RestockInventoryOption[]> {
   const params = new URLSearchParams();
   if (search.trim()) params.set("search", search.trim());
-  const response = await request<ApiEnvelope<RestockInventoryOption[]>>(`/inventory-options?${params}`);
-  return response.data;
+  const response = await request<
+    RestockInventoryOption[] | ApiEnvelope<RestockInventoryOption[]>
+  >(`/inventory-options?${params}`);
+
+  return unwrapData(response);
 }
 
 export async function getRestockPreview(inventoryId: string): Promise<RestockPreviewResponse> {
-  const response = await request<ApiEnvelope<RestockPreviewResponse>>(`/inventory/${encodeURIComponent(inventoryId)}/preview-restock`);
-  return response.data;
+  const response = await request<
+    RestockPreviewResponse | ApiEnvelope<RestockPreviewResponse>
+  >(`/inventory/${encodeURIComponent(inventoryId)}/preview-restock`);
+
+  return unwrapData(response);
 }
 
 export async function deletePurchase(purchaseId: string): Promise<void> {
