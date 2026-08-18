@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useRef,
   useState,
 } from "react";
 
@@ -32,52 +33,56 @@ export function useUpdateProduct() {
       null,
     );
 
-  const update =
-    async (
-      id: string,
-      request:
-        UpdateProductRequest,
-    ): Promise<
-      ProductDetail | null
-    > => {
-      if (isLoading) {
-        return null;
+  const updatingRef =
+    useRef(false);
+
+  const update = async (
+    id: string,
+    request: UpdateProductRequest,
+  ): Promise<ProductDetail | null> => {
+    if (updatingRef.current) {
+      return null;
+    }
+
+    updatingRef.current = true;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response =
+        await updateProduct(
+          id,
+          request,
+        );
+
+      return response.data;
+    } catch (caughtError) {
+      if (
+        isProductHttpError(
+          caughtError,
+        )
+      ) {
+        setError(
+          caughtError,
+        );
+      } else {
+        setError({
+          status: 0,
+          type: "UNKNOWN",
+          message:
+            "No se pudo actualizar el producto.",
+        });
       }
 
-      setIsLoading(true);
-      setError(null);
+      return null;
+    } finally {
+      updatingRef.current =
+        false;
 
-      try {
-        const response =
-          await updateProduct(
-            id,
-            request,
-          );
-
-        return response.data;
-      } catch (caughtError) {
-        if (
-          isProductHttpError(
-            caughtError,
-          )
-        ) {
-          setError(
-            caughtError,
-          );
-        } else {
-          setError({
-            status: 0,
-            type: "UNKNOWN",
-            message:
-              "No se pudo actualizar el producto.",
-          });
-        }
-
-        return null;
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      setIsLoading(false);
+    }
+  };
 
   return {
     update,

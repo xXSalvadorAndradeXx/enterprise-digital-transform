@@ -40,7 +40,7 @@ interface ProductInventoryPanelProps {
 
   onSelectInventory: (
     inventory: InventoryProductView,
-  ) => void;
+  ) => void | Promise<void>;
 }
 
 export function ProductInventoryPanel({
@@ -59,6 +59,43 @@ export function ProductInventoryPanel({
     inventory?.inventoryStatus ===
     "OUT_OF_STOCK";
 
+  const getInventoryStatusLabel = (
+    status:
+      InventoryProductView["inventoryStatus"],
+  ): string => {
+    switch (status) {
+      case "ACTIVE":
+        return "Activo";
+
+      case "LOW_STOCK":
+        return "Stock bajo";
+
+      case "OUT_OF_STOCK":
+        return "Sin stock";
+
+      default:
+        return status;
+    }
+  };
+
+  const getStockStatusClass = (
+    status: "ALTO" | "MEDIO" | "BAJO",
+  ): string => {
+    switch (status) {
+      case "ALTO":
+        return "bg-green-50 text-green-700";
+
+      case "MEDIO":
+        return "bg-yellow-50 text-yellow-700";
+
+      case "BAJO":
+        return "bg-red-50 text-red-700";
+
+      default:
+        return "bg-gray-100 text-gray-600";
+    }
+  };
+
   return (
     <section className="min-w-0 p-6">
       <h2 className="text-lg font-semibold text-gray-900">
@@ -75,10 +112,10 @@ export function ProductInventoryPanel({
           </label>
 
           <div
-            className={`flex overflow-hidden rounded-md border bg-white transition-colors focus-within:ring-1 ${
+            className={`flex overflow-hidden rounded-md border bg-white transition-colors ${
               error
-                ? "border-red-400 focus-within:border-red-400 focus-within:ring-red-200"
-                : "border-gray-300 focus-within:border-[#1C21D1] focus-within:ring-[#1C21D1]"
+                ? "border-red-400"
+                : "border-gray-300"
             }`}
           >
             <div className="flex min-w-0 flex-1 items-center gap-2 px-3">
@@ -91,20 +128,14 @@ export function ProductInventoryPanel({
               <input
                 id="inventory-search"
                 type="search"
-                value={
-                  inventorySearch
-                }
-                onChange={(
-                  event,
-                ) =>
+                value={inventorySearch}
+                onChange={(event) =>
                   onInventorySearchChange(
                     event.target.value,
                   )
                 }
-                placeholder="Buscar por ID, inventario o código de producto"
-                aria-invalid={
-                  Boolean(error)
-                }
+                placeholder="Buscar producto en inventario"
+                aria-invalid={Boolean(error)}
                 aria-describedby={
                   error
                     ? "inventory-search-error"
@@ -126,21 +157,11 @@ export function ProductInventoryPanel({
           )}
 
           <InventorySearchResults
-            results={
-              searchResults
-            }
-            isLoading={
-              isSearching
-            }
-            hasSearched={
-              hasSearched
-            }
-            error={
-              searchError
-            }
-            onSelect={
-              onSelectInventory
-            }
+            results={searchResults}
+            isLoading={isSearching}
+            hasSearched={hasSearched}
+            error={searchError}
+            onSelect={onSelectInventory}
           />
         </div>
       )}
@@ -157,18 +178,14 @@ export function ProductInventoryPanel({
             <dl className="grid grid-cols-1 gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
               <div className="grid grid-cols-[90px_1fr] gap-2">
                 <dt className="font-medium text-gray-900">
-                  SKU
+                  Nombre
                 </dt>
 
                 <dd
                   className="truncate text-gray-600"
-                  title={
-                    inventory.sku
-                  }
+                  title={inventory.name}
                 >
-                  {
-                    inventory.sku
-                  }
+                  {inventory.name}
                 </dd>
               </div>
 
@@ -179,47 +196,9 @@ export function ProductInventoryPanel({
 
                 <dd
                   className="truncate text-gray-600"
-                  title={
-                    inventory.supplier
-                  }
+                  title={inventory.supplier}
                 >
-                  {
-                    inventory.supplier
-                  }
-                </dd>
-              </div>
-
-              <div className="grid grid-cols-[90px_1fr] gap-2">
-                <dt className="font-medium text-gray-900">
-                  Nombre
-                </dt>
-
-                <dd
-                  className="truncate text-gray-600"
-                  title={
-                    inventory.name
-                  }
-                >
-                  {
-                    inventory.name
-                  }
-                </dd>
-              </div>
-
-              <div className="grid grid-cols-[90px_1fr] gap-2">
-                <dt className="font-medium text-gray-900">
-                  Categoría
-                </dt>
-
-                <dd
-                  className="truncate text-gray-600"
-                  title={
-                    inventory.category
-                  }
-                >
-                  {
-                    inventory.category
-                  }
+                  {inventory.supplier}
                 </dd>
               </div>
 
@@ -230,19 +209,38 @@ export function ProductInventoryPanel({
 
                 <dd
                   className="truncate text-gray-600"
-                  title={
-                    inventory.brand
-                  }
+                  title={inventory.brand}
                 >
-                  {
-                    inventory.brand
-                  }
+                  {inventory.brand}
+                </dd>
+              </div>
+
+              <div className="grid grid-cols-[90px_1fr] gap-2">
+                <dt className="font-medium text-gray-900">
+                  Categoría
+                </dt>
+
+                <dd
+                  className="truncate text-gray-600"
+                  title={inventory.category}
+                >
+                  {inventory.category}
+                </dd>
+              </div>
+
+              <div className="grid grid-cols-[90px_1fr] gap-2">
+                <dt className="font-medium text-gray-900">
+                  Stock total
+                </dt>
+
+                <dd className="text-gray-600">
+                  {inventory.totalStock}
                 </dd>
               </div>
 
               <div className="grid grid-cols-[90px_1fr] items-center gap-2">
                 <dt className="font-medium text-gray-900">
-                  Estado de inventario
+                  Estado
                 </dt>
 
                 <dd>
@@ -250,12 +248,15 @@ export function ProductInventoryPanel({
                     className={`inline-flex rounded-md px-3 py-1.5 text-xs font-medium ${
                       isOutOfStock
                         ? "bg-red-100 text-red-700"
-                        : "bg-[rgba(52,198,29,0.20)] text-green-700"
+                        : inventory.inventoryStatus ===
+                            "LOW_STOCK"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-[rgba(52,198,29,0.20)] text-green-700"
                     }`}
                   >
-                    {
-                      inventory.inventoryStatus
-                    }
+                    {getInventoryStatusLabel(
+                      inventory.inventoryStatus,
+                    )}
                   </span>
                 </dd>
               </div>
@@ -277,9 +278,13 @@ export function ProductInventoryPanel({
             </h3>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] border-collapse text-left text-sm">
+              <table className="w-full min-w-[650px] border-collapse text-left text-sm">
                 <thead>
                   <tr className="bg-gray-100">
+                    <th className="px-4 py-3 font-medium text-gray-700">
+                      SKU
+                    </th>
+
                     <th className="px-4 py-3 font-medium text-gray-700">
                       Talla
                     </th>
@@ -295,71 +300,65 @@ export function ProductInventoryPanel({
                     <th className="px-4 py-3 font-medium text-gray-700">
                       Stock mínimo
                     </th>
+
+                    <th className="px-4 py-3 font-medium text-gray-700">
+                      Estado
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {inventory
-                    .variants
-                    .length >
+                  {inventory.variants.length >
                   0 ? (
                     inventory.variants.map(
-                      (
-                        variant,
-                      ) => (
+                      (variant) => (
                         <tr
                           key={
-                            variant.id
+                            variant.inventoryDetailId
                           }
                           className="border-b border-gray-200 last:border-0"
                         >
                           <td className="px-4 py-2 text-gray-700">
-                            {
-                              variant.size
-                            }
+                            {variant.sku}
+                          </td>
+
+                          <td className="px-4 py-2 text-gray-700">
+                            {variant.size}
                           </td>
 
                           <td className="px-4 py-2">
                             <div className="flex items-center gap-2">
-                              {variant.colorHex && (
-                                <span
-                                  className="h-5 w-5 shrink-0 rounded-full border border-gray-200"
-                                  style={{
-                                    backgroundColor:
-                                      variant.colorHex,
-                                  }}
-                                  aria-hidden="true"
-                                />
-                              )}
+                              <span
+                                className="h-5 w-5 shrink-0 rounded-full border border-gray-300"
+                                style={{
+                                  backgroundColor:
+                                    variant.color,
+                                }}
+                                aria-hidden="true"
+                              />
 
-                              <div>
-                                <p className="text-gray-700">
-                                  {
-                                    variant.color
-                                  }
-                                </p>
-
-                                {variant.colorHex && (
-                                  <p className="text-xs text-gray-500">
-                                    {
-                                      variant.colorHex
-                                    }
-                                  </p>
-                                )}
-                              </div>
+                              <span className="text-gray-700">
+                                {variant.color}
+                              </span>
                             </div>
                           </td>
 
                           <td className="px-4 py-2 text-gray-700">
-                            {
-                              variant.stock
-                            }
+                            {variant.stock}
                           </td>
 
                           <td className="px-4 py-2 text-gray-700">
-                            {
-                              variant.minStock
-                            }
+                            {variant.minStock}
+                          </td>
+
+                          <td className="px-4 py-2">
+                            <span
+                              className={`inline-flex rounded-md px-2.5 py-1 text-xs font-medium ${getStockStatusClass(
+                                variant.stockStatus,
+                              )}`}
+                            >
+                              {variant.stockStatus}
+                            </span>
                           </td>
                         </tr>
                       ),
@@ -367,9 +366,7 @@ export function ProductInventoryPanel({
                   ) : (
                     <tr>
                       <td
-                        colSpan={
-                          4
-                        }
+                        colSpan={6}
                         className="px-4 py-8 text-center text-sm text-gray-500"
                       >
                         Este inventario no tiene variantes registradas.

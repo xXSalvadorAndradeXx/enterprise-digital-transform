@@ -28,40 +28,51 @@ export interface ProductFormValues {
 }
 
 /**
- * Modelo visual utilizado únicamente por el formulario
- * de Productos.
+ * Modelo visual de una variante del inventario
+ * utilizada dentro del formulario de Productos.
  *
- * No representa InventoryResponseDto del Backend.
+ * Se construye a partir de InventoryDetailDto.
  */
 export interface InventoryVariantView {
-  id: string;
+  inventoryDetailId: string;
+
+  sku: string;
 
   size: string;
   color: string;
-  colorHex?: string;
 
   stock: number;
   minStock: number;
+
+  stockStatus:
+    | "ALTO"
+    | "MEDIO"
+    | "BAJO";
 }
 
 /**
- * Modelo de presentación para mostrar la información
- * heredada del inventario dentro del formulario.
+ * Modelo de presentación utilizado por Productos.
  *
- * Posteriormente será construido a partir de los DTO
- * reales del módulo Inventario.
+ * No reemplaza los DTO del módulo Inventario.
+ * Únicamente adapta InventoryWithDetailsDto
+ * a la información que necesita mostrar
+ * ProductInventoryPanel.
  */
 export interface InventoryProductView {
   inventoryId: string;
 
-  sku: string;
   name: string;
   brand: string;
 
   supplier: string;
   category: string;
 
-  inventoryStatus: string;
+  inventoryStatus:
+    | "ACTIVE"
+    | "LOW_STOCK"
+    | "OUT_OF_STOCK";
+
+  totalStock: number;
 
   variants: InventoryVariantView[];
 }
