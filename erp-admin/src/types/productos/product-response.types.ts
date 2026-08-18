@@ -18,6 +18,10 @@ import type {
   ProductVariantDetail,
 } from "./product-variant.types";
 
+import type {
+  InventoryResponseDto,
+} from "@/app/(erp)/inventario/types";
+
 export interface ProductDetail {
   id: string;
 
@@ -46,7 +50,7 @@ export interface ProductDetail {
   images:
     ProductImage[];
 
-  inventory: unknown;
+  inventory: InventoryResponseDto;
 
   variantConfigs:
     ProductVariantDetail[];

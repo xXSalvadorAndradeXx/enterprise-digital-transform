@@ -138,11 +138,14 @@ export function InventorySearchResults({
                   }
                 </p>
 
+                <p className="mt-1 truncate text-xs text-gray-500">
+                  {inventory.brand}
+                  {" · "}
+                  {inventory.category}
+                </p>
+
                 <p className="mt-1 truncate text-xs text-gray-400">
-                  SKU:{" "}
-                  {
-                    inventory.sku
-                  }
+                  {inventory.supplier}
                 </p>
               </div>
 

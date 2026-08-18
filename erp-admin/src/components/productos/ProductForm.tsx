@@ -6,6 +6,7 @@ import {
 
 import {
   useForm,
+  useWatch,
 } from "react-hook-form";
 
 import {
@@ -59,15 +60,9 @@ interface ProductFormProps {
   ) => Promise<void> | void;
 
   /**
-   * Búsqueda de inventario.
-   * Será conectada posteriormente con
-   * el service correspondiente.
+   * Indica si existe un proceso externo
+   * de creación o actualización activo.
    */
-  searchInventory?: (
-    search: string,
-  ) => Promise<
-    InventoryProductView[]
-  >;
   isProcessing?: boolean;
 }
 
@@ -77,22 +72,40 @@ export function ProductForm({
   defaultValues,
   onClose,
   onSubmit,
-  searchInventory,
   isProcessing = false,
 }: ProductFormProps) {
   /**
    * Imágenes seleccionadas localmente
    * para mostrar su preview.
    *
-   * Todavía no contienen la URL final
-   * entregada por Backend.
+   * En edición también incluye imágenes
+   * existentes provenientes de Backend.
    */
   const [
     images,
     setImages,
   ] = useState<
     ProductImagePreview[]
-  >([]);
+  >(() =>
+    (
+      defaultValues?.imageUrls ??
+      []
+    ).map(
+      (
+        imageUrl,
+        index,
+      ) => ({
+        id:
+          `existing-${index}`,
+
+        previewUrl:
+          imageUrl,
+
+        file:
+          undefined,
+      }),
+    ),
+  );
 
   const [
     imageError,
@@ -160,9 +173,22 @@ export function ProductForm({
     },
   });
 
+  /**
+   * Observamos únicamente imageUrls.
+   *
+   * useWatch evita utilizar
+   * watch("imageUrls") directamente
+   * dentro de handlers.
+   */
+  const currentImageUrls =
+    useWatch({
+      control,
+      name: "imageUrls",
+    }) ?? [];
+
   const formIsBusy =
-  isSubmitting ||
-  isProcessing;
+    isSubmitting ||
+    isProcessing;
 
   const {
     search:
@@ -185,10 +211,7 @@ export function ProductForm({
       setInventorySearch,
 
     selectInventory,
-
-  } = useInventorySelection({
-    searchInventory,
-  });
+  } = useInventorySelection();
 
   /**
    * En edición utilizamos el inventario
@@ -206,37 +229,34 @@ export function ProductForm({
    * Vincula el inventario seleccionado
    * con React Hook Form.
    */
-  const handleSelectInventory = (
-    selected: InventoryProductView,
-  ): void => {
-    /*
-     * Validación defensiva.
-     * Un inventario sin stock no puede
-     * vincularse al producto.
-     */
-    if (
-      selected.inventoryStatus ===
-      "OUT_OF_STOCK"
-    ) {
-      return;
-    }
+  const handleSelectInventory =
+    async (
+      selected:
+        InventoryProductView,
+    ): Promise<void> => {
+      if (
+        selected.inventoryStatus ===
+        "OUT_OF_STOCK"
+      ) {
+        return;
+      }
 
-    selectInventory(
-      selected,
-    );
+      await selectInventory(
+        selected.inventoryId,
+      );
 
-    setValue(
-      "inventoryId",
-      selected.inventoryId,
-      {
-        shouldDirty:
-          true,
+      setValue(
+        "inventoryId",
+        selected.inventoryId,
+        {
+          shouldDirty:
+            true,
 
-        shouldValidate:
-          true,
-      },
-    );
-  };
+          shouldValidate:
+            true,
+        },
+      );
+    };
 
   /**
    * Valida y prepara múltiples imágenes
@@ -293,11 +313,10 @@ export function ProductForm({
       if (
         !validation.valid
       ) {
-        /*
+        /**
          * Si alguna imagen no es válida,
          * liberamos las URLs creadas
-         * anteriormente en esta misma
-         * selección.
+         * anteriormente en esta selección.
          */
         newImages.forEach(
           (image) => {
@@ -344,35 +363,58 @@ export function ProductForm({
 
   /**
    * Elimina una imagen del preview.
+   *
+   * Si es una imagen existente,
+   * también se elimina de imageUrls.
+   *
+   * Si es una imagen local,
+   * solamente se elimina el preview/File.
    */
   const handleRemoveImage = (
     id: string,
   ): void => {
+    const imageToRemove =
+      images.find(
+        (image) =>
+          image.id === id,
+      );
+
+    if (!imageToRemove) {
+      return;
+    }
+
+    if (
+      imageToRemove.previewUrl.startsWith(
+        "blob:",
+      )
+    ) {
+      URL.revokeObjectURL(
+        imageToRemove.previewUrl,
+      );
+    } else {
+      setValue(
+        "imageUrls",
+        currentImageUrls.filter(
+          (url) =>
+            url !==
+            imageToRemove.previewUrl,
+        ),
+        {
+          shouldDirty:
+            true,
+
+          shouldValidate:
+            true,
+        },
+      );
+    }
+
     setImages(
-      (current) => {
-        const image =
-          current.find(
-            (item) =>
-              item.id ===
-              id,
-          );
-
-        if (
-          image?.previewUrl.startsWith(
-            "blob:",
-          )
-        ) {
-          URL.revokeObjectURL(
-            image.previewUrl,
-          );
-        }
-
-        return current.filter(
-          (item) =>
-            item.id !==
-            id,
-        );
-      },
+      (current) =>
+        current.filter(
+          (image) =>
+            image.id !== id,
+        ),
     );
 
     setImageError(
@@ -380,21 +422,36 @@ export function ProductForm({
     );
   };
 
-  const handleValidatedSubmit = async (
-  values: ProductFormSchema,
-): Promise<void> => {
-  const files = images
-    .map((image) => image.file)
-    .filter(
-      (file): file is File =>
-        file !== undefined,
-    );
+  /**
+   * Envía únicamente los File nuevos.
+   *
+   * Las imágenes existentes permanecen
+   * dentro de values.imageUrls.
+   */
+  const handleValidatedSubmit =
+    async (
+      values:
+        ProductFormSchema,
+    ): Promise<void> => {
+      const files =
+        images
+          .map(
+            (image) =>
+              image.file,
+          )
+          .filter(
+            (
+              file,
+            ): file is File =>
+              file !==
+              undefined,
+          );
 
-  await onSubmit(
-    values,
-    files,
-  );
-};
+      await onSubmit(
+        values,
+        files,
+      );
+    };
 
   return (
     <form
@@ -456,19 +513,15 @@ export function ProductForm({
             setValue={
               setValue
             }
-
             images={
               images
             }
-
             imageError={
               imageError
             }
-
             onFilesSelected={
               handleFilesSelected
             }
-
             onRemoveImage={
               handleRemoveImage
             }
