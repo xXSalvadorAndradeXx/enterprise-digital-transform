@@ -728,19 +728,21 @@ export class ProductsService {
 
     // 6. Ordenamiento dinámico seguro (Whitelist)
     const sortFieldMap: Record<string, string> = {
-      createdAt: 'p.created_at',
-      created_at: 'p.created_at',
-      salePrice: 'p.sale_price',
-      sale_price: 'p.sale_price',
-      commercialName: 'p.commercial_name',
-      commercial_name: 'p.commercial_name',
-    };
+  createdAt: 'p.createdAt',
+  created_at: 'p.createdAt',
 
-    const sortColumn = sortFieldMap[sortBy] || 'p.created_at';
-    const sortDirection = order === SortOrder.ASC ? 'ASC' : 'DESC';
+  salePrice: 'p.salePrice',
+  sale_price: 'p.salePrice',
 
-    query.orderBy(sortColumn, sortDirection);
-    query.skip(skip).take(limit);
+  commercialName: 'p.commercialName',
+  commercial_name: 'p.commercialName',
+};
+
+const sortColumn = sortFieldMap[sortBy] ?? 'p.createdAt';
+const sortDirection = order === SortOrder.ASC ? 'ASC' : 'DESC';
+
+query.orderBy(sortColumn, sortDirection);
+query.skip(skip).take(limit);
 
     const [products, total] = await query.getManyAndCount();
     const data = products.map((p) =>
