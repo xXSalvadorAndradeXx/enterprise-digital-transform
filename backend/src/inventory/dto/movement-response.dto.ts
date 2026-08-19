@@ -13,6 +13,7 @@ export class MovementProductDto {
 export class MovementUserDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
+  
 
   @ApiProperty({ example: 'Juan' })
   firstName!: string;
@@ -53,6 +54,9 @@ export class MovementResponseDto {
 
   @ApiPropertyOptional({ example: 'Ajuste por conteo físico' })
   notes!: string | null;
+
+  @ApiPropertyOptional({ example: 'Audífonos Bluetooth', nullable: true })
+  productName!: string | null;
 
   @ApiPropertyOptional({ example: 'uuid-de-referencia' })
   referenceId!: string | null;

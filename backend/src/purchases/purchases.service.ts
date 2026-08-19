@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, QueryRunner } from 'typeorm';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
+import { promises as fs } from 'fs'; // ← AÑADIDO para escritura real en disco
 
 import { SupplierPurchase }          from './entities/supplier-purchase.entity';
 import { SupplierPurchaseItem }       from './entities/supplier-purchase-item.entity';
@@ -166,7 +167,7 @@ export class PurchasesService {
   async getRestockPreview(inventoryId: string) {
     const [inventory] = await this.dataSource.query(
       `SELECT i.id, i.product_name AS "productName", i.brand,
-              c.id AS "categoryId", c.name AS "categoryName"
+              c.id AS "categoryId", c.nombre AS "categoryName"
        FROM inventories i
        LEFT JOIN categories c ON c.id = i.category_id
        WHERE i.id = $1 AND i.deleted_at IS NULL`,
@@ -207,7 +208,8 @@ export class PurchasesService {
   }
 
   // ── Upload de factura ─────────────────────────────────────────────────────
-  // TODO: reemplazar placeholder con S3 / MinIO / disco local
+  // FIX: guarda el archivo físicamente en uploads/invoices y devuelve
+  //      una URL real accesible desde el navegador y persistente tras reinicio.
   async uploadInvoice(file: Express.Multer.File) {
     const ALLOWED_MIME = ['image/png', 'image/jpeg', 'application/pdf'];
     const MAX_BYTES    = 10 * 1024 * 1024; // 10 MB — RN-021
@@ -216,20 +218,32 @@ export class PurchasesService {
       throw new BadRequestException('Se requiere un archivo');
     }
     if (!ALLOWED_MIME.includes(file.mimetype)) {
-      throw new BadRequestException('Formato no permitido. Use PNG, JPG o PDF.');
+      throw new UnprocessableEntityException('Archivo de factura no permitido. Use PNG, JPG o PDF.');
     }
     if (file.size > MAX_BYTES) {
-      throw new BadRequestException('El archivo excede el tamaño máximo de 10 MB.');
+      throw new UnprocessableEntityException('El archivo excede el tamaño máximo de 10 MB.');
     }
 
-    const year  = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, '0');
-    const ext   = path.extname(file.originalname);
-    const key   = `invoices/${year}/${month}/${randomUUID()}${ext}`;
+    const ext      = path.extname(file.originalname).toLowerCase();
+    const filename = `${randomUUID()}${ext}`;
 
-    // ⚠ Placeholder — integrar con S3 / MinIO aquí:
-    // const invoiceUrl = await this.storageService.upload(key, file.buffer, file.mimetype);
-    const invoiceUrl = `https://storage.erp.com/${key}`;
+    // Directorio físico: <project-root>/uploads/invoices/
+    const uploadDir = path.join(process.cwd(), 'uploads', 'invoices');
+    const filePath  = path.join(uploadDir, filename);
+
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+      await fs.writeFile(filePath, file.buffer);
+    } catch {
+      throw new InternalServerErrorException(
+        'No se pudo guardar el archivo de factura en el servidor',
+      );
+    }
+
+    // La ruta estática /uploads debe estar configurada en main.ts:
+    //   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+    const baseUrl    = process.env.APP_URL ?? 'http://localhost:3000';
+    const invoiceUrl = `${baseUrl}/uploads/invoices/${filename}`;
 
     return {
       statusCode: 201,
@@ -661,6 +675,7 @@ export class PurchasesService {
    *   diferencia < 0 → Ajuste con cantidad negativa (corrección)
    *   diferencia = 0 → solo actualiza unitCost / talla / color, sin movimiento
    *
+   * Variantes SIN id → se tratan como variantes nuevas y se persisten.
    * No permite que el stock de ninguna variante quede negativo.
    */
   async updatePurchase(
@@ -709,18 +724,28 @@ export class PurchasesService {
           })),
         );
 
-        // 3b. Para cada variante enviada, validar que pertenezca a esta compra
+        // 3b. Para variantes CON id: validar que pertenecen a esta compra
         for (const v of dto.variants) {
-          if (!v.id) continue; // variante sin id → se ignora en esta iteración
+          if (!v.id) continue; // variantes nuevas no tienen id todavía
           const belongs = existing.items.some((i) => i.id === v.id);
           if (!belongs) {
-            throw new NotFoundException(
+            throw new ConflictException(
               `La variante ${v.id} no pertenece a la compra ${id}`,
             );
           }
         }
 
-        // 3c. Pre-validar stock negativo antes de abrir la transacción pesada
+        // 3c. Para variantes NUEVAS (sin id): validar campos requeridos
+        const newVariants = dto.variants.filter((v) => !v.id);
+        for (const v of newVariants) {
+          if (!v.size || !v.color || v.quantity === undefined || v.unitCost === undefined) {
+            throw new UnprocessableEntityException(
+              'Las variantes nuevas deben incluir size, color, quantity y unitCost',
+            );
+          }
+        }
+
+        // 3d. Pre-validar stock negativo en variantes existentes
         for (const v of dto.variants) {
           if (!v.id || v.quantity === undefined) continue;
 
@@ -785,19 +810,19 @@ export class PurchasesService {
 
       // ── 6. Procesar variantes ────────────────────────────────────────────
       if (dto.variants && dto.variants.length > 0) {
+
+        // ── 6a. Variantes EXISTENTES (con id) ──────────────────────────────
         for (const v of dto.variants) {
           if (!v.id) continue;
 
           const item = existing.items.find((i) => i.id === v.id)!;
 
-          // 6a. Calcular nueva cantidad y costo
           const newQty      = v.quantity  ?? Number(item.quantity);
           const newUnitCost = v.unitCost  ?? Number(item.unitCost);
           const newSize     = v.size      ?? item.size;
           const newColor    = v.color     ?? item.color;
           const newSubtotal = newQty * newUnitCost;
 
-          // 6b. Actualizar supplier_purchase_items
           await qr.query(
             `UPDATE supplier_purchase_items
              SET size = $1, color = $2, quantity = $3,
@@ -806,7 +831,6 @@ export class PurchasesService {
             [newSize, newColor, newQty, newUnitCost, newSubtotal, v.id],
           );
 
-          // 6c. Actualizar inventory_details si está enlazado
           if (item.inventoryDetailId) {
             const [detail] = await qr.query(
               `SELECT stock FROM inventory_details WHERE id = $1`,
@@ -817,7 +841,6 @@ export class PurchasesService {
               const diff        = newQty - Number(item.quantity);
               const stockAfter  = stockBefore + diff;
 
-              // Actualizar size, color, unit_cost y stock
               await qr.query(
                 `UPDATE inventory_details
                  SET size = $1, color = $2, unit_cost = $3, stock = $4
@@ -825,7 +848,6 @@ export class PurchasesService {
                 [newSize, newColor, newUnitCost, stockAfter, item.inventoryDetailId],
               );
 
-              // 6d. Registrar movimiento solo si cambia la cantidad
               if (diff !== 0) {
                 const movType  = diff > 0 ? 'Entrada' : 'Ajuste';
                 const movQty   = Math.abs(diff);
@@ -841,13 +863,9 @@ export class PurchasesService {
                    VALUES ($1,$2,$3,$4,$5,$6,$7,'TIENDA_FISICA',$8)`,
                   [
                     item.inventoryDetailId,
-                    movType,
-                    movQty,
-                    stockBefore,
-                    stockAfter,
-                    movNotes,
-                    id,
-                    userId,
+                    movType, movQty,
+                    stockBefore, stockAfter,
+                    movNotes, id, userId,
                   ],
                 );
               }
@@ -855,7 +873,66 @@ export class PurchasesService {
           }
         }
 
-        // 6e. Recalcular stock total del inventario
+        // ── 6b. Variantes NUEVAS (sin id) ──────────────────────────────────
+        // FIX: antes se ignoraban con `continue`; ahora se persisten completas.
+        const newVariants = dto.variants.filter((v) => !v.id);
+
+        if (newVariants.length > 0 && inventoryId) {
+          const skus = await this.generateSkusForVariants(
+            qr,
+            existing.productName,
+            newVariants.length,
+          );
+
+          for (let i = 0; i < newVariants.length; i++) {
+            const v = newVariants[i];
+
+            // Validación defensiva (ya chequeada en paso 3c, pero por si acaso)
+            if (!v.size || !v.color || v.quantity === undefined || v.unitCost === undefined) {
+              throw new UnprocessableEntityException(
+                'Las variantes nuevas deben incluir size, color, quantity y unitCost',
+              );
+            }
+
+            // INSERT supplier_purchase_item (sin inventory_detail_id aún)
+            const [newItem] = await qr.query(
+              `INSERT INTO supplier_purchase_items
+                 (purchase_id, sku, size, color, quantity, unit_cost, subtotal, inventory_detail_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,NULL)
+               RETURNING *`,
+              [id, skus[i], v.size, v.color, v.quantity, v.unitCost, v.quantity * v.unitCost],
+            );
+
+            // INSERT inventory_detail vinculado al inventory existente
+            const [newDetail] = await qr.query(
+              `INSERT INTO inventory_details
+                 (inventory_id, purchase_item_id, sku, size, color, stock, unit_cost, min_stock)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,0)
+               RETURNING *`,
+              [inventoryId, newItem.id, skus[i], v.size, v.color, v.quantity, v.unitCost],
+            );
+
+            // Enlazar item ↔ detail
+            await qr.query(
+              `UPDATE supplier_purchase_items SET inventory_detail_id = $1 WHERE id = $2`,
+              [newDetail.id, newItem.id],
+            );
+
+            // Movimiento ENTRADA por la cantidad incorporada
+            await qr.query(
+              `INSERT INTO inventory_movements
+                 (inventory_detail_id, type, quantity,
+                  stock_before, stock_after,
+                  notes, reference_id, channel, created_by)
+               VALUES ($1,'Entrada',$2, 0,$3,
+                       'Ingreso por edición de compra — variante nueva',
+                       $4,'TIENDA_FISICA',$5)`,
+              [newDetail.id, v.quantity, v.quantity, id, userId],
+            );
+          }
+        }
+
+        // ── 6c. Recalcular stock total del inventario ───────────────────────
         if (inventoryId) {
           await this.recalcInventoryStock(qr, inventoryId);
         }

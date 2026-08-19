@@ -255,18 +255,21 @@ export class InventoryService {
       .createQueryBuilder('m')
       .leftJoinAndSelect('m.product',         'product')
       .leftJoinAndSelect('m.createdBy',        'createdBy')
-      .leftJoinAndSelect('m.inventoryDetail', 'inventoryDetail')
+      .leftJoinAndSelect('m.inventoryDetail',  'inventoryDetail')
+      // FIX: join siempre presente para poder resolver productName cuando
+      // product es null (compra física sin producto publicado en e-commerce).
+      .leftJoinAndSelect('inventoryDetail.inventory', 'inventory')
       .orderBy('m.createdAt', 'DESC');
 
-    // ── CORREGIDO: búsqueda por nombre del producto en la relación inventory
-    // cuando no hay product_id (compra sin producto publicado aún) se busca
-    // a través de inventoryDetail → inventory → product_name
+    // FIX: búsqueda unificada usando el alias 'inventory' del join anterior.
+    // Antes se añadía el join solo dentro del bloque if → alias 'inv' solo
+    // estaba disponible cuando había búsqueda, lo que hacía imposible resolver
+    // productName en el mapper para todos los movimientos.
     if (search?.trim()) {
-      qb.leftJoin('inventoryDetail.inventory', 'inv')
-        .andWhere(
-          '(product.commercialName ILIKE :search OR inv.productName ILIKE :search)',
-          { search: `%${search.trim()}%` },
-        );
+      qb.andWhere(
+        '(product.commercialName ILIKE :search OR inventory.productName ILIKE :search)',
+        { search: `%${search.trim()}%` },
+      );
     }
 
     if (dateFrom) {
@@ -283,37 +286,48 @@ export class InventoryService {
       qb.andWhere('m.createdAt <= :dateTo', { dateTo: to });
     }
 
-    if (channel)            qb.andWhere('m.channel = :channel',                           { channel });
-    if (responsibleUserId)  qb.andWhere('m.createdById = :responsibleUserId',             { responsibleUserId });
-    if (productId)          qb.andWhere('m.productId = :productId',                       { productId });
-    if (inventoryDetailId)  qb.andWhere('m.inventoryDetailId = :inventoryDetailId',       { inventoryDetailId });
-    if (type)               qb.andWhere('m.type = :type',                                 { type });
+    if (channel)            qb.andWhere('m.channel = :channel',                     { channel });
+    if (responsibleUserId)  qb.andWhere('m.createdById = :responsibleUserId',        { responsibleUserId });
+    if (productId)          qb.andWhere('m.productId = :productId',                  { productId });
+    if (inventoryDetailId)  qb.andWhere('m.inventoryDetailId = :inventoryDetailId',  { inventoryDetailId });
+    if (type)               qb.andWhere('m.type = :type',                            { type });
 
     qb.skip(skip).take(limit);
 
     const [movements, total] = await qb.getManyAndCount();
 
-    const data: MovementResponseDto[] = movements.map((m) => ({
-      id:          m.id,
-      type:        m.type,
-      quantity:    Number(m.quantity),
-      stockBefore: Number(m.stockBefore),
-      stockAfter:  Number(m.stockAfter),
-      notes:       m.notes,
-      referenceId: m.referenceId,
-      channel:     m.channel,
-      createdAt:   m.createdAt ? m.createdAt.toISOString() : new Date().toISOString(),
-      // ── CORREGIDO: product puede ser null (compra sin producto publicado) ──
-      product: m.product
-        ? { id: m.product.id, commercialName: (m.product as any).commercialName ?? '' }
-        : null,
-      createdBy: m.createdBy
-        ? { id: m.createdBy.id, firstName: m.createdBy.firstName, lastName: m.createdBy.lastName }
-        : null,
-      inventoryDetail: m.inventoryDetail
-        ? { id: m.inventoryDetail.id, sku: m.inventoryDetail.sku, size: m.inventoryDetail.size, color: m.inventoryDetail.color }
-        : null,
-    }));
+    const data: MovementResponseDto[] = movements.map((m) => {
+      // FIX: resolución de productName como campo estable de primer nivel.
+      // Regla: usar product.commercialName cuando existe la relación product;
+      // si product es null, usar inventoryDetail → inventory → productName.
+      // Esto garantiza que ningún movimiento de compra muestre "—" en la tabla.
+      const productName: string | null =
+        m.product
+          ? ((m.product as any).commercialName ?? null)
+          : (m.inventoryDetail?.inventory?.productName ?? null);
+
+      return {
+        id:          m.id,
+        productName,                          // ← campo estable de primer nivel
+        type:        m.type,
+        quantity:    Number(m.quantity),
+        stockBefore: Number(m.stockBefore),
+        stockAfter:  Number(m.stockAfter),
+        notes:       m.notes,
+        referenceId: m.referenceId,
+        channel:     m.channel,
+        createdAt:   m.createdAt ? m.createdAt.toISOString() : new Date().toISOString(),
+        product: m.product
+          ? { id: m.product.id, commercialName: (m.product as any).commercialName ?? '' }
+          : null,
+        createdBy: m.createdBy
+          ? { id: m.createdBy.id, firstName: m.createdBy.firstName, lastName: m.createdBy.lastName }
+          : null,
+        inventoryDetail: m.inventoryDetail
+          ? { id: m.inventoryDetail.id, sku: m.inventoryDetail.sku, size: m.inventoryDetail.size, color: m.inventoryDetail.color }
+          : null,
+      };
+    });
 
     return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
@@ -400,7 +414,6 @@ export class InventoryService {
         inventoryDetailId: dto.inventoryDetailId ?? null,
         type:              dto.type,
         quantity:          dto.quantity,
-        // Los valores de stock_before/after se toman del detail cuando aplica
         stockBefore: inventory ? Number((inventory as any)._stockBeforeAdjust ?? inventory.stock) : 0,
         stockAfter:  inventory ? Number(inventory.stock) : 0,
         notes:       dto.notes       ?? null,

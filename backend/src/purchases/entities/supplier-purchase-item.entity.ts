@@ -1,11 +1,12 @@
 // src/purchases/entities/supplier-purchase-item.entity.ts
 import {
   Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, ManyToOne, JoinColumn,
+  CreateDateColumn, ManyToOne, JoinColumn, Index,
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SupplierPurchase } from './supplier-purchase.entity';
 
+@Index(['purchaseId', 'sku'], { unique: true })
 @Entity('supplier_purchase_items')
 export class SupplierPurchaseItem {
   @ApiProperty()
@@ -16,9 +17,9 @@ export class SupplierPurchaseItem {
   @Column({ name: 'purchase_id', type: 'uuid' })
   purchaseId!: string;
 
-  /** RN-005: SKU global único e inmutable */
+  /** RN-005: SKU único por compra (índice compuesto purchaseId + sku) */
   @ApiProperty({ example: 'CAM-20260801-001' })
-  @Column({ type: 'varchar', length: 100, unique: true })
+  @Column({ type: 'varchar', length: 100 })
   sku!: string;
 
   /** RN-004 */
