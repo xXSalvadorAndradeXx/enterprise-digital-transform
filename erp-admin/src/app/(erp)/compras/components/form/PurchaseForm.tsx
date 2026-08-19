@@ -251,15 +251,6 @@ export function PurchaseForm({
         return;
       }
 
-      const variantChanges = editChanges.changedFields.variants;
-      if (
-        variantChanges &&
-        (variantChanges.added.length > 0 || variantChanges.removed.length > 0)
-      ) {
-        setRegisterError("Error de servidor.");
-        return;
-      }
-
       if (initialData) {
         setIsSubmitting(true);
         setRegisterError("");

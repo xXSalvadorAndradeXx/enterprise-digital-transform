@@ -50,7 +50,7 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Ecommerce API')
     .setDescription('Backend RESTful para el sistema de Ecommerce')
-    .setVersion('v0.7.1-alpha')
+    .setVersion('v0.8.0-alpha')
     .addBearerAuth()
     .build();
 

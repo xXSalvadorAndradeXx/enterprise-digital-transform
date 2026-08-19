@@ -15,8 +15,12 @@ interface BackendMovementDto {
   readonly direction?: string;
   readonly quantity: number;
   readonly channel?: string | null;
+  readonly productName?: string | null;
   readonly inventoryName?: string;
-  readonly product?: { readonly nombre?: string } | null;
+  readonly product?: {
+    readonly commercialName?: string | null;
+    readonly nombre?: string | null;
+  } | null;
   readonly responsibleUser?: ResponsibleUserRefDto | null;
   readonly createdBy?: ResponsibleUserRefDto | null;
   readonly createdAt: string;
@@ -48,7 +52,12 @@ function toMovementListItem(item: BackendMovementDto): MovementListItem {
     direction: normalizeDirection(item),
     quantity: Number(item.quantity),
     channel: normalizeChannel(item.channel),
-    inventoryName: item.inventoryName ?? item.product?.nombre ?? "—",
+    inventoryName:
+      item.productName ??
+      item.product?.commercialName ??
+      item.inventoryName ??
+      item.product?.nombre ??
+      "—",
     responsibleUser: item.responsibleUser ?? item.createdBy ?? null,
     createdAt: item.createdAt,
   };
