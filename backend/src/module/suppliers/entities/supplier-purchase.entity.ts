@@ -18,6 +18,13 @@ export class SupplierPurchase {
   @Column({ type: 'varchar', length: 50, default: PurchaseStatus.PENDING })
   status!: string;
 
+  @Column({ 
+  type: 'varchar', 
+  length: 50, 
+  default: 'PENDIENTE'  // ← esto es lo que falta
+  })
+  type!: string;
+
   @ManyToOne(() => Supplier, (supplier) => supplier.supplierPurchases, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'supplier_id' })
   supplier!: Supplier;
