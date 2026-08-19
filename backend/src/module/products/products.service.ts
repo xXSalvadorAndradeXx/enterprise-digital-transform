@@ -29,7 +29,7 @@ import { UploadImageResponseDto } from './dto/upload-image-response.dto';
 import {
   PaginatedResponseDto,
   createPaginatedResponse,
-} from '../common/dto/paginated-response.dto';
+} from '../../common/dto/paginated-response.dto';
 
 @Injectable()
 export class ProductsService {

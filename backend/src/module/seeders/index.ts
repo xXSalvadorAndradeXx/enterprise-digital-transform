@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import dataSource from '../database/data-source';
+import dataSource from '../../database/data-source';
 import { seedPermissions } from './01-permissions.seed';
 import { seedRoles }       from './02-roles.seed';
 import { seedUsers }       from './03-users.seed';

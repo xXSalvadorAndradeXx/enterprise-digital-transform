@@ -7,7 +7,7 @@ import { AssignRolesDto } from './dto/assign-roles.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
-import { generateTemporaryPassword } from '../common/utils/security.util';
+import { generateTemporaryPassword } from '../../common/utils/security.util';
 import { RefreshTokenService } from '../auth/services/refresh-token.service';
 
 @Injectable()

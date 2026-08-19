@@ -23,9 +23,9 @@ import { PaginatedInventoryResponseDto } from './dto/paginated-inventory-respons
 import { LowStockResponseDto } from './dto/low-stock-response.dto';
 import { InventoryWithDetailsResponseDto } from './dto/inventory-with-details-response.dto';
 import { InventoryDetailDto } from './dto/inventory-detail.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { PermissionsGuard } from '../common/guards/permissions.guard';
-import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { QueryMovementsDto } from './dto/query-inventory.dto';
 import { PaginatedMovementsResponseDto } from './dto/paginated-movements-response.dto';
 

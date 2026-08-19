@@ -34,9 +34,9 @@ import { UploadImageResponseDto } from './dto/upload-image-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { SingleResponse } from '../common/interfaces/api-response.interface';
-import { PaginatedResponseDto } from '../common/dto/paginated-response.dto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { SingleResponse } from '../../common/interfaces/api-response.interface';
+import { PaginatedResponseDto } from '../../common/dto/paginated-response.dto';
 
 @ApiTags('Productos')
 @ApiBearerAuth()

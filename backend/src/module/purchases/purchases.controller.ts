@@ -17,10 +17,10 @@ import { CreateRestockPurchaseDto }    from './dto/create-restock-purchase.dto';
 import { QueryPurchaseDto }           from './dto/query-purchase.dto';
 import { PurchaseResponseDto }        from './dto/purchase-response.dto';
 import { UploadInvoiceResponseDto }   from './dto/upload-invoice-response.dto';
-import { JwtAuthGuard }         from '../common/guards/jwt-auth.guard';
-import { PermissionsGuard }     from '../common/guards/permissions.guard';
-import { RequirePermissions }   from '../common/decorators/require-permissions.decorator';
-import { CurrentUser }          from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard }         from '../../common/guards/jwt-auth.guard';
+import { PermissionsGuard }     from '../../common/guards/permissions.guard';
+import { RequirePermissions }   from '../../common/decorators/require-permissions.decorator';
+import { CurrentUser }          from '../../common/decorators/current-user.decorator';
 
 @ApiTags('Purchases')
 @ApiBearerAuth('access-token')

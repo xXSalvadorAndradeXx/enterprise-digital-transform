@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import { Product } from '../products/entities/product.entity';
 import { Category } from '../categories/entities/category.entity';
-import typeOrmConfig from '../../typeorm.config';
+import typeOrmConfig from '../../../typeorm.config';
 import { ProductStatus } from '../products/enums/product-status.enum';
 
 async function runSeeder() {

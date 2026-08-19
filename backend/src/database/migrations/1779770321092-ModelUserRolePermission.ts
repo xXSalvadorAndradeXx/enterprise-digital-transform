@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 import * as bcrypt from "bcrypt";
-import { PERMISSIONS_CATALOG } from "../common/constants/permissions.constant";
+import { PERMISSIONS_CATALOG } from "../../common/constants/permissions.constant";
 
 export class ModelUserRolePermission1779770321092 implements MigrationInterface {
     name = 'ModelUserRolePermission1779770321092'

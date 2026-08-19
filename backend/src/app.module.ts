@@ -3,17 +3,17 @@ import { ConfigModule, ConfigService } from '@nestjs/config'; // Importa ConfigS
 import { TypeOrmModule } from '@nestjs/typeorm'; // Importa TypeOrmModule
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { UsersModule } from './users/users.module';
-import { ProductsModule } from './products/products.module';
-import { CartModule } from './cart/cart.module';
-import { AuthModule } from './auth/auth.module';
-import { CategoriesModule } from './categories/categories.module';
-import { RolesModule } from './roles/roles.module';
-import { PermissionsModule } from './permissions/permissions.module';
+import { UsersModule } from '../src/module/users/users.module';
+import { ProductsModule } from '../src/module/products/products.module';
+import { CartModule } from '../src/module/cart/cart.module';
+import { AuthModule } from '../src/module/auth/auth.module';
+import { CategoriesModule } from '../src/module/categories/categories.module';
+import { RolesModule } from '../src/module/roles/roles.module';
+import { PermissionsModule } from '../src/module/permissions/permissions.module';
 import { validate } from './env.validation';
-import { SuppliersModule } from './suppliers/suppliers.module';
-import { InventoryModule } from './inventory/inventory.module';
-import { PurchasesModule } from './purchases/purchases.module';
+import { SuppliersModule } from '../src/module/suppliers/suppliers.module';
+import { InventoryModule } from '../src/module/inventory/inventory.module';
+import { PurchasesModule } from '../src/module/purchases/purchases.module';
 
 
 
