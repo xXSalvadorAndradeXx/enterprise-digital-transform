@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useRef,
   useState,
 } from "react";
 
@@ -32,6 +33,9 @@ export function useUpdateProductStatus() {
       null,
     );
 
+  const changingRef =
+    useRef(false);
+
   const changeStatus =
     async (
       id: string,
@@ -40,9 +44,14 @@ export function useUpdateProductStatus() {
     ): Promise<
       ProductDetail | null
     > => {
-      if (isLoading) {
+      if (
+        changingRef.current
+      ) {
         return null;
       }
+
+      changingRef.current =
+        true;
 
       setIsLoading(true);
       setError(null);
@@ -75,6 +84,9 @@ export function useUpdateProductStatus() {
 
         return null;
       } finally {
+        changingRef.current =
+          false;
+
         setIsLoading(false);
       }
     };

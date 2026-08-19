@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useRef,
   useState,
 } from "react";
 
@@ -27,13 +28,21 @@ export function useDeleteProduct() {
       null,
     );
 
+  const deletingRef =
+    useRef(false);
+
   const remove =
     async (
       id: string,
     ): Promise<boolean> => {
-      if (isLoading) {
+      if (
+        deletingRef.current
+      ) {
         return false;
       }
+
+      deletingRef.current =
+        true;
 
       setIsLoading(true);
       setError(null);
@@ -64,6 +73,9 @@ export function useDeleteProduct() {
 
         return false;
       } finally {
+        deletingRef.current =
+          false;
+
         setIsLoading(false);
       }
     };

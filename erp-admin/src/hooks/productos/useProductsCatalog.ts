@@ -62,38 +62,32 @@ export function useProductsCatalog(): UseProductsCatalogReturn {
 
   const limit = 20;
 
-  const query =
-    useMemo<ProductQuery>(
-      () => ({
-        page,
-        limit,
+const query =
+  useMemo<ProductQuery>(
+    () => ({
+      page,
+      limit,
 
-        search:
-          filters.search.trim() ||
-          undefined,
+      search:
+        filters.search.trim() ||
+        undefined,
 
-        categoryId:
-          filters.categoryId ||
-          undefined,
+      categoryId:
+        filters.categoryId ||
+        undefined,
 
-        status:
-          filters.status ||
-          undefined,
-
-        sortBy:
-          "created_at",
-
-        order:
-          "DESC",
-      }),
-      [
-        page,
-        limit,
-        filters.search,
-        filters.categoryId,
-        filters.status,
-      ],
-    );
+      status:
+        filters.status ||
+        undefined,
+    }),
+    [
+      page,
+      limit,
+      filters.search,
+      filters.categoryId,
+      filters.status,
+    ],
+  );
 
   const {
     products,

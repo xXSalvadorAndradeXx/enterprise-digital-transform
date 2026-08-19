@@ -9,17 +9,16 @@ import {
   listProducts,
 } from "@/services/productos/products.service";
 
+import {
+  isProductHttpError,
+  type ProductHttpError,
+} from "@/services/productos/product-errors";
+
 import type {
   PaginationMeta,
-  ProductHttpError,
   ProductQuery,
   ProductSummary,
 } from "@/types/productos";
-
-import {
-  isProductHttpError,
-} from "@/services/productos/product-errors";
-
 interface UseProductsResult {
   products:
     ProductSummary[];

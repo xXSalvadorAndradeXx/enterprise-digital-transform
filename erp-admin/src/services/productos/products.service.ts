@@ -1,7 +1,3 @@
-import {
-  API_BASE_URL,
-} from "@/lib/api";
-
 import type {
   CreateProductRequest,
   CreateProductResponse,
@@ -22,42 +18,40 @@ import {
   normalizeProductHttpError,
 } from "./product-errors";
 
-function getAuthHeaders(): HeadersInit {
-  const token =
-    typeof window !==
-    "undefined"
-      ? localStorage.getItem(
-          "token",
-        )
-      : null;
+const PRODUCTS_API_URL =
+  "/api/products";
 
+function getJsonHeaders():
+  HeadersInit {
   return {
     "Content-Type":
       "application/json",
-
-    ...(token
-      ? {
-          Authorization:
-            `Bearer ${token}`,
-        }
-      : {}),
   };
 }
 
+/**
+ * GET /api/products
+ */
 export async function listProducts(
   query: ProductQuery = {},
   signal?: AbortSignal,
 ): Promise<ProductListResponse> {
   const response =
     await fetch(
-      `${API_BASE_URL}/products${buildProductQueryString(
+      `${PRODUCTS_API_URL}${buildProductQueryString(
         query,
       )}`,
       {
-        method: "GET",
+        method:
+          "GET",
+
         headers:
-          getAuthHeaders(),
+          getJsonHeaders(),
+
         signal,
+
+        cache:
+          "no-store",
       },
     );
 
@@ -70,18 +64,27 @@ export async function listProducts(
   return response.json() as Promise<ProductListResponse>;
 }
 
+/**
+ * GET /api/products/:id
+ */
 export async function getProductById(
   id: string,
   signal?: AbortSignal,
 ): Promise<ProductDetailResponse> {
   const response =
     await fetch(
-      `${API_BASE_URL}/products/${id}`,
+      `${PRODUCTS_API_URL}/${id}`,
       {
-        method: "GET",
+        method:
+          "GET",
+
         headers:
-          getAuthHeaders(),
+          getJsonHeaders(),
+
         signal,
+
+        cache:
+          "no-store",
       },
     );
 
@@ -94,22 +97,27 @@ export async function getProductById(
   return response.json() as Promise<ProductDetailResponse>;
 }
 
+/**
+ * POST /api/products
+ */
 export async function createProduct(
   request:
     CreateProductRequest,
 ): Promise<CreateProductResponse> {
   const response =
     await fetch(
-      `${API_BASE_URL}/products`,
+      PRODUCTS_API_URL,
       {
-        method: "POST",
+        method:
+          "POST",
 
         headers:
-          getAuthHeaders(),
+          getJsonHeaders(),
 
-        body: JSON.stringify(
-          request,
-        ),
+        body:
+          JSON.stringify(
+            request,
+          ),
       },
     );
 
@@ -122,23 +130,29 @@ export async function createProduct(
   return response.json() as Promise<CreateProductResponse>;
 }
 
+/**
+ * PATCH /api/products/:id
+ */
 export async function updateProduct(
   id: string,
+
   request:
     UpdateProductRequest,
 ): Promise<UpdateProductResponse> {
   const response =
     await fetch(
-      `${API_BASE_URL}/products/${id}`,
+      `${PRODUCTS_API_URL}/${id}`,
       {
-        method: "PATCH",
+        method:
+          "PATCH",
 
         headers:
-          getAuthHeaders(),
+          getJsonHeaders(),
 
-        body: JSON.stringify(
-          request,
-        ),
+        body:
+          JSON.stringify(
+            request,
+          ),
       },
     );
 
@@ -151,23 +165,29 @@ export async function updateProduct(
   return response.json() as Promise<UpdateProductResponse>;
 }
 
+/**
+ * PATCH /api/products/:id/status
+ */
 export async function updateProductStatus(
   id: string,
+
   request:
     UpdateProductStatusRequest,
 ): Promise<UpdateProductStatusResponse> {
   const response =
     await fetch(
-      `${API_BASE_URL}/products/${id}/status`,
+      `${PRODUCTS_API_URL}/${id}/status`,
       {
-        method: "PATCH",
+        method:
+          "PATCH",
 
         headers:
-          getAuthHeaders(),
+          getJsonHeaders(),
 
-        body: JSON.stringify(
-          request,
-        ),
+        body:
+          JSON.stringify(
+            request,
+          ),
       },
     );
 
@@ -180,17 +200,18 @@ export async function updateProductStatus(
   return response.json() as Promise<UpdateProductStatusResponse>;
 }
 
+/**
+ * DELETE /api/products/:id
+ */
 export async function deleteProduct(
   id: string,
 ): Promise<void> {
   const response =
     await fetch(
-      `${API_BASE_URL}/products/${id}`,
+      `${PRODUCTS_API_URL}/${id}`,
       {
-        method: "DELETE",
-
-        headers:
-          getAuthHeaders(),
+        method:
+          "DELETE",
       },
     );
 
@@ -200,8 +221,7 @@ export async function deleteProduct(
     );
   }
 
-  /*
-   * DELETE responde 204.
-   * No intentamos parsear JSON.
+  /**
+   * Backend responde 204.
    */
 }

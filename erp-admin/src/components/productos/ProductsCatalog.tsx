@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  useState,
+} from "react";
+
+import {
   useRouter,
 } from "next/navigation";
 
@@ -11,8 +15,16 @@ import { ProductsErrorState } from "./ProductsErrorState";
 import { ProductsTable } from "./ProductsTable";
 import { ProductsTableSkeleton } from "./ProductsTableSkeleton";
 import { ProductsToolbar } from "./ProductsToolbar";
+import { DeleteProductConfirmModal } from "./DeleteProductConfirmModal";
+import { ProductResultModal } from "./ProductResultModal";
 
-import { useProductsCatalog } from "@/hooks/productos/useProductsCatalog";
+import {
+  useProductsCatalog,
+} from "@/hooks/productos/useProductsCatalog";
+
+import {
+  useDeleteProduct,
+} from "@/hooks/productos/useDeleteProduct";
 
 import type {
   ProductSummary,
@@ -24,36 +36,54 @@ export function ProductsCatalog() {
 
   const {
     filters,
-
-    page,
-
     products,
     meta,
-
     isLoading,
     error,
 
     setSearch,
     setCategory,
     setStatus,
-
     setPage,
 
     refetch,
   } = useProductsCatalog();
 
-  /*
-   * Las categorías reales deberán
-   * provenir del módulo correspondiente.
-   */
+  const {
+    remove,
+    isLoading:
+      isDeleting,
+    error:
+      deleteError,
+  } = useDeleteProduct();
+
+  const [
+    productToDelete,
+    setProductToDelete,
+  ] =
+    useState<ProductSummary | null>(
+      null,
+    );
+
+  const [
+    resultModal,
+    setResultModal,
+  ] =
+    useState<{
+      type:
+        | "success"
+        | "error";
+      title: string;
+      message: string;
+    } | null>(null);
+
   const categories: Array<{
     label: string;
     value: string;
   }> = [];
 
   const handleView = (
-    product:
-      ProductSummary,
+    product: ProductSummary,
   ): void => {
     router.push(
       `/productos/${product.id}`,
@@ -61,14 +91,51 @@ export function ProductsCatalog() {
   };
 
   const handleDelete = (
-    _product:
-      ProductSummary,
+    product: ProductSummary,
   ): void => {
-    /*
-     * Se conectará con useDeleteProduct
-     * en la tarea/flujo de eliminación.
-     */
+    setProductToDelete(
+      product,
+    );
   };
+
+  const handleConfirmDelete =
+    async (): Promise<void> => {
+      if (!productToDelete) {
+        return;
+      }
+
+      const deleted =
+        await remove(
+          productToDelete.id,
+        );
+
+      if (!deleted) {
+        setResultModal({
+          type: "error",
+          title:
+            "¡Algo salió mal!",
+          message:
+            deleteError?.message ??
+            "No se pudo eliminar el producto.",
+        });
+
+        return;
+      }
+
+      setProductToDelete(
+        null,
+      );
+
+      setResultModal({
+        type: "success",
+        title:
+          "¡Producto eliminado!",
+        message:
+          "El producto fue retirado correctamente del catálogo.",
+      });
+
+      refetch();
+    };
 
   const hasActiveFilters =
     filters.search.trim() !== "" ||
@@ -82,84 +149,123 @@ export function ProductsCatalog() {
     !hasActiveFilters;
 
   return (
-    <div
-      className="overflow-hidden rounded-xl border border-gray-200 bg-white"
-      aria-busy={
-        isLoading
-      }
-    >
-      <ProductsToolbar
-        search={
-          filters.search
+    <>
+      <div
+        className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+        aria-busy={
+          isLoading
         }
-        categoryId={
-          filters.categoryId
+      >
+        <ProductsToolbar
+          search={
+            filters.search
+          }
+          categoryId={
+            filters.categoryId
+          }
+          status={
+            filters.status
+          }
+          categories={
+            categories
+          }
+          onSearchChange={
+            setSearch
+          }
+          onCategoryChange={
+            setCategory
+          }
+          onStatusChange={
+            setStatus
+          }
+        />
+
+        <div className="min-h-[420px]">
+          {isLoading ? (
+            <ProductsTableSkeleton />
+          ) : error ? (
+            <ProductsErrorState
+              onRetry={
+                refetch
+              }
+            />
+          ) : isCatalogEmpty ? (
+            <ProductsEmptyState />
+          ) : (
+            <ProductsTable
+              products={
+                products
+              }
+              search={
+                filters.search
+              }
+              onView={
+                handleView
+              }
+              onDelete={
+                handleDelete
+              }
+            />
+          )}
+        </div>
+
+        {!isLoading &&
+          !error &&
+          meta &&
+          meta.totalPages > 0 &&
+          products.length > 0 && (
+            <Pagination
+              currentPage={
+                meta.page
+              }
+              totalPages={
+                meta.totalPages
+              }
+              onPageChange={
+                setPage
+              }
+            />
+          )}
+      </div>
+
+      <DeleteProductConfirmModal
+        isOpen={
+          productToDelete !== null
         }
-        status={
-          filters.status
+        isLoading={
+          isDeleting
         }
-        categories={
-          categories
+        onCancel={() =>
+          setProductToDelete(null)
         }
-        onSearchChange={
-          setSearch
-        }
-        onCategoryChange={
-          setCategory
-        }
-        onStatusChange={
-          setStatus
+        onConfirm={
+          handleConfirmDelete
         }
       />
 
-      <div className="min-h-[420px]">
-        {isLoading ? (
-          <ProductsTableSkeleton />
-        ) : error ? (
-          <ProductsErrorState
-            onRetry={
-              refetch
-            }
-          />
-        ) : isCatalogEmpty ? (
-          <ProductsEmptyState />
-        ) : (
-          <ProductsTable
-            products={
-              products
-            }
-            search={
-              filters.search
-            }
-            onView={
-              handleView
-            }
-            onDelete={
-              handleDelete
-            }
-          />
-        )}
-      </div>
-
-      {!isLoading &&
-        !error &&
-        meta &&
-        meta.totalPages >
-          0 &&
-        products.length >
-          0 && (
-          <Pagination
-            currentPage={
-              page
-            }
-            totalPages={
-              meta.totalPages
-            }
-            onPageChange={
-              setPage
-            }
-          />
-        )}
-    </div>
+      <ProductResultModal
+        isOpen={
+          resultModal !==
+          null
+        }
+        type={
+          resultModal?.type ??
+          "success"
+        }
+        title={
+          resultModal?.title ??
+          ""
+        }
+        message={
+          resultModal?.message ??
+          ""
+        }
+        onClose={() =>
+          setResultModal(
+            null,
+          )
+        }
+      />
+    </>
   );
 }

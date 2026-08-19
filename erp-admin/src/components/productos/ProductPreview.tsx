@@ -14,11 +14,11 @@ import { ProductStatusBadge } from "./ProductStatusBadge";
 import { ProductTags } from "./ProductTags";
 
 import type {
-  ProductPreviewData,
+  ProductDetail,
 } from "@/types/productos";
 
 interface ProductPreviewProps {
-  product: ProductPreviewData;
+  product: ProductDetail;
   onClose: () => void;
   onEdit: () => void;
 }
@@ -69,6 +69,19 @@ export function ProductPreview({
   const hasDiscount =
     product.discount > 0;
 
+    const category =
+  product.inventory.category.name;
+
+const stock =
+  product.inventory.totalStock;
+
+const stockLabel =
+  product.inventory.status === "OUT_OF_STOCK"
+    ? "Sin stock"
+    : product.inventory.status === "LOW_STOCK"
+      ? "Stock bajo"
+      : "En stock";
+
   return (
     <div
       ref={containerRef}
@@ -95,16 +108,9 @@ export function ProductPreview({
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <span
             className="inline-flex min-h-9 max-w-[180px] items-center truncate rounded-md bg-[#F2F5FC] px-3 py-2 text-xs text-gray-600"
-            title={product.category}
+            title={category}
             >
-            {product.category}
-            </span>
-
-            <span
-              className="max-w-[240px] truncate text-sm text-gray-500"
-              title={product.sku}
-            >
-              {product.sku}
+            {category}
             </span>
           </div>
 
@@ -120,10 +126,16 @@ export function ProductPreview({
           </div>
 
         <span
-        className="inline-flex min-h-9 mt-5 items-center rounded-md bg-[rgba(52,198,29,0.20)] px-3 py-2 text-sm font-medium text-gray-700"
-        >
-        En stock
-        </span>
+        className={`mt-5 inline-flex min-h-9 items-center rounded-md px-3 py-2 text-sm font-medium ${
+          product.inventory.status === "OUT_OF_STOCK"
+            ? "bg-red-100 text-red-700"
+            : product.inventory.status === "LOW_STOCK"
+              ? "bg-yellow-100 text-yellow-700"
+              : "bg-[rgba(52,198,29,0.20)] text-green-700"
+        }`}
+      >
+        {stockLabel}
+      </span>
 
           <hr className="my-5 border-gray-300" />
 
@@ -157,11 +169,11 @@ export function ProductPreview({
       <div className="grid gap-8 lg:grid-cols-2 lg:divide-x lg:divide-gray-300">
         <div className="lg:pr-8">
           <ProductBasicInformation
-            category={product.category}
-            salePrice={product.salePrice}
-            stock={product.stock}
-            stockLabel={product.stockLabel}
-            />
+          category={category}
+          salePrice={product.salePrice}
+          stock={stock}
+          stockLabel={stockLabel}
+        />
         </div>
 
         <div className="lg:pl-8">
