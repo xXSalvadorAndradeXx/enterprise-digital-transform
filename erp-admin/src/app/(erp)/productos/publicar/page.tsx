@@ -31,9 +31,6 @@ import type {
   PendingProductSubmission,
 } from "@/types/productos/product-confirmation.types";
 
-import type {
-  InventoryProductView,
-} from "@/types/productos/product-form.types";
 
 export default function PublicarProductoPage() {
   const router =
@@ -259,18 +256,7 @@ export default function PublicarProductoPage() {
         previewPrice,
     );
 
-  const searchInventory =
-    async (
-      _search: string,
-    ): Promise<
-      InventoryProductView[]
-    > => {
-      /*
-       * Pendiente del service oficial
-       * del módulo Inventario.
-       */
-      return [];
-    };
+
 
   return (
     <main>
@@ -287,9 +273,6 @@ export default function PublicarProductoPage() {
         }
         onSubmit={
           handleSubmit
-        }
-        searchInventory={
-          searchInventory
         }
         isProcessing={
           isProcessing

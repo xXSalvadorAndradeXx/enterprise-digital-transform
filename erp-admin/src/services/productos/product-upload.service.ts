@@ -1,7 +1,3 @@
-import {
-  API_BASE_URL,
-} from "@/lib/api";
-
 import type {
   ProductImageUploadResponse,
 } from "@/types/productos";
@@ -10,24 +6,25 @@ import {
   normalizeProductHttpError,
 } from "./product-errors";
 
-function getAuthorizationHeader(): HeadersInit {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("token")
-      : null;
+const PRODUCT_UPLOAD_API_URL =
+  "/api/products/upload-image";
 
-  return token
-    ? {
-        Authorization: `Bearer ${token}`,
-      }
-    : {};
-}
-
+/**
+ * Sube una imagen utilizando el
+ * Route Handler de Next.js.
+ *
+ * Browser
+ *   ↓
+ * Next.js
+ *   ↓
+ * Backend NestJS
+ */
 export async function uploadProductImage(
   file: File,
   signal?: AbortSignal,
 ): Promise<ProductImageUploadResponse> {
-  const formData = new FormData();
+  const formData =
+    new FormData();
 
   formData.append(
     "file",
@@ -36,12 +33,14 @@ export async function uploadProductImage(
 
   const response =
     await fetch(
-      `${API_BASE_URL}/products/upload-image`,
+      PRODUCT_UPLOAD_API_URL,
       {
-        method: "POST",
-        headers:
-          getAuthorizationHeader(),
-        body: formData,
+        method:
+          "POST",
+
+        body:
+          formData,
+
         signal,
       },
     );
