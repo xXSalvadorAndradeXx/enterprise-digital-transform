@@ -18,7 +18,7 @@ export class SupplierPurchaseItem {
 
   /** RN-005: SKU global único e inmutable */
   @ApiProperty({ example: 'CAM-20260801-001' })
-  @Column({ type: 'varchar', length: 100, unique: true })
+  @Column({ type: 'varchar', length: 100 })
   sku!: string;
 
   /** RN-004 */

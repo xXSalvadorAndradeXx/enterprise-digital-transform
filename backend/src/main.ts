@@ -9,10 +9,11 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as express from 'express';
 import { join } from 'path';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
 
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
@@ -22,6 +23,8 @@ async function bootstrap() {
 
   // Servir estáticamente la carpeta uploads
   app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+
 
   // Prefijo global de la API
   app.setGlobalPrefix(apiPrefix);
