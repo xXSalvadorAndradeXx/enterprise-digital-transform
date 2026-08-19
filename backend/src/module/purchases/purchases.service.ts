@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, QueryRunner } from 'typeorm';
 import { randomUUID } from 'crypto';
 import * as path from 'path';
-import { promises as fs } from 'fs'; // ← AÑADIDO para escritura real en disco
+import { promises as fs } from 'fs';
 
 import { SupplierPurchase }          from './entities/supplier-purchase.entity';
 import { SupplierPurchaseItem }       from './entities/supplier-purchase-item.entity';
@@ -36,10 +36,7 @@ export class PurchasesService {
     private readonly dataSource: DataSource,
   ) {}
 
-  // ── Mapa snake_case (query params del DTO) → camelCase (propiedad de la entidad)
-  // TypeORM QueryBuilder resuelve los campos por nombre de propiedad TypeScript,
-  // no por nombre de columna. Sin este mapa, orderBy('p.created_at') no encuentra
-  // la propiedad y lanza un error interno → HTTP 500.
+  // ── Mapa snake_case → camelCase para orderBy ─────────────────────────────
   private readonly SORT_FIELD_MAP: Record<string, string> = {
     created_at:   'createdAt',
     total_amount: 'totalAmount',
@@ -56,9 +53,6 @@ export class PurchasesService {
     } = query;
 
     const skip = (page - 1) * limit;
-
-    // Traduce el sortBy del DTO (snake_case) al nombre de propiedad de la entidad (camelCase).
-    // Fallback a 'createdAt' si llega un valor desconocido.
     const sortField = this.SORT_FIELD_MAP[sortBy] ?? 'createdAt';
 
     const qb = this.purchaseRepo
@@ -142,10 +136,9 @@ export class PurchasesService {
   }
 
   // ── Selector de inventarios para formulario de reabastecimiento ──────────
-  // GET /api/v1/purchases/inventory-options?search=camisa
   async getInventoryOptions(search?: string) {
-    const param  = search ? `%${search}%` : '%';
-    const rows   = await this.dataSource.query(
+    const param = search ? `%${search}%` : '%';
+    const rows  = await this.dataSource.query(
       `SELECT i.id, i.product_name AS "productName", d.sku
        FROM inventories i
        LEFT JOIN LATERAL (
@@ -163,7 +156,6 @@ export class PurchasesService {
   }
 
   // ── Vista previa para formulario de reabastecimiento ─────────────────────
-  // GET /api/v1/purchases/inventory/:inventoryId/preview-restock
   async getRestockPreview(inventoryId: string) {
     const [inventory] = await this.dataSource.query(
       `SELECT i.id, i.product_name AS "productName", i.brand,
@@ -208,8 +200,8 @@ export class PurchasesService {
   }
 
   // ── Upload de factura ─────────────────────────────────────────────────────
-  // FIX: guarda el archivo físicamente en uploads/invoices y devuelve
-  //      una URL real accesible desde el navegador y persistente tras reinicio.
+  // Guarda el archivo físicamente en uploads/invoices y devuelve URL real
+  // accesible y persistente. Requiere useStaticAssets en main.ts.
   async uploadInvoice(file: Express.Multer.File) {
     const ALLOWED_MIME = ['image/png', 'image/jpeg', 'application/pdf'];
     const MAX_BYTES    = 10 * 1024 * 1024; // 10 MB — RN-021
@@ -227,7 +219,6 @@ export class PurchasesService {
     const ext      = path.extname(file.originalname).toLowerCase();
     const filename = `${randomUUID()}${ext}`;
 
-    // Directorio físico: <project-root>/uploads/invoices/
     const uploadDir = path.join(process.cwd(), 'uploads', 'invoices');
     const filePath  = path.join(uploadDir, filename);
 
@@ -240,8 +231,6 @@ export class PurchasesService {
       );
     }
 
-    // La ruta estática /uploads debe estar configurada en main.ts:
-    //   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
     const baseUrl    = process.env.APP_URL ?? 'http://localhost:3000';
     const invoiceUrl = `${baseUrl}/uploads/invoices/${filename}`;
 
@@ -266,7 +255,6 @@ export class PurchasesService {
     await qr.startTransaction();
 
     try {
-      // Validaciones previas
       await this.validateActiveSupplier(qr, dto.supplierId);
       await this.validateCategory(qr, dto.categoryId);
       this.validateDuplicateVariants(dto.variants);
@@ -277,7 +265,6 @@ export class PurchasesService {
       await this.checkDuplicatePurchase(qr, userId, dto.supplierId, totalAmount);
 
       const skus = await this.generateSkusForVariants(qr, dto.productName, dto.variants.length);
-
       const reference = await this.generateReference(qr);
 
       // ── Paso 1: INSERT supplier_purchases ──────────────────────────────────
@@ -314,7 +301,7 @@ export class PurchasesService {
       );
       const savedItems = await qr.manager.save(SupplierPurchaseItem, items);
 
-      // ── Paso 3: INSERT inventories con purchase_id y gender ────────────────
+      // ── Paso 3: INSERT inventories ─────────────────────────────────────────
       const [inventory] = await qr.query(
         `INSERT INTO inventories
            (product_name, category_id, brand, gender, main_image_url,
@@ -333,7 +320,7 @@ export class PurchasesService {
         ],
       );
 
-      // ── Paso 4: INSERT inventory_details con purchase_item_id ──────────────
+      // ── Paso 4: INSERT inventory_details ──────────────────────────────────
       const inventoryDetailIds: string[] = [];
 
       for (let i = 0; i < dto.variants.length; i++) {
@@ -379,7 +366,7 @@ export class PurchasesService {
         [inventory.id],
       );
 
-      // ── Paso 6: enlazar purchase_item ↔ inventory_detail (relación inversa) ─
+      // ── Paso 6: enlazar purchase_item ↔ inventory_detail ──────────────────
       for (let i = 0; i < savedItems.length; i++) {
         await qr.manager.update(SupplierPurchaseItem, savedItems[i].id, {
           inventoryDetailId: inventoryDetailIds[i],
@@ -470,9 +457,9 @@ export class PurchasesService {
       });
       const savedPurchase = await qr.manager.save(SupplierPurchase, purchase);
 
-      // ── Paso 2a: procesar variantes EXISTENTES ─────────────────────────────
+      // ── Paso 2a: variantes EXISTENTES ─────────────────────────────────────
       for (const v of existingVariants) {
-        const detail = lockedDetails.find((d) => d.id === v.inventoryDetailId)!;
+        const detail      = lockedDetails.find((d) => d.id === v.inventoryDetailId)!;
         const stockBefore = Number(detail.stock);
         const stockAfter  = stockBefore + v.quantity;
 
@@ -513,7 +500,7 @@ export class PurchasesService {
         );
       }
 
-      // ── Paso 2b: procesar variantes NUEVAS ────────────────────────────────
+      // ── Paso 2b: variantes NUEVAS ─────────────────────────────────────────
       if (newVariants.length > 0) {
         const skus = await this.generateSkusForVariants(
           qr, inventory.product_name, newVariants.length,
@@ -581,7 +568,6 @@ export class PurchasesService {
   async softDelete(id: string, userId: string): Promise<void> {
     const purchase = await this.findOne(id);
 
-    // Pre-validación fuera de transacción
     for (const item of purchase.items) {
       if (!item.inventoryDetailId) continue;
 
@@ -716,7 +702,7 @@ export class PurchasesService {
 
       // ── 3. Validar y procesar variantes ─────────────────────────────────
       if (dto.variants && dto.variants.length > 0) {
-        // 3a. Verificar que no vengan combinaciones talla+color duplicadas
+        // 3a. Verificar combinaciones talla+color duplicadas
         this.validateDuplicateVariants(
           dto.variants.map((v) => ({
             size:  v.size  ?? '',
@@ -726,7 +712,7 @@ export class PurchasesService {
 
         // 3b. Para variantes CON id: validar que pertenecen a esta compra
         for (const v of dto.variants) {
-          if (!v.id) continue; // variantes nuevas no tienen id todavía
+          if (!v.id) continue;
           const belongs = existing.items.some((i) => i.id === v.id);
           if (!belongs) {
             throw new ConflictException(
@@ -769,13 +755,13 @@ export class PurchasesService {
 
       // ── 4. Actualizar supplier_purchases ────────────────────────────────
       const purchaseChanges: Record<string, unknown> = {};
-      if (dto.supplierId   !== undefined) purchaseChanges['supplier_id']    = dto.supplierId;
-      if (dto.purchaseDate !== undefined) purchaseChanges['purchase_date']  = dto.purchaseDate;
-      if (dto.productName  !== undefined) purchaseChanges['product_name']   = dto.productName;
-      if (dto.categoryId   !== undefined) purchaseChanges['category_id']    = dto.categoryId;
-      if (dto.brand        !== undefined) purchaseChanges['brand']           = dto.brand;
-      if (dto.gender       !== undefined) purchaseChanges['gender']          = dto.gender;
-      if ('invoiceUrl' in dto)            purchaseChanges['invoice_url']     = dto.invoiceUrl ?? null;
+      if (dto.supplierId   !== undefined) purchaseChanges['supplier_id']   = dto.supplierId;
+      if (dto.purchaseDate !== undefined) purchaseChanges['purchase_date'] = dto.purchaseDate;
+      if (dto.productName  !== undefined) purchaseChanges['product_name']  = dto.productName;
+      if (dto.categoryId   !== undefined) purchaseChanges['category_id']   = dto.categoryId;
+      if (dto.brand        !== undefined) purchaseChanges['brand']          = dto.brand;
+      if (dto.gender       !== undefined) purchaseChanges['gender']         = dto.gender;
+      if ('invoiceUrl' in dto)            purchaseChanges['invoice_url']    = dto.invoiceUrl ?? null;
 
       if (Object.keys(purchaseChanges).length > 0) {
         const setClauses = Object.keys(purchaseChanges)
@@ -874,7 +860,8 @@ export class PurchasesService {
         }
 
         // ── 6b. Variantes NUEVAS (sin id) ──────────────────────────────────
-        // FIX: antes se ignoraban con `continue`; ahora se persisten completas.
+        // FIX: antes se ignoraban; ahora se persisten completas con su
+        // inventory_detail y movimiento de Entrada correspondiente.
         const newVariants = dto.variants.filter((v) => !v.id);
 
         if (newVariants.length > 0 && inventoryId) {
@@ -887,14 +874,13 @@ export class PurchasesService {
           for (let i = 0; i < newVariants.length; i++) {
             const v = newVariants[i];
 
-            // Validación defensiva (ya chequeada en paso 3c, pero por si acaso)
             if (!v.size || !v.color || v.quantity === undefined || v.unitCost === undefined) {
               throw new UnprocessableEntityException(
                 'Las variantes nuevas deben incluir size, color, quantity y unitCost',
               );
             }
 
-            // INSERT supplier_purchase_item (sin inventory_detail_id aún)
+            // INSERT supplier_purchase_item
             const [newItem] = await qr.query(
               `INSERT INTO supplier_purchase_items
                  (purchase_id, sku, size, color, quantity, unit_cost, subtotal, inventory_detail_id)
@@ -995,10 +981,10 @@ export class PurchasesService {
 
     const duplicate = await qr.manager
       .createQueryBuilder(SupplierPurchase, 'p')
-      .where('p.createdBy = :userId',      { userId })
+      .where('p.createdBy = :userId',       { userId })
       .andWhere('p.supplierId = :supplierId', { supplierId })
-      .andWhere('p.totalAmount = :total',   { total: totalAmount })
-      .andWhere('p.createdAt >= :since',    { since })
+      .andWhere('p.totalAmount = :total',    { total: totalAmount })
+      .andWhere('p.createdAt >= :since',     { since })
       .getOne();
 
     if (duplicate) {
@@ -1119,7 +1105,7 @@ export class PurchasesService {
 
   /**
    * Valida que cada inventoryDetailId pertenece al inventoryId indicado
-   * y adquiere SELECT FOR UPDATE (T2, paso 3).
+   * y adquiere SELECT FOR UPDATE.
    */
   private async validateAndLockInventoryDetails(
     qr: QueryRunner,
@@ -1183,7 +1169,6 @@ export class PurchasesService {
     dto.createdAt     = p.createdAt;
     dto.deletedAt     = p.deletedAt;
 
-    // Relación supplier
     if (p.supplier) {
       const s = new SupplierSummaryDto();
       s.id   = p.supplier.id;
@@ -1193,7 +1178,6 @@ export class PurchasesService {
       dto.supplier = { id: p.supplierId, name: '' };
     }
 
-    // Relación createdBy
     if (p.createdByUser) {
       const u = new UserSummaryDto();
       u.id        = p.createdByUser.id;
@@ -1204,16 +1188,18 @@ export class PurchasesService {
       dto.createdBy = { id: p.createdBy, firstName: '', lastName: '' };
     }
 
-    // Items
+    // FIX: se añade inventoryDetailId al mapeo de cada item para que el
+    // Frontend pueda vincular variante ↔ inventory_detail sin GET adicional.
     dto.items = (p.items ?? []).map((item) => {
       const i = new PurchaseItemResponseDto();
-      i.id       = item.id;
-      i.sku      = item.sku;
-      i.size     = item.size;
-      i.color    = item.color;
-      i.quantity = Number(item.quantity);
-      i.unitCost = Number(item.unitCost);
-      i.subtotal = Number(item.subtotal);
+      i.id                = item.id;
+      i.sku               = item.sku;
+      i.size              = item.size;
+      i.color             = item.color;
+      i.quantity          = Number(item.quantity);
+      i.unitCost          = Number(item.unitCost);
+      i.subtotal          = Number(item.subtotal);
+      i.inventoryDetailId = item.inventoryDetailId ?? null; // ← FIX
       return i;
     });
 

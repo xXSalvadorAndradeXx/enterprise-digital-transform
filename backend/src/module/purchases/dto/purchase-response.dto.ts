@@ -10,6 +10,10 @@ export class PurchaseItemResponseDto {
   @ApiProperty() quantity!: number;
   @ApiProperty() unitCost!: number;
   @ApiProperty() subtotal!: number;
+
+  
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  inventoryDetailId!: string | null;
 }
 
 export class SupplierSummaryDto {
@@ -26,26 +30,21 @@ export class UserSummaryDto {
 export class PurchaseResponseDto {
   @ApiProperty() id!: string;
 
-  // ── CAMPO AÑADIDO ────────────────────────────────────────────────────────
   @ApiProperty({ example: 'CP-0007' })
   reference!: string;
 
   @ApiProperty() type!: string;
   @ApiProperty() productName!: string;
 
-  // ── CAMPO AÑADIDO ────────────────────────────────────────────────────────
   @ApiProperty({ example: 'Nike' })
   brand!: string;
 
-  // ── CAMPO AÑADIDO ────────────────────────────────────────────────────────
   @ApiProperty({ example: 1 })
   categoryId!: number;
 
-  // ── CAMPO AÑADIDO ────────────────────────────────────────────────────────
   @ApiPropertyOptional({ enum: ProductGender, nullable: true })
   gender!: ProductGender | null;
 
-  // ── CAMPO AÑADIDO ────────────────────────────────────────────────────────
   @ApiProperty({ example: '2026-08-16' })
   purchaseDate!: string;
 
