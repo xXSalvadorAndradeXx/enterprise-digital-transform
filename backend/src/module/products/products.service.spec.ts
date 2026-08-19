@@ -71,6 +71,7 @@ describe('ProductsService', () => {
     description: 'Audífonos inalámbricos con cancelación de ruido',
     salePrice: 200.0,
     discount: 10,
+    discountStartsAt: null,
     discountEndsAt: new Date(Date.now() + 86400000), // Válido por 1 día
     status: ProductStatus.ACTIVE,
     createdById: 'user-uuid-1',
@@ -206,7 +207,12 @@ describe('ProductsService', () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 5);
 
-      const effectivePrice = (service as any).calcEffectivePrice(100, 15, futureDate);
+      const effectivePrice = (service as any).calcEffectivePrice(
+        100,
+        15,
+        null,
+        futureDate,
+      );
       expect(effectivePrice).toBe(85.0);
     });
 
@@ -214,7 +220,12 @@ describe('ProductsService', () => {
       const pastDate = new Date('2020-01-01T00:00:00Z');
       const warnSpy = jest.spyOn((service as any).logger, 'warn');
 
-      const effectivePrice = (service as any).calcEffectivePrice(100, 15, pastDate);
+      const effectivePrice = (service as any).calcEffectivePrice(
+        100,
+        15,
+        null,
+        pastDate,
+      );
 
       expect(effectivePrice).toBe(100.0);
       expect(warnSpy).toHaveBeenCalledWith(
@@ -224,6 +235,20 @@ describe('ProductsService', () => {
 
     it('debe retornar salePrice directamente si discount === 0', () => {
       const effectivePrice = (service as any).calcEffectivePrice(100, 0);
+      expect(effectivePrice).toBe(100.0);
+    });
+
+    it('debe retornar salePrice hasta que inicie un descuento futuro', () => {
+      const startsAt = new Date(Date.now() + 86400000);
+      const endsAt = new Date(Date.now() + 172800000);
+
+      const effectivePrice = (service as any).calcEffectivePrice(
+        100,
+        15,
+        startsAt,
+        endsAt,
+      );
+
       expect(effectivePrice).toBe(100.0);
     });
   });
@@ -316,6 +341,21 @@ describe('ProductsService', () => {
       };
 
       await expect(service.create(dtoPastDiscount)).rejects.toThrow(
+        UnprocessableEntityException,
+      );
+    });
+
+    it('debe rechazar una fecha de inicio igual o posterior a la fecha de fin', async () => {
+      const startsAt = new Date(Date.now() + 172800000).toISOString();
+      const endsAt = new Date(Date.now() + 86400000).toISOString();
+      const dtoInvalidPeriod: CreateProductDto = {
+        ...validDto,
+        discount: 15,
+        discountStartsAt: startsAt,
+        discountEndsAt: endsAt,
+      };
+
+      await expect(service.create(dtoInvalidPeriod)).rejects.toThrow(
         UnprocessableEntityException,
       );
     });

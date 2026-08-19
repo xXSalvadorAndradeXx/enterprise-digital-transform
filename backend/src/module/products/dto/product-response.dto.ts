@@ -94,6 +94,9 @@ export class ProductResponseDto {
   effectivePrice!: number;
 
   @ApiPropertyOptional()
+  discountStartsAt!: Date | null;
+
+  @ApiPropertyOptional()
   discountEndsAt!: Date | null;
 
   @ApiProperty({ enum: ProductStatus })
@@ -144,11 +147,14 @@ export class ProductResponseDto {
           ? Number(product.discount)
           : 0;
 
+      const hasNotStarted =
+        product.discountStartsAt &&
+        new Date(product.discountStartsAt) > new Date();
       const isExpired =
         product.discountEndsAt &&
         new Date(product.discountEndsAt) < new Date();
 
-      if (discountNum > 0 && !isExpired) {
+      if (discountNum > 0 && !hasNotStarted && !isExpired) {
         dto.effectivePrice = Number(
           (salePriceNum * (1 - discountNum / 100)).toFixed(2),
         );
@@ -157,6 +163,7 @@ export class ProductResponseDto {
       }
     }
 
+    dto.discountStartsAt = product.discountStartsAt ?? null;
     dto.discountEndsAt = product.discountEndsAt ?? null;
     dto.status = product.status;
     dto.createdById = product.createdById ?? null;

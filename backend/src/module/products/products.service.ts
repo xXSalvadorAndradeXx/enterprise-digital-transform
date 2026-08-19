@@ -44,6 +44,7 @@ export class ProductsService {
   private calcEffectivePrice(
     salePrice: number,
     discount: number | null,
+    discountStartsAt?: Date | null,
     discountEndsAt?: Date | null,
   ): number {
     const price = Number(salePrice);
@@ -52,6 +53,13 @@ export class ProductsService {
 
     if (disc === 0) {
       return price;
+    }
+
+    if (discountStartsAt) {
+      const startsAt = new Date(discountStartsAt);
+      if (!isNaN(startsAt.getTime()) && startsAt > new Date()) {
+        return price;
+      }
     }
 
     if (discountEndsAt) {
@@ -66,6 +74,47 @@ export class ProductsService {
 
     const effectivePrice = price * (1 - disc / 100);
     return Number(effectivePrice.toFixed(2));
+  }
+
+  private validateDiscountPeriod(
+    discount: number | null | undefined,
+    discountStartsAt?: string | Date | null,
+    discountEndsAt?: string | Date | null,
+  ): void {
+    const discountValue = Number(discount ?? 0);
+    const hasStartDate = discountStartsAt !== undefined && discountStartsAt !== null;
+    const hasEndDate = discountEndsAt !== undefined && discountEndsAt !== null;
+
+    if (discountValue <= 0) {
+      if (hasStartDate || hasEndDate) {
+        throw new UnprocessableEntityException(
+          'Las fechas de descuento deben ser nulas cuando el descuento es 0',
+        );
+      }
+      return;
+    }
+
+    if (!hasEndDate) {
+      throw new UnprocessableEntityException(
+        'Debe proporcionar una fecha de fin para el descuento',
+      );
+    }
+
+    const endsAt = new Date(discountEndsAt as string | Date);
+    if (isNaN(endsAt.getTime()) || endsAt <= new Date()) {
+      throw new UnprocessableEntityException(
+        'La fecha de fin del descuento debe ser una fecha válida mayor a la fecha actual',
+      );
+    }
+
+    if (hasStartDate) {
+      const startsAt = new Date(discountStartsAt as string | Date);
+      if (isNaN(startsAt.getTime()) || startsAt >= endsAt) {
+        throw new UnprocessableEntityException(
+          'La fecha de inicio del descuento debe ser válida y anterior a la fecha de fin',
+        );
+      }
+    }
   }
 
   async uploadProductImage(
@@ -108,6 +157,7 @@ export class ProductsService {
       description,
       salePrice,
       discount,
+      discountStartsAt,
       discountEndsAt,
       status,
       imageUrls = [],
@@ -127,20 +177,8 @@ export class ProductsService {
       );
     }
 
-    // Regla RN-P-005: Validaciones de descuento
-    if (discount && Number(discount) > 0) {
-      if (!discountEndsAt) {
-        throw new UnprocessableEntityException(
-          'Debe proporcionar una fecha de fin para el descuento',
-        );
-      }
-      const discountEndDate = new Date(discountEndsAt);
-      if (isNaN(discountEndDate.getTime()) || discountEndDate < new Date()) {
-        throw new UnprocessableEntityException(
-          'La fecha de fin del descuento debe ser una fecha válida mayor a la fecha actual',
-        );
-      }
-    }
+    // Regla RN-P-005: Validaciones de descuento y vigencia.
+    this.validateDiscountPeriod(discount, discountStartsAt, discountEndsAt);
 
     // Validación de cantidad de imágenes (máximo 10)
     if (safeImageUrls.length > 10) {
@@ -230,6 +268,7 @@ export class ProductsService {
         description: description ?? null,
         salePrice,
         discount: discount ?? 0,
+        discountStartsAt: discountStartsAt ? new Date(discountStartsAt) : null,
         discountEndsAt: discountEndsAt ? new Date(discountEndsAt) : null,
         status: status ?? ProductStatus.DRAFT,
         createdById: actorId,
@@ -293,6 +332,7 @@ export class ProductsService {
         this.calcEffectivePrice(
           createdProduct.salePrice,
           createdProduct.discount,
+          createdProduct.discountStartsAt,
           createdProduct.discountEndsAt,
         ),
       );
@@ -320,6 +360,12 @@ export class ProductsService {
       );
     }
 
+    if (updateProductDto.status !== undefined) {
+      throw new UnprocessableEntityException(
+        'El estado debe actualizarse mediante PATCH /products/:id/status',
+      );
+    }
+
     // 2. Validación del producto existente y estado
     const product = await this.findOneEntity(id);
 
@@ -338,20 +384,16 @@ export class ProductsService {
       updateProductDto.discountEndsAt !== undefined
         ? updateProductDto.discountEndsAt
         : product.discountEndsAt;
+    const effectiveDiscountStartsAt =
+      updateProductDto.discountStartsAt !== undefined
+        ? updateProductDto.discountStartsAt
+        : product.discountStartsAt;
 
-    if (effectiveDiscount && Number(effectiveDiscount) > 0) {
-      if (!effectiveDiscountEndsAt) {
-        throw new UnprocessableEntityException(
-          'Debe proporcionar una fecha de fin para el descuento',
-        );
-      }
-      const discountEndDate = new Date(effectiveDiscountEndsAt);
-      if (isNaN(discountEndDate.getTime()) || discountEndDate < new Date()) {
-        throw new UnprocessableEntityException(
-          'La fecha de fin del descuento debe ser una fecha válida mayor a la fecha actual',
-        );
-      }
-    }
+    this.validateDiscountPeriod(
+      effectiveDiscount,
+      effectiveDiscountStartsAt,
+      effectiveDiscountEndsAt,
+    );
 
     // Validaciones opcionales de arreglos si vienen en el DTO
     if (updateProductDto.imageUrls !== undefined) {
@@ -420,13 +462,15 @@ export class ProductsService {
       if (updateProductDto.discount !== undefined) {
         updateData.discount = updateProductDto.discount;
       }
+      if (updateProductDto.discountStartsAt !== undefined) {
+        updateData.discountStartsAt = updateProductDto.discountStartsAt
+          ? new Date(updateProductDto.discountStartsAt)
+          : null;
+      }
       if (updateProductDto.discountEndsAt !== undefined) {
         updateData.discountEndsAt = updateProductDto.discountEndsAt
           ? new Date(updateProductDto.discountEndsAt)
           : null;
-      }
-      if (updateProductDto.status !== undefined) {
-        updateData.status = updateProductDto.status;
       }
       if (actorId) {
         updateData.updatedById = actorId;
@@ -507,6 +551,7 @@ export class ProductsService {
         this.calcEffectivePrice(
           updatedProduct.salePrice,
           updatedProduct.discount,
+          updatedProduct.discountStartsAt,
           updatedProduct.discountEndsAt,
         ),
       );
@@ -580,6 +625,7 @@ export class ProductsService {
       this.calcEffectivePrice(
         updatedProduct.salePrice,
         updatedProduct.discount,
+        updatedProduct.discountStartsAt,
         updatedProduct.discountEndsAt,
       ),
     );
@@ -642,9 +688,33 @@ export class ProductsService {
       this.calcEffectivePrice(
         product.salePrice,
         product.discount,
+        product.discountStartsAt,
         product.discountEndsAt,
       ),
     );
+  }
+
+  async findOnePublished(id: string): Promise<ProductResponseDto> {
+    const product = await this.findOneEntity(id);
+    if (product.status !== ProductStatus.ACTIVE) {
+      throw new NotFoundException(`Producto con id ${id} no encontrado`);
+    }
+
+    return ProductResponseDto.fromEntity(
+      product,
+      this.calcEffectivePrice(
+        product.salePrice,
+        product.discount,
+        product.discountStartsAt,
+        product.discountEndsAt,
+      ),
+    );
+  }
+
+  async findPublished(
+    filterDto: ProductFilterDto,
+  ): Promise<PaginatedResponseDto<ProductResponseDto>> {
+    return this.findAll({ ...filterDto, status: ProductStatus.ACTIVE });
   }
 
   async findAll(
@@ -728,27 +798,30 @@ export class ProductsService {
 
     // 6. Ordenamiento dinámico seguro (Whitelist)
     const sortFieldMap: Record<string, string> = {
-  createdAt: 'p.createdAt',
-  created_at: 'p.createdAt',
+      createdAt: 'p.created_at',
+      created_at: 'p.created_at',
+      salePrice: 'p.sale_price',
+      sale_price: 'p.sale_price',
+      commercialName: 'p.commercial_name',
+      commercial_name: 'p.commercial_name',
+    };
 
-  salePrice: 'p.salePrice',
-  sale_price: 'p.salePrice',
+    const sortColumn = sortFieldMap[sortBy] ?? 'p.created_at';
+    const sortDirection = order === SortOrder.ASC ? 'ASC' : 'DESC';
 
-  commercialName: 'p.commercialName',
-  commercial_name: 'p.commercialName',
-};
-
-const sortColumn = sortFieldMap[sortBy] ?? 'p.createdAt';
-const sortDirection = order === SortOrder.ASC ? 'ASC' : 'DESC';
-
-query.orderBy(sortColumn, sortDirection);
-query.skip(skip).take(limit);
+    query.orderBy(sortColumn, sortDirection);
+    query.skip(skip).take(limit);
 
     const [products, total] = await query.getManyAndCount();
     const data = products.map((p) =>
       ProductResponseDto.fromEntity(
         p,
-        this.calcEffectivePrice(p.salePrice, p.discount, p.discountEndsAt),
+        this.calcEffectivePrice(
+          p.salePrice,
+          p.discount,
+          p.discountStartsAt,
+          p.discountEndsAt,
+        ),
       ),
     );
 

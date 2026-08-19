@@ -39,16 +39,13 @@ import { SingleResponse } from '../../common/interfaces/api-response.interface';
 import { PaginatedResponseDto } from '../../common/dto/paginated-response.dto';
 
 @ApiTags('Productos')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  @Permissions('products:read')
   @ApiOperation({
-    summary: 'Obtener catálogo de productos con filtros y paginación',
+    summary: 'Obtener catálogo público de productos publicados con filtros y paginación',
   })
   @ApiResponse({
     status: 200,
@@ -66,10 +63,23 @@ export class ProductsController {
   async findAll(
     @Query() filterDto: ProductFilterDto,
   ): Promise<PaginatedResponseDto<ProductResponseDto>> {
+    return this.productsService.findPublished(filterDto);
+  }
+
+  @Get('admin')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('products:read')
+  @ApiOperation({ summary: 'Obtener productos para administración, incluyendo borradores' })
+  async findAllForAdmin(
+    @Query() filterDto: ProductFilterDto,
+  ): Promise<PaginatedResponseDto<ProductResponseDto>> {
     return this.productsService.findAll(filterDto);
   }
 
   @Post('upload-image')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('products:create')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -126,6 +136,8 @@ export class ProductsController {
   }
 
   @Post()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('products:create')
   @ApiOperation({
     summary: 'Crear un nuevo producto',
@@ -161,9 +173,8 @@ export class ProductsController {
   }
 
   @Get(':id')
-  @Permissions('products:read')
   @ApiOperation({
-    summary: 'Obtener detalle completo de un producto por ID',
+    summary: 'Obtener detalle de un producto publicado por ID',
   })
   @ApiResponse({
     status: 200,
@@ -180,11 +191,13 @@ export class ProductsController {
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SingleResponse<ProductResponseDto>> {
-    const product = await this.productsService.findOne(id);
+    const product = await this.productsService.findOnePublished(id);
     return { data: product };
   }
 
   @Patch(':id/status')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('products:update')
   @ApiOperation({
     summary: 'Actualizar estado del producto mediante máquina de estados',
@@ -220,6 +233,8 @@ export class ProductsController {
   }
 
   @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('products:update')
   @ApiOperation({
     summary: 'Actualizar parcialmente un producto existente',
@@ -259,6 +274,8 @@ export class ProductsController {
   }
 
   @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @Permissions('products:delete')
   @ApiOperation({

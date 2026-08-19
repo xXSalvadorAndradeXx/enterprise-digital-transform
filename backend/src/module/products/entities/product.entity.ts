@@ -22,6 +22,7 @@ import { ProductStatus } from '../enums/product-status.enum';
 @Index(['status'])
 @Index(['salePrice'])
 @Index(['createdAt'])
+@Index(['discountStartsAt'])
 @Index(['discountEndsAt'])
 export class Product {
   @PrimaryGeneratedColumn('uuid')
@@ -66,6 +67,9 @@ export class Product {
 
   @Column({ name: 'discount_ends_at', type: 'timestamptz', nullable: true })
   discountEndsAt!: Date | null;
+
+  @Column({ name: 'discount_starts_at', type: 'timestamptz', nullable: true })
+  discountStartsAt!: Date | null;
 
   @Column({
     type: 'enum',

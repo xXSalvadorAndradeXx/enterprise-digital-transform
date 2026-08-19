@@ -45,10 +45,15 @@ export class CreateProductDto {
   @IsOptional()
   discount?: number;
 
+  @ApiPropertyOptional({ example: '2026-12-01T00:00:00Z' })
+  @IsDateString()
+  @IsOptional()
+  discountStartsAt?: string | null;
+
   @ApiPropertyOptional({ example: '2026-12-31T23:59:59Z' })
   @IsDateString()
   @IsOptional()
-  discountEndsAt?: string;
+  discountEndsAt?: string | null;
 
   @ApiPropertyOptional({ enum: ProductStatus, default: ProductStatus.DRAFT })
   @IsEnum(ProductStatus)
