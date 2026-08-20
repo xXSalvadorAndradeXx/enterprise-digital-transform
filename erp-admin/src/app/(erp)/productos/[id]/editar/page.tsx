@@ -156,7 +156,7 @@ export default function EditarProductoPage({
    */
   useEffect(() => {
     const inventoryId =
-      product?.inventory.id;
+      product?.inventory?.id;
 
     if (!inventoryId) {
       return;
@@ -218,7 +218,7 @@ export default function EditarProductoPage({
       cancelled = true;
     };
   }, [
-    product?.inventory.id,
+    product?.inventory?.id,
   ]);
 
   const isProcessing =
@@ -229,73 +229,80 @@ export default function EditarProductoPage({
    * Prepara los valores actuales
    * del producto para edición.
    */
-  const defaultValues =
-    useMemo<
-      Partial<ProductFormInput>
-    >(() => {
-      if (!product) {
-        return {};
-      }
+const defaultValues =
+  useMemo<
+    Partial<ProductFormInput>
+  >(() => {
+    if (!product) {
+      return {};
+    }
 
-      return {
-        inventoryId:
-          product.inventory.id,
+    const hasDiscount =
+      product.discount !==
+        null &&
+      product.discount > 0;
 
-        commercialName:
-          product.commercialName,
+    return {
+      inventoryId:
+        product.inventory?.id ??
+        "",
 
-        salePrice:
-          String(
-            product.salePrice,
-          ),
+      commercialName:
+        product.commercialName,
 
-        applyDiscount:
-          product.discount > 0,
+      salePrice:
+        String(
+          product.salePrice,
+        ),
 
-        discount:
-          product.discount > 0
-            ? String(
-                product.discount,
-              )
-            : "",
+      applyDiscount:
+        hasDiscount,
 
-        discountEndsAt:
-          product.discountEndsAt
-            ? product.discountEndsAt.slice(
-                0,
-                10,
-              )
-            : "",
+      discount:
+        hasDiscount
+          ? String(
+              product.discount,
+            )
+          : "",
 
-        description:
-          product.description ??
-          "",
+      discountStartsAt:
+        product.discountStartsAt
+          ? product.discountStartsAt.slice(
+              0,
+              10,
+            )
+          : "",
 
-        tags:
-          product.tags,
+      discountEndsAt:
+        product.discountEndsAt
+          ? product.discountEndsAt.slice(
+              0,
+              10,
+            )
+          : "",
 
-        imageUrls:
-          product.images.map(
-            (image) =>
-              image.imageUrl,
-          ),
+      description:
+        product.description ??
+        "",
 
-        /*
-         * El estado no se modifica
-         * mediante PATCH de edición.
-         *
-         * Se mantiene un valor compatible
-         * con el formulario mientras
-         * Backend confirma el flujo final
-         * DRAFT / ACTIVE.
-         */
-        status:
-          product.status ===
-          "ACTIVE"
-            ? "ACTIVE"
-            : "DRAFT",
-      };
-    }, [product]);
+      tags:
+        product.tags,
+
+      imageUrls:
+        product.images.map(
+          (image) =>
+            image.imageUrl,
+        ),
+
+      status:
+        product.status ===
+        "ACTIVE"
+          ? "ACTIVE"
+          : "DRAFT",
+    };
+  }, [
+    product,
+  ]);
 
   /*
    * Ejecuta realmente:
@@ -384,19 +391,7 @@ export default function EditarProductoPage({
         return;
       }
 
-      /*
-       * Este es el precio definitivo.
-       *
-       * No utilizamos previewPrice
-       * como valor persistido.
-       */
-      const definitivePrice =
-        updatedProduct.effectivePrice;
-
-      console.info(
-        "effectivePrice:",
-        definitivePrice,
-      );
+      
 
       setPendingSubmission(
         null,

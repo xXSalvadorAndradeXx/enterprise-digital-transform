@@ -51,11 +51,17 @@ export const productFormSchema = z
         },
       ),
 
-    applyDiscount: z.boolean(),
+    applyDiscount:
+      z.boolean(),
 
-    discount: z.string(),
+    discount:
+      z.string(),
 
-    discountEndsAt: z.string(),
+    discountStartsAt:
+      z.string(),
+
+    discountEndsAt:
+      z.string(),
 
     description: z
       .string()
@@ -109,86 +115,196 @@ export const productFormSchema = z
         },
       ),
   })
-  .superRefine((data, ctx) => {
-    if (!data.applyDiscount) {
-      return;
-    }
+  .superRefine(
+    (data, ctx) => {
+      /*
+       * Si el descuento está desactivado,
+       * las fechas y el porcentaje no
+       * son obligatorios.
+       */
+      if (!data.applyDiscount) {
+        return;
+      }
 
-    const discount = Number(
-      data.discount,
-    );
+      const discount =
+        Number(
+          data.discount,
+        );
 
-    if (
-      data.discount.trim() === "" ||
-      Number.isNaN(discount)
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["discount"],
-        message:
-          "Debes ingresar un porcentaje de descuento.",
-      });
+      if (
+        data.discount.trim() === "" ||
+        Number.isNaN(discount)
+      ) {
+        ctx.addIssue({
+          code:
+            z.ZodIssueCode.custom,
 
-      return;
-    }
+          path: [
+            "discount",
+          ],
 
-    if (
-      discount < 0 ||
-      discount > 100
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["discount"],
-        message:
-          "El descuento debe estar entre 0 y 100.",
-      });
-    }
+          message:
+            "Debes ingresar un porcentaje de descuento.",
+        });
 
-    if (
-      !data.discountEndsAt.trim()
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: [
-          "discountEndsAt",
-        ],
-        message:
-          "Debes seleccionar la fecha final del descuento.",
-      });
+        return;
+      }
 
-      return;
-    }
+      if (
+        discount < 0 ||
+        discount > 100
+      ) {
+        ctx.addIssue({
+          code:
+            z.ZodIssueCode.custom,
 
-    const selectedDate =
-      new Date(
-        `${data.discountEndsAt}T23:59:59`,
+          path: [
+            "discount",
+          ],
+
+          message:
+            "El descuento debe estar entre 0 y 100.",
+        });
+      }
+
+      /*
+       * Fecha inicial.
+       */
+      if (
+        !data.discountStartsAt.trim()
+      ) {
+        ctx.addIssue({
+          code:
+            z.ZodIssueCode.custom,
+
+          path: [
+            "discountStartsAt",
+          ],
+
+          message:
+            "Debes seleccionar la fecha inicial del descuento.",
+        });
+      }
+
+      /*
+       * Fecha final.
+       */
+      if (
+        !data.discountEndsAt.trim()
+      ) {
+        ctx.addIssue({
+          code:
+            z.ZodIssueCode.custom,
+
+          path: [
+            "discountEndsAt",
+          ],
+
+          message:
+            "Debes seleccionar la fecha final del descuento.",
+        });
+      }
+
+      /*
+       * Si falta alguna fecha no podemos
+       * realizar las comparaciones.
+       */
+      if (
+        !data.discountStartsAt.trim() ||
+        !data.discountEndsAt.trim()
+      ) {
+        return;
+      }
+
+      const startDate =
+        new Date(
+          `${data.discountStartsAt}T00:00:00`,
+        );
+
+      const endDate =
+        new Date(
+          `${data.discountEndsAt}T23:59:59`,
+        );
+
+      const today =
+        new Date();
+
+      today.setHours(
+        0,
+        0,
+        0,
+        0,
       );
 
-    const today = new Date();
+      /*
+       * No permitir iniciar un descuento
+       * en una fecha pasada.
+       */
+      if (
+        startDate < today
+      ) {
+        ctx.addIssue({
+          code:
+            z.ZodIssueCode.custom,
 
-    today.setHours(
-      0,
-      0,
-      0,
-      0,
-    );
+          path: [
+            "discountStartsAt",
+          ],
 
-    if (
-      selectedDate < today
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: [
-          "discountEndsAt",
-        ],
-        message:
-          "La fecha final del descuento no puede estar en el pasado.",
-      });
-    }
-  });
+          message:
+            "La fecha inicial del descuento no puede estar en el pasado.",
+        });
+      }
+
+      /*
+       * Conservamos la validación que
+       * ya existía para la fecha final.
+       */
+      if (
+        endDate < today
+      ) {
+        ctx.addIssue({
+          code:
+            z.ZodIssueCode.custom,
+
+          path: [
+            "discountEndsAt",
+          ],
+
+          message:
+            "La fecha final del descuento no puede estar en el pasado.",
+        });
+      }
+
+      /*
+       * Regla del contrato Backend:
+       * el inicio debe ser anterior
+       * al final.
+       */
+      if (
+        startDate >= endDate
+      ) {
+        ctx.addIssue({
+          code:
+            z.ZodIssueCode.custom,
+
+          path: [
+            "discountEndsAt",
+          ],
+
+          message:
+            "La fecha final del descuento debe ser posterior a la fecha inicial.",
+        });
+      }
+    },
+  );
 
 export type ProductFormInput =
-  z.input<typeof productFormSchema>;
+  z.input<
+    typeof productFormSchema
+  >;
 
 export type ProductFormSchema =
-  z.output<typeof productFormSchema>;
+  z.output<
+    typeof productFormSchema
+  >;

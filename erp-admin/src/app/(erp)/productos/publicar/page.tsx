@@ -136,16 +136,7 @@ export default function PublicarProductoPage() {
         return;
       }
 
-      /*
-       * IMPORTANTE:
-       * Aquí el precio definitivo es
-       * product.effectivePrice.
-       */
-      console.info(
-        "Precio definitivo:",
-        product.effectivePrice,
-      );
-
+      
       if (
         product.status ===
         "ACTIVE"

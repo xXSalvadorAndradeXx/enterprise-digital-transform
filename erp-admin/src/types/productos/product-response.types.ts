@@ -33,12 +33,34 @@ export interface ProductDetail {
 
   salePrice: number;
 
-  discount: number;
+  /**
+   * Backend puede responder null
+   * cuando no existe descuento.
+   */
+  discount:
+    | number
+    | null;
 
+  /**
+   * Fecha en la que comienza
+   * la vigencia del descuento.
+   */
+  discountStartsAt:
+    | string
+    | null;
+
+  /**
+   * Fecha en la que finaliza
+   * la vigencia del descuento.
+   */
   discountEndsAt:
     | string
     | null;
 
+  /**
+   * Precio definitivo calculado
+   * por Backend.
+   */
   effectivePrice: number;
 
   status:
@@ -50,7 +72,13 @@ export interface ProductDetail {
   images:
     ProductImage[];
 
-  inventory: InventoryResponseDto;
+  /**
+   * El producto puede no tener
+   * inventario asociado.
+   */
+  inventory:
+    | InventoryResponseDto
+    | null;
 
   variantConfigs:
     ProductVariantDetail[];

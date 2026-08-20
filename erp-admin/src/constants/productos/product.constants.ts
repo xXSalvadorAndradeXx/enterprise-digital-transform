@@ -1,25 +1,31 @@
-import type { ProductStockStatus } from "@/types/productos";
+export type ProductStockStatus =
+  | "ACTIVE"
+  | "LOW_STOCK"
+  | "OUT_OF_STOCK";
 
 export const PRODUCT_STOCK_STATUS_OPTIONS: Array<{
-  label: ProductStockStatus;
+  label: string;
   value: ProductStockStatus;
 }> = [
   {
     label: "Alto",
-    value: "Alto",
+    value: "ACTIVE",
   },
   {
     label: "Medio",
-    value: "Medio",
+    value: "LOW_STOCK",
   },
   {
     label: "Bajo",
-    value: "Bajo",
+    value: "OUT_OF_STOCK",
   },
 ];
 
-export const PRODUCT_CATEGORY_PLACEHOLDER = "Categoría";
+export const PRODUCT_CATEGORY_PLACEHOLDER =
+  "Categoría";
 
-export const PRODUCT_STATUS_PLACEHOLDER = "Estado";
+export const PRODUCT_STATUS_PLACEHOLDER =
+  "Estado";
 
-export const PRODUCT_SEARCH_PLACEHOLDER = "Buscar productos";
+export const PRODUCT_SEARCH_PLACEHOLDER =
+  "Buscar productos";

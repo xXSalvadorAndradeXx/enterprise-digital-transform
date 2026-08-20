@@ -5,22 +5,39 @@ import {
   useRef,
 } from "react";
 
-import { formatCurrency } from "@/utils/formatCurrency";
+import {
+  formatCurrency,
+} from "@/utils/formatCurrency";
 
-import { ProductBasicInformation } from "./ProductBasicInformation";
-import { ProductDiscountCard } from "./ProductDiscountCard";
-import { ProductGallery } from "./ProductGallery";
-import { ProductStatusBadge } from "./ProductStatusBadge";
-import { ProductTags } from "./ProductTags";
+import {
+  ProductBasicInformation,
+} from "./ProductBasicInformation";
+
+import {
+  ProductDiscountCard,
+} from "./ProductDiscountCard";
+
+import {
+  ProductGallery,
+} from "./ProductGallery";
+
+import {
+  ProductTags,
+} from "./ProductTags";
 
 import type {
   ProductDetail,
 } from "@/types/productos";
 
 interface ProductPreviewProps {
-  product: ProductDetail;
-  onClose: () => void;
-  onEdit: () => void;
+  product:
+    ProductDetail;
+
+  onClose:
+    () => void;
+
+  onEdit:
+    () => void;
 }
 
 export function ProductPreview({
@@ -29,7 +46,9 @@ export function ProductPreview({
   onEdit,
 }: ProductPreviewProps) {
   const containerRef =
-    useRef<HTMLDivElement>(null);
+    useRef<HTMLDivElement>(
+      null,
+    );
 
   useEffect(() => {
     const previouslyFocused =
@@ -40,8 +59,12 @@ export function ProductPreview({
     const handleKeyDown = (
       event: KeyboardEvent,
     ): void => {
-      if (event.key === "Escape") {
+      if (
+        event.key ===
+        "Escape"
+      ) {
         event.preventDefault();
+
         onClose();
       }
     };
@@ -64,34 +87,56 @@ export function ProductPreview({
         previouslyFocused.focus();
       }
     };
-  }, [onClose]);
+  }, [
+    onClose,
+  ]);
 
   const hasDiscount =
+    product.discount !==
+      null &&
     product.discount > 0;
 
-    const category =
-  product.inventory.category.name;
+  const inventory =
+    product.inventory;
 
-const stock =
-  product.inventory.totalStock;
+  const category =
+    inventory?.category?.name ??
+    "Sin categoría";
 
-const stockLabel =
-  product.inventory.status === "OUT_OF_STOCK"
-    ? "Sin stock"
-    : product.inventory.status === "LOW_STOCK"
-      ? "Stock bajo"
-      : "En stock";
+  const stock =
+    inventory?.totalStock ??
+    0;
+
+  const inventoryStatus =
+    inventory?.status;
+
+  const stockLabel =
+    !inventory
+      ? "Sin información"
+      : inventoryStatus ===
+          "OUT_OF_STOCK"
+        ? "Sin stock"
+        : inventoryStatus ===
+            "LOW_STOCK"
+          ? "Stock bajo"
+          : "En stock";
 
   return (
     <div
-      ref={containerRef}
-      tabIndex={-1}
+      ref={
+        containerRef
+      }
+      tabIndex={
+        -1
+      }
       aria-labelledby="product-preview-title"
       className="rounded-xl border border-gray-300 bg-white p-5 outline-none md:p-8"
     >
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
         <ProductGallery
-          images={product.images}
+          images={
+            product.images
+          }
           productName={
             product.commercialName
           }
@@ -102,20 +147,25 @@ const stockLabel =
             id="product-preview-title"
             className="break-words text-xl font-semibold text-gray-900"
           >
-            {product.commercialName}
+            {
+              product.commercialName
+            }
           </h2>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <span
-            className="inline-flex min-h-9 max-w-[180px] items-center truncate rounded-md bg-[#F2F5FC] px-3 py-2 text-xs text-gray-600"
-            title={category}
+              className="inline-flex min-h-9 max-w-[180px] items-center truncate rounded-md bg-[#F2F5FC] px-3 py-2 text-xs text-gray-600"
+              title={
+                category
+              }
             >
-            {category}
+              {
+                category
+              }
             </span>
           </div>
 
           <div className="mt-6">
-            
             <p className="text-3xl font-semibold text-[#1C21D1]">
               {formatCurrency(
                 hasDiscount
@@ -125,17 +175,23 @@ const stockLabel =
             </p>
           </div>
 
-        <span
-        className={`mt-5 inline-flex min-h-9 items-center rounded-md px-3 py-2 text-sm font-medium ${
-          product.inventory.status === "OUT_OF_STOCK"
-            ? "bg-red-100 text-red-700"
-            : product.inventory.status === "LOW_STOCK"
-              ? "bg-yellow-100 text-yellow-700"
-              : "bg-[rgba(52,198,29,0.20)] text-green-700"
-        }`}
-      >
-        {stockLabel}
-      </span>
+          <span
+            className={`mt-5 inline-flex min-h-9 items-center rounded-md px-3 py-2 text-sm font-medium ${
+              !inventory
+                ? "bg-gray-100 text-gray-600"
+                : inventoryStatus ===
+                    "OUT_OF_STOCK"
+                  ? "bg-red-100 text-red-700"
+                  : inventoryStatus ===
+                      "LOW_STOCK"
+                    ? "bg-yellow-100 text-yellow-700"
+                    : "bg-[rgba(52,198,29,0.20)] text-green-700"
+            }`}
+          >
+            {
+              stockLabel
+            }
+          </span>
 
           <hr className="my-5 border-gray-300" />
 
@@ -145,22 +201,25 @@ const stockLabel =
             </h3>
 
             <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
-              {product.description?.trim() ||
+              {product.description
+                ?.trim() ||
                 "Sin descripción"}
             </p>
           </section>
 
           <section className="mt-10">
             <h3 className="text-sm font-semibold text-gray-900">
-                Etiquetas
+              Etiquetas
             </h3>
 
             <div className="mt-5">
-                <ProductTags
-                tags={product.tags}
-                />
+              <ProductTags
+                tags={
+                  product.tags
+                }
+              />
             </div>
-            </section>
+          </section>
         </section>
       </div>
 
@@ -169,15 +228,26 @@ const stockLabel =
       <div className="grid gap-8 lg:grid-cols-2 lg:divide-x lg:divide-gray-300">
         <div className="lg:pr-8">
           <ProductBasicInformation
-          category={category}
-          salePrice={product.salePrice}
-          stock={stock}
-          stockLabel={stockLabel}
-        />
+            category={
+              category
+            }
+            salePrice={
+              product.salePrice
+            }
+            stock={
+              stock
+            }
+            stockLabel={
+              stockLabel
+            }
+          />
         </div>
 
         <div className="lg:pl-8">
-          {hasDiscount ? (
+          {product.discount !==
+            null &&
+          product.discount >
+            0 ? (
             <ProductDiscountCard
               salePrice={
                 product.salePrice
@@ -196,8 +266,7 @@ const stockLabel =
               </h3>
 
               <p className="mt-4 text-sm text-gray-500">
-                Este producto no tiene
-                un descuento activo.
+                Este producto no tiene un descuento activo.
               </p>
             </div>
           )}
@@ -207,7 +276,9 @@ const stockLabel =
       <div className="mt-10 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button
           type="button"
-          onClick={onClose}
+          onClick={
+            onClose
+          }
           className="min-w-36 rounded-md border border-[#1C21D1] px-6 py-2 text-sm font-medium text-[#1C21D1] transition-colors hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-[#1C21D1] focus:ring-offset-2"
         >
           Cerrar
@@ -215,7 +286,9 @@ const stockLabel =
 
         <button
           type="button"
-          onClick={onEdit}
+          onClick={
+            onEdit
+          }
           className="min-w-36 rounded-md bg-[#1C21D1] px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] focus:outline-none focus:ring-2 focus:ring-[#1C21D1] focus:ring-offset-2"
         >
           Editar

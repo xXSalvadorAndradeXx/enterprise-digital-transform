@@ -154,6 +154,9 @@ export function ProductForm({
       discount:
         "10",
 
+      discountStartsAt:
+        "",
+
       discountEndsAt:
         "",
 

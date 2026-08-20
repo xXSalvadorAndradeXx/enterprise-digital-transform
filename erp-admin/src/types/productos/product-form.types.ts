@@ -10,10 +10,23 @@ export interface ProductFormValues {
   inventoryId: string;
 
   commercialName: string;
+
   salePrice: string;
 
   applyDiscount: boolean;
+
   discount: string;
+
+  /**
+   * Fecha en la que comienza
+   * la vigencia del descuento.
+   */
+  discountStartsAt: string;
+
+  /**
+   * Fecha en la que finaliza
+   * la vigencia del descuento.
+   */
   discountEndsAt: string;
 
   description: string;
@@ -39,9 +52,11 @@ export interface InventoryVariantView {
   sku: string;
 
   size: string;
+
   color: string;
 
   stock: number;
+
   minStock: number;
 
   stockStatus:
@@ -62,9 +77,11 @@ export interface InventoryProductView {
   inventoryId: string;
 
   name: string;
+
   brand: string;
 
   supplier: string;
+
   category: string;
 
   inventoryStatus:

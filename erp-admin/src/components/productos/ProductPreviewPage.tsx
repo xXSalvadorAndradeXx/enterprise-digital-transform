@@ -1,31 +1,39 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import {
+  useRouter,
+} from "next/navigation";
 
-import { ProductPreview } from "./ProductPreview";
+import {
+  ProductPreview,
+} from "./ProductPreview";
 
 import type {
-  ProductPreviewData,
+  ProductDetail,
 } from "@/types/productos";
 
 interface ProductPreviewPageProps {
-  product: ProductPreviewData;
+  product:
+    ProductDetail;
 }
 
 export function ProductPreviewPage({
   product,
 }: ProductPreviewPageProps) {
-  const router = useRouter();
+  const router =
+    useRouter();
 
-  const handleClose = (): void => {
-    router.back();
-  };
+  const handleClose =
+    (): void => {
+      router.back();
+    };
 
-  const handleEdit = (): void => {
-    router.push(
-      `/productos/${product.id}/editar`,
-    );
-  };
+  const handleEdit =
+    (): void => {
+      router.push(
+        `/productos/${product.id}/editar`,
+      );
+    };
 
   return (
     <main>
@@ -34,9 +42,15 @@ export function ProductPreviewPage({
       </h1>
 
       <ProductPreview
-        product={product}
-        onClose={handleClose}
-        onEdit={handleEdit}
+        product={
+          product
+        }
+        onClose={
+          handleClose
+        }
+        onEdit={
+          handleEdit
+        }
       />
     </main>
   );

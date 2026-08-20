@@ -16,21 +16,32 @@ export function mapProductFormToCreateRequest(
   options: MapProductFormOptions,
 ): CreateProductRequest {
   return {
-    inventoryId: values.inventoryId,
+    inventoryId:
+      values.inventoryId,
 
     commercialName:
       values.commercialName.trim(),
 
     description:
-      values.description.trim() || null,
+      values.description.trim() ||
+      null,
 
     salePrice:
-      Number(values.salePrice),
+      Number(
+        values.salePrice,
+      ),
 
     discount:
       values.applyDiscount
-        ? Number(values.discount)
+        ? Number(
+            values.discount,
+          )
         : 0,
+
+    discountStartsAt:
+      values.applyDiscount
+        ? values.discountStartsAt
+        : null,
 
     discountEndsAt:
       values.applyDiscount
@@ -42,7 +53,8 @@ export function mapProductFormToCreateRequest(
 
     tags:
       values.tags.map(
-        (tag) => tag.trim(),
+        (tag) =>
+          tag.trim(),
       ),
 
     imageUrls:
@@ -59,15 +71,25 @@ export function mapProductFormToUpdateRequest(
       values.commercialName.trim(),
 
     description:
-      values.description.trim() || null,
+      values.description.trim() ||
+      null,
 
     salePrice:
-      Number(values.salePrice),
+      Number(
+        values.salePrice,
+      ),
 
     discount:
       values.applyDiscount
-        ? Number(values.discount)
+        ? Number(
+            values.discount,
+          )
         : 0,
+
+    discountStartsAt:
+      values.applyDiscount
+        ? values.discountStartsAt
+        : null,
 
     discountEndsAt:
       values.applyDiscount
@@ -76,7 +98,8 @@ export function mapProductFormToUpdateRequest(
 
     tags:
       values.tags.map(
-        (tag) => tag.trim(),
+        (tag) =>
+          tag.trim(),
       ),
 
     imageUrls:

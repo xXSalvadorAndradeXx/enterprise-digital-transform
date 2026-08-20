@@ -1,4 +1,6 @@
-import type { ProductStatus } from "./product-response.types";
+import type {
+  ProductStatus,
+} from "./product.types";
 
 export interface ProductPreviewImage {
   id: string;

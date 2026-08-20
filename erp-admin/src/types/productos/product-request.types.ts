@@ -12,11 +12,16 @@ export interface CreateProductRequest {
   commercialName: string;
   description?: string | null;
   salePrice: number;
+
   discount?: number;
+  discountStartsAt?: string | null;
   discountEndsAt?: string | null;
+
   status?: ProductCreateStatus;
+
   tags?: string[];
   imageUrls?: string[];
+
   variantConfigs?: ProductVariantConfig[];
 }
 
@@ -24,10 +29,14 @@ export interface UpdateProductRequest {
   commercialName?: string;
   description?: string | null;
   salePrice?: number;
+
   discount?: number;
+  discountStartsAt?: string | null;
   discountEndsAt?: string | null;
+
   tags?: string[];
   imageUrls?: string[];
+
   variantConfigs?: ProductVariantConfig[];
 }
 
