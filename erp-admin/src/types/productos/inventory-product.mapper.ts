@@ -20,10 +20,12 @@ export function mapInventoryToProductView(
       inventory.brand,
 
     supplier:
-      inventory.supplier.name,
+      inventory.supplier?.name ??
+      "Sin proveedor",
 
     category:
-      inventory.category.name,
+      inventory.category?.name ??
+      "Sin categoría",
 
     inventoryStatus:
       inventory.status,
@@ -32,7 +34,7 @@ export function mapInventoryToProductView(
       inventory.totalStock,
 
     variants:
-      inventory.details.map(
+      (inventory.details ?? []).map(
         (detail) => ({
           inventoryDetailId:
             detail.id,

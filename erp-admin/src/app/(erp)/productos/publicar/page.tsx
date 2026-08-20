@@ -152,9 +152,9 @@ export default function PublicarProductoPage() {
         setResultModal({
           type: "success",
           title:
-            "¡Producto guardado!",
+            "¡Cambios guardados con éxito!",
           message:
-            `El producto "${product.commercialName}" se guardó correctamente como borrador.`,
+            "El producto se ha actualizado correctamente en el catálogo y los cambios ya están reflejados en el sistema.",
         });
       }
 

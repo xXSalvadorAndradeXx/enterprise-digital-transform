@@ -35,10 +35,10 @@ export function buildProductQueryString(
     );
   }
 
-  if (query.status) {
+  if (query.stockStatus) {
     params.set(
-      "status",
-      query.status,
+      "stockStatus",
+      query.stockStatus,
     );
   }
 

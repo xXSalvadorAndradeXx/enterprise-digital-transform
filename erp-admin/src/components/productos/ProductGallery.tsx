@@ -77,6 +77,7 @@ export function ProductGallery({
             sizes="(max-width: 1024px) 100vw, 50vw"
             className="object-contain"
             priority
+            unoptimized
             />
         </div>
         </div>
@@ -121,6 +122,7 @@ export function ProductGallery({
                         fill
                         sizes="80px"
                         className="object-cover"
+                        unoptimized
                         />
                     </div>
                     </button>

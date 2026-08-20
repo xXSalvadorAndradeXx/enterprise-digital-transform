@@ -20,7 +20,7 @@ interface ProductRouteContext {
 }
 
 /**
- * GET /api/products/:id
+ * GET /api/products/:id (detalle administrativo, incluye borradores)
  */
 export async function GET(
   _request: NextRequest,
@@ -43,7 +43,7 @@ export async function GET(
     const response =
       await fetch(
         getBackendUrl(
-          `/products/${id}`,
+          `/products/admin/${id}`,
         ),
         {
           method:

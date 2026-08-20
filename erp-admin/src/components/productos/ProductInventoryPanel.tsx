@@ -289,7 +289,7 @@ export function ProductInventoryPanel({
                       Talla
                     </th>
 
-                    <th className="px-4 py-3 font-medium text-[#EC2A51]">
+                    <th className="px-4 py-3 font-medium text-gray-700">
                       Color
                     </th>
 

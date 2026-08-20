@@ -24,6 +24,10 @@ import {
 } from "@/hooks/productos/useUpdateProduct";
 
 import {
+  useUpdateProductStatus,
+} from "@/hooks/productos/useUpdateProductStatus";
+
+import {
   useUploadProductImages,
 } from "@/hooks/productos/useUploadProductImages";
 
@@ -95,6 +99,14 @@ export default function EditarProductoPage({
     error:
       updateError,
   } = useUpdateProduct();
+
+  const {
+    changeStatus,
+    isLoading:
+      isChangingStatus,
+    error:
+      statusError,
+  } = useUpdateProductStatus();
 
   const {
     uploadImages,
@@ -223,7 +235,8 @@ export default function EditarProductoPage({
 
   const isProcessing =
     isUpdating ||
-    isUploading;
+    isUploading ||
+    isChangingStatus;
 
   /*
    * Prepara los valores actuales
@@ -391,21 +404,56 @@ const defaultValues =
         return;
       }
 
-      
+      const shouldPublish =
+        values.status ===
+          "ACTIVE" &&
+        updatedProduct.status !==
+          "ACTIVE";
+
+      if (shouldPublish) {
+        const publishedProduct =
+          await changeStatus(
+            id,
+            {
+              status: "ACTIVE",
+            },
+          );
+
+        if (!publishedProduct) {
+          setResultModal({
+            type: "error",
+            title:
+              "No se pudo publicar",
+            message:
+              statusError?.message ??
+              "Los cambios se guardaron, pero no fue posible publicar el producto. Inténtalo nuevamente.",
+          });
+
+          return;
+        }
+      }
 
       setPendingSubmission(
         null,
       );
 
-      setResultModal({
-        type: "success",
-
-        title:
-          "¡Cambios guardados con éxito!",
-
-        message:
-          "El producto se ha actualizado correctamente en el catálogo y los cambios ya están reflejados en el sistema.",
-      });
+      setResultModal(
+        shouldPublish
+          ? {
+              type: "success",
+              title:
+                "¡Estado actualizado!",
+              message:
+                "El producto fue publicado correctamente en el e-commerce.",
+            }
+          : {
+              type: "success",
+              title:
+                "¡Cambios guardados con éxito!",
+              message:
+                "El producto se ha actualizado correctamente en el catálogo y los cambios ya están reflejados en el sistema.",
+            },
+      );
     };
 
   /*
@@ -503,6 +551,7 @@ const defaultValues =
 
   const displayErrorMessage =
     updateError?.message ??
+    statusError?.message ??
     uploadError?.message ??
     resultModal?.message ??
     "";

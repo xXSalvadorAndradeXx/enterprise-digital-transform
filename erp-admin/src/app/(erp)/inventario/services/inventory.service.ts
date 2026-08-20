@@ -30,13 +30,30 @@ export async function getInventoryById(
   id: string,
   token?: string
 ): Promise<ApiItemResponseDto<InventoryWithDetailsDto>> {
-  return apiRequest<ApiItemResponseDto<InventoryWithDetailsDto>>(
+  const response = await apiRequest<
+    InventoryWithDetailsDto | ApiItemResponseDto<InventoryWithDetailsDto>
+  >(
     INVENTORY_ENDPOINTS.DETAIL(id),
     {
       method: "GET",
       token,
     }
   );
+
+  // Inventario actualmente devuelve el DTO directamente, mientras otros
+  // módulos usan { data, statusCode }. Admitimos ambas formas en el BFF.
+  if (
+    typeof response === "object" &&
+    response !== null &&
+    "data" in response
+  ) {
+    return response;
+  }
+
+  return {
+    data: response,
+    statusCode: 200,
+  };
 }
 
 export async function getInventoryVariants(

@@ -1,6 +1,7 @@
 import type {
   CreateProductRequest,
   CreateProductResponse,
+  ProductDetail,
   ProductDetailResponse,
   ProductListResponse,
   ProductQuery,
@@ -20,6 +21,46 @@ import {
 
 const PRODUCTS_API_URL =
   "/api/products";
+
+function normalizeProductTags(
+  value: unknown,
+): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const tags = value.flatMap((item) => {
+    if (typeof item === "string") {
+      const tag = item.trim();
+      return tag ? [tag] : [];
+    }
+
+    if (
+      typeof item === "object" &&
+      item !== null &&
+      "tag" in item &&
+      typeof item.tag === "string"
+    ) {
+      const tag = item.tag.trim();
+      return tag ? [tag] : [];
+    }
+
+    return [];
+  });
+
+  return Array.from(new Set(tags));
+}
+
+function normalizeProduct(
+  product: ProductDetail,
+): ProductDetail {
+  return {
+    ...product,
+    tags: normalizeProductTags(
+      product.tags,
+    ),
+  };
+}
 
 function getJsonHeaders():
   HeadersInit {
@@ -61,7 +102,15 @@ export async function listProducts(
     );
   }
 
-  return response.json() as Promise<ProductListResponse>;
+  const body =
+    await response.json() as ProductListResponse;
+
+  return {
+    ...body,
+    data: body.data.map(
+      normalizeProduct,
+    ),
+  };
 }
 
 /**
@@ -94,7 +143,15 @@ export async function getProductById(
     );
   }
 
-  return response.json() as Promise<ProductDetailResponse>;
+  const body =
+    await response.json() as ProductDetailResponse;
+
+  return {
+    ...body,
+    data: normalizeProduct(
+      body.data,
+    ),
+  };
 }
 
 /**
@@ -127,7 +184,15 @@ export async function createProduct(
     );
   }
 
-  return response.json() as Promise<CreateProductResponse>;
+  const body =
+    await response.json() as CreateProductResponse;
+
+  return {
+    ...body,
+    data: normalizeProduct(
+      body.data,
+    ),
+  };
 }
 
 /**
@@ -162,7 +227,15 @@ export async function updateProduct(
     );
   }
 
-  return response.json() as Promise<UpdateProductResponse>;
+  const body =
+    await response.json() as UpdateProductResponse;
+
+  return {
+    ...body,
+    data: normalizeProduct(
+      body.data,
+    ),
+  };
 }
 
 /**
@@ -197,7 +270,15 @@ export async function updateProductStatus(
     );
   }
 
-  return response.json() as Promise<UpdateProductStatusResponse>;
+  const body =
+    await response.json() as UpdateProductStatusResponse;
+
+  return {
+    ...body,
+    data: normalizeProduct(
+      body.data,
+    ),
+  };
 }
 
 /**

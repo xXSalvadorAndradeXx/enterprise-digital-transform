@@ -244,9 +244,14 @@ export function ProductForm({
         return;
       }
 
-      await selectInventory(
-        selected.inventoryId,
-      );
+      const wasSelected =
+        await selectInventory(
+          selected.inventoryId,
+        );
+
+      if (!wasSelected) {
+        return;
+      }
 
       setValue(
         "inventoryId",

@@ -43,7 +43,7 @@ interface UseInventorySelectionReturn {
 
   selectInventory: (
     inventoryId: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 
   clearSelection:
     () => void;
@@ -175,8 +175,17 @@ export function useInventorySelection():
              * únicamente al seleccionar.
              */
             const mappedResults =
-              response.data.map(
-                (inventory) => ({
+              response.data.flatMap(
+                (inventory) => {
+                  if (
+                    !inventory ||
+                    typeof inventory.id !== "string" ||
+                    typeof inventory.productName !== "string"
+                  ) {
+                    return [];
+                  }
+
+                  return [{
                   inventoryId:
                     inventory.id,
 
@@ -188,11 +197,13 @@ export function useInventorySelection():
 
                   supplier:
                     inventory
-                      .supplier.name,
+                      .supplier?.name ??
+                    "Sin proveedor",
 
                   category:
                     inventory
-                      .category.name,
+                      .category?.name ??
+                    "Sin categoría",
 
                   inventoryStatus:
                     inventory.status,
@@ -201,7 +212,8 @@ export function useInventorySelection():
                     inventory.totalStock,
 
                   variants: [],
-                }),
+                  }];
+                },
               );
 
             setResults(
@@ -222,10 +234,9 @@ export function useInventorySelection():
             setHasSearched(true);
 
             setError(
-              caughtError instanceof
-                Error
-                ? caughtError.message
-                : "No se pudo realizar la búsqueda de inventario.",
+              getInventoryErrorMessage(
+                caughtError,
+              ),
             );
           } finally {
             if (
@@ -255,7 +266,7 @@ export function useInventorySelection():
    */
   const selectInventory = async (
     inventoryId: string,
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
@@ -264,6 +275,12 @@ export function useInventorySelection():
         await getInventoryById(
           inventoryId,
         );
+
+      if (!response.data) {
+        throw new Error(
+          INVENTORY_UNAVAILABLE_MESSAGE,
+        );
+      }
 
       const inventory =
         mapInventoryToProductView(
@@ -282,7 +299,7 @@ export function useInventorySelection():
           "El inventario seleccionado no tiene stock disponible.",
         );
 
-        return;
+        return false;
       }
 
       setSelectedInventory(
@@ -294,12 +311,16 @@ export function useInventorySelection():
       setSearchState("");
 
       setHasSearched(false);
+
+      return true;
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "No se pudo seleccionar el inventario.",
+        getInventoryErrorMessage(
+          caughtError,
+        ),
       );
+
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -331,4 +352,23 @@ export function useInventorySelection():
 
     clearSelection,
   };
+}
+
+const INVENTORY_UNAVAILABLE_MESSAGE =
+  "No pudimos consultar el inventario en este momento. Intenta nuevamente.";
+
+function getInventoryErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return INVENTORY_UNAVAILABLE_MESSAGE;
+  }
+
+  if (
+    error.message.includes("Cannot read properties") ||
+    error.message.includes("undefined") ||
+    error.message.includes("null")
+  ) {
+    return INVENTORY_UNAVAILABLE_MESSAGE;
+  }
+
+  return error.message;
 }

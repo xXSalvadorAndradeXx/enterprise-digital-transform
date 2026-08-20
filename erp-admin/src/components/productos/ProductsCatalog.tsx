@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useState,
 } from "react";
 
@@ -25,6 +26,10 @@ import {
 import {
   useDeleteProduct,
 } from "@/hooks/productos/useDeleteProduct";
+
+import {
+  getPurchaseCategories,
+} from "@/app/(erp)/compras/services/categories.service";
 
 import type {
   ProductSummary,
@@ -77,10 +82,38 @@ export function ProductsCatalog() {
       message: string;
     } | null>(null);
 
-  const categories: Array<{
+  const [
+    categories,
+    setCategories,
+  ] = useState<Array<{
     label: string;
     value: string;
-  }> = [];
+  }>>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void getPurchaseCategories(
+      controller.signal,
+    )
+      .then((items) => {
+        setCategories(
+          items.map((category) => ({
+            label: category.name,
+            value: String(category.id),
+          })),
+        );
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setCategories([]);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
 
   const handleView = (
     product: ProductSummary,

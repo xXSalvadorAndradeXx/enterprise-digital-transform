@@ -17,7 +17,10 @@ import {
  * GET /api/products
  *
  * Proxy hacia:
- * GET /api/v1/products
+ * GET /api/v1/products/admin
+ *
+ * Esta pantalla es administrativa y debe incluir borradores. El endpoint
+ * público /products fuerza status=ACTIVE y ocultaba productos recién creados.
  */
 export async function GET(
   request: NextRequest,
@@ -36,7 +39,7 @@ export async function GET(
     const response =
       await fetch(
         `${getBackendUrl(
-          "/products",
+          "/products/admin",
         )}${search}`,
         {
           method:

@@ -12,7 +12,7 @@ import { SearchBar } from "@/components/ui/SearchBar";
 import { ProductFilter } from "./ProductFilter";
 
 import type {
-  ProductStatus,
+  ProductInventoryStockStatus,
 } from "@/types/productos";
 
 interface ProductCategoryOption {
@@ -24,7 +24,7 @@ interface ProductsToolbarProps {
   search: string;
   categoryId: string;
   status:
-    | ProductStatus
+    | ProductInventoryStockStatus
     | "";
 
   categories:
@@ -40,30 +40,26 @@ interface ProductsToolbarProps {
 
   onStatusChange: (
     value:
-      | ProductStatus
+      | ProductInventoryStockStatus
       | "",
   ) => void;
 }
 
 const STATUS_OPTIONS: Array<{
   label: string;
-  value: ProductStatus;
+  value: ProductInventoryStockStatus;
 }> = [
   {
-    label: "Borrador",
-    value: "DRAFT",
+    label: "Alto",
+    value: "ALTO",
   },
   {
-    label: "Activo",
-    value: "ACTIVE",
+    label: "Medio",
+    value: "MEDIO",
   },
   {
-    label: "Pausado",
-    value: "PAUSED",
-  },
-  {
-    label: "Descontinuado",
-    value: "DISCONTINUED",
+    label: "Bajo",
+    value: "BAJO",
   },
 ];
 
@@ -102,7 +98,7 @@ export function ProductsToolbar({
           onChange={(value) =>
             onStatusChange(
               value as
-                | ProductStatus
+                | ProductInventoryStockStatus
                 | "",
             )
           }

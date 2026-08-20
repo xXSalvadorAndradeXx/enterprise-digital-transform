@@ -9,13 +9,13 @@ import { useProducts } from "./useProducts";
 
 import type {
   ProductQuery,
-  ProductStatus,
+  ProductInventoryStockStatus,
 } from "@/types/productos";
 
 export interface ProductCatalogFilters {
   search: string;
   categoryId: string;
-  status: ProductStatus | "";
+  status: ProductInventoryStockStatus | "";
 }
 
 interface UseProductsCatalogReturn {
@@ -33,7 +33,7 @@ interface UseProductsCatalogReturn {
   setSearch: (value: string) => void;
   setCategory: (value: string) => void;
   setStatus: (
-    value: ProductStatus | "",
+    value: ProductInventoryStockStatus | "",
   ) => void;
 
   setPage: (page: number) => void;
@@ -76,7 +76,7 @@ const query =
         filters.categoryId ||
         undefined,
 
-      status:
+      stockStatus:
         filters.status ||
         undefined,
     }),
@@ -121,7 +121,7 @@ const query =
 
   const setStatus = (
     value:
-      | ProductStatus
+      | ProductInventoryStockStatus
       | "",
   ): void => {
     setFilters((current) => ({
