@@ -172,7 +172,7 @@ aria-hidden="true"
 />
 </span>
 
-<span className="text-base font-semibold text-black">
+<span className="hidden max-w-48 truncate text-base font-semibold text-black sm:inline">
 {name}
 </span>
 
@@ -181,7 +181,7 @@ size={20}
 strokeWidth={2.5}
 aria-hidden="true"
 className={[
-"text-black transition-transform duration-200",
+"hidden text-black transition-transform duration-200 sm:block",
 isOpen ? "rotate-180" : "",
 ].join(" ")}
 />

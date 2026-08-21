@@ -239,11 +239,7 @@ export function ProductsTable({
             return (
               <ProductStockStatus
                 status={
-                  status === "ACTIVE"
-                    ? "ALTO"
-                    : status === "LOW_STOCK"
-                      ? "MEDIO"
-                      : "BAJO"
+                  status
                 }
               />
             );

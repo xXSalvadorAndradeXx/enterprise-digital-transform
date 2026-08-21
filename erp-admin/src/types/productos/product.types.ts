@@ -22,11 +22,6 @@ export type ProductStatus =
   | "PAUSED"
   | "DISCONTINUED";
 
-export type ProductInventoryStockStatus =
-  | "ALTO"
-  | "MEDIO"
-  | "BAJO";
-
 export type ProductCreateStatus =
   | "DRAFT"
   | "ACTIVE";

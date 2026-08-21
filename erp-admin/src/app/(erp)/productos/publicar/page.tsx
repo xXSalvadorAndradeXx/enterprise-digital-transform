@@ -16,6 +16,10 @@ import { useCreateProduct } from "@/hooks/productos/useCreateProduct";
 import { useUploadProductImages } from "@/hooks/productos/useUploadProductImages";
 
 import {
+  isProductHttpError,
+} from "@/services/productos/product-errors";
+
+import {
   mapProductFormToCreateRequest,
 } from "@/types/productos/product-form.mapper";
 
@@ -72,6 +76,8 @@ export default function PublicarProductoPage() {
     title: string;
 
     message: string;
+
+    retryable?: boolean;
   } | null>(
     null,
   );
@@ -118,10 +124,51 @@ export default function PublicarProductoPage() {
           },
         );
 
-      const product =
-        await create(
-          request,
+      let product;
+
+      try {
+        product =
+          await create(
+            request,
+          );
+      } catch (caughtError) {
+        const isInventoryConflict =
+          isProductHttpError(
+            caughtError,
+          ) &&
+          caughtError.status === 409 &&
+          caughtError.message
+            .toLowerCase()
+            .includes(
+              "ya se encuentra asociado",
+            );
+
+        setResultModal(
+          isInventoryConflict
+            ? {
+                type: "error",
+                title:
+                  "Producto ya registrado",
+                message:
+                  "Este producto ya se encuentra registrado en el catálogo. Selecciona otro producto del inventario.",
+                retryable: false,
+              }
+            : {
+                type: "error",
+                title:
+                  "¡Algo salió mal!",
+                message:
+                  isProductHttpError(
+                    caughtError,
+                  )
+                    ? caughtError.message
+                    : "No pudimos completar tu solicitud. Por favor, inténtalo nuevamente.",
+                retryable: true,
+              },
         );
+
+        return;
+      }
 
       if (!product) {
         setResultModal({
@@ -337,6 +384,12 @@ export default function PublicarProductoPage() {
             null,
           );
         }}
+        errorActionLabel={
+          resultModal?.retryable ===
+          false
+            ? "Aceptar"
+            : "Reintentar"
+        }
       />
     </main>
   );

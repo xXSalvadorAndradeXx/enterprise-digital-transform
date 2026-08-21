@@ -90,7 +90,9 @@ export class ProductResponseDto {
   @ApiPropertyOptional()
   discount!: number | null;
 
-  @ApiProperty({ description: 'Precio efectivo calculado aplicando el descuento' })
+  @ApiProperty({
+    description: 'Precio efectivo calculado aplicando el descuento',
+  })
   effectivePrice!: number;
 
   @ApiPropertyOptional()
@@ -151,8 +153,7 @@ export class ProductResponseDto {
         product.discountStartsAt &&
         new Date(product.discountStartsAt) > new Date();
       const isExpired =
-        product.discountEndsAt &&
-        new Date(product.discountEndsAt) < new Date();
+        product.discountEndsAt && new Date(product.discountEndsAt) < new Date();
 
       if (discountNum > 0 && !hasNotStarted && !isExpired) {
         dto.effectivePrice = Number(
@@ -173,15 +174,37 @@ export class ProductResponseDto {
 
     if (product.inventory) {
       const inv = product.inventory;
+      const details = (inv.details || []).map((d) => ({
+        ...d,
+        stock: Number(d.stock),
+        minStock: Number(d.minStock),
+        unitCost: Number(d.unitCost),
+        stockStatus: calculateStockStatus(Number(d.stock), Number(d.minStock)),
+      }));
+
       dto.inventory = {
         ...inv,
-        details: (inv.details || []).map((d) => ({
-          ...d,
-          stockStatus: calculateStockStatus(
-            Number(d.stock),
-            Number(d.minStock),
-          ),
-        })),
+        category: inv.category
+          ? {
+              id: inv.category.id,
+              name:
+                (inv.category as any).nombre ??
+                (inv.category as any).name ??
+                '',
+            }
+          : null,
+        supplier: inv.supplier
+          ? {
+              id: inv.supplier.id,
+              name: (inv.supplier as any).name ?? '',
+            }
+          : null,
+        totalStock:
+          details.length > 0
+            ? details.reduce((sum, detail) => sum + Number(detail.stock), 0)
+            : Number(inv.totalStock ?? inv.stock ?? 0),
+        totalVariants: details.length || Number(inv.totalVariants ?? 0),
+        details,
       };
     } else {
       dto.inventory = null;

@@ -721,6 +721,14 @@ export function PurchaseForm({
                          ? "No hay proveedores disponibles"
                          : "Selecciona un proveedor"}
                    </option>
+                   {supplierId &&
+                     !suppliers.some(
+                       (supplier) => supplier.id === supplierId,
+                     ) && (
+                       <option value={supplierId}>
+                         Proveedor asociado al inventario
+                       </option>
+                     )}
                    {suppliers.map((supplier) => (
                      <option key={supplier.id} value={supplier.id}>
                        {supplier.provider}
@@ -809,6 +817,11 @@ export function PurchaseForm({
             ) : (
               <RestockProductForm
                 value={restock}
+                onSupplierChange={(selectedSupplierId) => {
+                  setSupplierId(selectedSupplierId);
+                  setSupplierValidationVisible(false);
+                  setRegisterError("");
+                }}
                 onChange={(value) => {
                   setRestock(value);
                   setRestockInteracted(true);

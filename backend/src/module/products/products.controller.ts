@@ -45,7 +45,8 @@ export class ProductsController {
 
   @Get()
   @ApiOperation({
-    summary: 'Obtener catálogo público de productos publicados con filtros y paginación',
+    summary:
+      'Obtener catálogo público de productos publicados con filtros y paginación',
   })
   @ApiResponse({
     status: 200,
@@ -70,11 +71,27 @@ export class ProductsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('products:read')
-  @ApiOperation({ summary: 'Obtener productos para administración, incluyendo borradores' })
+  @ApiOperation({
+    summary: 'Obtener productos para administración, incluyendo borradores',
+  })
   async findAllForAdmin(
     @Query() filterDto: ProductFilterDto,
   ): Promise<PaginatedResponseDto<ProductResponseDto>> {
     return this.productsService.findAll(filterDto);
+  }
+
+  @Get('admin/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('products:read')
+  @ApiOperation({
+    summary: 'Obtener detalle de un producto para administración',
+  })
+  async findOneForAdmin(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SingleResponse<ProductResponseDto>> {
+    const product = await this.productsService.findOne(id);
+    return { data: product };
   }
 
   @Post('upload-image')

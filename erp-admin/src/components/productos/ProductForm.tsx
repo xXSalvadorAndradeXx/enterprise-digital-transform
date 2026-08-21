@@ -441,6 +441,20 @@ export function ProductForm({
       values:
         ProductFormSchema,
     ): Promise<void> => {
+      if (
+        images.length === 0
+      ) {
+        setImageError(
+          "Debes agregar al menos una imagen del producto.",
+        );
+
+        return;
+      }
+
+      setImageError(
+        null,
+      );
+
       const files =
         images
           .map(

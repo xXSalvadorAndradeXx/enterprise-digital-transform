@@ -93,6 +93,7 @@ export function ProductImagesField({
                 }
                 alt={`Imagen ${index + 1} del producto`}
                 fill
+                unoptimized
                 sizes="112px"
                 className="object-contain"
               />

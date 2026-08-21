@@ -27,12 +27,17 @@ const ALLOWED_SORT_FIELDS = [
 ];
 
 export class ProductFilterDto extends PaginationDto {
-  @ApiPropertyOptional({ description: 'Búsqueda por nombre comercial o descripción' })
+  @ApiPropertyOptional({
+    description: 'Búsqueda por nombre comercial o descripción',
+  })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ enum: ProductStatus, description: 'Filtrar por estado del producto' })
+  @ApiPropertyOptional({
+    enum: ProductStatus,
+    description: 'Filtrar por estado del producto',
+  })
   @IsOptional()
   @IsEnum(ProductStatus)
   status?: ProductStatus;
@@ -48,7 +53,9 @@ export class ProductFilterDto extends PaginationDto {
   @IsNumber()
   categoryId?: number;
 
-  @ApiPropertyOptional({ description: 'Filtrar por coincidencia exacta de etiqueta' })
+  @ApiPropertyOptional({
+    description: 'Filtrar por coincidencia exacta de etiqueta',
+  })
   @IsOptional()
   @IsString()
   tag?: string;

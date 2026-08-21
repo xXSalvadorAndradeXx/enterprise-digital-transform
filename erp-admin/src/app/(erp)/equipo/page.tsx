@@ -408,8 +408,8 @@ const [toast, setToast] = useState<{
       : []
   }
       footer={
-        <div className="space-y-4 pt-4">
-          <div className="flex items-center justify-center gap-5">
+        <div className="w-full space-y-4 pt-4">
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-5">
             <button
               type="button"
               onClick={() => {
@@ -417,7 +417,7 @@ const [toast, setToast] = useState<{
                 closeDetalle();
               }}
               disabled={isGeneratingPassword}
-              className="w-36 rounded-md border border-[#1C21D1] py-2 text-sm font-medium text-[#030303] transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-md border border-[#1C21D1] px-3 py-2 text-sm font-medium text-[#030303] transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-36"
             >
               Cancelar
             </button>
@@ -426,7 +426,7 @@ const [toast, setToast] = useState<{
               type="button"
               onClick={handleGenerarContrasena}
               disabled={isGeneratingPassword}
-              className="w-72 whitespace-nowrap rounded-md bg-[#1C21D1] py-2 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-10 w-full rounded-md bg-[#1C21D1] px-3 py-2 text-sm font-medium leading-5 text-white transition-colors hover:bg-[#171AAD] disabled:cursor-not-allowed disabled:opacity-60 sm:w-72"
             >
               {isGeneratingPassword
                 ? "Generando..."
@@ -437,7 +437,7 @@ const [toast, setToast] = useState<{
               type="button"
               onClick={handleEditarDesdeDetalle}
               disabled={isGeneratingPassword}
-              className="w-36 rounded-md bg-[#1C21D1] py-2 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-md bg-[#1C21D1] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] disabled:cursor-not-allowed disabled:opacity-60 sm:w-36"
             >
               Editar
             </button>

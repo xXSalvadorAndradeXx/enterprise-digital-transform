@@ -39,10 +39,10 @@ export function Modal({
         aria-modal="true"
         aria-labelledby="modal-title"
         onClick={(event) => event.stopPropagation()}
-        className={`w-full ${SIZE_CLASSES[size]} rounded-2xl bg-white p-6 shadow-xl`}
+        className={`max-h-[calc(100dvh-2rem)] w-full overflow-y-auto ${SIZE_CLASSES[size]} rounded-2xl bg-white p-4 shadow-xl sm:p-6`}
       >
         <div className={`mb-2 flex items-center justify-between pb-4 ${headerDivider ? "border-b border-gray-300" : ""}`}>
-          <h2 id="modal-title" className="text-xl font-bold text-gray-900">
+          <h2 id="modal-title" className="pr-3 text-lg font-bold text-gray-900 sm:text-xl">
             {title}
           </h2>
           <button
@@ -69,7 +69,7 @@ export function Modal({
               ))}
         </div>
 
-        {footer && <div className="mt-6 flex items-center gap-3">{footer}</div>}
+        {footer && <div className="mt-6 flex w-full items-center gap-3">{footer}</div>}
       </div>
     </div>
   );

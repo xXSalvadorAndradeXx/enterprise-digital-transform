@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, DeepPartial } from 'typeorm';
+import { Repository, DataSource, IsNull, Not } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { extname, join } from 'path';
 import * as fs from 'fs';
@@ -82,7 +82,8 @@ export class ProductsService {
     discountEndsAt?: string | Date | null,
   ): void {
     const discountValue = Number(discount ?? 0);
-    const hasStartDate = discountStartsAt !== undefined && discountStartsAt !== null;
+    const hasStartDate =
+      discountStartsAt !== undefined && discountStartsAt !== null;
     const hasEndDate = discountEndsAt !== undefined && discountEndsAt !== null;
 
     if (discountValue <= 0) {
@@ -100,7 +101,7 @@ export class ProductsService {
       );
     }
 
-    const endsAt = new Date(discountEndsAt as string | Date);
+    const endsAt = new Date(discountEndsAt);
     if (isNaN(endsAt.getTime()) || endsAt <= new Date()) {
       throw new UnprocessableEntityException(
         'La fecha de fin del descuento debe ser una fecha válida mayor a la fecha actual',
@@ -108,7 +109,7 @@ export class ProductsService {
     }
 
     if (hasStartDate) {
-      const startsAt = new Date(discountStartsAt as string | Date);
+      const startsAt = new Date(discountStartsAt);
       if (isNaN(startsAt.getTime()) || startsAt >= endsAt) {
         throw new UnprocessableEntityException(
           'La fecha de inicio del descuento debe ser válida y anterior a la fecha de fin',
@@ -220,6 +221,20 @@ export class ProductsService {
             'El inventario seleccionado no tiene stock disponible',
           );
         }
+
+        // Compatibilidad con borrados anteriores: un producto eliminado podía
+        // conservar inventory_id y bloquear la restricción UNIQUE al reutilizar
+        // el inventario. Liberamos únicamente relaciones de filas eliminadas.
+        await queryRunner.manager.update(
+          Product,
+          {
+            inventoryId,
+            deletedAt: Not(IsNull()),
+          },
+          {
+            inventoryId: null,
+          },
+        );
 
         // RN-P-002: Verificar que no exista otro producto activo asociado al mismo inventory_id
         const existingActiveProduct = await queryRunner.manager
@@ -605,6 +620,7 @@ export class ProductsService {
         { id },
         {
           status: newStatus,
+          inventoryId: null,
           deletedAt: new Date(),
           updatedById: actorId,
         },
@@ -744,17 +760,19 @@ export class ProductsService {
       .leftJoinAndSelect('p.images', 'product_images')
       .leftJoinAndSelect('p.tags', 'product_tags')
       .leftJoinAndSelect('p.variantConfigs', 'product_variant_config')
-      .leftJoinAndSelect('product_variant_config.inventoryDetail', 'inventoryDetail');
+      .leftJoinAndSelect(
+        'product_variant_config.inventoryDetail',
+        'inventoryDetail',
+      );
 
     // 1. Filtro de productos no eliminados por defecto
     query.andWhere('p.deleted_at IS NULL');
 
     // 2. Búsqueda textual parcial en commercial_name y description
     if (search) {
-      query.andWhere(
-        '(p.commercial_name ILIKE :q OR p.description ILIKE :q)',
-        { q: `%${search}%` },
-      );
+      query.andWhere('(p.commercial_name ILIKE :q OR p.description ILIKE :q)', {
+        q: `%${search}%`,
+      });
     }
 
     // 3. Filtro por estado & Regla RN-P-014 (Exclusión de DISCONTINUED por defecto)
@@ -847,11 +865,13 @@ export class ProductsService {
 
     const actorId = user?.id ?? user?.userId ?? null;
 
-    // Eliminación lógica atómica: status = DISCONTINUED y deleted_at = NOW()
+    // Eliminación lógica atómica y liberación del inventario para que pueda
+    // asociarse a un producto nuevo sin violar el índice UNIQUE.
     await this.productRepository.update(
       { id },
       {
         status: ProductStatus.DISCONTINUED,
+        inventoryId: null,
         deletedAt: new Date(),
         updatedById: actorId,
       },

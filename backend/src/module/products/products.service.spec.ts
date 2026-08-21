@@ -82,7 +82,15 @@ describe('ProductsService', () => {
     updatedAt: new Date(),
     deletedAt: null,
     images: [],
-    tags: [{ id: 'tag-1', productId: 'prod-uuid-1', tag: 'audio', createdAt: new Date(), product: null as any }],
+    tags: [
+      {
+        id: 'tag-1',
+        productId: 'prod-uuid-1',
+        tag: 'audio',
+        createdAt: new Date(),
+        product: null as any,
+      },
+    ],
     variantConfigs: [
       {
         id: 'var-cfg-1',
@@ -192,7 +200,9 @@ describe('ProductsService', () => {
       expect(response.statusCode).toBe(201);
       expect(response.data.sizeBytes).toBe(1024);
       expect(response.data.fileName).toMatch(/\.png$/);
-      expect(response.data.imageUrl).toContain('http://localhost:3000/uploads/products/');
+      expect(response.data.imageUrl).toContain(
+        'http://localhost:3000/uploads/products/',
+      );
     });
 
     it('debe lanzar BadRequestException si no se envía ningún archivo', async () => {
@@ -301,10 +311,14 @@ describe('ProductsService', () => {
         ...mockInventory,
         status: InventoryStatus.OUT_OF_STOCK,
       };
-      queryRunnerMock.manager.findOne.mockResolvedValueOnce(outOfStockInventory);
+      queryRunnerMock.manager.findOne.mockResolvedValueOnce(
+        outOfStockInventory,
+      );
 
       await expect(service.create(validDto)).rejects.toThrow(
-        new ConflictException('El inventario seleccionado no tiene stock disponible'),
+        new ConflictException(
+          'El inventario seleccionado no tiene stock disponible',
+        ),
       );
       expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
     });
@@ -425,9 +439,9 @@ describe('ProductsService', () => {
         new Error('DB Error en inserción'),
       );
 
-      await expect(service.create(validDto, { id: 'user-uuid-1' })).rejects.toThrow(
-        'DB Error en inserción',
-      );
+      await expect(
+        service.create(validDto, { id: 'user-uuid-1' }),
+      ).rejects.toThrow('DB Error en inserción');
 
       expect(queryRunnerMock.rollbackTransaction).toHaveBeenCalled();
       expect(queryRunnerMock.commitTransaction).not.toHaveBeenCalled();
@@ -462,7 +476,9 @@ describe('ProductsService', () => {
       expect(queryRunnerMock.manager.update).toHaveBeenCalledWith(
         Product,
         { id: 'prod-uuid-1' },
-        expect.objectContaining({ commercialName: 'Audífonos Sony Pro Max V2' }),
+        expect.objectContaining({
+          commercialName: 'Audífonos Sony Pro Max V2',
+        }),
       );
       expect(queryRunnerMock.manager.delete).toHaveBeenCalledTimes(3);
       expect(queryRunnerMock.commitTransaction).toHaveBeenCalled();
@@ -491,9 +507,9 @@ describe('ProductsService', () => {
         commercialName: 'Nuevo Nombre',
       };
 
-      await expect(
-        service.update('prod-uuid-1', updateDto),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.update('prod-uuid-1', updateDto)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -503,10 +519,9 @@ describe('ProductsService', () => {
 
       const response = await service.findOne('prod-uuid-1');
 
-      expect(createQueryBuilderMock.where).toHaveBeenCalledWith(
-        'p.id = :id',
-        { id: 'prod-uuid-1' },
-      );
+      expect(createQueryBuilderMock.where).toHaveBeenCalledWith('p.id = :id', {
+        id: 'prod-uuid-1',
+      });
       expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
         'p.deleted_at IS NULL',
       );
@@ -527,7 +542,10 @@ describe('ProductsService', () => {
 
   describe('findAll (Catálogo con Filtros y Paginación)', () => {
     it('debe obtener la lista de productos paginada excluyendo DISCONTINUED por defecto (RN-P-014) y calcular effectivePrice', async () => {
-      createQueryBuilderMock.getManyAndCount.mockResolvedValue([[mockProduct], 1]);
+      createQueryBuilderMock.getManyAndCount.mockResolvedValue([
+        [mockProduct],
+        1,
+      ]);
       const filterDto: ProductFilterDto = { page: 1, limit: 10 };
       const response = await service.findAll(filterDto);
 
@@ -549,7 +567,10 @@ describe('ProductsService', () => {
     });
 
     it('debe aplicar filtros de búsqueda, proveedor, categoría, etiqueta y rango de precios', async () => {
-      createQueryBuilderMock.getManyAndCount.mockResolvedValue([[mockProduct], 1]);
+      createQueryBuilderMock.getManyAndCount.mockResolvedValue([
+        [mockProduct],
+        1,
+      ]);
       const filterDto: ProductFilterDto = {
         search: 'Sony',
         supplierId: 'supplier-uuid-1',
@@ -584,13 +605,16 @@ describe('ProductsService', () => {
         { minPrice: 100, maxPrice: 300 },
       );
       expect(createQueryBuilderMock.orderBy).toHaveBeenCalledWith(
-        'p.sale_price',
+        'p.salePrice',
         'ASC',
       );
     });
 
     it('debe permitir explícitamente consultar productos DISCONTINUED cuando status = DISCONTINUED', async () => {
-      createQueryBuilderMock.getManyAndCount.mockResolvedValue([[mockProduct], 1]);
+      createQueryBuilderMock.getManyAndCount.mockResolvedValue([
+        [mockProduct],
+        1,
+      ]);
       const filterDto: ProductFilterDto = {
         status: ProductStatus.DISCONTINUED,
       };
@@ -653,6 +677,7 @@ describe('ProductsService', () => {
         { id: 'prod-uuid-1' },
         expect.objectContaining({
           status: ProductStatus.DISCONTINUED,
+          inventoryId: null,
           deletedAt: expect.any(Date),
         }),
       );
@@ -690,6 +715,7 @@ describe('ProductsService', () => {
         { id: 'prod-uuid-1' },
         expect.objectContaining({
           status: ProductStatus.DISCONTINUED,
+          inventoryId: null,
           deletedAt: expect.any(Date),
         }),
       );
@@ -712,7 +738,9 @@ describe('ProductsService', () => {
       await expect(
         service.updateStatus('prod-uuid-1', updateStatusDto),
       ).rejects.toThrow(
-        new ConflictException('El inventario seleccionado no tiene stock disponible'),
+        new ConflictException(
+          'El inventario seleccionado no tiene stock disponible',
+        ),
       );
       expect(productRepositoryMock.update).not.toHaveBeenCalled();
     });
@@ -733,7 +761,9 @@ describe('ProductsService', () => {
       await expect(
         service.updateStatus('prod-uuid-1', updateStatusDto),
       ).rejects.toThrow(
-        new ConflictException('El inventario seleccionado no tiene stock disponible'),
+        new ConflictException(
+          'El inventario seleccionado no tiene stock disponible',
+        ),
       );
       expect(productRepositoryMock.update).not.toHaveBeenCalled();
     });
@@ -752,9 +782,11 @@ describe('ProductsService', () => {
       await expect(
         service.updateStatus('prod-uuid-1', updateStatusDto),
       ).rejects.toThrow(
-        new ConflictException('La transición DISCONTINUED → ACTIVE no está permitida'),
+        new ConflictException(
+          'La transición DISCONTINUED → ACTIVE no está permitida',
+        ),
       );
-      
+
       expect(productRepositoryMock.update).not.toHaveBeenCalled();
     });
 
@@ -772,7 +804,9 @@ describe('ProductsService', () => {
       await expect(
         service.updateStatus('prod-uuid-1', updateStatusDto),
       ).rejects.toThrow(
-        new ConflictException('La transición DISCONTINUED → PAUSED no está permitida'),
+        new ConflictException(
+          'La transición DISCONTINUED → PAUSED no está permitida',
+        ),
       );
       expect(productRepositoryMock.update).not.toHaveBeenCalled();
     });

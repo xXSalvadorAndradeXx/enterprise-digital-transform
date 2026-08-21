@@ -76,24 +76,24 @@ export function useCreateProduct(): UseCreateProductResult {
 
       return response.data;
     } catch (caughtError) {
-      if (
+      const normalizedError:
+        ProductHttpError =
         isProductHttpError(
           caughtError,
         )
-      ) {
-        setError(
-          caughtError,
-        );
-      } else {
-        setError({
-          status: 0,
-          type: "UNKNOWN",
-          message:
-            "No se pudo crear el producto.",
-        });
-      }
+          ? caughtError
+          : {
+              status: 0,
+              type: "UNKNOWN",
+              message:
+                "No se pudo crear el producto.",
+            };
 
-      return null;
+      setError(
+        normalizedError,
+      );
+
+      throw normalizedError;
     } finally {
       submittingRef.current =
         false;

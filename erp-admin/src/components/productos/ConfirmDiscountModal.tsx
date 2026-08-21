@@ -2,6 +2,7 @@
 
 import {
   Check,
+  Info,
   Tag,
   X,
 } from "lucide-react";
@@ -145,10 +146,16 @@ export function ConfirmDiscountModal({
           </div>
         </div>
 
-        <div className="mt-5 rounded-lg bg-[#F2F5FC] px-4 py-4 text-sm text-gray-700">
-          Este precio es únicamente una vista previa. El precio definitivo será el{" "}
-          <strong>effectivePrice</strong>{" "}
-          devuelto por Backend.
+        <div className="mt-5 flex items-center gap-3 rounded-lg bg-[#F2F5FC] px-4 py-4 text-sm text-gray-900">
+          <Info
+            size={21}
+            className="shrink-0 text-[#1C21D1]"
+            aria-hidden="true"
+          />
+
+          <span>
+            El descuento seleccionado se aplicará al producto.
+          </span>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">

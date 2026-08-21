@@ -20,6 +20,8 @@ interface ProductResultModalProps {
   onClose: () => void;
 
   onRetry?: () => void;
+
+  errorActionLabel?: string;
 }
 
 export function ProductResultModal({
@@ -29,6 +31,7 @@ export function ProductResultModal({
   message,
   onClose,
   onRetry,
+  errorActionLabel = "Reintentar",
 }: ProductResultModalProps) {
   if (!isOpen) {
     return null;
@@ -109,7 +112,7 @@ export function ProductResultModal({
               }
               className="min-w-32 rounded-md border border-[#1C21D1] px-5 py-2.5 text-sm font-medium text-[#1C21D1]"
             >
-              Reintentar
+              {errorActionLabel}
             </button>
           )}
         </div>

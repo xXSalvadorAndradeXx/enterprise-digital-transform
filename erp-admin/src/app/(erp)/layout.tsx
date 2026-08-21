@@ -40,6 +40,33 @@ const {
     PermissionCode[]
   >([]);
 
+  const [isSidebarOpen, setIsSidebarOpen] =
+    useState(false);
+
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [isSidebarOpen]);
+
   const [isLoadingPermissions, setIsLoadingPermissions] =
     useState(true);
 
@@ -261,13 +288,20 @@ useEffect(() => {
 }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar permissions={permissions} />
+    <div className="flex min-h-screen min-w-0 bg-white">
+      <Sidebar
+        permissions={permissions}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <Topbar userName={user.nombre} />
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+        <Topbar
+          userName={user.nombre}
+          onMenuClick={() => setIsSidebarOpen(true)}
+        />
 
-        <section className="flex-1 p-8">
+        <section className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
           {children}
         </section>
       </main>

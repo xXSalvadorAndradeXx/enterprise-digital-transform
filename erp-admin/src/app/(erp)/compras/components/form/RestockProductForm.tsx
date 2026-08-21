@@ -5,18 +5,29 @@ import { useEffect, useState } from "react";
 
 import { getRestockInventoryOptions, getRestockPreview } from "../../services/purchases.service";
 import type { RestockInventoryOption, RestockPreviewResponse } from "../../types/purchases.types";
+import { getInventoryById } from "../../../inventario/services/inventory.service";
 import { SearchBar } from "../SearchBar";
 import { RestockTable, type RestockSize } from "./RestockTable";
 
 export type RestockDraft = { search: string; selectedProductId: string; sizes: RestockSize[] };
 export type RestockFormErrors = { selectedProductId?: string; sizes?: Record<string, string | undefined>; sizesGeneral?: string };
-type Props = { value: RestockDraft; onChange: (value: RestockDraft) => void; errors?: RestockFormErrors };
+type Props = {
+  value: RestockDraft;
+  onChange: (value: RestockDraft) => void;
+  onSupplierChange: (supplierId: string) => void;
+  errors?: RestockFormErrors;
+};
 
 export function createInitialRestockDraft(): RestockDraft { return { search: "", selectedProductId: "", sizes: [] }; }
 export const INITIAL_RESTOCK_DRAFT = createInitialRestockDraft();
 function createNewRow(): RestockSize { return { id: `new-${crypto.randomUUID()}`, size: "", color: "", currentStock: 0, quantity: "", unitCost: "", isNew: true }; }
 
-export function RestockProductForm({ value, onChange, errors }: Props) {
+export function RestockProductForm({
+  value,
+  onChange,
+  onSupplierChange,
+  errors,
+}: Props) {
   const [options, setOptions] = useState<RestockInventoryOption[]>([]);
   const [preview, setPreview] = useState<RestockPreviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -33,10 +44,27 @@ export function RestockProductForm({ value, onChange, errors }: Props) {
   const selectProduct = async (option: RestockInventoryOption) => {
     setLoading(true); setRequestError("");
     try {
-      const result = await getRestockPreview(option.id);
+      const [result, inventoryResponse] = await Promise.all([
+        getRestockPreview(option.id),
+        getInventoryById(option.id),
+      ]);
+
+      const supplierId = inventoryResponse.data.supplier?.id;
+
+      if (!supplierId) {
+        throw new Error("El inventario seleccionado no tiene un proveedor asociado.");
+      }
+
       setPreview(result);
+      onSupplierChange(supplierId);
       onChange({ search: option.productName, selectedProductId: option.id, sizes: result.details.map((detail) => ({ id: detail.inventoryDetailId, size: detail.size, color: detail.color, currentStock: detail.currentStock, quantity: "", unitCost: String(detail.currentUnitCost) })) });
-    } catch { setRequestError("No se pudo cargar el detalle del producto."); } finally { setLoading(false); }
+    } catch (error) {
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo cargar el detalle del producto.",
+      );
+    } finally { setLoading(false); }
   };
 
   const total = value.sizes.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
@@ -47,7 +75,7 @@ export function RestockProductForm({ value, onChange, errors }: Props) {
       <h2 id="restock-product-title" className="text-xl font-semibold">Reabastecer producto</h2>
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,500px)_210px] lg:justify-between">
         <div className="relative">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4"><span className="text-sm font-medium">Buscar producto:</span><SearchBar value={value.search} placeholder="Buscar en el inventario" ariaLabel="Buscar producto" onChange={(search) => { setPreview(null); onChange({ search, selectedProductId: "", sizes: [] }); }} className="w-full sm:w-[300px]" /></div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4"><span className="text-sm font-medium">Buscar producto:</span><SearchBar value={value.search} placeholder="Buscar en el inventario" ariaLabel="Buscar producto" onChange={(search) => { setPreview(null); onSupplierChange(""); onChange({ search, selectedProductId: "", sizes: [] }); }} className="w-full sm:w-[300px]" /></div>
           {!preview && value.search.trim() && <div className="mt-2 max-h-44 overflow-y-auto rounded border bg-white">{options.map((option) => <button key={option.id} type="button" onClick={() => void selectProduct(option)} className="flex w-full justify-between border-b px-3 py-2 text-left text-sm hover:bg-[#F5F7FA]"><span>{option.productName}</span><span className="text-xs text-[#6B6F78]">{option.sku}</span></button>)}</div>}
           {loading && <p role="status" className="mt-2 text-sm">Cargando producto...</p>}
           {(requestError || errors?.selectedProductId) && <p role="alert" className="mt-1 text-xs text-red-600">{requestError || errors?.selectedProductId}</p>}

@@ -1,6 +1,5 @@
 export type {
   ProductCreateStatus,
-  ProductInventoryStockStatus,
   ProductSortBy,
   ProductSortOrder,
   ProductStatus,

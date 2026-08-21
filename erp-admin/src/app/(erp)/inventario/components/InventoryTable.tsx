@@ -16,8 +16,8 @@ const INVENTORY_STATUS = {
     className: "bg-[#D9F4D8] text-[#35A849]",
   },
   [InventoryStatus.LOW_STOCK]: {
-    label: "MEDIO",
-    className: "bg-[#FFF1CB] text-[#E7A515]",
+    label: "BAJO",
+    className: "bg-[#FADDDD] text-[#F04444]",
   },
   [InventoryStatus.OUT_OF_STOCK]: {
     label: "BAJO",

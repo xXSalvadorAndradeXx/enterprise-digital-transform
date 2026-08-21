@@ -1,7 +1,7 @@
 import type {
   ProductSortBy,
   ProductSortOrder,
-  ProductInventoryStockStatus,
+  ProductStatus,
 } from "./product.types";
 
 export interface ProductQuery {
@@ -11,7 +11,7 @@ export interface ProductQuery {
 
   search?: string;
 
-  stockStatus?: ProductInventoryStockStatus;
+  status?: ProductStatus;
 
   supplierId?: string;
 
