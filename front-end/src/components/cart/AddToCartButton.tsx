@@ -10,8 +10,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { hasActiveSession } from "@/lib/auth-session";
-import { useCart } from "@/hooks/useCart";
-import type { Product } from "@/types/product";
+import { useCart } from "@/hooks/cart/useCart";
+import type { Product } from "@/types/products/product.types";
 
 type AddToCartButtonProps = {
   product: Product;

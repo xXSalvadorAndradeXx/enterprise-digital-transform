@@ -1,4 +1,4 @@
-import type { User } from "@/types/user";
+import type { User } from "@/types/auth/user.types";
 
 export const AUTH_SESSION_CHANGED_EVENT = "auth-session-changed";
 

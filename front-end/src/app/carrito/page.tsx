@@ -16,15 +16,15 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import CartNotification from "@/components/CartNotification";
-import type { CartNotificationType } from "@/components/CartNotification";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import CartNotification from "@/components/cart/CartNotification";
+import type { CartNotificationType } from "@/components/cart/CartNotification";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   AUTH_SESSION_CHANGED_EVENT,
   readAccessToken,
 } from "@/lib/auth-session";
-import { useCart } from "@/hooks/useCart";
-import type { CartItem } from "@/context/CartContext";
+import { useCart } from "@/hooks/cart/useCart";
+import type { CartItem } from "@/contexts/CartContext";
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",

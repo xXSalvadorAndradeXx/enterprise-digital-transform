@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Layout from "@/components/Layout";
+import Layout from "@/components/layout/Layout";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "E-Commerce",
-  description: "Proyecto frontend e-commerce",
+  title: "Woden | Tienda en línea",
+  description: "Descubre productos Woden y compra en línea.",
 };
 
 export default function RootLayout({

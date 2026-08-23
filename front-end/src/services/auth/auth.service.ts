@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/api-client";
-import type { User } from "@/types/user";
+import type { User } from "@/types/auth/user.types";
 
 export type RegisterRequest = {
   nombre: string;

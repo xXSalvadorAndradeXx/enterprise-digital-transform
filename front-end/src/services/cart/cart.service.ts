@@ -1,9 +1,9 @@
 import { ApiRequestError, apiRequest } from "@/lib/api-client";
 import { readAccessToken } from "@/lib/auth-session";
-import type { ApiCart, CartResponse } from "@/types/cart";
+import type { ApiCart, CartResponse } from "@/types/cart/cart.types";
 
 export type AddCartItemRequest = {
-  productId: number;
+  productId: string | number;
   quantity: number;
 };
 

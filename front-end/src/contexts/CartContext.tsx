@@ -16,9 +16,9 @@ import {
   getCurrentCart,
   removeCartItem,
   updateCartItemQuantity,
-} from "@/services/cart-service";
-import type { ApiCart, ApiCartItem } from "@/types/cart";
-import type { Product } from "@/types/product";
+} from "@/services/cart/cart.service";
+import type { ApiCart, ApiCartItem } from "@/types/cart/cart.types";
+import type { Product } from "@/types/products/product.types";
 import {
   AUTH_SESSION_CHANGED_EVENT,
   readAccessToken,
@@ -26,7 +26,7 @@ import {
 
 export interface CartItem {
   id: number;
-  productId: number;
+  productId: string | number;
   nombre: string;
   precio: number;
   imagenUrl?: string | null;

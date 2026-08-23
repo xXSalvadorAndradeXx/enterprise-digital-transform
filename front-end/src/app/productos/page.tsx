@@ -1,11 +1,12 @@
 import { ChevronLeft, ChevronRight, SearchX } from "lucide-react";
 import Link from "next/link";
-import ProductCard from "@/components/ProductCard";
-import ProductFilters from "@/components/ProductFilters";
-import type { ProductFilterValues } from "@/components/ProductFilters";
-import type { ProductCategory, ProductsResponse } from "@/types/product";
+import ProductCard from "@/components/products/ProductCard";
+import ProductFilters from "@/components/products/ProductFilters";
+import ProductSort from "@/components/products/ProductSort";
+import type { ProductFilterValues } from "@/components/products/ProductFilters";
+import type { Product, ProductCategory, ProductsResponse } from "@/types/products/product.types";
 
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = "http://localhost:3000/api/v1";
 const PRODUCTS_ERROR_MESSAGE = "No se pudieron cargar los productos.";
 const DEFAULT_PRODUCTS_LIMIT = 10;
 const DEFAULT_PRODUCTS_PAGE = 1;
@@ -80,8 +81,15 @@ function readProductFilters(searchParams: ProductSearchParams): ProductFilterVal
   const filters: ProductFilterValues = {
     search: readParam(searchParams, "search"),
     categoryId: readCategoryIdParam(searchParams),
+    brand: readParam(searchParams, "brand"),
+    gender: readParam(searchParams, "gender"),
+    size: readParam(searchParams, "size"),
     minPrice: readNonNegativeNumberParam(searchParams, "minPrice"),
     maxPrice: readNonNegativeNumberParam(searchParams, "maxPrice"),
+    availability: readParam(searchParams, "availability"),
+    hasDiscount: readParam(searchParams, "hasDiscount"),
+    sortBy: readParam(searchParams, "sortBy") || "createdAt",
+    order: readParam(searchParams, "order") || "DESC",
   };
 
   if (
@@ -118,7 +126,7 @@ function readProductPagination(
 
 function hasActiveFilters(filters: ProductFilterValues) {
   return Boolean(
-    filters.search || filters.categoryId || filters.minPrice || filters.maxPrice,
+    filters.search || filters.categoryId || filters.brand || filters.gender || filters.size || filters.minPrice || filters.maxPrice || filters.availability || filters.hasDiscount,
   );
 }
 
@@ -133,6 +141,10 @@ function appendProductQueryParams(
 
   if (filters.categoryId) {
     queryParams.set("categoryId", filters.categoryId);
+  }
+
+  for (const key of ["brand", "gender", "size", "availability", "hasDiscount", "sortBy", "order"] as const) {
+    if (filters[key]) queryParams.set(key, filters[key]);
   }
 
   if (filters.minPrice) {
@@ -151,7 +163,7 @@ function buildProductsUrl(
   filters: ProductFilterValues,
   pagination: ProductPaginationValues,
 ) {
-  const productsUrl = new URL("/products", API_BASE_URL);
+  const productsUrl = new URL(`${API_BASE_URL}/products`);
 
   appendProductQueryParams(productsUrl.searchParams, filters, pagination);
 
@@ -167,6 +179,13 @@ function buildProductsPageHref(
   appendProductQueryParams(queryParams, filters, pagination);
 
   return `/productos?${queryParams.toString()}`;
+}
+
+function getPaginationItems(currentPage: number, totalPages: number) {
+  if (totalPages <= 5) return Array.from({ length: totalPages }, (_, index) => index + 1);
+  if (currentPage <= 2) return [1, 2, "ellipsis", totalPages - 1, totalPages] as const;
+  if (currentPage >= totalPages - 1) return [1, 2, "ellipsis", totalPages - 1, totalPages] as const;
+  return [1, "ellipsis-start", currentPage, "ellipsis-end", totalPages] as const;
 }
 
 async function getProducts(
@@ -188,16 +207,17 @@ async function getProducts(
       };
     }
 
-    const responseData = (await response.json()) as ProductsResponse;
-    const products = Array.isArray(responseData.data) ? responseData.data : [];
+    const responseData = (await response.json()) as ProductsResponse | { data?: { items?: Product[]; meta?: { total?: number; page?: number; limit?: number } } };
+    const payload = responseData.data;
+    const products = Array.isArray(payload) ? payload : Array.isArray(payload?.items) ? payload.items : [];
     const total =
-      typeof responseData.total === "number" ? responseData.total : products.length;
+      "total" in responseData && typeof responseData.total === "number" ? responseData.total : (!Array.isArray(payload) && typeof payload?.meta?.total === "number" ? payload.meta.total : products.length);
     const page =
-      typeof responseData.page === "number" ? responseData.page : pagination.page;
+      "page" in responseData && typeof responseData.page === "number" ? responseData.page : (!Array.isArray(payload) && typeof payload?.meta?.page === "number" ? payload.meta.page : pagination.page);
     const limit =
-      typeof responseData.limit === "number"
+      "limit" in responseData && typeof responseData.limit === "number"
         ? responseData.limit
-        : pagination.limit;
+        : (!Array.isArray(payload) && typeof payload?.meta?.limit === "number" ? payload.meta.limit : pagination.limit);
 
     return {
       products,
@@ -219,7 +239,7 @@ async function getProducts(
 
 async function getCategories() {
   try {
-    const response = await fetch(`${API_BASE_URL}/categories`, {
+    const response = await fetch(`${API_BASE_URL}/categories?publishedOnly=true`, {
       cache: "no-store",
     });
 
@@ -227,9 +247,9 @@ async function getCategories() {
       return [];
     }
 
-    const categories = (await response.json()) as ProductCategory[];
-
-    return Array.isArray(categories) ? categories : [];
+    const payload = (await response.json()) as ProductCategory[] | { data?: ProductCategory[] };
+    const categories = Array.isArray(payload) ? payload : payload.data;
+    return Array.isArray(categories) ? categories.map(category => ({ ...category, nombre: category.nombre ?? category.name ?? "" })) : [];
   } catch {
     return [];
   }
@@ -247,7 +267,7 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
   ]);
   const { products, total, page, limit, errorMessage } = productsResult;
   const totalPages = Math.max(1, Math.ceil(total / Math.max(limit, 1)));
-  const shouldShowPagination = !errorMessage && totalPages > 1;
+  const shouldShowPagination = !errorMessage && total > 0;
   const hasPreviousPage = page > 1;
   const hasNextPage = page < totalPages;
   const previousPageHref = buildProductsPageHref(filters, {
@@ -258,47 +278,31 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
     page: Math.min(page + 1, totalPages),
     limit,
   });
-  const disabledPaginationClassName =
-    "inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-lg border border-[#D9E2EC] bg-[#F4F7FB] px-3 text-sm font-semibold text-slate-400 sm:px-4";
-  const activePaginationClassName =
-    "inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-[#003791] px-3 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-md sm:px-4";
+  const paginationItems = getPaginationItems(page, totalPages);
 
   return (
-    <section className="min-h-[calc(100vh-10rem)] bg-[#F4F7FB] px-4 py-8 text-[#111111] sm:px-6 sm:py-10 lg:px-8">
-      <div className="mx-auto w-full max-w-7xl">
-        <div className="flex flex-col gap-5 border-b border-[#D9E2EC] pb-6 md:flex-row md:items-end md:justify-between md:pb-7">
+    <section className="min-h-[calc(100vh-10rem)] bg-white px-4 py-6 text-[#111111] sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[1280px]">
+        <nav className="bg-[#f2f5fb] px-5 py-4 text-xs text-slate-600" aria-label="Breadcrumb">Inicio&nbsp;&nbsp;›&nbsp;&nbsp;Productos</nav>
+        <div className="mt-6 border-b border-[#e5e7eb] pb-5">
           <div>
-            <p className="inline-flex rounded-full border border-[#D9E2EC] bg-[#EAF3FF] px-3 py-1 text-xs font-bold uppercase text-[#003791]">
-              Catalogo
-            </p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#111111] sm:text-4xl lg:text-5xl">
+            <h1 className="text-3xl font-bold tracking-tight text-[#111111] sm:text-4xl">
               Productos
             </h1>
-            <p className="mt-3 max-w-2xl break-words text-sm leading-6 text-slate-600 sm:text-base">
-              Elige tecnología de las mejores marcas, encuentra productos modernos y de la más alta calidad.
-            </p>
           </div>
-
-          {!errorMessage ? (
-            <div className="grid w-full grid-cols-[auto_1fr] items-center gap-2 rounded-xl border border-[#D9E2EC] bg-white px-4 py-3 shadow-[0_12px_30px_rgba(0,55,145,0.08)] sm:inline-flex sm:w-auto sm:gap-3 sm:px-5">
-              <span className="text-xs font-bold uppercase text-slate-500">
-                Total
-              </span>
-              <span className="justify-self-start rounded-lg bg-[#EAF3FF] px-3 py-1 text-lg font-extrabold text-[#003791]">
-                {total}
-              </span>
-              <span className="col-span-2 text-xs font-semibold text-slate-500 sm:col-span-1 sm:whitespace-nowrap">
-                Página {page} de {totalPages} - {limit} por página
-              </span>
-            </div>
-          ) : null}
         </div>
 
-        <ProductFilters
-          key={filtersKey}
-          categories={categories}
-          initialFilters={filters}
-        />
+        <div className="mt-6 grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <ProductFilters key={filtersKey} categories={categories} initialFilters={filters} />
+          <div className="min-w-0">
+        {!errorMessage ? (
+          <div className="mb-6 flex flex-col gap-3 border-b border-[#eef0f4] pb-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              Mostrando {total === 0 ? 0 : (page - 1) * limit + 1}–{Math.min(page * limit, total)} De {total} Resultados
+            </p>
+            <ProductSort value={filters.sortBy} order={filters.order} />
+          </div>
+        ) : null}
 
         {errorMessage ? (
           <div className="mt-8 rounded-xl border border-red-100 bg-white px-5 py-4 text-sm font-semibold text-red-700 shadow-[0_12px_30px_rgba(17,17,17,0.06)]">
@@ -321,7 +325,7 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
             No hay productos disponibles por el momento.
           </div>
         ) : (
-          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
@@ -331,40 +335,15 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
         {shouldShowPagination ? (
           <nav
             aria-label="Paginacion de productos"
-            className="mt-8 flex flex-col items-stretch justify-between gap-4 rounded-xl border border-[#D9E2EC] bg-white px-4 py-4 shadow-[0_12px_30px_rgba(0,55,145,0.08)] sm:flex-row sm:items-center"
+            className="mx-auto mt-12 flex w-fit items-center gap-1 rounded border border-[#edf0f4] bg-white p-2"
           >
-            <p className="text-center text-sm font-semibold text-slate-600 sm:text-left">
-              Página <span className="text-[#003791]">{page}</span> de{" "}
-              <span className="text-[#003791]">{totalPages}</span>
-            </p>
-
-            <div className="grid w-full grid-cols-2 gap-3 sm:w-auto sm:min-w-72">
-              {hasPreviousPage ? (
-                <Link href={previousPageHref} className={activePaginationClassName}>
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                  Anterior
-                </Link>
-              ) : (
-                <span className={disabledPaginationClassName} aria-disabled="true">
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                  Anterior
-                </span>
-              )}
-
-              {hasNextPage ? (
-                <Link href={nextPageHref} className={activePaginationClassName}>
-                  Siguiente
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              ) : (
-                <span className={disabledPaginationClassName} aria-disabled="true">
-                  Siguiente
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                </span>
-              )}
-            </div>
+            {hasPreviousPage?<Link href={previousPageHref} aria-label="Página anterior" className="flex h-10 w-10 items-center justify-center"><ChevronLeft className="h-5 w-5"/></Link>:<span aria-disabled="true" className="flex h-10 w-10 items-center justify-center text-slate-300"><ChevronLeft className="h-5 w-5"/></span>}
+            {paginationItems.map(item=>typeof item==="number"?<Link key={item} href={buildProductsPageHref(filters,{page:item,limit})} aria-current={item===page?"page":undefined} className={`flex h-10 min-w-10 items-center justify-center rounded px-3 text-sm ${item===page?"bg-[#f5f5f6] font-semibold":"hover:bg-[#f8f8f8]"}`}>{item}</Link>:<span key={item} className="flex h-10 min-w-10 items-center justify-center">...</span>)}
+            {hasNextPage?<Link href={nextPageHref} aria-label="Página siguiente" className="flex h-10 w-10 items-center justify-center"><ChevronRight className="h-5 w-5"/></Link>:<span aria-disabled="true" className="flex h-10 w-10 items-center justify-center text-slate-300"><ChevronRight className="h-5 w-5"/></span>}
           </nav>
         ) : null}
+          </div>
+        </div>
       </div>
     </section>
   );

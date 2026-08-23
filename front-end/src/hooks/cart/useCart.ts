@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import {
   useCart as useCartContext,
   type CartItem,
-} from "@/context/CartContext";
-import type { Product } from "@/types/product";
+} from "@/contexts/CartContext";
+import type { Product } from "@/types/products/product.types";
 
 export interface UseCartValue {
   items: CartItem[];

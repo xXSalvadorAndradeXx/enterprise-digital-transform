@@ -1,252 +1,54 @@
-﻿import Image from "next/image";
+import ProductCard from "@/components/products/ProductCard";
+import ProductGallery from "@/components/products/ProductGallery";
+import ProductOptions from "@/components/products/ProductOptions";
+import type { Product, ProductDetailResponse, ProductImage, ProductVariant } from "@/types/products/product.types";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import AddToCartButton from "@/components/AddToCartButton";
-import ProductDetailImage from "@/components/ProductDetailImage";
-import type { Product, ProductDetailResponse } from "@/types/product";
 
-const PRODUCT_ERROR_MESSAGE = "No se pudo cargar el producto.";
+const API="http://localhost:3000/api/v1";
+const money=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
+type Result={status:"success";product:Product;related:Product[]}|{status:"not-found"}|{status:"error"};
 
-const priceFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-});
-
-type ProductDetailPageProps = {
-  params: Promise<{
-    id: string;
-  }>;
-};
-
-type ProductRequestResult =
-  | {
-      status: "success";
-      product: Product;
-    }
-  | {
-      status: "not-found";
-    }
-  | {
-      status: "error";
-    };
-
-function formatProductPrice(price: Product["precio"]) {
-  const normalizedPrice = typeof price === "string" ? price.trim() : price;
-  const numericPrice =
-    normalizedPrice === "" ? Number.NaN : Number(normalizedPrice);
-
-  if (Number.isFinite(numericPrice)) {
-    return priceFormatter.format(numericPrice);
-  }
-
-  return String(price);
+async function getData(id:string):Promise<Result>{
+  try{
+    const [detailResponse,relatedResponse]=await Promise.all([fetch(`${API}/products/${encodeURIComponent(id)}`,{cache:"no-store"}),fetch(`${API}/products/${encodeURIComponent(id)}/related?limit=4`,{cache:"no-store"})]);
+    if(detailResponse.status===404)return{status:"not-found"}; if(!detailResponse.ok)return{status:"error"};
+    const detail=(await detailResponse.json()) as ProductDetailResponse|{data?:Product}; const product=detail.data;
+    if(!product)return{status:"not-found"};
+    let related:Product[]=[]; if(relatedResponse.ok){const payload=await relatedResponse.json() as Product[]|{data?:Product[]|{items?:Product[]}};const raw=Array.isArray(payload)?payload:payload.data;related=Array.isArray(raw)?raw:Array.isArray(raw?.items)?raw.items:[];}
+    return{status:"success",product,related:related.filter(item=>String(item.id)!==String(product.id)).slice(0,4)};
+  }catch{return{status:"error"}}
 }
 
-function formatProductDate(createdAt: string) {
-  const date = new Date(createdAt);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat("es-SV", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(date);
-}
-
-async function getProduct(id: string): Promise<ProductRequestResult> {
-  try {
-    const response = await fetch(
-      `http://localhost:3000/products/${encodeURIComponent(id)}`,
-      {
-        cache: "no-store",
-      },
-    );
-
-    if (response.status === 404) {
-      return { status: "not-found" };
-    }
-
-    if (!response.ok) {
-      return { status: "error" };
-    }
-
-    const responseData = (await response.json()) as ProductDetailResponse;
-    const product = responseData.data;
-
-    if (!product) {
-      return { status: "not-found" };
-    }
-
-    return {
-      status: "success",
-      product,
-    };
-  } catch {
-    return { status: "error" };
-  }
-}
-
-function ProductNotFoundState() {
-  return (
-    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[#F4F7FB] px-4 py-8 sm:px-6 sm:py-10">
-      <Image
-        src="/images/robot-404-producto.png"
-        width={1448}
-        height={1086}
-        alt="Error 404 producto no encontrado"
-        className="h-auto w-full max-w-[min(94vw,760px)] object-contain"
-      />
-    </section>
-  );
-}
-
-function ProductErrorState() {
-  return (
-    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[#F4F7FB] px-4 py-8 text-[#111111] sm:px-6 sm:py-10">
-      <div className="w-full max-w-md rounded-xl border border-[#D9E2EC] bg-white p-6 text-center shadow-[0_12px_30px_rgba(17,17,17,0.06)] sm:p-8">
-        <h1 className="text-2xl font-extrabold text-[#111111]">
-          {PRODUCT_ERROR_MESSAGE}
-        </h1>
-        <Link
-          href="/productos"
-          className="mt-7 inline-flex items-center justify-center gap-2 rounded-lg bg-[#003791] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#005BFF] hover:shadow-md"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Volver a Productos
-        </Link>
+export default async function ProductDetailPage({params}:{params:Promise<{id:string}>}){
+  const {id}=await params;const result=await getData(id);
+  if(result.status!=="success")return <section className="mx-auto flex min-h-[55vh] max-w-3xl flex-col items-center justify-center px-6 text-center"><h1 className="text-3xl font-bold">{result.status==="not-found"?"Producto no encontrado":"No pudimos cargar el producto"}</h1><p className="mt-3 text-slate-600">Verifica el producto o intenta nuevamente.</p><Link href="/productos" className="mt-6 flex items-center gap-2 bg-[#1822d9] px-5 py-3 text-white"><ArrowLeft className="h-4 w-4"/>Volver al catálogo</Link></section>;
+  const {product,related}=result;
+  const backendProduct=product as unknown as {inventory?:{productName?:string;stock?:string|number;totalStock?:number;details?:Array<{id?:string;sku?:string;size?:string;color?:string;stock?:string|number}>};images?:Array<{id?:string;url?:string;imageUrl?:string;sortOrder?:number}>;variantConfigs?:Array<{id?:string;inventoryDetailId?:string;sku?:string;size?:string;color?:string;stock?:string|number}>};
+  const name=product.commercialName??product.nombre??backendProduct.inventory?.productName??"Producto";
+  const stock=Number(product.stockTotal??product.stock??backendProduct.inventory?.totalStock??backendProduct.inventory?.stock??0);
+  const price=product.effectivePrice??product.precio;const original=product.salePrice;
+  const rawDiscount=product.discount as unknown;
+  const discountPercentage=typeof rawDiscount==="number"?rawDiscount:(rawDiscount&&typeof rawDiscount==="object"&&"percentage" in rawDiscount?Number((rawDiscount as {percentage?:number}).percentage??0):0);
+  const hasActiveDiscount=discountPercentage>0&&Number(price)<Number(original??price);
+  const backendImages:ProductImage[]=(backendProduct.images??[]).flatMap((image,index)=>{const url=String(image.url??image.imageUrl??"").trim();return url?[{id:String(image.id??index),url,alt:name,position:image.sortOrder??index}]:[]});
+  const images:ProductImage[]=backendImages.length?backendImages:(product.primaryImage?[product.primaryImage]:(product.imagenUrl?[{id:"primary",url:product.imagenUrl,alt:name}]:[]));
+  const rawVariants=(backendProduct.variantConfigs?.length?backendProduct.variantConfigs:backendProduct.inventory?.details)??[];
+  const inventoryVariants:ProductVariant[]=rawVariants.flatMap((variant,index)=>{const size=String(variant.size??"").trim();const hex=String(variant.color??"").trim();const variantStock=Number(variant.stock??0);if(!size||!hex)return[];return[{id:String(variant.id??index),sku:String(variant.sku??variant.id??index),size,color:{name:hex,hex},stock:variantStock,available:variantStock>0}]});
+  const variants=product.variants?.length?product.variants:(inventoryVariants.length?inventoryVariants:[{id:String(product.id),sku:String(product.id),size:"Única",color:{name:"Único",hex:"#E5E7EB"},stock,available:stock>0}]);
+  return <main className="mx-auto w-full max-w-[1280px] px-5 py-6 sm:px-8">
+    <nav className="bg-[#f2f5fb] px-5 py-4 text-xs text-slate-600">Inicio&nbsp;&nbsp;›&nbsp;&nbsp;Producto&nbsp;&nbsp;›&nbsp;&nbsp;Detalle</nav>
+    <header className="border-b border-[#aeb4bd] px-3 pb-8 pt-10 sm:px-4">
+      <h1 className="text-3xl font-extrabold tracking-tight text-black sm:text-4xl lg:text-5xl">{name}</h1>
+      <p className="mt-8 text-sm font-bold text-[#1822d9]">Detalles del producto</p>
+    </header>
+    <article className="mt-12 grid gap-10 lg:grid-cols-[1.05fr_.95fr] lg:items-start">
+      <ProductGallery images={images} productName={name}/>
+      <div className="min-w-0"><div className="flex flex-wrap items-center gap-3"><span className={`text-3xl font-bold ${hasActiveDiscount?"text-[#ff2d20]":"text-[#1822d9]"}`}>{money.format(Number(price)||0)}</span>{hasActiveDiscount&&original?<><span className="text-base text-slate-600 line-through">{money.format(Number(original)||0)}</span><span className="rounded bg-[#ff3b30] px-2 py-1 text-xs font-bold text-white">-{discountPercentage}%</span></>:null}<span className="rounded-md bg-[#eefaf1] px-3 py-1 text-sm font-semibold text-[#08a637]">{stock} En Stock</span></div>
+        <p className="mt-6 leading-7 text-slate-600">{product.descripcion}</p>
+        <ProductOptions variants={variants}/>
       </div>
-    </section>
-  );
-}
-
-export default async function ProductDetailPage({
-  params,
-}: ProductDetailPageProps) {
-  const { id } = await params;
-  const result = await getProduct(id);
-
-  if (result.status === "not-found") {
-    return <ProductNotFoundState />;
-  }
-
-  if (result.status === "error") {
-    return <ProductErrorState />;
-  }
-
-  const { product } = result;
-  const isAvailable = product.stock > 0;
-  const imageUrl = product.imagenUrl.trim();
-  const formattedDate = formatProductDate(product.createdAt);
-
-  return (
-    <section className="min-h-[calc(100vh-10rem)] bg-[#F4F7FB] px-4 py-8 text-[#111111] sm:px-6 sm:py-10 lg:px-8">
-      <div className="mx-auto w-full max-w-6xl">
-        <Link
-          href="/productos"
-          className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-semibold text-[#003791] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#005BFF] hover:bg-[#EAF3FF] hover:text-[#005BFF]"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Volver a Productos
-        </Link>
-
-        <article className="mt-5 overflow-hidden rounded-2xl border border-[#D9E2EC] bg-white shadow-[0_18px_45px_rgba(0,55,145,0.10)] sm:mt-6">
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-            <div className="bg-[#EAF3FF] p-4 sm:p-6 lg:p-7">
-              <div className="relative aspect-square overflow-hidden rounded-xl border border-[#D9E2EC] bg-[#F4F7FB]">
-                <ProductDetailImage
-                  src={imageUrl}
-                  alt={product.nombre}
-                  priority
-                />
-              </div>
-            </div>
-
-            <div className="flex min-w-0 flex-col p-5 sm:p-7 lg:p-8">
-              <div className="flex flex-wrap items-center gap-3">
-                {product.category ? (
-                  <span className="rounded-full border border-[#D9E2EC] bg-[#EAF3FF] px-3 py-1 text-sm font-semibold text-[#003791]">
-                    {product.category.nombre}
-                  </span>
-                ) : null}
-                <span
-                  className={`rounded-full border px-3 py-1 text-sm font-semibold ${
-                    isAvailable
-                      ? "border-[#D9E2EC] bg-[#EAF3FF] text-[#003791]"
-                      : "border-[#D9E2EC] bg-[#F4F7FB] text-slate-500"
-                  }`}
-                >
-                  {isAvailable ? "Disponible" : "Agotado"}
-                </span>
-              </div>
-
-              <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-[#111111] sm:text-3xl lg:text-4xl">
-                {product.nombre}
-              </h1>
-
-              <p className="mt-4 break-words text-sm leading-6 text-slate-600 sm:text-base sm:leading-7">
-                {product.descripcion}
-              </p>
-
-              <div className="mt-6 grid gap-4 border-y border-[#D9E2EC] py-5 sm:mt-7 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs font-bold uppercase text-slate-500">
-                    Precio
-                  </p>
-                  <p className="mt-1 break-words text-2xl font-extrabold text-[#111111] sm:text-3xl">
-                    {formatProductPrice(product.precio)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-bold uppercase text-slate-500">
-                    Stock
-                  </p>
-                  <p className="mt-1 text-2xl font-extrabold text-[#111111]">
-                    {product.stock}
-                  </p>
-                </div>
-              </div>
-
-              {formattedDate ? (
-                <p className="mt-5 text-sm font-medium text-slate-500">
-                  Fecha: {formattedDate}
-                </p>
-              ) : null}
-
-              <div className="mt-6 grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border border-[#D9E2EC] bg-[#F4F7FB] px-3 py-3">
-                  <p className="text-sm font-bold text-[#111111]">
-                    Envio disponible
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Entrega coordinada
-                  </p>
-                </div>
-                <div className="rounded-lg border border-[#D9E2EC] bg-[#F4F7FB] px-3 py-3">
-                  <p className="text-sm font-bold text-[#111111]">
-                    Pago seguro
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Compra protegida
-                  </p>
-                </div>
-                <div className="rounded-lg border border-[#D9E2EC] bg-[#F4F7FB] px-3 py-3">
-                  <p className="text-sm font-bold text-[#111111]">
-                    Garantia incluida
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Soporte del producto
-                  </p>
-                </div>
-              </div>
-
-              <AddToCartButton product={product} />
-            </div>
-          </div>
-        </article>
-      </div>
-    </section>
-  );
+    </article>
+    {related.length>0&&<section className="mt-16"><h2 className="text-3xl font-bold">También te puede interesar</h2><div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{related.map(item=><ProductCard key={item.id} product={item}/>)}</div></section>}
+  </main>;
 }

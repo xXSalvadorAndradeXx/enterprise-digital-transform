@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiRequestError } from "@/lib/api-client";
-import { registerUser } from "@/services/auth-service";
+import { registerUser } from "@/services/auth/auth.service";
 import Link from "next/link";
 import { CheckCircle2, Eye, EyeOff, LogIn } from "lucide-react";
 import { useState } from "react";

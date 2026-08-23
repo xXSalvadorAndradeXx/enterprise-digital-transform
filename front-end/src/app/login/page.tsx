@@ -2,7 +2,7 @@
 
 import { ApiRequestError } from "@/lib/api-client";
 import { hasActiveSession, saveAuthSession } from "@/lib/auth-session";
-import { loginUser } from "@/services/auth-service";
+import { loginUser } from "@/services/auth/auth.service";
 import Link from "next/link";
 import { CheckCircle2, Eye, EyeOff, LogIn } from "lucide-react";
 import { useRouter } from "next/navigation";
