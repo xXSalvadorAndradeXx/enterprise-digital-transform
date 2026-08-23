@@ -52,11 +52,21 @@ export class CreateSupplierAndRelations1784700000000 implements MigrationInterfa
       `);
     }
 
-    // 5. Crear tabla supplier_purchases si no existe
+    // 5. Crear enum de género si no existe
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE TYPE product_gender_enum AS ENUM ('FEMALE', 'MALE', 'UNISEX');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+
+    // 6. Crear tabla supplier_purchases si no existe
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "supplier_purchases" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "supplier_id" uuid NOT NULL,
+        "gender" product_gender_enum,
         "status" character varying(50) NOT NULL DEFAULT 'PENDIENTE',
         "created_at" TIMESTAMP NOT NULL DEFAULT now(),
         "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
@@ -71,6 +81,9 @@ export class CreateSupplierAndRelations1784700000000 implements MigrationInterfa
   public async down(queryRunner: QueryRunner): Promise<void> {
     // 1. Eliminar tabla supplier_purchases
     await queryRunner.query(`DROP TABLE IF EXISTS "supplier_purchases"`);
+    
+    // Eliminar enum de género
+    await queryRunner.query(`DROP TYPE IF EXISTS product_gender_enum CASCADE`);
 
     // 2. Eliminar FK y columna supplierId de products si existen
     await queryRunner.query(`ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_products_supplier"`);

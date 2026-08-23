@@ -358,6 +358,15 @@ export class InventoryService {
             `Inventario para producto ${dto.productId} no encontrado`,
           );
         }
+        const stockBefore = Number(inventory.stock);
+        const stockAfter  = stockBefore + Number(dto.quantity);
+
+        if (stockAfter < 0) {
+          throw new BadRequestException(
+            `Stock insuficiente. Disponible: ${stockBefore}, solicitado: ${dto.quantity}`,
+          );
+        }
+        (inventory as any)._stockBeforeAdjust = stockBefore;
       }
 
       if (dto.inventoryDetailId) {
@@ -395,8 +404,14 @@ export class InventoryService {
 
       // Recalcular stock del inventario principal
       if (inventory) {
-        await this.recalcAndSaveInventoryStock(inventory.id, manager);
-        inventory = await manager.findOne(Inventory, { where: { id: inventory.id } }) ?? inventory;
+        if (dto.inventoryDetailId) {
+          await this.recalcAndSaveInventoryStock(inventory.id, manager);
+          inventory = await manager.findOne(Inventory, { where: { id: inventory.id } }) ?? inventory;
+        } else {
+          inventory.stock = Number(inventory.stock) + Number(dto.quantity);
+          inventory.status = inventory.stock <= 0 ? InventoryStatus.OUT_OF_STOCK : InventoryStatus.ACTIVE;
+          await manager.save(Inventory, inventory);
+        }
 
         if (inventory.status === InventoryStatus.OUT_OF_STOCK) {
           await this.checkAndPauseProductsOnOutOfStock(
@@ -558,7 +573,7 @@ export class InventoryService {
 
       if (!detail) {
         throw new NotFoundException(
-          `Detalle de inventario ${inventoryDetailId} no encontrado`,
+          `Detalle de inventario con ID ${inventoryDetailId} no encontrado`,
         );
       }
 

@@ -1,45 +1,36 @@
-// src/modules/roles/entities/role.entity.ts
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
-  ManyToMany,
-  JoinTable,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToMany } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 import { Permission } from '../../permissions/entities/permission.entity';
 
 @Entity('roles')
 export class Role {
   @PrimaryGeneratedColumn('uuid')
-  id?: string;
+  id!: string;
 
-  @Column({ type: 'varchar', length: 80, unique: true })
-  name?: string;
+  @Column({ type: 'varchar', length: 80, unique: true, nullable: false })
+  name!: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  description?: string | null;
+  description!: string | null;
 
-  @Column({ name: 'is_system', type: 'boolean', default: false })
-  isSystem?: boolean;
+  @Column({ name: 'is_system', type: 'boolean', default: false, nullable: false })
+  isSystem!: boolean;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
-  createdAt?: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
-  updatedAt?: Date;
+  updatedAt!: Date;
 
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
-  deletedAt?: Date | null;
+  deletedAt!: Date | null;
 
-  // N:N con permissions vía role_permissions
-  @ManyToMany(() => Permission, { eager: true })
-  @JoinTable({
-    name: 'role_permissions',
-    joinColumn:        { name: 'role_id',       referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'permission_id', referencedColumnName: 'id' },
-  })
-  permissions?: Permission[];
+  @ManyToMany(() => User, (user) => user.roles)
+  users!: User[];
+
+  @ManyToMany(() => Permission, (permission) => permission.roles)
+  permissions!: Permission[];
+
+  userCount?: number;
+  permissionCount?: number;
 }

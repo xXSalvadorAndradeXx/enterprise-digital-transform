@@ -30,8 +30,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
+    let code = 'INTERNAL_SERVER_ERROR';
     let message = 'Error interno del servidor';
-    let error = 'Internal Server Error';
+    let details: any = undefined;
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
@@ -39,18 +40,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
-        error = this.getHttpStatusText(statusCode);
+        code = this.getHttpStatusErrorCode(statusCode);
       } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         const resp = exceptionResponse as Record<string, any>;
 
+        // Si la excepción ya trae un código de error personalizado
+        code = resp.code ?? this.getHttpStatusErrorCode(statusCode);
+
         // class-validator devuelve un array de mensajes en resp.message
         if (Array.isArray(resp.message)) {
-          message = resp.message.join('; ');
+          code = 'VALIDATION_ERROR';
+          message = 'Los datos enviados no son válidos';
+          details = resp.message;
         } else {
           message = resp.message ?? message;
+          details = resp.details ?? undefined;
         }
-
-        error = resp.error ?? this.getHttpStatusText(statusCode);
       }
     } else if (exception instanceof Error) {
       // Error no controlado — registrar completo en servidor, nunca al cliente
@@ -63,26 +68,28 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     response.status(statusCode).json({
-      statusCode,
-      error,
-      message,
-      path: request.url,
+      success: false,
+      error: {
+        code,
+        message,
+        ...(details !== undefined ? { details } : {}),
+      },
       timestamp: new Date().toISOString(),
     });
   }
 
-  private getHttpStatusText(statusCode: number): string {
+  private getHttpStatusErrorCode(statusCode: number): string {
     const statusMap: Record<number, string> = {
-      400: 'Bad Request',
-      401: 'Unauthorized',
-      403: 'Forbidden',
-      404: 'Not Found',
-      409: 'Conflict',
-      422: 'Unprocessable Entity',
-      423: 'Locked',
-      429: 'Too Many Requests',
-      500: 'Internal Server Error',
+      400: 'BAD_REQUEST',
+      401: 'UNAUTHORIZED',
+      403: 'FORBIDDEN',
+      404: 'NOT_FOUND',
+      409: 'CONFLICT',
+      422: 'VALIDATION_ERROR',
+      423: 'LOCKED',
+      429: 'TOO_MANY_REQUESTS',
+      500: 'INTERNAL_SERVER_ERROR',
     };
-    return statusMap[statusCode] ?? 'Error';
+    return statusMap[statusCode] ?? 'INTERNAL_SERVER_ERROR';
   }
 }

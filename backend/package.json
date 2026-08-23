@@ -22,7 +22,7 @@
     "migration:generate": "pnpm typeorm migration:generate",
     "migration:run": "pnpm typeorm migration:run",
     "migration:revert": "pnpm typeorm migration:revert",
-    "seed": "ts-node -r tsconfig-paths/register src/seeders/index.ts",
+    "seed": "ts-node -r tsconfig-paths/register src/module/seeders/index.ts",
     "db:setup": "pnpm migration:run && pnpm seed"
   },
   "dependencies": {

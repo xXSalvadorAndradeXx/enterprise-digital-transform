@@ -1,9 +1,10 @@
-// src/database/migrations/1234567890-RenameProductGenderEnumToInventoryGenderEnum.ts
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RenameProductGenderEnumToInventoryGenderEnum1234567890
+export class RenameProductGenderEnumToInventoryGenderEnum1786070329999
   implements MigrationInterface
 {
+  name = 'RenameProductGenderEnumToInventoryGenderEnum1786070329999';
+
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Crear el nuevo tipo
     await queryRunner.query(`

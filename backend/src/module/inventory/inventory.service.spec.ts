@@ -19,6 +19,10 @@ describe('InventoryService — RN-I-003 & updateStock', () => {
       setLock: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       getOne: jest.fn(),
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 0 }),
     };
 
     mockManager = {
@@ -27,6 +31,8 @@ describe('InventoryService — RN-I-003 & updateStock', () => {
       save: jest
         .fn()
         .mockImplementation((entityClass, entity) => Promise.resolve(entity)),
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue({ id: 'inv-1', stock: 10, status: 'ACTIVE' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

@@ -13,7 +13,7 @@ import {
   OneToMany
 } from 'typeorm';
 import { Cart } from '../../cart/entities/cart.entity';
-import { Role } from './role.entity';
+import { Role } from '../../roles/entities/role.entity';
 import { PasswordResetToken } from './password-reset-token.entity';
 import { RefreshToken } from './refresh-token.entity';
 

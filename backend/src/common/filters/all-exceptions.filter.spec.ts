@@ -36,10 +36,11 @@ describe('AllExceptionsFilter', () => {
     expect(mockResponse.status).toHaveBeenCalledWith(404);
     expect(mockResponse.json).toHaveBeenCalledWith(
       expect.objectContaining({
-        statusCode: 404,
-        error: 'Not Found',
-        message: 'No encontrado',
-        path: '/api/v1/test',
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'No encontrado',
+        },
       }),
     );
   });
@@ -52,13 +53,16 @@ describe('AllExceptionsFilter', () => {
     expect(mockResponse.status).toHaveBeenCalledWith(500);
     expect(mockResponse.json).toHaveBeenCalledWith(
       expect.objectContaining({
-        statusCode: 500,
-        error: 'Internal Server Error',
+        success: false,
+        error: {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Error interno del servidor',
+        },
       }),
     );
   });
 
-  it('debe unir array de mensajes de class-validator en string', () => {
+  it('debe unir array de mensajes de class-validator en string y asignar código de validación', () => {
     const exception = new HttpException(
       { message: ['campo requerido', 'email inválido'], error: 'Bad Request' },
       HttpStatus.BAD_REQUEST,
@@ -68,8 +72,12 @@ describe('AllExceptionsFilter', () => {
 
     expect(mockResponse.json).toHaveBeenCalledWith(
       expect.objectContaining({
-        statusCode: 400,
-        message: 'campo requerido; email inválido',
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Los datos enviados no son válidos',
+          details: ['campo requerido', 'email inválido'],
+        },
       }),
     );
   });
@@ -80,6 +88,8 @@ describe('AllExceptionsFilter', () => {
     filter.catch(exception, mockHost);
 
     const jsonCall = mockResponse.json.mock.calls[0][0];
+    expect(jsonCall).toHaveProperty('success', false);
+    expect(jsonCall.error).toHaveProperty('code');
     expect(jsonCall).toHaveProperty('timestamp');
     expect(new Date(jsonCall.timestamp).toString()).not.toBe('Invalid Date');
   });
