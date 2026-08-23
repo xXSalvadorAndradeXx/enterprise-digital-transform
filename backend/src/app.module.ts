@@ -15,6 +15,7 @@ import { SuppliersModule } from '../src/module/suppliers/suppliers.module';
 import { InventoryModule } from '../src/module/inventory/inventory.module';
 import { PurchasesModule } from '../src/module/purchases/purchases.module';
 import { LocationsModule } from '../src/module/locations/locations.module';
+import { CustomersModule } from '../src/module/customers/customers.module';
 
 
 
@@ -53,6 +54,7 @@ import { LocationsModule } from '../src/module/locations/locations.module';
     InventoryModule,
     PurchasesModule,
     LocationsModule,
+    CustomersModule,
 
   ],
   controllers: [AppController],
