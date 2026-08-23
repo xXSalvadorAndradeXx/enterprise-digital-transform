@@ -8,8 +8,10 @@ import {
   DeleteDateColumn,
   BeforeInsert,
   BeforeUpdate,
+  OneToMany,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { CustomerAddress } from './customer-address.entity';
 
 @Entity('customers')
 export class Customer {
@@ -63,6 +65,9 @@ export class Customer {
 
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
+
+  @OneToMany(() => CustomerAddress, (address) => address.customer)
+  addresses!: CustomerAddress[];
 
   @BeforeInsert()
   @BeforeUpdate()

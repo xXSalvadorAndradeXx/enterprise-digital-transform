@@ -1,13 +1,18 @@
-import { Injectable, ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, UnprocessableEntityException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Customer } from './entities/customer.entity';
+import { CustomerAddress } from './entities/customer-address.entity';
+import { LocationsService } from '../locations/locations.service';
 
 @Injectable()
 export class CustomersService {
   constructor(
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
+    @InjectRepository(CustomerAddress)
+    private readonly addressRepository: Repository<CustomerAddress>,
+    private readonly locationsService: LocationsService,
   ) {}
 
   /**
@@ -169,5 +174,127 @@ export class CustomersService {
       });
     }
     return customer;
+  }
+
+  /**
+   * Crea una dirección asociada a un cliente, validando el par department-district.
+   */
+  async createAddress(customerId: string, data: Partial<CustomerAddress>): Promise<CustomerAddress> {
+    const customer = await this.findOne(customerId);
+
+    if (!data.departmentId || !data.districtId) {
+      throw new BadRequestException('departmentId y districtId son requeridos');
+    }
+
+    // Validar el par departamento-distrito usando LocationsService
+    await this.locationsService.validateDepartmentDistrict(
+      data.departmentId,
+      data.districtId,
+    );
+
+    const address = this.addressRepository.create({
+      ...data,
+      customerId: customer.id,
+    });
+    return await this.addressRepository.save(address);
+  }
+
+  /**
+   * Actualiza una dirección existente validando el par department-district si cambia.
+   */
+  async updateAddress(
+    customerId: string,
+    addressId: string,
+    data: Partial<CustomerAddress>,
+  ): Promise<CustomerAddress> {
+    const address = await this.addressRepository.findOne({
+      where: { id: addressId, customerId },
+    });
+
+    if (!address) {
+      throw new NotFoundException({
+        code: 'ADDRESS_NOT_FOUND',
+        message: `No se encontró la dirección con id ${addressId} para el cliente`,
+      });
+    }
+
+    const deptId = data.departmentId !== undefined ? data.departmentId : address.departmentId;
+    const distId = data.districtId !== undefined ? data.districtId : address.districtId;
+
+    if (data.departmentId !== undefined || data.districtId !== undefined) {
+      // Re-validar par departamento-distrito si uno de ellos cambia
+      await this.locationsService.validateDepartmentDistrict(deptId, distId);
+    }
+
+    Object.assign(address, data);
+    return await this.addressRepository.save(address);
+  }
+
+  /**
+   * Establece una dirección como principal dentro de una transacción.
+   */
+  async setDefaultAddress(customerId: string, addressId: string): Promise<CustomerAddress> {
+    // 1. Validar que la dirección solicitada exista, pertenezca al cliente y no esté eliminada.
+    const targetAddress = await this.addressRepository.findOne({
+      where: { id: addressId, customerId },
+    });
+
+    if (!targetAddress) {
+      throw new NotFoundException({
+        code: 'ADDRESS_NOT_FOUND',
+        message: `No se encontró la dirección con id ${addressId} para el cliente`,
+      });
+    }
+
+    // 2. Ejecutar dentro de una transacción para asegurar consistencia
+    return await this.customerRepository.manager.transaction(async (transactionalEntityManager) => {
+      // Desmarcar la dirección principal actual
+      await transactionalEntityManager.update(
+        CustomerAddress,
+        { customerId, isDefault: true, deletedAt: null },
+        { isDefault: false },
+      );
+
+      // Marcar la nueva dirección como principal
+      targetAddress.isDefault = true;
+      return await transactionalEntityManager.save(targetAddress);
+    });
+  }
+
+  /**
+   * Elimina una dirección utilizando soft delete. Si era la dirección principal,
+   * reasigna automáticamente otra dirección activa del cliente como principal.
+   */
+  async removeAddress(customerId: string, addressId: string): Promise<void> {
+    // 1. Validar que la dirección pertenezca al cliente solicitado antes de eliminarla.
+    const address = await this.addressRepository.findOne({
+      where: { id: addressId, customerId },
+    });
+
+    if (!address) {
+      throw new NotFoundException({
+        code: 'ADDRESS_NOT_FOUND',
+        message: `No se encontró la dirección con id ${addressId} para el cliente`,
+      });
+    }
+
+    // 2. Ejecutar la operación dentro de una transacción.
+    await this.customerRepository.manager.transaction(async (transactionalEntityManager) => {
+      // Marcar la dirección como eliminada (soft delete)
+      await transactionalEntityManager.softDelete(CustomerAddress, addressId);
+
+      // Si la dirección eliminada era la principal, reasignar otra dirección activa
+      if (address.isDefault) {
+        const remainingAddress = await transactionalEntityManager.findOne(CustomerAddress, {
+          where: { customerId }, // TypeORM aplica el filtro WHERE deleted_at IS NULL automáticamente
+          order: { createdAt: 'ASC' },
+        });
+
+        if (remainingAddress) {
+          remainingAddress.isDefault = true;
+          await transactionalEntityManager.save(CustomerAddress, remainingAddress);
+        }
+      }
+    });
   }
 }
