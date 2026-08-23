@@ -5,13 +5,15 @@ import {
   useCart as useCartContext,
   type CartItem,
 } from "@/contexts/CartContext";
-import type { Product } from "@/types/products/product.types";
+import type { Product, ProductVariant } from "@/types/products/product.types";
+
+
 
 export interface UseCartValue {
   items: CartItem[];
-  addToCart: (product: Product, quantity?: number) => Promise<void>;
-  removeFromCart: (itemId: number) => Promise<void>;
-  updateQuantity: (itemId: number, quantity: number) => Promise<void>;
+  addToCart: (product: Product, variant: ProductVariant, quantity?: number) => Promise<void>;
+  removeFromCart: (itemId: string) => Promise<void>;
+  updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
   totalItems: number;
   totalPrice: number;

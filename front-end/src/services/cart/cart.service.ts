@@ -1,21 +1,26 @@
-import { ApiRequestError, apiRequest } from "@/lib/api-client";
+import {
+  ApiRequestError,
+  apiRequest,
+} from "@/lib/api-client";
+
 import { readAccessToken } from "@/lib/auth-session";
-import type { ApiCart, CartResponse } from "@/types/cart/cart.types";
 
-export type AddCartItemRequest = {
-  productId: string | number;
-  quantity: number;
-};
-
-export type UpdateCartItemRequest = {
-  quantity: number;
-};
+import type {
+  ApiCart,
+  CartResponse,
+  AddCartItemRequest,
+  UpdateCartItemQuantityRequest,
+} from "@/types/cart/cart.types";
 
 function getAuthHeaders() {
   const accessToken = readAccessToken();
 
   if (!accessToken) {
-    throw new ApiRequestError("Debes iniciar sesion para usar el carrito.", 401, null);
+    throw new ApiRequestError(
+      "Debes iniciar sesion para usar el carrito.",
+      401,
+      null,
+    );
   }
 
   return {
@@ -23,16 +28,24 @@ function getAuthHeaders() {
   };
 }
 
-export async function getCurrentCart() {
-  const response = await apiRequest<CartResponse>("/cart", {
-    headers: getAuthHeaders(),
-  });
+export async function getCurrentCart(): Promise<ApiCart> {
+  const response = await apiRequest<CartResponse>(
+    "/cart",
+    {
+      headers: getAuthHeaders(),
+    },
+  );
 
   return response.data;
 }
 
-export async function addCartItem(data: AddCartItemRequest) {
-  const response = await apiRequest<CartResponse, AddCartItemRequest>(
+export async function addCartItem(
+  data: AddCartItemRequest,
+): Promise<ApiCart> {
+  const response = await apiRequest<
+    CartResponse,
+    AddCartItemRequest
+  >(
     "/cart/items",
     {
       method: "POST",
@@ -45,10 +58,13 @@ export async function addCartItem(data: AddCartItemRequest) {
 }
 
 export async function updateCartItemQuantity(
-  itemId: number,
-  data: UpdateCartItemRequest,
-) {
-  const response = await apiRequest<CartResponse, UpdateCartItemRequest>(
+  itemId: string,
+  data: UpdateCartItemQuantityRequest,
+): Promise<ApiCart> {
+  const response = await apiRequest<
+    CartResponse,
+    UpdateCartItemQuantityRequest
+  >(
     `/cart/items/${itemId}`,
     {
       method: "PATCH",
@@ -60,20 +76,28 @@ export async function updateCartItemQuantity(
   return response.data;
 }
 
-export async function removeCartItem(itemId: number) {
-  const response = await apiRequest<CartResponse>(`/cart/items/${itemId}`, {
-    method: "DELETE",
-    headers: getAuthHeaders(),
-  });
+export async function removeCartItem(
+  itemId: string,
+): Promise<ApiCart> {
+  const response = await apiRequest<CartResponse>(
+    `/cart/items/${itemId}`,
+    {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    },
+  );
 
   return response.data;
 }
 
-export async function clearCurrentCart() {
-  const response = await apiRequest<CartResponse>("/cart", {
-    method: "DELETE",
-    headers: getAuthHeaders(),
-  });
+export async function clearCurrentCart(): Promise<ApiCart> {
+  const response = await apiRequest<CartResponse>(
+    "/cart",
+    {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    },
+  );
 
   return response.data;
 }

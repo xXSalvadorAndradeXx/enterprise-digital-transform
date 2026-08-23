@@ -1,20 +1,49 @@
-import type { Product } from "@/types/products/product.types";
+export interface ApiCartVariant {
+  size: string;
+  colorName: string;
+  colorHex: string;
+}
 
 export interface ApiCartItem {
-  id: number;
+  id: string;
+  productId: string;
+  variantId: string;
+  productName: string;
+  imageUrl: string | null;
+
+  variant: ApiCartVariant;
+
   quantity: number;
-  unitPrice: string | number;
-  subtotal: string | number;
-  product: Product;
+  availableStock: number;
+
+  unitPrice: string;
+  lineDiscount: string;
+  lineTotal: string;
 }
 
 export interface ApiCart {
-  id: number;
-  createdAt: string;
-  items?: ApiCartItem[];
-  total?: string | number;
+  id: string;
+  status: "ACTIVE";
+
+  items: ApiCartItem[];
+
+  subtotal: string;
+  discountTotal: string;
+  total: string;
+}
+
+export interface AddCartItemRequest {
+  variantId: string;
+  quantity: number;
+}
+
+export interface UpdateCartItemQuantityRequest {
+  quantity: number;
 }
 
 export interface CartResponse {
+  success: true;
+  message: string;
   data: ApiCart;
+  timestamp: string;
 }
