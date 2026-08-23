@@ -23,6 +23,9 @@ export class District {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
 
+  @Column({ name: 'department_id', type: 'uuid', nullable: false })
+  departmentId!: string;
+
   @ManyToOne(() => Department, (department) => department.districts, {
     nullable: false,
     onDelete: 'RESTRICT',

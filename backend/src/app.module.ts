@@ -14,6 +14,7 @@ import { validate } from './env.validation';
 import { SuppliersModule } from '../src/module/suppliers/suppliers.module';
 import { InventoryModule } from '../src/module/inventory/inventory.module';
 import { PurchasesModule } from '../src/module/purchases/purchases.module';
+import { LocationsModule } from '../src/module/locations/locations.module';
 
 
 
@@ -51,6 +52,7 @@ import { PurchasesModule } from '../src/module/purchases/purchases.module';
     SuppliersModule,
     InventoryModule,
     PurchasesModule,
+    LocationsModule,
 
   ],
   controllers: [AppController],
