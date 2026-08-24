@@ -14,8 +14,8 @@ import { validate } from './env.validation';
 import { SuppliersModule } from '../src/module/suppliers/suppliers.module';
 import { InventoryModule } from '../src/module/inventory/inventory.module';
 import { PurchasesModule } from '../src/module/purchases/purchases.module';
-
-
+import { OrdersModule } from '../src/module/orders/orders.module';
+import { BranchesModule } from '../src/module/branches/branches.module';
 
 @Module({
   imports: [
@@ -51,9 +51,10 @@ import { PurchasesModule } from '../src/module/purchases/purchases.module';
     SuppliersModule,
     InventoryModule,
     PurchasesModule,
-
+    OrdersModule,
+    BranchesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule { }
