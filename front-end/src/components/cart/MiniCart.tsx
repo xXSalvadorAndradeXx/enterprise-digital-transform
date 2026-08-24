@@ -1,8 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import {
+  useEffect,
+  useRef,
+} from "react";
+
 import { useRouter } from "next/navigation";
-import { ShoppingCart, Trash2, X } from "lucide-react";
+
+import {
+  ShoppingCart,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import type { CartItem } from "@/contexts/CartContext";
 
@@ -12,8 +21,19 @@ interface MiniCartProps {
   items: CartItem[];
   totalItems: number;
   subtotal: number;
-  onRemove: (itemId: string) => Promise<void>;
+  onRemove: (
+    itemId: string,
+  ) => Promise<void>;
 }
+
+const FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "a[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
 
 export function MiniCart({
   isOpen,
@@ -25,19 +45,114 @@ export function MiniCart({
 }: MiniCartProps) {
   const router = useRouter();
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const drawerRef =
+    useRef<HTMLElement>(null);
 
-    const handleKeyDown = (event: KeyboardEvent) => {
+  const closeButtonRef =
+    useRef<HTMLButtonElement>(null);
+
+  const previousFocusRef =
+    useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    const previousOverflow =
+      document.body.style.overflow;
+
+    document.body.style.overflow =
+      "hidden";
+
+    window.setTimeout(() => {
+      closeButtonRef.current?.focus();
+    }, 0);
+
+    const handleKeyDown = (
+      event: KeyboardEvent,
+    ) => {
       if (event.key === "Escape") {
+        event.preventDefault();
         onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const drawer =
+        drawerRef.current;
+
+      if (!drawer) {
+        return;
+      }
+
+      const focusableElements =
+        Array.from(
+          drawer.querySelectorAll<HTMLElement>(
+            FOCUSABLE_SELECTOR,
+          ),
+        );
+
+      if (
+        focusableElements.length === 0
+      ) {
+        event.preventDefault();
+        drawer.focus();
+        return;
+      }
+
+      const firstElement =
+        focusableElements[0];
+
+      const lastElement =
+        focusableElements[
+          focusableElements.length - 1
+        ];
+
+      const activeElement =
+        document.activeElement;
+
+      if (
+        event.shiftKey &&
+        activeElement === firstElement
+      ) {
+        event.preventDefault();
+        lastElement.focus();
+        return;
+      }
+
+      if (
+        !event.shiftKey &&
+        activeElement === lastElement
+      ) {
+        event.preventDefault();
+        firstElement.focus();
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener(
+      "keydown",
+      handleKeyDown,
+    );
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener(
+        "keydown",
+        handleKeyDown,
+      );
+
+      document.body.style.overflow =
+        previousOverflow;
+
+      previousFocusRef.current?.focus();
     };
   }, [isOpen, onClose]);
 
@@ -50,7 +165,9 @@ export function MiniCart({
     router.push("/carrito");
   };
 
-  const handleRemove = async (itemId: string) => {
+  const handleRemove = async (
+    itemId: string,
+  ) => {
     await onRemove(itemId);
   };
 
@@ -58,15 +175,20 @@ export function MiniCart({
     <div
       className="fixed inset-0 z-[70] bg-black/40"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
+        if (
+          event.target ===
+          event.currentTarget
+        ) {
           onClose();
         }
       }}
     >
       <aside
+        ref={drawerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="mini-cart-title"
+        tabIndex={-1}
         className="absolute right-0 top-0 flex h-full w-full max-w-[430px] flex-col bg-white px-7 py-5 shadow-2xl"
       >
         {/* Encabezado */}
@@ -85,12 +207,16 @@ export function MiniCart({
           </div>
 
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             aria-label="Cerrar carrito"
-            className="rounded p-1 text-[#ff8e8e] transition hover:bg-[#fff1f1]"
+            className="rounded p-1 text-[#ff8e8e] transition hover:bg-[#fff1f1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2222e7]"
           >
-            <X className="h-6 w-6" />
+            <X
+              className="h-6 w-6"
+              aria-hidden="true"
+            />
           </button>
         </div>
 
@@ -114,7 +240,7 @@ export function MiniCart({
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-4 text-sm font-medium text-[#2222e7] underline underline-offset-2"
+                className="mt-4 text-sm font-medium text-[#2222e7] underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2222e7]"
               >
                 Seguir comprando
               </button>
@@ -150,7 +276,6 @@ export function MiniCart({
                       {item.nombre}
                     </p>
 
-                    {/* Precio unitario */}
                     <p className="mt-1 text-sm font-semibold text-[#111827]">
                       ${item.precio.toFixed(2)}
                     </p>
@@ -158,41 +283,58 @@ export function MiniCart({
                     {/* Variante */}
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#4b5563]">
                       <div className="flex items-center gap-1">
-                        <span>Color:</span>
+                        <span>
+                          Color:
+                        </span>
 
                         <span
                           className="h-3 w-3 rounded-full border border-black"
                           style={{
-                            backgroundColor: item.colorHex,
+                            backgroundColor:
+                              item.colorHex,
                           }}
                           aria-hidden="true"
                         />
 
-                        <span>{item.color}</span>
+                        <span>
+                          {item.color}
+                        </span>
                       </div>
 
-                      <span aria-hidden="true">—</span>
+                      <span
+                        aria-hidden="true"
+                      >
+                        —
+                      </span>
 
                       <span>
-                        Talla: {item.talla}
+                        Talla:{" "}
+                        {item.talla}
                       </span>
                     </div>
 
-                    {/* Cantidad */}
                     <p className="mt-2 text-xs font-semibold text-[#4b5563]">
-                      Cantidad: {item.quantity}
+                      Cantidad:{" "}
+                      {item.quantity}
                     </p>
                   </div>
 
                   {/* Eliminar */}
                   <button
                     type="button"
-                    onClick={() => void handleRemove(item.id)}
+                    onClick={() =>
+                      void handleRemove(
+                        item.id,
+                      )
+                    }
                     aria-label={`Eliminar ${item.nombre} del carrito`}
                     title={`Eliminar ${item.nombre}`}
-                    className="self-end rounded p-1 text-[#374151] transition hover:bg-[#f3f4f6] hover:text-[#ef4444]"
+                    className="self-end rounded p-1 text-[#374151] transition hover:bg-[#f3f4f6] hover:text-[#ef4444] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2222e7]"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2
+                      className="h-4 w-4"
+                      aria-hidden="true"
+                    />
                   </button>
                 </article>
               ))}
@@ -217,14 +359,22 @@ export function MiniCart({
             {/* Comprar pedido */}
             <button
               type="button"
-              disabled={items.length === 0}
-              aria-disabled={items.length === 0}
+              disabled={
+                items.length === 0
+              }
+              aria-disabled={
+                items.length === 0
+              }
               className="
                 h-11 w-full rounded-sm
                 bg-[#2222e7]
                 text-sm font-semibold text-white
                 transition
                 hover:bg-[#1919c7]
+                focus-visible:outline
+                focus-visible:outline-2
+                focus-visible:outline-offset-2
+                focus-visible:outline-[#2222e7]
                 disabled:cursor-not-allowed
                 disabled:bg-[#a8a8ee]
                 disabled:text-white
@@ -234,11 +384,13 @@ export function MiniCart({
               Comprar pedido
             </button>
 
-            {/* Ver carrito completo */}
+            {/* Ver carrito */}
             <button
               type="button"
-              onClick={handleOpenFullCart}
-              className="mt-4 w-full text-center text-sm font-semibold text-[#111827] underline underline-offset-2"
+              onClick={
+                handleOpenFullCart
+              }
+              className="mt-4 w-full text-center text-sm font-semibold text-[#111827] underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2222e7]"
             >
               Ver carrito
             </button>
