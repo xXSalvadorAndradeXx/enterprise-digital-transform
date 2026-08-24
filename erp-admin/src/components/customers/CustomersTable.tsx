@@ -31,7 +31,9 @@ interface CustomerCellLinkProps {
   customer: AdminCustomerListItem;
   href: string;
   title?: string;
-  className?: string;
+  linkClassName?: string;
+  contentClassName?: string;
+  isPrimary?: boolean;
   children: ReactNode;
 }
 
@@ -61,7 +63,9 @@ function CustomerCellLink({
   customer,
   href,
   title,
-  className = "",
+  linkClassName = "",
+  contentClassName = "",
+  isPrimary = false,
   children,
 }: CustomerCellLinkProps) {
   return (
@@ -69,9 +73,18 @@ function CustomerCellLink({
       href={href}
       aria-label={`Ver detalle del cliente ${customer.fullName}`}
       title={title}
-      className={`-mx-4 -my-3 block px-4 py-3 transition-colors hover:text-[#1C21D1] focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C21D1] ${className}`}
+      tabIndex={
+        isPrimary
+          ? undefined
+          : -1
+      }
+      className={`-mx-4 -my-3 flex min-h-[44px] w-[calc(100%+2rem)] cursor-pointer items-center px-4 py-3 transition-colors hover:text-[#1C21D1] focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C21D1] ${linkClassName}`}
     >
-      {children}
+      <span
+        className={`min-w-0 ${contentClassName}`}
+      >
+        {children}
+      </span>
     </Link>
   );
 }
@@ -106,7 +119,8 @@ function buildColumns(
             title={
               customer.fullName
             }
-            className="max-w-[220px] truncate font-medium text-gray-800"
+            isPrimary
+            contentClassName="max-w-[220px] truncate font-medium text-gray-800"
           >
             {
               customer.fullName
@@ -139,7 +153,7 @@ function buildColumns(
             title={
               customer.email
             }
-            className="max-w-[260px] truncate text-gray-600"
+            contentClassName="max-w-[260px] truncate text-gray-600"
           >
             {
               customer.email
@@ -165,6 +179,7 @@ function buildColumns(
               customer,
             )
           }
+          linkClassName="justify-end"
         >
           {formatLastOrderAt(
             customer.lastOrderAt,
@@ -191,6 +206,7 @@ function buildColumns(
               customer,
             )
           }
+          linkClassName="justify-center"
         >
           {formatTotalSpent(
             customer.totalSpent,
