@@ -1,14 +1,16 @@
-import { Controller, Get, Post, Body, Param, Patch, Req, Headers, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Req, Headers, BadRequestException, UseGuards } from '@nestjs/common';
 import { ApiHeader } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CheckoutDto } from './dto/checkout.dto';
+import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Post('checkout')
   @ApiHeader({
     name: 'Idempotency-Key',

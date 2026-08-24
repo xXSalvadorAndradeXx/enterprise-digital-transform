@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrdersController } from './orders.controller';
+import { EcommerceCheckoutController } from './ecommerce-checkout.controller';
 import { OrdersService } from './orders.service';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
@@ -26,7 +27,7 @@ import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
       CheckoutIdempotency,
     ]),
   ],
-  controllers: [OrdersController],
+  controllers: [OrdersController, EcommerceCheckoutController],
   providers: [OrdersService],
   exports: [OrdersService],
 })

@@ -1005,4 +1005,310 @@ export class OrdersService {
 
     return false;
   }
+
+  async checkoutPreview(checkoutDto: CheckoutDto, userId?: string, xCartToken?: string): Promise<any> {
+    const {
+      source,
+      items,
+      contact,
+      delivery,
+      paymentMethod,
+    } = checkoutDto;
+
+    // 1. Validar combinación prohibida de método de pago y tipo de entrega
+    if (
+      paymentMethod === PaymentMethod.PAY_AT_STORE &&
+      delivery.deliveryType === DeliveryType.HOME_DELIVERY
+    ) {
+      throw new BadRequestException({
+        message: 'Combinación de método de pago y tipo de entrega no permitida',
+        code: 'INVALID_PAYMENT_COMBINATION',
+      });
+    }
+
+    // 2. Normalizar y validar datos de contacto
+    const emailNormal = contact.email.trim().toLowerCase();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(emailNormal)) {
+      throw new BadRequestException('Formato de correo electrónico inválido (RFC 5322)');
+    }
+
+    const phoneClean = contact.phone.trim().replace(/[^\d+]/g, '');
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(phoneClean)) {
+      throw new BadRequestException('Formato de teléfono inválido (debe cumplir formato E.164)');
+    }
+
+    if (contact.dui) {
+      const cleanDui = contact.dui.replace(/-/g, '').trim();
+      if (cleanDui.length !== 9 || !/^\d{9}$/.test(cleanDui)) {
+        throw new BadRequestException('El formato de DUI debe ser de 9 dígitos numéricos.');
+      }
+      let sum = 0;
+      for (let i = 0; i < 8; i++) {
+        sum += parseInt(cleanDui[i]) * (9 - i);
+      }
+      const rem = sum % 10;
+      const validator = rem === 0 ? 0 : 10 - rem;
+      if (validator !== parseInt(cleanDui[8])) {
+        throw new BadRequestException('El DUI ingresado no es válido (dígito verificador incorrecto).');
+      }
+    }
+
+    // 3. Resolución de Comprador
+    if (userId) {
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundException(`Cliente con ID ${userId} no encontrado`);
+      }
+      if (!user.isActive) {
+        throw new BadRequestException({
+          message: 'El cliente no se encuentra activo',
+          code: 'CUSTOMER_INACTIVE',
+        });
+      }
+    }
+
+    // 4. Mapear DeliveryType (DTO) a DeliveryMethod (entidad) y validar territorialidad/sucursales
+    const deliveryMethod =
+      delivery.deliveryType === DeliveryType.HOME_DELIVERY
+        ? DeliveryMethod.HOME_DELIVERY
+        : DeliveryMethod.PICKUP;
+
+    if (delivery.deliveryType === DeliveryType.HOME_DELIVERY) {
+      const { departmentId, districtId, city, addressLine, branchId } = delivery;
+      if (!departmentId || !districtId || !city || !addressLine) {
+        throw new BadRequestException({
+          message: 'Dirección completa es requerida para entrega a domicilio',
+          code: 'INVALID_DELIVERY_DATA',
+        });
+      }
+      if (branchId) {
+        delete (delivery as any).branchId;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { validateDepartmentDistrict } = require('../../../common/utils/address.util');
+      if (!validateDepartmentDistrict(departmentId, districtId)) {
+        throw new BadRequestException({
+          message: 'Departamento y distrito no coinciden o tienen formato inválido',
+          code: 'INVALID_DELIVERY_DATA',
+        });
+      }
+    } else if (delivery.deliveryType === DeliveryType.STORE_PICKUP) {
+      const { branchId, departmentId, districtId, city, addressLine } = delivery;
+      if (!branchId) {
+        throw new BadRequestException({
+          message: 'branchId es obligatorio para retiro en tienda',
+          code: 'INVALID_DELIVERY_DATA',
+        });
+      }
+      if (departmentId || districtId || city || addressLine) {
+        delete (delivery as any).departmentId;
+        delete (delivery as any).districtId;
+        delete (delivery as any).city;
+        delete (delivery as any).addressLine;
+      }
+      const branch = await this.branchRepository.findOne({ where: { id: branchId } });
+      if (!branch) {
+        throw new NotFoundException({
+          message: `Sucursal con ID ${branchId} no encontrada`,
+          code: 'BRANCH_NOT_FOUND',
+        });
+      }
+      if (!branch.isActive) {
+        throw new BadRequestException({
+          message: 'La sucursal seleccionada no está activa',
+          code: 'BRANCH_NOT_AVAILABLE_FOR_PICKUP',
+        });
+      }
+      if (!branch.allowsPickup) {
+        throw new BadRequestException({
+          message: 'La sucursal seleccionada no permite retiro en tienda',
+          code: 'BRANCH_NOT_AVAILABLE_FOR_PICKUP',
+        });
+      }
+    }
+
+    // 5. Resolver ítems reales basados en el origen (source)
+    let itemsToProcess: { variantId: string; quantity: number; size?: string; color?: string; sku?: string; referencePrice?: number }[] = [];
+    const cartRepository = this.orderRepository.manager.getRepository(Cart);
+    let userCart: Cart | null = null;
+
+    if (source === CheckoutSource.BUY_NOW) {
+      if (!items || items.length === 0) {
+        throw new BadRequestException('Los ítems son obligatorios cuando source es BUY_NOW');
+      }
+      itemsToProcess = items.map(item => ({
+        variantId: item.variantId,
+        quantity: item.quantity,
+        size: (item as any).size,
+        color: (item as any).color,
+        sku: (item as any).sku,
+        referencePrice: item.priceAtAdded ? Number(item.priceAtAdded) : undefined,
+      }));
+    } else if (source === CheckoutSource.CART) {
+      if (userId) {
+        userCart = await cartRepository.findOne({
+          where: { user: { id: userId } },
+          relations: ['items', 'items.product', 'items.product.inventory'],
+        });
+      } else if (xCartToken) {
+        const cartId = parseInt(xCartToken, 10);
+        if (!isNaN(cartId)) {
+          userCart = await cartRepository.findOne({
+            where: { id: cartId },
+            relations: ['items', 'items.product', 'items.product.inventory'],
+          });
+        }
+      }
+
+      if (!userCart) {
+        throw new NotFoundException({
+          message: 'Carrito no encontrado',
+          code: 'CART_NOT_FOUND',
+        });
+      }
+      if (!userCart.items || userCart.items.length === 0) {
+        throw new BadRequestException({
+          message: 'El carrito está vacío',
+          code: 'CART_EMPTY',
+        });
+      }
+
+      itemsToProcess = userCart.items.map(item => {
+        if (!item.product) {
+          throw new BadRequestException('El carrito contiene un producto no válido');
+        }
+        const dtoItem = items?.find(di => di.variantId === item.product.id);
+        const refPrice = dtoItem?.priceAtAdded ? Number(dtoItem.priceAtAdded) : Number(item.unitPrice);
+        return {
+          variantId: item.product.id,
+          quantity: item.quantity,
+          size: (item as any).size,
+          color: (item as any).color,
+          sku: (item as any).sku,
+          referencePrice: refPrice,
+        };
+      });
+    }
+
+    // 6. Recalcular stock y precios en tiempo real
+    const priceChangedDetails: any[] = [];
+    let totalSubtotal = 0;
+    let totalDiscount = 0;
+    let totalEffective = 0;
+    let hasPriceChanged = false;
+
+    for (const itemDto of itemsToProcess) {
+      const product = await this.productRepository.findOne({
+        where: { id: itemDto.variantId },
+        relations: ['inventory'],
+      });
+      if (!product) {
+        throw new NotFoundException(`Producto con ID ${itemDto.variantId} no encontrado`);
+      }
+      if (product.status !== ProductStatus.ACTIVE || !product.isActive || !product.isPublished || product.deletedAt !== null) {
+        throw new BadRequestException(`El producto "${product.commercialName}" no está disponible para venta.`);
+      }
+
+      const variant = product;
+      if (variant.productId !== product.id) {
+        throw new BadRequestException('La variante no pertenece al producto');
+      }
+
+      if (!product.inventory) {
+        throw new BadRequestException(`El producto ${product.id} no tiene inventario asignado`);
+      }
+      if (Number(product.inventory.stock) < itemDto.quantity) {
+        throw new BadRequestException({
+          message: `Stock insuficiente para el producto ${product.id}`,
+          code: 'INSUFFICIENT_STOCK',
+        });
+      }
+
+      // Recálculo canónico de precios y descuentos vigentes
+      const now = new Date();
+      let isDiscountActive = false;
+      if (product.discount && product.discount > 0) {
+        const starts = product.discountStartsAt ? new Date(product.discountStartsAt) : null;
+        const ends = product.discountEndsAt ? new Date(product.discountEndsAt) : null;
+        const hasStarted = !starts || now >= starts;
+        const hasNotEnded = !ends || now <= ends;
+        if (hasStarted && hasNotEnded) {
+          isDiscountActive = true;
+        }
+      }
+
+      const salePrice = Number(product.salePrice);
+      const discountPercentage = isDiscountActive ? Number(product.discount || 0) : 0;
+      const discountAmount = salePrice * (discountPercentage / 100);
+      const effectivePrice = Number((salePrice - discountAmount).toFixed(2));
+      const lineBaseTotal = Number((salePrice * itemDto.quantity).toFixed(2));
+      const lineTotal = Number((effectivePrice * itemDto.quantity).toFixed(2));
+      const lineDiscountTotal = Number((lineBaseTotal - lineTotal).toFixed(2));
+
+      totalSubtotal += lineBaseTotal;
+      totalDiscount += lineDiscountTotal;
+      totalEffective += lineTotal;
+
+      // Detección de fluctuación de precios (PRICE_CHANGED)
+      if (itemDto.referencePrice !== undefined && Number(itemDto.referencePrice.toFixed(2)) !== effectivePrice) {
+        hasPriceChanged = true;
+      }
+
+      priceChangedDetails.push({
+        variantId: itemDto.variantId,
+        salePrice: salePrice.toFixed(2),
+        effectivePrice: effectivePrice.toFixed(2),
+        quantity: itemDto.quantity,
+        lineTotal: lineTotal.toFixed(2),
+      });
+    }
+
+    if (hasPriceChanged) {
+      throw new ConflictException({
+        success: false,
+        error: {
+          code: 'PRICE_CHANGED',
+          message: 'Uno o más productos cambiaron de precio',
+          details: {
+            items: priceChangedDetails,
+            subtotal: totalSubtotal.toFixed(2),
+            discountTotal: totalDiscount.toFixed(2),
+            effectiveSubtotal: totalEffective.toFixed(2),
+          },
+        },
+      });
+    }
+
+    // 7. Calcular costo de envío y envío gratis
+    let shippingTotal = '0.00';
+    let freeShippingApplied = false;
+
+    if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
+      if (totalEffective >= CHECKOUT_CONFIG.FREE_SHIPPING_THRESHOLD) {
+        shippingTotal = '0.00';
+        freeShippingApplied = true;
+      } else {
+        shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
+        freeShippingApplied = false;
+      }
+    } else {
+      shippingTotal = '0.00';
+      freeShippingApplied = totalEffective >= CHECKOUT_CONFIG.FREE_SHIPPING_THRESHOLD;
+    }
+
+    const total = totalEffective + Number(shippingTotal);
+
+    return {
+      success: true,
+      data: {
+        subtotal: totalSubtotal.toFixed(2),
+        discountTotal: totalDiscount.toFixed(2),
+        shippingTotal: shippingTotal,
+        total: total.toFixed(2),
+        freeShippingApplied,
+      },
+    };
+  }
 }
