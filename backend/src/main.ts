@@ -4,6 +4,7 @@ import {
   ValidationPipe,
   HttpStatus,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -51,7 +52,22 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+      errorHttpStatusCode: HttpStatus.BAD_REQUEST,
+      exceptionFactory: (errors) => {
+        const formattedErrors = errors.map((error) => {
+          const constraints = error.constraints ? Object.values(error.constraints) : [];
+          return {
+            field: error.property,
+            errors: constraints,
+          };
+        });
+
+        return new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'Los datos enviados no son válidos',
+          details: formattedErrors,
+        });
+      },
     }),
   );
 
