@@ -56,6 +56,15 @@ export class CheckoutContactDto {
   })
   @IsString()
   phone!: string;
+
+  @ApiProperty({
+    description: 'Documento único de identidad (DUI) del comprador',
+    example: '01234567-9',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  dui?: string;
 }
 
 export class CheckoutDeliveryDto {
@@ -116,6 +125,15 @@ export class CheckoutDeliveryDto {
   @IsOptional()
   @IsUUID()
   branchId?: string;
+
+  @ApiProperty({
+    description: 'Establecer esta dirección como predeterminada (solo para HOME_DELIVERY)',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean;
 }
 
 export class CheckoutCardDto {

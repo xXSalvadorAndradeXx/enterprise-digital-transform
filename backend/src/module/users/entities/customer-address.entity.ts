@@ -24,6 +24,9 @@ export class CustomerAddress {
   @Column({ type: 'varchar', length: 255 })
   addressLine!: string;
 
+  @Column({ type: 'boolean', name: 'is_default', default: false, nullable: false })
+  isDefault!: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
