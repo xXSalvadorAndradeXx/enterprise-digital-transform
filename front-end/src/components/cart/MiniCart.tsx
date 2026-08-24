@@ -79,7 +79,7 @@ export function MiniCart({
               Carro de compras
             </h2>
 
-            <span className="text-xs text-[#6b7280]">
+            <span className="text-xs font-semibold text-[#0f1013]">
               ({totalItems})
             </span>
           </div>
@@ -99,22 +99,22 @@ export function MiniCart({
           {items.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center">
               <ShoppingCart
-                className="mb-4 h-10 w-10 text-[#b5bac5]"
+                className="mb-4 h-10 w-10 text-[#9ca3af]"
                 aria-hidden="true"
               />
 
-              <p className="text-base font-semibold text-[#111827]">
+              <p className="text-base font-medium text-[#111827]">
                 Tu carrito está vacío
               </p>
 
-              <p className="mt-2 max-w-[250px] text-sm leading-5 text-[#6b7280]">
+              <p className="mt-2 max-w-[250px] text-sm font-medium leading-5 text-[#4b5563]">
                 Aún no has agregado productos a tu carrito.
               </p>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-4 text-sm font-semibold text-[#2222e7] underline underline-offset-2"
+                className="mt-4 text-sm font-medium text-[#2222e7] underline underline-offset-2"
               >
                 Seguir comprando
               </button>
@@ -146,20 +146,22 @@ export function MiniCart({
 
                   {/* Información */}
                   <div className="flex min-w-0 flex-1 flex-col justify-center">
-                    <p className="line-clamp-2 text-sm font-medium text-[#111827]">
+                    <p className="line-clamp-2 text-sm font-semibold text-[#111827]">
                       {item.nombre}
                     </p>
 
-                    <p className="mt-1 text-sm text-[#111827]">
+                    {/* Precio unitario */}
+                    <p className="mt-1 text-sm font-semibold text-[#111827]">
                       ${item.precio.toFixed(2)}
                     </p>
 
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#6b7280]">
+                    {/* Variante */}
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#4b5563]">
                       <div className="flex items-center gap-1">
                         <span>Color:</span>
 
                         <span
-                          className="h-3 w-3 rounded-full border border-[#9ca3af]"
+                          className="h-3 w-3 rounded-full border border-black"
                           style={{
                             backgroundColor: item.colorHex,
                           }}
@@ -171,10 +173,13 @@ export function MiniCart({
 
                       <span aria-hidden="true">—</span>
 
-                      <span>Talla: {item.talla}</span>
+                      <span>
+                        Talla: {item.talla}
+                      </span>
                     </div>
 
-                    <p className="mt-2 text-xs text-[#6b7280]">
+                    {/* Cantidad */}
+                    <p className="mt-2 text-xs font-semibold text-[#4b5563]">
                       Cantidad: {item.quantity}
                     </p>
                   </div>
@@ -184,6 +189,7 @@ export function MiniCart({
                     type="button"
                     onClick={() => void handleRemove(item.id)}
                     aria-label={`Eliminar ${item.nombre} del carrito`}
+                    title={`Eliminar ${item.nombre}`}
                     className="self-end rounded p-1 text-[#374151] transition hover:bg-[#f3f4f6] hover:text-[#ef4444]"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -196,7 +202,6 @@ export function MiniCart({
 
         {/* Footer */}
         <div className="border-t border-black pt-5">
-          {/* Contenedor alineado */}
           <div className="px-5">
             {/* Subtotal */}
             <div className="mb-4 flex items-center justify-between">
@@ -229,7 +234,7 @@ export function MiniCart({
               Comprar pedido
             </button>
 
-            {/* Ver carrito */}
+            {/* Ver carrito completo */}
             <button
               type="button"
               onClick={handleOpenFullCart}

@@ -1,24 +1,46 @@
 ﻿"use client";
 
 import { useMemo } from "react";
+
 import {
   useCart as useCartContext,
   type CartItem,
 } from "@/contexts/CartContext";
-import type { Product, ProductVariant } from "@/types/products/product.types";
 
-
+import type {
+  Product,
+  ProductVariant,
+} from "@/types/products/product.types";
 
 export interface UseCartValue {
   items: CartItem[];
-  addToCart: (product: Product, variant: ProductVariant, quantity?: number) => Promise<void>;
-  removeFromCart: (itemId: string) => Promise<void>;
-  updateQuantity: (itemId: string, quantity: number) => Promise<void>;
+
+  addToCart: (
+    product: Product,
+    variant: ProductVariant,
+    quantity?: number,
+  ) => Promise<void>;
+
+  removeFromCart: (
+    itemId: string,
+  ) => Promise<void>;
+
+  updateQuantity: (
+    itemId: string,
+    quantity: number,
+  ) => Promise<void>;
+
   clearCart: () => Promise<void>;
+
   totalItems: number;
-  totalPrice: number;
+
+  subtotal: number;
+  discountTotal: number;
+  total: number;
+
   isSyncing: boolean;
   syncError: string | null;
+
   refreshCart: () => Promise<void>;
 }
 
@@ -30,7 +52,9 @@ export function useCart(): UseCartValue {
     updateQuantity,
     clearCart,
     totalItems,
-    totalPrice,
+    subtotal,
+    discountTotal,
+    total,
     isSyncing,
     syncError,
     refreshCart,
@@ -44,7 +68,9 @@ export function useCart(): UseCartValue {
       updateQuantity,
       clearCart,
       totalItems,
-      totalPrice,
+      subtotal,
+      discountTotal,
+      total,
       isSyncing,
       syncError,
       refreshCart,
@@ -56,7 +82,9 @@ export function useCart(): UseCartValue {
       updateQuantity,
       clearCart,
       totalItems,
-      totalPrice,
+      subtotal,
+      discountTotal,
+      total,
       isSyncing,
       syncError,
       refreshCart,

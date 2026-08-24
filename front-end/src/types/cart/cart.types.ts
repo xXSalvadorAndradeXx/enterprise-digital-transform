@@ -24,7 +24,6 @@ export interface ApiCartItem {
 export interface ApiCart {
   id: string;
   status: "ACTIVE";
-
   items: ApiCartItem[];
 
   subtotal: string;

@@ -45,14 +45,11 @@ export async function addCartItem(
   const response = await apiRequest<
     CartResponse,
     AddCartItemRequest
-  >(
-    "/cart/items",
-    {
-      method: "POST",
-      body: data,
-      headers: getAuthHeaders(),
-    },
-  );
+  >("/cart/items", {
+    method: "POST",
+    body: data,
+    headers: getAuthHeaders(),
+  });
 
   return response.data;
 }
@@ -64,14 +61,11 @@ export async function updateCartItemQuantity(
   const response = await apiRequest<
     CartResponse,
     UpdateCartItemQuantityRequest
-  >(
-    `/cart/items/${itemId}`,
-    {
-      method: "PATCH",
-      body: data,
-      headers: getAuthHeaders(),
-    },
-  );
+  >(`/cart/items/${itemId}`, {
+    method: "PATCH",
+    body: data,
+    headers: getAuthHeaders(),
+  });
 
   return response.data;
 }

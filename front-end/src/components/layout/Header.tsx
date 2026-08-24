@@ -38,7 +38,7 @@ export default function Header() {
   const {
     items,
     totalItems,
-    totalPrice,
+    subtotal,
     removeFromCart,
   } = useCart();
 
@@ -98,7 +98,7 @@ export default function Header() {
   onClose={() => setCartOpen(false)}
   items={items}
   totalItems={totalItems}
-  subtotal={totalPrice}
+  subtotal={subtotal}
   onRemove={removeFromCart}
 />
   

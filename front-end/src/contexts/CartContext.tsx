@@ -24,9 +24,10 @@ import type {
   ApiCartItem,
 } from "@/types/cart/cart.types";
 
-import type { Product, ProductVariant } from "@/types/products/product.types";
-
-
+import type {
+  Product,
+  ProductVariant,
+} from "@/types/products/product.types";
 
 import {
   AUTH_SESSION_CHANGED_EVENT,
@@ -54,43 +55,34 @@ export interface CartItem {
 }
 
 export interface CartContextValue {
-  // items: productos agregados actualmente al carrito.
   items: CartItem[];
 
-  // addItem: agrega un producto o aumenta su cantidad sin superar stock.
-addItem: (
-  product: Product,
-  variant: ProductVariant,
-  quantity?: number,
-) => Promise<void>;
+  addItem: (
+    product: Product,
+    variant: ProductVariant,
+    quantity?: number,
+  ) => Promise<void>;
 
-  // removeItem: elimina un item del carrito por id de item.
   removeItem: (
     itemId: string,
   ) => Promise<void>;
 
-  // updateQuantity: ajusta la cantidad y elimina si llega a cero.
   updateQuantity: (
     itemId: string,
     quantity: number,
   ) => Promise<void>;
 
-  // clearCart: vacía todos los productos del carrito.
   clearCart: () => Promise<void>;
 
-  // totalItems: suma total de unidades en el carrito.
   totalItems: number;
 
-  // totalPrice: suma de los totales de las líneas.
-  totalPrice: number;
+  subtotal: number;
+  discountTotal: number;
+  total: number;
 
-  // isSyncing: indica si el carrito se está sincronizando con backend.
   isSyncing: boolean;
-
-  // syncError: último error de sincronización u operación del carrito.
   syncError: string | null;
 
-  // refreshCart: fuerza una sincronización del carrito actual.
   refreshCart: () => Promise<void>;
 }
 
@@ -98,23 +90,32 @@ type CartProviderProps = {
   children: ReactNode;
 };
 
-const CartContext = createContext<CartContextValue | undefined>(
-  undefined,
-);
+const CartContext = createContext<
+  CartContextValue | undefined
+>(undefined);
 
-function normalizeQuantity(quantity: number) {
+function normalizeQuantity(
+  quantity: number,
+) {
   if (!Number.isFinite(quantity)) {
     return 0;
   }
 
-  return Math.max(0, Math.floor(quantity));
+  return Math.max(
+    0,
+    Math.floor(quantity),
+  );
 }
 
-function normalizePrice(price: string | number) {
+function normalizePrice(
+  price: string | number,
+) {
   return Number(price) || 0;
 }
 
-function getCartErrorMessage(error: unknown) {
+function getCartErrorMessage(
+  error: unknown,
+) {
   return error instanceof Error
     ? error.message
     : "No se pudo sincronizar el carrito.";
@@ -129,16 +130,21 @@ function apiCartItemToCartItem(
     variantId: item.variantId,
 
     nombre: item.productName,
-    imagenUrl: item.imageUrl?.trim() || null,
+    imagenUrl:
+      item.imageUrl?.trim() || null,
 
     talla: item.variant.size,
     color: item.variant.colorName,
     colorHex: item.variant.colorHex,
 
-    precio: normalizePrice(item.unitPrice),
+    precio: normalizePrice(
+      item.unitPrice,
+    ),
+
     descuentoLinea: normalizePrice(
       item.lineDiscount,
     ),
+
     totalLinea: normalizePrice(
       item.lineTotal,
     ),
@@ -165,7 +171,19 @@ function apiCartToCartItems(
 export function CartProvider({
   children,
 }: CartProviderProps) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] =
+    useState<CartItem[]>([]);
+
+  const [subtotal, setSubtotal] =
+    useState(0);
+
+  const [
+    discountTotal,
+    setDiscountTotal,
+  ] = useState(0);
+
+  const [total, setTotal] =
+    useState(0);
 
   const [isSyncing, setIsSyncing] =
     useState(false);
@@ -182,109 +200,134 @@ export function CartProvider({
   const isMountedRef =
     useRef(true);
 
-  const cancelPendingSync = useCallback(() => {
-    refreshRequestIdRef.current += 1;
+  const cancelPendingSync =
+    useCallback(() => {
+      refreshRequestIdRef.current += 1;
+      refreshPromiseRef.current = null;
 
-    refreshPromiseRef.current = null;
+      setIsSyncing(false);
+    }, []);
 
-    setIsSyncing(false);
-  }, []);
+  const clearCartState =
+    useCallback(() => {
+      cancelPendingSync();
 
-  const clearCartState = useCallback(() => {
-    cancelPendingSync();
-
-    setItems([]);
-
-    setSyncError(null);
-  }, [cancelPendingSync]);
-
-  const applyCartState = useCallback(
-    (cart: ApiCart) => {
-      setItems(
-        apiCartToCartItems(cart),
-      );
+      setItems([]);
+      setSubtotal(0);
+      setDiscountTotal(0);
+      setTotal(0);
 
       setSyncError(null);
-    },
-    [],
-  );
+    }, [cancelPendingSync]);
 
-  const refreshCart = useCallback(async () => {
-    if (!readAccessToken()) {
-      clearCartState();
+  const applyCartState =
+    useCallback(
+      (cart: ApiCart) => {
+        setItems(
+          apiCartToCartItems(cart),
+        );
 
-      return;
-    }
+        setSubtotal(
+          normalizePrice(
+            cart.subtotal,
+          ),
+        );
 
-    if (refreshPromiseRef.current) {
-      return refreshPromiseRef.current;
-    }
+        setDiscountTotal(
+          normalizePrice(
+            cart.discountTotal,
+          ),
+        );
 
-    const requestId =
-      refreshRequestIdRef.current + 1;
+        setTotal(
+          normalizePrice(
+            cart.total,
+          ),
+        );
 
-    refreshRequestIdRef.current =
-      requestId;
+        setSyncError(null);
+      },
+      [],
+    );
 
-    const syncPromise = (async () => {
-      setIsSyncing(true);
-
-      setSyncError(null);
-
-      try {
-        const cart =
-          await getCurrentCart();
-
-        if (
-          isMountedRef.current &&
-          refreshRequestIdRef.current ===
-            requestId
-        ) {
-          applyCartState(cart);
-        }
-      } catch (error) {
-        if (
-          isMountedRef.current &&
-          refreshRequestIdRef.current ===
-            requestId
-        ) {
-          setSyncError(
-            getCartErrorMessage(error),
-          );
-        }
-      } finally {
-        if (
-          isMountedRef.current &&
-          refreshRequestIdRef.current ===
-            requestId
-        ) {
-          setIsSyncing(false);
-
-          refreshPromiseRef.current =
-            null;
-        }
+  const refreshCart =
+    useCallback(async () => {
+      if (!readAccessToken()) {
+        clearCartState();
+        return;
       }
-    })();
 
-    refreshPromiseRef.current =
-      syncPromise;
+      if (refreshPromiseRef.current) {
+        return refreshPromiseRef.current;
+      }
 
-    return syncPromise;
-  }, [
-    applyCartState,
-    clearCartState,
-  ]);
+      const requestId =
+        refreshRequestIdRef.current + 1;
+
+      refreshRequestIdRef.current =
+        requestId;
+
+      const syncPromise =
+        (async () => {
+          setIsSyncing(true);
+          setSyncError(null);
+
+          try {
+            const cart =
+              await getCurrentCart();
+
+            if (
+              isMountedRef.current &&
+              refreshRequestIdRef.current ===
+                requestId
+            ) {
+              applyCartState(cart);
+            }
+          } catch (error) {
+            if (
+              isMountedRef.current &&
+              refreshRequestIdRef.current ===
+                requestId
+            ) {
+              setSyncError(
+                getCartErrorMessage(
+                  error,
+                ),
+              );
+            }
+          } finally {
+            if (
+              isMountedRef.current &&
+              refreshRequestIdRef.current ===
+                requestId
+            ) {
+              setIsSyncing(false);
+
+              refreshPromiseRef.current =
+                null;
+            }
+          }
+        })();
+
+      refreshPromiseRef.current =
+        syncPromise;
+
+      return syncPromise;
+    }, [
+      applyCartState,
+      clearCartState,
+    ]);
 
   const runCartOperation =
     useCallback(
       async (
-        operation: () => Promise<ApiCart>,
+        operation: () =>
+          Promise<ApiCart>,
       ) => {
         const tokenAtStart =
           readAccessToken();
 
         cancelPendingSync();
-
         setSyncError(null);
 
         try {
@@ -312,6 +355,8 @@ export function CartProvider({
     );
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     const initialSyncTimeoutId =
       window.setTimeout(() => {
         void refreshCart();
@@ -352,48 +397,56 @@ export function CartProvider({
 
   const value =
     useMemo<CartContextValue>(() => {
-const addItem = async (
-  product: Product,
-  variant: ProductVariant,
-  quantity = 1,
-) => {
-  if (!variant.available) {
-    return;
-  }
+      const addItem = async (
+        product: Product,
+        variant: ProductVariant,
+        quantity = 1,
+      ) => {
+        if (!variant.available) {
+          return;
+        }
 
-  const stock = Math.max(
-    0,
-    variant.stock,
-  );
+        const stock = Math.max(
+          0,
+          variant.stock,
+        );
 
-  const currentItem = items.find(
-    (item) =>
-      item.variantId === variant.id,
-  );
+        const currentItem =
+          items.find(
+            (item) =>
+              item.variantId ===
+              variant.id,
+          );
 
-  const availableQuantity =
-    stock -
-    (currentItem?.quantity ?? 0);
+        const availableQuantity =
+          stock -
+          (currentItem?.quantity ??
+            0);
 
-  const quantityToAdd = Math.min(
-    normalizeQuantity(quantity),
-    availableQuantity,
-  );
+        const quantityToAdd =
+          Math.min(
+            normalizeQuantity(
+              quantity,
+            ),
+            availableQuantity,
+          );
 
-  if (
-    stock === 0 ||
-    quantityToAdd <= 0
-  ) {
-    return;
-  }
+        if (
+          stock === 0 ||
+          quantityToAdd <= 0
+        ) {
+          return;
+        }
 
-  await runCartOperation(() =>
-    addCartItem({
-      variantId: variant.id,
-      quantity: quantityToAdd,
-    }),
-  );
-};
+        await runCartOperation(() =>
+          addCartItem({
+            variantId:
+              variant.id,
+            quantity:
+              quantityToAdd,
+          }),
+        );
+      };
 
       const removeItem = async (
         itemId: string,
@@ -403,58 +456,63 @@ const addItem = async (
         );
       };
 
-      const updateQuantity = async (
-        itemId: string,
-        quantity: number,
-      ) => {
-        const normalizedQuantity =
-          normalizeQuantity(
-            quantity,
+      const updateQuantity =
+        async (
+          itemId: string,
+          quantity: number,
+        ) => {
+          const normalizedQuantity =
+            normalizeQuantity(
+              quantity,
+            );
+
+          if (
+            normalizedQuantity === 0
+          ) {
+            await removeItem(
+              itemId,
+            );
+
+            return;
+          }
+
+          const currentItem =
+            items.find(
+              (item) =>
+                item.id === itemId,
+            );
+
+          const safeQuantity =
+            currentItem
+              ? Math.min(
+                  normalizedQuantity,
+                  Math.max(
+                    0,
+                    currentItem.stock,
+                  ),
+                )
+              : normalizedQuantity;
+
+          if (
+            safeQuantity === 0
+          ) {
+            await removeItem(
+              itemId,
+            );
+
+            return;
+          }
+
+          await runCartOperation(() =>
+            updateCartItemQuantity(
+              itemId,
+              {
+                quantity:
+                  safeQuantity,
+              },
+            ),
           );
-
-        if (
-          normalizedQuantity === 0
-        ) {
-          await removeItem(itemId);
-
-          return;
-        }
-
-        const currentItem =
-          items.find(
-            (item) =>
-              item.id === itemId,
-          );
-
-        const safeQuantity =
-          currentItem
-            ? Math.min(
-                normalizedQuantity,
-                Math.max(
-                  0,
-                  currentItem.stock,
-                ),
-              )
-            : normalizedQuantity;
-
-        if (
-          safeQuantity === 0
-        ) {
-          await removeItem(itemId);
-
-          return;
-        }
-
-        await runCartOperation(() =>
-          updateCartItemQuantity(
-            itemId,
-            {
-              quantity:
-                safeQuantity,
-            },
-          ),
-        );
-      };
+        };
 
       const clearCart =
         async () => {
@@ -465,17 +523,9 @@ const addItem = async (
 
       const totalItems =
         items.reduce(
-          (total, item) =>
-            total +
+          (accumulator, item) =>
+            accumulator +
             item.quantity,
-          0,
-        );
-
-      const totalPrice =
-        items.reduce(
-          (total, item) =>
-            total +
-            item.totalLinea,
           0,
         );
 
@@ -485,14 +535,22 @@ const addItem = async (
         removeItem,
         updateQuantity,
         clearCart,
+
         totalItems,
-        totalPrice,
+
+        subtotal,
+        discountTotal,
+        total,
+
         isSyncing,
         syncError,
         refreshCart,
       };
     }, [
       items,
+      subtotal,
+      discountTotal,
+      total,
       isSyncing,
       refreshCart,
       runCartOperation,
