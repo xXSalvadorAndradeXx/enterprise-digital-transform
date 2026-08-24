@@ -145,8 +145,8 @@ export class Order {
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
+  @Column({ type: 'jsonb', nullable: true, name: 'contact_snapshot' })
+  contactSnapshot?: Record<string, any>;
 }
 
 

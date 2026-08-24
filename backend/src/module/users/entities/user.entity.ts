@@ -16,6 +16,7 @@ import { Cart } from '../../cart/entities/cart.entity';
 import { Role } from '../../roles/entities/role.entity';
 import { PasswordResetToken } from './password-reset-token.entity';
 import { RefreshToken } from './refresh-token.entity';
+import { CustomerAddress } from './customer-address.entity';
 
 @Entity('users')
 export class User {
@@ -76,5 +77,8 @@ export class User {
   passwordResetTokens!: PasswordResetToken[];
 
   @OneToMany(() => RefreshToken, (token) => token.user)
+
+  @OneToMany(() => CustomerAddress, (address) => address.user)
+  addresses!: CustomerAddress[];
   refreshTokens!: RefreshToken[];
 }

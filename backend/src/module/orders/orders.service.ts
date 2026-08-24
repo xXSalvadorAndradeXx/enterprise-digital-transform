@@ -18,6 +18,17 @@ import { OrderDelivery } from './entities/order-delivery.entity';
 import { Product } from '../products/entities/product.entity';
 import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { CheckoutSource } from './enums/checkout-source.enum';
+import { CheckoutDto } from './dto/checkout.dto';
+import { DeliveryType } from './enums/delivery-type.enum';
+import { PaymentMethod } from '../payments/enums/payment-method.enum';
+import { Inventory } from '../inventory/entities/inventory.entity';
+import { Payment } from '../payments/entities/payment.entity';
+import { PaymentStatus } from '../payments/enums/payment-status.enum';
+import { CustomerAddress } from '../users/entities/customer-address.entity';
+import { Cart } from '../cart/entities/cart.entity';
+import { CartItem } from '../cart/entities/cart-item.entity';
+
 
 
 @Injectable()
@@ -251,6 +262,270 @@ export class OrdersService {
    * Generar un orderNumber alfanumérico de 8 caracteres y garantizar su unicidad.
    * Reintenta hasta 5 veces antes de lanzar un error.
    */
+  /**
+   * Checkout autoritativo: valida, calcula precios, crea orden y pago en una transacción.
+   */
+  async checkout(checkoutDto: CheckoutDto, userId?: string): Promise<Order> {
+    const {
+      source,
+      items,
+      contact,
+      delivery,
+      paymentMethod,
+      card,
+      saveAddress,
+    } = checkoutDto;
+
+    // Validar combinación prohibida de método de pago y tipo de entrega
+    if (
+      paymentMethod === PaymentMethod.PAY_AT_STORE &&
+      delivery.deliveryType === DeliveryType.HOME_DELIVERY
+    ) {
+      throw new BadRequestException({
+        message: 'Combinación de método de pago y tipo de entrega no permitida',
+        code: 'INVALID_PAYMENT_COMBINATION',
+      });
+    }
+
+    return await this.orderRepository.manager.transaction(async (tx) => {
+      const orderNumber = await this.generateUniqueOrderNumber();
+
+      // Mapear DeliveryType (DTO) a DeliveryMethod (entidad)
+      const deliveryMethod =
+        delivery.deliveryType === DeliveryType.HOME_DELIVERY
+          ? DeliveryMethod.HOME_DELIVERY
+          : DeliveryMethod.PICKUP;
+
+      const order = tx.create(Order, {
+        orderNumber,
+        status: OrderStatus.NEW,
+        deliveryMethod,
+        subtotal: '0.00',
+        discountTotal: '0.00',
+        deliveryCost: '0.00',
+        totalAmount: '0.00',
+        contactSnapshot: {
+          fullName: contact.fullName,
+          email: contact.email,
+          phone: contact.phone,
+        },
+      });
+
+      // Cliente autenticado vs invitado
+      if (userId) {
+        const user = await tx.findOne(User, { where: { id: userId } });
+        if (!user) {
+          throw new NotFoundException(`Cliente con ID ${userId} no encontrado`);
+        }
+        order.customerId = user.id;
+        order.customer = user;
+        order.customerEmail = contact.email;
+        order.customerName = contact.fullName;
+        order.customerPhone = contact.phone;
+      } else {
+        // Crear/usar GuestCustomer basándonos en el email de contacto
+        let guest = await tx.findOne(GuestCustomer, { where: { email: contact.email } });
+        if (!guest) {
+          guest = tx.create(GuestCustomer, {
+            email: contact.email,
+            name: contact.fullName,
+            phone: contact.phone,
+          });
+          guest = await tx.save(GuestCustomer, guest);
+        }
+        order.guestCustomer = guest;
+        order.guestCustomerId = guest.id;
+        order.customerEmail = contact.email;
+        order.customerName = contact.fullName;
+        order.customerPhone = contact.phone;
+      }
+
+      // Detalles de entrega
+      if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
+        const { departmentId, districtId, city, addressLine } = delivery;
+        if (!departmentId || !districtId || !city || !addressLine) {
+          throw new BadRequestException('Dirección completa es requerida para entrega a domicilio');
+        }
+        // Validación territorial (si la utilidad está disponible)
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { validateDepartmentDistrict } = require('../../../common/utils/address.util');
+        if (!validateDepartmentDistrict(departmentId, districtId)) {
+          throw new BadRequestException('Departamento y distrito no coinciden');
+        }
+        const orderDelivery = tx.create(OrderDelivery, {
+          departmentId,
+          districtId,
+          city,
+          addressLine,
+          trackingNumber: undefined,
+          estimatedDeliveryDate: undefined,
+          branch: null,
+          branchId: null,
+          branchName: null,
+          branchAddress: null,
+          branchPhone: null,
+        });
+        order.delivery = orderDelivery;
+      } else {
+        // PICKUP
+        if (!delivery.branchId) {
+          throw new BadRequestException('branchId es obligatorio para retiro en tienda');
+        }
+        const branch = await tx.findOne(Branch, { where: { id: delivery.branchId } });
+        if (!branch) {
+          throw new NotFoundException(`Sucursal con ID ${delivery.branchId} no encontrada`);
+        }
+        const orderDelivery = tx.create(OrderDelivery, {
+          trackingNumber: undefined,
+          estimatedDeliveryDate: undefined,
+          branch,
+          branchId: branch.id,
+          branchName: branch.name,
+          branchAddress: branch.address || null,
+          branchPhone: branch.phone || null,
+          department: null,
+          district: null,
+          city: null,
+          addressLine: null,
+        });
+        order.delivery = orderDelivery;
+      }
+
+      // Obtener y validar ítems según source
+      let itemsToProcess: { variantId: string; quantity: number; size?: string; color?: string; sku?: string }[] = [];
+      let userCart: Cart | null = null;
+
+      if (source === CheckoutSource.BUY_NOW) {
+        if (!items || items.length === 0) {
+          throw new BadRequestException('Los ítems son obligatorios cuando source es BUY_NOW');
+        }
+        itemsToProcess = items.map(item => ({
+          variantId: item.variantId,
+          quantity: item.quantity,
+          size: (item as any).size,
+          color: (item as any).color,
+          sku: (item as any).sku,
+        }));
+      } else if (source === CheckoutSource.CART) {
+        if (!userId) {
+          throw new BadRequestException('El userId es requerido para realizar checkout desde el carrito');
+        }
+        userCart = await tx.findOne(Cart, {
+          where: { user: { id: userId } },
+          relations: ['items', 'items.product', 'items.product.inventory'],
+        });
+        if (!userCart || !userCart.items || userCart.items.length === 0) {
+          throw new BadRequestException('El carrito está vacío o no existe');
+        }
+        itemsToProcess = userCart.items.map(item => {
+          if (!item.product) {
+            throw new BadRequestException('El carrito contiene un producto no válido');
+          }
+          return {
+            variantId: item.product.id,
+            quantity: item.quantity,
+            size: (item as any).size,
+            color: (item as any).color,
+            sku: (item as any).sku,
+          };
+        });
+      }
+
+      order.items = [];
+      for (const itemDto of itemsToProcess) {
+        const product = await tx.findOne(Product, {
+          where: { id: itemDto.variantId },
+          relations: ['inventory'],
+        });
+        if (!product) {
+          throw new NotFoundException(`Producto con ID ${itemDto.variantId} no encontrado`);
+        }
+        if (!product.inventory) {
+          throw new BadRequestException(`El producto ${product.id} no tiene inventario asignado`);
+        }
+        if (Number(product.inventory.stock) < itemDto.quantity) {
+          throw new BadRequestException(`Stock insuficiente para el producto ${product.id}`);
+        }
+        const salePrice = Number(product.salePrice);
+        const discount = Number(product.discount || 0);
+        const discountAmount = salePrice * (discount / 100);
+        const effectivePrice = Number((salePrice - discountAmount).toFixed(2));
+        const subtotal = Number((effectivePrice * itemDto.quantity).toFixed(2));
+
+        const orderItem = tx.create(OrderItem, {
+          product,
+          quantity: itemDto.quantity,
+          unitPrice: effectivePrice,
+          salePriceSnapshot: salePrice,
+          discountSnapshot: discount,
+          subtotal,
+          size: itemDto.size,
+          color: itemDto.color,
+          sku: itemDto.sku,
+        });
+        order.items.push(orderItem);
+        // Decrementar stock
+        product.inventory.stock = Number(product.inventory.stock) - itemDto.quantity;
+        await tx.save(Inventory, product.inventory);
+      }
+
+      // Si viene de CART, vaciar el carrito
+      if (source === CheckoutSource.CART && userCart) {
+        await tx.delete(CartItem, { cart: { id: userCart.id } });
+      }
+
+      // Cálculo de totales
+      const calculatedSubtotal = order.items.reduce((s, i) => s + i.subtotal, 0);
+      const calculatedDiscountTotal = order.items.reduce((s, i) => {
+        const base = i.salePriceSnapshot * i.quantity;
+        return s + (base - i.subtotal);
+      }, 0);
+      const deliveryCost = deliveryMethod === DeliveryMethod.HOME_DELIVERY ? 0 : 0; // futuro cálculo
+      const total = calculatedSubtotal + deliveryCost;
+      order.subtotal = calculatedSubtotal.toFixed(2);
+      order.discountTotal = calculatedDiscountTotal.toFixed(2);
+      order.deliveryCost = deliveryCost.toFixed(2);
+      order.totalAmount = total.toFixed(2);
+
+      // Historial inicial
+      const initialHistory = tx.create(OrderStatusHistory, {
+        statusBefore: null,
+        statusAfter: order.status,
+        notes: 'Creación inicial de la orden',
+        changedById: order.customerId || null,
+      });
+      order.statusHistory = [initialHistory];
+
+      // Guardar orden (cascada)
+      const savedOrder = await tx.save(Order, order);
+
+      // Crear pago asociado
+      const payment = tx.create(Payment, {
+        orderId: savedOrder.id,
+        paymentMethod,
+        amount: savedOrder.totalAmount,
+        status: PaymentStatus.PENDING,
+        cardLastFour: card?.cardLastFour,
+        cardBrand: card?.cardBrand,
+      });
+      await tx.save(Payment, payment);
+
+      // Guardar dirección si corresponde
+      if (saveAddress && userId && deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
+        const address = tx.create(CustomerAddress, {
+          userId,
+          departmentId: delivery.departmentId!,
+          districtId: delivery.districtId!,
+          city: delivery.city!,
+          addressLine: delivery.addressLine!,
+        });
+        await tx.save(CustomerAddress, address);
+      }
+
+      return savedOrder;
+    });
+  }
+
   private async generateUniqueOrderNumber(attempt = 1): Promise<string> {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let value = '';
