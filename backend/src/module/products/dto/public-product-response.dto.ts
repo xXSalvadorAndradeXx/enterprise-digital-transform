@@ -1,6 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Product } from '../entities/product.entity';
 import { PublicCategoryResponseDto } from '../../categories/dto/public-category-response.dto';
+import { UrlUtil } from '../../../common/utils/url.util';
+
+export class PublicDiscountInfoDto {
+  @ApiProperty({
+    example: 20,
+    description: 'Porcentaje de descuento aplicado (0 a 100)',
+  })
+  percentage!: number;
+
+  @ApiProperty({
+    example: true,
+    description: 'Indica si el descuento se encuentra activo y vigente según fecha actual',
+  })
+  isActive!: boolean;
+}
 
 export class PublicProductVariantResponseDto {
   @ApiProperty({
@@ -17,7 +32,7 @@ export class PublicProductVariantResponseDto {
   sku!: string | null;
 
   @ApiPropertyOptional({
-    example: '42',
+    example: 'M',
     description: 'Talla o medida de la variante',
     nullable: true,
   })
@@ -51,38 +66,66 @@ export class PublicProductResponseDto {
   id!: string;
 
   @ApiProperty({
-    example: 'Camisa básica de algodón',
+    example: 'Camisa deportiva',
     description: 'Nombre comercial del producto',
   })
   commercialName!: string;
 
   @ApiPropertyOptional({
-    example: 'Camisa confeccionada en 100% algodón orgánico',
+    example: 'Camisa deportiva para uso diario',
     description: 'Descripción pública del producto',
     nullable: true,
   })
   description!: string | null;
 
+  @ApiPropertyOptional({
+    example: 'Nike',
+    description: 'Marca asociada al producto',
+    nullable: true,
+  })
+  brand!: string | null;
+
+  @ApiPropertyOptional({
+    example: 'MEN',
+    description: 'Género comercial (MEN, WOMEN, UNISEX, KIDS)',
+    nullable: true,
+  })
+  gender!: string | null;
+
+  @ApiPropertyOptional({
+    type: PublicCategoryResponseDto,
+    description: 'Categoría asociada al producto',
+    nullable: true,
+  })
+  category!: PublicCategoryResponseDto | null;
+
   @ApiProperty({
-    example: '24.99',
-    description: 'Precio normal de venta formateado como string decimal (2 decimales)',
+    example: '35.00',
+    description: 'Precio base de venta formateado como string decimal (2 decimales)',
     type: 'string',
   })
   salePrice!: string;
 
   @ApiProperty({
-    example: '10.00',
-    description: 'Porcentaje de descuento aplicado (0.00 a 100.00) formateado como string decimal',
+    example: '28.00',
+    description: 'Precio final efectivo formateado como string decimal después de evaluar descuentos vigentes',
     type: 'string',
   })
-  discount!: string;
+  effectivePrice!: string;
 
   @ApiProperty({
-    example: '22.49',
-    description: 'Precio final efectivo formateado como string decimal (salePrice * (1 - discount/100))',
+    example: '28.00',
+    description: 'Alias de compatibilidad para el precio final efectivo',
     type: 'string',
   })
   finalPrice!: string;
+
+  @ApiPropertyOptional({
+    type: PublicDiscountInfoDto,
+    description: 'Información del descuento actual y su estado de vigencia',
+    nullable: true,
+  })
+  discount!: PublicDiscountInfoDto | string | null;
 
   @ApiPropertyOptional({
     example: '2026-08-01T00:00:00.000Z',
@@ -99,8 +142,35 @@ export class PublicProductResponseDto {
   discountEndsAt!: string | null;
 
   @ApiProperty({
-    example: ['https://cdn.ecommerce.com/img1.jpg'],
-    description: 'URLs de imágenes del producto',
+    example: 18,
+    description: 'Existencia total disponible comercialmente para venta',
+    type: 'integer',
+  })
+  stockTotal!: number;
+
+  @ApiProperty({
+    example: 'IN_STOCK',
+    description: 'Estado comercial global de disponibilidad (IN_STOCK o LOW_STOCK)',
+  })
+  availability!: string;
+
+  @ApiPropertyOptional({
+    example: 'http://localhost:3000/uploads/products/product-01.webp',
+    description: 'URL absoluta resoluble de la imagen principal pública',
+    nullable: true,
+  })
+  primaryImage!: string | null;
+
+  @ApiProperty({
+    example: ['S', 'M', 'L'],
+    description: 'Listado único de tallas que realmente poseen disponibilidad activa',
+    type: [String],
+  })
+  availableSizes!: string[];
+
+  @ApiProperty({
+    example: ['http://localhost:3000/uploads/products/product-01.webp'],
+    description: 'URLs absolutas de todas las imágenes públicas del producto',
     type: [String],
   })
   images!: string[];
@@ -111,13 +181,6 @@ export class PublicProductResponseDto {
     type: [String],
   })
   tags!: string[];
-
-  @ApiPropertyOptional({
-    type: PublicCategoryResponseDto,
-    description: 'Categoría asociada al producto',
-    nullable: true,
-  })
-  category!: PublicCategoryResponseDto | null;
 
   @ApiProperty({
     example: true,
@@ -153,17 +216,19 @@ export class PublicProductResponseDto {
     dto.id = entity.id;
     dto.commercialName = entity.commercialName;
     dto.description = entity.description ?? null;
+    dto.brand = entity.inventory?.brand ?? null;
+    dto.gender = entity.inventory?.gender ?? null;
     dto.isPublished = entity.isPublished ?? false;
     dto.publishedAt = entity.publishedAt ? entity.publishedAt.toISOString() : null;
 
     // Transformación estricta de valores monetarios a string decimal
     const rawSalePrice = Number(entity.salePrice ?? 0);
-    const rawDiscount = Number(entity.discount ?? 0);
-    const rawFinalPrice = Number(effectivePriceNum ?? rawSalePrice);
+    const rawDiscountPercentage = Number(entity.discount ?? 0);
+    const rawEffectivePrice = Number(effectivePriceNum ?? rawSalePrice);
 
     dto.salePrice = rawSalePrice.toFixed(2);
-    dto.discount = rawDiscount.toFixed(2);
-    dto.finalPrice = rawFinalPrice.toFixed(2);
+    dto.effectivePrice = rawEffectivePrice.toFixed(2);
+    dto.finalPrice = rawEffectivePrice.toFixed(2);
 
     dto.discountStartsAt = entity.discountStartsAt
       ? entity.discountStartsAt.toISOString()
@@ -172,9 +237,32 @@ export class PublicProductResponseDto {
       ? entity.discountEndsAt.toISOString()
       : null;
 
-    dto.images = entity.images
-      ? entity.images.sort((a, b) => a.sortOrder - b.sortOrder).map((img) => img.imageUrl)
+    // Evaluación estricta de vigencia del descuento
+    const now = new Date();
+    const isStartsValid =
+      !entity.discountStartsAt || entity.discountStartsAt <= now;
+    const isEndsValid = !entity.discountEndsAt || entity.discountEndsAt >= now;
+    const isDiscountActive =
+      rawDiscountPercentage > 0 && isStartsValid && isEndsValid;
+
+    if (rawDiscountPercentage > 0) {
+      dto.discount = {
+        percentage: rawDiscountPercentage,
+        isActive: isDiscountActive,
+      };
+    } else {
+      dto.discount = null;
+    }
+
+    // Imágenes absolutas y primaryImage
+    const sortedImages = entity.images
+      ? entity.images.sort((a, b) => a.sortOrder - b.sortOrder)
       : [];
+    dto.images = sortedImages
+      .map((img) => UrlUtil.resolveImageUrl(img.imageUrl))
+      .filter((url): url is string => url !== null);
+
+    dto.primaryImage = dto.images.length > 0 ? dto.images[0] : null;
 
     dto.tags = entity.tags ? entity.tags.map((t) => t.tag) : [];
 
@@ -182,7 +270,17 @@ export class PublicProductResponseDto {
       ? PublicCategoryResponseDto.fromEntity(entity.inventory.category)
       : null;
 
-    dto.inStock = inStock;
+    // Conteo de inventario y disponibilidad global
+    const invStock = entity.inventory ? Number(entity.inventory.stock ?? entity.inventory.available ?? 0) : 0;
+    const invMinStock = entity.inventory ? Number((entity.inventory as any).minStock ?? 5) : 5;
+
+    dto.stockTotal = invStock;
+    dto.inStock = inStock && invStock > 0;
+    dto.availability =
+      invStock > 0 && invStock <= invMinStock ? 'LOW_STOCK' : 'IN_STOCK';
+
+    // Variantes y availableSizes únicos con stock disponible
+    const sizesSet = new Set<string>();
 
     dto.variants = entity.variantConfigs
       ? entity.variantConfigs.map((vc) => {
@@ -192,6 +290,9 @@ export class PublicProductResponseDto {
           let stockStatus = 'OUT_OF_STOCK';
           if (stock > 0) {
             stockStatus = stock <= minStock ? 'LOW_STOCK' : 'IN_STOCK';
+            if (detail?.size) {
+              sizesSet.add(detail.size);
+            }
           }
           return {
             id: vc.id,
@@ -203,6 +304,8 @@ export class PublicProductResponseDto {
           };
         })
       : [];
+
+    dto.availableSizes = Array.from(sizesSet);
 
     return dto;
   }

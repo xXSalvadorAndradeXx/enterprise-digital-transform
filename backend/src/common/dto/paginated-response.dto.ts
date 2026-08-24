@@ -16,11 +16,17 @@ export class PaginationMetaDto {
 
   @ApiProperty({ example: 7, description: 'Total de páginas' })
   totalPages: number;
+
+  @ApiProperty({ example: true, description: 'Indica si existe una página posterior' })
+  hasNextPage: boolean;
+
+  @ApiProperty({ example: false, description: 'Indica si existe una página anterior' })
+  hasPreviousPage: boolean;
 }
 
 /**
  * Respuesta genérica para listados paginados.
- * TDD § 5.1 — { data[], meta: { total, page, limit, totalPages } }
+ * TDD § 5.1 — { data[], meta: { total, page, limit, totalPages, hasNextPage, hasPreviousPage } }
  */
 export class PaginatedResponseDto<T> {
   @ApiProperty({ isArray: true })
@@ -40,13 +46,16 @@ export function createPaginatedResponse<T>(
   page: number,
   limit: number,
 ): PaginatedResponseDto<T> {
+  const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
   return {
     data,
     meta: {
       total,
       page,
       limit,
-      totalPages: limit > 0 ? Math.ceil(total / limit) : 0,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
     },
   };
 }
