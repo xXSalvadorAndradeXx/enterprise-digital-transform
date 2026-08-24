@@ -29,6 +29,7 @@ import {
   PublicAvailability,
   PublicGender,
 } from './dto/public-product-filter.dto';
+import { RelatedProductsQueryDto } from './dto/related-products-query.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
 import {
   PublicProductResponseDto,
@@ -1082,5 +1083,92 @@ export class ProductsService {
       : true;
 
     return PublicProductDetailResponseDto.fromEntity(product, effPrice, inStock);
+  }
+
+  async findRelatedProducts(
+    id: string,
+    queryDto?: RelatedProductsQueryDto,
+  ): Promise<PublicProductResponseDto[]> {
+    const limit = Math.min(Math.max(Number(queryDto?.limit) || 4, 1), 20);
+
+    const baseProduct = await this.productRepository.findOne({
+      where: { id, deletedAt: IsNull() },
+      relations: ['inventory'],
+    });
+
+    if (!baseProduct) {
+      throw new NotFoundException({
+        code: 'PRODUCT_NOT_FOUND',
+        message: `El producto base con ID ${id} no fue encontrado`,
+      });
+    }
+
+    const categoryId = baseProduct.inventory?.categoryId;
+    const gender = baseProduct.inventory?.gender;
+
+    if (!categoryId && !gender) {
+      return [];
+    }
+
+    const query = this.productRepository
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.inventory', 'inventory')
+      .leftJoinAndSelect('inventory.category', 'category')
+      .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoinAndSelect('p.images', 'product_images')
+      .leftJoinAndSelect('p.tags', 'product_tags')
+      .leftJoinAndSelect('p.variantConfigs', 'product_variant_config')
+      .leftJoinAndSelect(
+        'product_variant_config.inventoryDetail',
+        'inventoryDetail',
+      )
+      .where('p.id != :currentProductId', { currentProductId: id })
+      .andWhere('p.deleted_at IS NULL')
+      .andWhere('p.status = :activeStatus', { activeStatus: ProductStatus.ACTIVE })
+      .andWhere('p.is_published = :isPublished', { isPublished: true })
+      .andWhere('(inventory.status IS NULL OR inventory.status != :outOfStock)', {
+        outOfStock: InventoryStatus.OUT_OF_STOCK,
+      });
+
+    if (categoryId && gender) {
+      query.andWhere(
+        '(inventory.category_id = :categoryId OR inventory.gender = :gender)',
+        { categoryId, gender },
+      );
+      query.orderBy(
+        `CASE
+          WHEN inventory.category_id = :categoryId THEN 1
+          WHEN inventory.gender = :gender THEN 2
+          ELSE 3
+        END`,
+        'ASC',
+      );
+    } else if (categoryId) {
+      query.andWhere('inventory.category_id = :categoryId', { categoryId });
+    } else if (gender) {
+      query.andWhere('inventory.gender = :gender', { gender });
+    }
+
+    query.addOrderBy('p.createdAt', 'DESC');
+    query.addOrderBy('p.id', 'ASC');
+
+    query.take(limit);
+
+    const products = await query.getMany();
+
+    return products
+      .filter((p) => ProductSpecification.isProductPublishableAndSellable(p))
+      .map((p) => {
+        const effPrice = ProductSpecification.calculateEffectivePrice(
+          p.salePrice,
+          p.discount,
+          p.discountStartsAt,
+          p.discountEndsAt,
+        );
+        const inStock = p.inventory
+          ? p.inventory.status !== InventoryStatus.OUT_OF_STOCK
+          : true;
+        return PublicProductResponseDto.fromEntity(p, effPrice, inStock);
+      });
   }
 }

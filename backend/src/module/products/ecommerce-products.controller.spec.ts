@@ -10,6 +10,7 @@ import {
   PublicAvailability,
   PublicGender,
 } from './dto/public-product-filter.dto';
+import { RelatedProductsQueryDto } from './dto/related-products-query.dto';
 
 describe('EcommerceProductsController', () => {
   let controller: EcommerceProductsController;
@@ -84,6 +85,7 @@ describe('EcommerceProductsController', () => {
   const mockProductsService = {
     findEcommerceProducts: jest.fn().mockResolvedValue(mockPaginatedResponse),
     findEcommerceProductById: jest.fn().mockResolvedValue(mockPublicDetailProduct),
+    findRelatedProducts: jest.fn().mockResolvedValue([mockPublicProduct]),
   };
 
   beforeEach(async () => {
@@ -136,5 +138,12 @@ describe('EcommerceProductsController', () => {
     const result = await controller.findOne('prod-uuid-1');
     expect(result).toEqual({ data: mockPublicDetailProduct });
     expect(service.findEcommerceProductById).toHaveBeenCalledWith('prod-uuid-1');
+  });
+
+  it('findRelated should return array of related public product cards', async () => {
+    const queryDto: RelatedProductsQueryDto = { limit: 4 };
+    const result = await controller.findRelated('prod-uuid-1', queryDto);
+    expect(result).toEqual([mockPublicProduct]);
+    expect(service.findRelatedProducts).toHaveBeenCalledWith('prod-uuid-1', queryDto);
   });
 });
