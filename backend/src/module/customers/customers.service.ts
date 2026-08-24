@@ -1,9 +1,22 @@
-import { Injectable, ConflictException, NotFoundException, UnprocessableEntityException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, UnprocessableEntityException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { Response } from 'express';
 import { Customer } from './entities/customer.entity';
 import { CustomerAddress } from './entities/customer-address.entity';
+import { EcommerceAuthSession } from './entities/ecommerce-auth-session.entity';
 import { LocationsService } from '../locations/locations.service';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { HashService } from '../auth/services/hash.service';
+import {
+  SESSION_ABSOLUTE_MAX_TTL_SECONDS,
+  COOKIE_TTL_SHORT,
+  COOKIE_TTL_LONG_SECONDS,
+  REFRESH_TOKEN_COOKIE_NAME,
+  buildRefreshTokenCookieOptions,
+  hashToken,
+} from './constants/ecommerce-auth.constant';
 
 @Injectable()
 export class CustomersService {
@@ -12,7 +25,12 @@ export class CustomersService {
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(CustomerAddress)
     private readonly addressRepository: Repository<CustomerAddress>,
+    @InjectRepository(EcommerceAuthSession)
+    private readonly sessionRepository: Repository<EcommerceAuthSession>,
     private readonly locationsService: LocationsService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    private readonly hashService: HashService,
   ) {}
 
   /**
@@ -295,6 +313,215 @@ export class CustomersService {
           await transactionalEntityManager.save(CustomerAddress, remainingAddress);
         }
       }
+    });
+  }
+
+  /**
+   * Genera el access token JWT para un cliente con duración fija de 900 segundos (15 minutos).
+   */
+  async generateAccessToken(customer: Customer): Promise<string> {
+    const payload = {
+      sub: customer.id,
+      email: customer.email,
+      role: 'CUSTOMER',
+      type: 'access',
+    };
+
+    const secret = this.configService.get<string>('JWT_SECRET') || 'default_secret';
+    return this.jwtService.signAsync(payload, {
+      secret,
+      expiresIn: 900,
+    });
+  }
+
+  /**
+   * Genera un refresh token JWT, calcula su hash y lo persiste como sesión en BD.
+   * La sesión siempre expira a las 24 horas desde su creación (duración absoluta máxima).
+   * rememberMe solo controla si la cookie persiste al cerrar el navegador.
+   *
+   * @param customerId - ID del cliente.
+   * @param rememberMe - Si es true, la cookie persiste 24h en el navegador; si es false, es cookie de sesión.
+   * @param userAgent - User-Agent de la petición (informativo).
+   * @param ipHash - Hash SHA-256 de la IP del cliente.
+   * @returns El refresh token en texto plano y la configuración de cookie.
+   */
+  async issueRefreshToken(
+    customerId: string,
+    rememberMe: boolean,
+    userAgent?: string,
+    ipHash?: string,
+  ): Promise<{ rawToken: string; cookieMaxAge: number | undefined }> {
+    const refreshSecret =
+      this.configService.get<string>('JWT_REFRESH_SECRET') ||
+      this.configService.get<string>('JWT_SECRET') ||
+      'default_secret';
+
+    // El JWT del refresh token expira a las 24 horas (duración absoluta máxima de la sesión)
+    const rawToken = await this.jwtService.signAsync(
+      { sub: customerId, type: 'refresh' },
+      { secret: refreshSecret, expiresIn: SESSION_ABSOLUTE_MAX_TTL_SECONDS },
+    );
+
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + SESSION_ABSOLUTE_MAX_TTL_SECONDS * 1000);
+
+    const session = this.sessionRepository.create({
+      customerId,
+      refreshTokenHash: tokenHash,
+      expiresAt,
+      revokedAt: null,
+      lastUsedAt: null,
+      userAgent: userAgent || null,
+      ipHash: ipHash || null,
+    });
+    await this.sessionRepository.save(session);
+
+    // rememberMe solo controla la persistencia de la cookie en el navegador
+    const cookieMaxAge = rememberMe ? COOKIE_TTL_LONG_SECONDS : COOKIE_TTL_SHORT;
+    return { rawToken, cookieMaxAge };
+  }
+
+  /**
+   * Valida que una sesión sea elegible para refresh.
+   * - La sesión debe existir.
+   * - No debe estar revocada.
+   * - No debe haber superado su duración absoluta máxima (expiresAt).
+   *
+   * @returns La sesión válida si pasa todas las verificaciones.
+   */
+  async validateSessionForRefresh(refreshToken: string): Promise<EcommerceAuthSession> {
+    const tokenHash = hashToken(refreshToken);
+
+    const session = await this.sessionRepository.findOne({
+      where: { refreshTokenHash: tokenHash, revokedAt: IsNull() },
+    });
+
+    if (!session) {
+      throw new UnauthorizedException({
+        code: 'SESSION_NOT_FOUND',
+        message: 'Sesión no encontrada o ya revocada.',
+      });
+    }
+
+    // Verificar duración absoluta máxima de 24 horas
+    if (new Date() >= session.expiresAt) {
+      // Revocar la sesión expirada
+      session.revokedAt = new Date();
+      await this.sessionRepository.save(session);
+
+      throw new UnauthorizedException({
+        code: 'SESSION_EXPIRED',
+        message: 'La sesión ha expirado. Inicie sesión nuevamente.',
+      });
+    }
+
+    return session;
+  }
+  /**
+   * Rota el refresh token de una sesión existente.
+   * - Valida la sesión (existencia, revocación, expiración absoluta).
+   * - Genera un nuevo refresh token JWT.
+   * - Actualiza refreshTokenHash y lastUsedAt en la sesión existente.
+   * - NO extiende expiresAt (respeta la duración absoluta máxima de 24h).
+   * - El token original queda inutilizable tras la rotación.
+   *
+   * @returns Nuevo token en texto plano y tiempo restante de la sesión para la cookie.
+   */
+  async rotateRefreshToken(
+    currentRefreshToken: string,
+    rememberMe: boolean,
+  ): Promise<{ rawToken: string; cookieMaxAge: number | undefined }> {
+    // 1. Validar la sesión actual
+    const session = await this.validateSessionForRefresh(currentRefreshToken);
+
+    // 2. Calcular el tiempo restante de la sesión (no extender más allá de expiresAt)
+    const remainingMs = session.expiresAt.getTime() - Date.now();
+    const remainingSeconds = Math.max(Math.floor(remainingMs / 1000), 0);
+
+    if (remainingSeconds <= 0) {
+      session.revokedAt = new Date();
+      await this.sessionRepository.save(session);
+      throw new UnauthorizedException({
+        code: 'SESSION_EXPIRED',
+        message: 'La sesión ha expirado. Inicie sesión nuevamente.',
+      });
+    }
+
+    // 3. Generar un nuevo refresh token con el tiempo restante de la sesión
+    const refreshSecret =
+      this.configService.get<string>('JWT_REFRESH_SECRET') ||
+      this.configService.get<string>('JWT_SECRET') ||
+      'default_secret';
+
+    const rawToken = await this.jwtService.signAsync(
+      { sub: session.customerId, type: 'refresh' },
+      { secret: refreshSecret, expiresIn: remainingSeconds },
+    );
+
+    // 4. Actualizar solo el hash y lastUsedAt, sin modificar expiresAt
+    session.refreshTokenHash = hashToken(rawToken);
+    session.lastUsedAt = new Date();
+    await this.sessionRepository.save(session);
+
+    // 5. Cookie: rememberMe controla persistencia, pero maxAge no excede el tiempo restante
+    const cookieMaxAge = rememberMe
+      ? Math.min(COOKIE_TTL_LONG_SECONDS!, remainingSeconds)
+      : COOKIE_TTL_SHORT;
+
+    return { rawToken, cookieMaxAge };
+  }
+
+  /**
+   * Revoca una sesión específica marcando revokedAt.
+   * Útil para logout o invalidación por compromiso de seguridad.
+   */
+  async revokeSession(refreshToken: string): Promise<void> {
+    const tokenHash = hashToken(refreshToken);
+    const session = await this.sessionRepository.findOne({
+      where: { refreshTokenHash: tokenHash, revokedAt: IsNull() },
+    });
+
+    if (session) {
+      session.revokedAt = new Date();
+      await this.sessionRepository.save(session);
+    }
+  }
+
+  /**
+   * Revoca todas las sesiones activas de un cliente.
+   * Útil para cambio de contraseña, compromiso de cuenta o cierre de sesión global.
+   */
+  async revokeAllCustomerSessions(customerId: string): Promise<void> {
+    await this.sessionRepository.update(
+      { customerId, revokedAt: IsNull() },
+      { revokedAt: new Date() },
+    );
+  }
+
+  /**
+   * Configura la cookie segura del refresh token en la respuesta HTTP.
+   * - HttpOnly: true (inaccesible vía document.cookie)
+   * - SameSite: Lax
+   * - Path: /api/v1/ecommerce/auth
+   * - Secure: true en producción
+   * - Max-Age: si rememberMe=true, persiste 24h; si false, cookie de sesión (sin Max-Age).
+   */
+  setRefreshTokenCookie(res: Response, rawToken: string, cookieMaxAge: number | undefined): void {
+    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    const cookieOptions = buildRefreshTokenCookieOptions(cookieMaxAge, isProduction);
+    res.cookie(REFRESH_TOKEN_COOKIE_NAME, rawToken, cookieOptions);
+  }
+
+  /**
+   * Limpia la cookie del refresh token (útil para logout).
+   */
+  clearRefreshTokenCookie(res: Response): void {
+    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/api/v1/ecommerce/auth',
+      secure: isProduction,
     });
   }
 }

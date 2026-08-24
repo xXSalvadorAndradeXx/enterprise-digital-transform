@@ -12,6 +12,8 @@ import {
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { CustomerAddress } from './customer-address.entity';
+import { EcommerceAuthSession } from './ecommerce-auth-session.entity';
+
 
 @Entity('customers')
 export class Customer {
@@ -68,6 +70,9 @@ export class Customer {
 
   @OneToMany(() => CustomerAddress, (address) => address.customer)
   addresses!: CustomerAddress[];
+
+  @OneToMany(() => EcommerceAuthSession, (session) => session.customer)
+  authSessions!: EcommerceAuthSession[];
 
   @BeforeInsert()
   @BeforeUpdate()
