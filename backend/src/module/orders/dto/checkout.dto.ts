@@ -33,6 +33,15 @@ export class CheckoutItemDto {
   @IsInt()
   @Min(1, { message: 'La cantidad debe ser al menos 1' })
   quantity!: number;
+
+  @ApiProperty({
+    description: 'Precio de referencia del producto al agregarlo (opcional para control de fluctuaciones)',
+    example: '10.00',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  priceAtAdded?: string;
 }
 
 export class CheckoutContactDto {

@@ -464,7 +464,7 @@ export class OrdersService {
         }
 
         // Resolver ítems reales basados en el origen (source)
-        let itemsToProcess: { variantId: string; quantity: number; size?: string; color?: string; sku?: string }[] = [];
+        let itemsToProcess: { variantId: string; quantity: number; size?: string; color?: string; sku?: string; referencePrice?: number }[] = [];
         let userCart: Cart | null = null;
 
         if (source === CheckoutSource.BUY_NOW) {
@@ -477,6 +477,7 @@ export class OrdersService {
             size: (item as any).size,
             color: (item as any).color,
             sku: (item as any).sku,
+            referencePrice: item.priceAtAdded ? Number(item.priceAtAdded) : undefined,
           }));
         } else if (source === CheckoutSource.CART) {
           if (!userId) {
@@ -502,12 +503,15 @@ export class OrdersService {
             if (!item.product) {
               throw new BadRequestException('El carrito contiene un producto no válido');
             }
+            const dtoItem = items?.find(di => di.variantId === item.product.id);
+            const refPrice = dtoItem?.priceAtAdded ? Number(dtoItem.priceAtAdded) : Number(item.unitPrice);
             return {
               variantId: item.product.id,
               quantity: item.quantity,
               size: (item as any).size,
               color: (item as any).color,
               sku: (item as any).sku,
+              referencePrice: refPrice,
             };
           });
         }
@@ -554,8 +558,22 @@ export class OrdersService {
         order.customerName = contact.fullName;
         order.customerPhone = phoneClean;
 
-        // D. Procesar y validar ítems contra base de datos
+        // D. Procesar, validar y recalcular precios, stock e inmutabilidad en tiempo real
         order.items = [];
+        const priceChangedDetails: any[] = [];
+        let totalSubtotal = 0;
+        let totalDiscount = 0;
+        let totalEffective = 0;
+        let hasPriceChanged = false;
+
+        const loadedItemsData: {
+          product: Product;
+          itemDto: typeof itemsToProcess[0];
+          salePrice: number;
+          effectivePrice: number;
+          subtotal: number;
+        }[] = [];
+
         for (const itemDto of itemsToProcess) {
           const product = await tx.findOne(Product, {
             where: { id: itemDto.variantId },
@@ -564,28 +582,99 @@ export class OrdersService {
           if (!product) {
             throw new NotFoundException(`Producto con ID ${itemDto.variantId} no encontrado`);
           }
-          if (product.status !== ProductStatus.ACTIVE) {
+          if (product.status !== ProductStatus.ACTIVE || !product.isActive || !product.isPublished || product.deletedAt !== null) {
             throw new BadRequestException(`El producto "${product.commercialName}" no está disponible para venta.`);
           }
+          
+          const variant = product;
+          if (variant.productId !== product.id) {
+            throw new BadRequestException('La variante no pertenece al producto');
+          }
+
           if (!product.inventory) {
             throw new BadRequestException(`El producto ${product.id} no tiene inventario asignado`);
           }
           if (Number(product.inventory.stock) < itemDto.quantity) {
-            throw new BadRequestException(`Stock insuficiente para el producto ${product.id}`);
+            throw new BadRequestException({
+              message: `Stock insuficiente para el producto ${product.id}`,
+              code: 'INSUFFICIENT_STOCK',
+            });
+          }
+
+          // Recálculo canónico de precios y descuentos vigentes
+          const now = new Date();
+          let isDiscountActive = false;
+          if (product.discount && product.discount > 0) {
+            const starts = product.discountStartsAt ? new Date(product.discountStartsAt) : null;
+            const ends = product.discountEndsAt ? new Date(product.discountEndsAt) : null;
+            const hasStarted = !starts || now >= starts;
+            const hasNotEnded = !ends || now <= ends;
+            if (hasStarted && hasNotEnded) {
+              isDiscountActive = true;
+            }
           }
 
           const salePrice = Number(product.salePrice);
-          const discount = Number(product.discount || 0);
-          const discountAmount = salePrice * (discount / 100);
+          const discountPercentage = isDiscountActive ? Number(product.discount || 0) : 0;
+          const discountAmount = salePrice * (discountPercentage / 100);
           const effectivePrice = Number((salePrice - discountAmount).toFixed(2));
-          const subtotal = Number((effectivePrice * itemDto.quantity).toFixed(2));
+          const lineBaseTotal = Number((salePrice * itemDto.quantity).toFixed(2));
+          const lineTotal = Number((effectivePrice * itemDto.quantity).toFixed(2));
+          const lineDiscountTotal = Number((lineBaseTotal - lineTotal).toFixed(2));
 
+          totalSubtotal += lineBaseTotal;
+          totalDiscount += lineDiscountTotal;
+          totalEffective += lineTotal;
+
+          // Detección de fluctuación de precios (PRICE_CHANGED)
+          if (itemDto.referencePrice !== undefined && Number(itemDto.referencePrice.toFixed(2)) !== effectivePrice) {
+            hasPriceChanged = true;
+          }
+
+          priceChangedDetails.push({
+            variantId: itemDto.variantId,
+            salePrice: salePrice.toFixed(2),
+            effectivePrice: effectivePrice.toFixed(2),
+            quantity: itemDto.quantity,
+            lineTotal: lineTotal.toFixed(2),
+          });
+
+          loadedItemsData.push({
+            product,
+            itemDto,
+            salePrice,
+            effectivePrice,
+            subtotal: lineTotal,
+          });
+        }
+
+        // Si se detecta fluctuación de precios, detenemos el flujo y lanzamos el error estructurado
+        if (hasPriceChanged) {
+          throw new ConflictException({
+            success: false,
+            error: {
+              code: 'PRICE_CHANGED',
+              message: 'Uno o más productos cambiaron de precio',
+              details: {
+                items: priceChangedDetails,
+                subtotal: totalSubtotal.toFixed(2),
+                discountTotal: totalDiscount.toFixed(2),
+                effectiveSubtotal: totalEffective.toFixed(2),
+              },
+            },
+          });
+        }
+
+        // Si los precios son correctos, procedemos a decrementar inventario y crear ítems de orden
+        for (const loaded of loadedItemsData) {
+          const { product, itemDto, salePrice, effectivePrice, subtotal } = loaded;
+          
           const orderItem = tx.create(OrderItem, {
             product,
             quantity: itemDto.quantity,
             unitPrice: effectivePrice,
             salePriceSnapshot: salePrice,
-            discountSnapshot: discount,
+            discountSnapshot: product.discount || 0,
             subtotal,
             size: itemDto.size || null,
             color: itemDto.color || null,
@@ -594,8 +683,8 @@ export class OrdersService {
           order.items.push(orderItem);
 
           // Decrementar stock
-          product.inventory.stock = Number(product.inventory.stock) - itemDto.quantity;
-          await tx.save(Inventory, product.inventory);
+          product.inventory!.stock = Number(product.inventory!.stock) - itemDto.quantity;
+          await tx.save(Inventory, product.inventory!);
         }
 
         // E. Si viene de CART, vaciar el carrito
@@ -604,11 +693,8 @@ export class OrdersService {
         }
 
         // F. Cálculo de totales
-        const calculatedSubtotal = order.items.reduce((s, i) => s + i.subtotal, 0);
-        const calculatedDiscountTotal = order.items.reduce((s, i) => {
-          const base = i.salePriceSnapshot * i.quantity;
-          return s + (base - i.subtotal);
-        }, 0);
+        const calculatedSubtotal = totalEffective;
+        const calculatedDiscountTotal = totalDiscount;
 
         let shippingTotal = '0.00';
         if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
