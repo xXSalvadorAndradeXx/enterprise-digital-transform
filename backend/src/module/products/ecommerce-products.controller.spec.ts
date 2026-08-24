@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EcommerceProductsController } from './ecommerce-products.controller';
 import { ProductsService } from './products.service';
 import { PublicProductResponseDto } from './dto/public-product-response.dto';
-import { ProductFilterDto } from './dto/product-filter.dto';
+import { PublicProductFilterDto, PublicAvailability, PublicGender } from './dto/public-product-filter.dto';
 
 describe('EcommerceProductsController', () => {
   let controller: EcommerceProductsController;
@@ -60,8 +60,28 @@ describe('EcommerceProductsController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('findAll should return paginated public products', async () => {
-    const filterDto: ProductFilterDto = { page: 1, limit: 10 };
+  it('findAll should return paginated public products with default filters', async () => {
+    const filterDto: PublicProductFilterDto = { page: 1, limit: 10 };
+    const result = await controller.findAll(filterDto);
+    expect(result).toEqual(mockPaginatedResponse);
+    expect(service.findEcommerceProducts).toHaveBeenCalledWith(filterDto);
+  });
+
+  it('findAll should pass combined v1.2 filters to service', async () => {
+    const filterDto: PublicProductFilterDto = {
+      search: 'camisa',
+      categoryId: 3,
+      brand: 'Nike',
+      gender: PublicGender.MEN,
+      size: 'M',
+      minPrice: 20,
+      maxPrice: 80,
+      availability: PublicAvailability.IN_STOCK,
+      hasDiscount: true,
+      page: 1,
+      limit: 10,
+    };
+
     const result = await controller.findAll(filterDto);
     expect(result).toEqual(mockPaginatedResponse);
     expect(service.findEcommerceProducts).toHaveBeenCalledWith(filterDto);

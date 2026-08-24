@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
-import { ProductFilterDto } from './dto/product-filter.dto';
+import { PublicProductFilterDto } from './dto/public-product-filter.dto';
 import { PublicProductResponseDto } from './dto/public-product-response.dto';
 import { SingleResponse } from '../../common/interfaces/api-response.interface';
 import { PaginatedResponseDto } from '../../common/dto/paginated-response.dto';
@@ -20,19 +20,20 @@ export class EcommerceProductsController {
   @Get()
   @ApiOperation({
     summary:
-      'Obtener catálogo público de productos para el e-commerce (Precios como string decimal)',
+      'Obtener catálogo público de productos para e-commerce v1.2 (Filtros por búsqueda, categoría, marca, género, talla, precios efectivos, disponibilidad y descuentos vigentes)',
   })
   @ApiResponse({
     status: 200,
-    description: 'Catálogo de productos públicos obtenido exitosamente',
+    description: 'Catálogo de productos públicos filtrado y paginado exitosamente',
     type: PaginatedResponseDto,
   })
   @ApiResponse({
     status: 400,
-    description: 'Parámetros de consulta no válidos',
+    description:
+      'Parámetros de consulta no válidos (ej. availability=OUT_OF_STOCK, gender no permitido, o limit > 100)',
   })
   async findAll(
-    @Query() filterDto: ProductFilterDto,
+    @Query() filterDto: PublicProductFilterDto,
   ): Promise<PaginatedResponseDto<PublicProductResponseDto>> {
     return this.productsService.findEcommerceProducts(filterDto);
   }
@@ -52,7 +53,7 @@ export class EcommerceProductsController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Producto no encontrado o no publicado',
+    description: 'Producto no encontrado o no disponible en catálogo público',
   })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,

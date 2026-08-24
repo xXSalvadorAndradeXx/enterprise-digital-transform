@@ -24,6 +24,11 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
+import {
+  PublicProductFilterDto,
+  PublicAvailability,
+  PublicGender,
+} from './dto/public-product-filter.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
 import { PublicProductResponseDto } from './dto/public-product-response.dto';
 import { UploadImageResponseDto } from './dto/upload-image-response.dto';
@@ -890,22 +895,27 @@ export class ProductsService {
   }
 
   async findEcommerceProducts(
-    filterDto: ProductFilterDto,
+    filterDto: PublicProductFilterDto,
   ): Promise<PaginatedResponseDto<PublicProductResponseDto>> {
     const {
       limit = 10,
       page = 1,
       search,
-      supplierId,
       categoryId,
-      tag,
+      brand,
+      gender,
+      size,
       minPrice,
       maxPrice,
+      availability,
+      hasDiscount,
       sortBy = 'createdAt',
       order = SortOrder.DESC,
     } = filterDto;
 
-    const skip = (page - 1) * limit;
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const safePage = Math.max(Number(page) || 1, 1);
+    const skip = (safePage - 1) * safeLimit;
 
     const query = this.productRepository
       .createQueryBuilder('p')
@@ -921,48 +931,96 @@ export class ProductsService {
       )
       .where('p.deleted_at IS NULL')
       .andWhere('p.status = :activeStatus', { activeStatus: ProductStatus.ACTIVE })
-      .andWhere('p.is_published = :isPublished', { isPublished: true });
+      .andWhere('p.is_published = :isPublished', { isPublished: true })
+      .andWhere('(inventory.status IS NULL OR inventory.status != :outOfStock)', {
+        outOfStock: InventoryStatus.OUT_OF_STOCK,
+      });
 
+    // 1. Búsqueda parcial en commercial_name o description
     if (search) {
       query.andWhere('(p.commercial_name ILIKE :q OR p.description ILIKE :q)', {
         q: `%${search}%`,
       });
     }
 
-    if (supplierId) {
-      query.andWhere('inventory.supplier_id = :supplierId', { supplierId });
-    }
-
+    // 2. Filtro por Categoría
     if (categoryId !== undefined) {
       query.andWhere('inventory.category_id = :categoryId', { categoryId });
     }
 
-    if (tag) {
-      query.andWhere('product_tags.tag = :tag', { tag });
+    // 3. Filtro por Marca
+    if (brand) {
+      query.andWhere('inventory.brand ILIKE :brand', { brand: `%${brand}%` });
     }
 
+    // 4. Filtro por Género
+    if (gender) {
+      query.andWhere('inventory.gender = :gender', { gender });
+    }
+
+    // 5. Filtro por Talla mediante subconsulta EXISTS para evitar multiplicación de filas
+    if (size) {
+      query.andWhere(
+        `EXISTS (
+          SELECT 1
+          FROM product_variant_config pvc
+          INNER JOIN inventory_details idt ON idt.id = pvc.inventory_detail_id
+          WHERE pvc.product_id = p.id AND idt.size = :size
+        )`,
+        { size },
+      );
+    }
+
+    // 6. Filtro por Disponibilidad e-commerce (IN_STOCK / LOW_STOCK)
+    if (availability === PublicAvailability.LOW_STOCK) {
+      query.andWhere('inventory.stock > 0 AND inventory.stock <= inventory.min_stock');
+    } else if (availability === PublicAvailability.IN_STOCK) {
+      query.andWhere('inventory.stock > inventory.min_stock');
+    }
+
+    // 7. Filtro por Descuento Vigente (hasDiscount)
+    const activeDiscountCondition =
+      '(p.discount IS NOT NULL AND p.discount > 0 AND (p.discount_starts_at IS NULL OR p.discount_starts_at <= NOW()) AND (p.discount_ends_at IS NULL OR p.discount_ends_at >= NOW()))';
+
+    if (hasDiscount === true) {
+      query.andWhere(activeDiscountCondition);
+    } else if (hasDiscount === false) {
+      query.andWhere(`NOT (${activeDiscountCondition})`);
+    }
+
+    // 8. Filtro por Rango de Precios (minPrice y maxPrice) sobre effectivePrice (CASE WHEN SQL)
+    const effectivePriceExpression = `(
+      CASE
+        WHEN p.discount IS NOT NULL AND p.discount > 0
+         AND (p.discount_starts_at IS NULL OR p.discount_starts_at <= NOW())
+         AND (p.discount_ends_at IS NULL OR p.discount_ends_at >= NOW())
+        THEN ROUND(p.sale_price * (1 - p.discount / 100.0), 2)
+        ELSE p.sale_price
+      END
+    )`;
+
     if (minPrice !== undefined) {
-      query.andWhere('p.sale_price >= :minPrice', { minPrice });
+      query.andWhere(`${effectivePriceExpression} >= :minPrice`, { minPrice });
     }
 
     if (maxPrice !== undefined) {
-      query.andWhere('p.sale_price <= :maxPrice', { maxPrice });
+      query.andWhere(`${effectivePriceExpression} <= :maxPrice`, { maxPrice });
     }
 
+    // 9. Ordenamiento controlado por Lista Blanca
     const sortFieldMap: Record<string, string> = {
       createdAt: 'p.createdAt',
-      created_at: 'p.createdAt',
       salePrice: 'p.salePrice',
-      sale_price: 'p.salePrice',
       commercialName: 'p.commercialName',
-      commercial_name: 'p.commercialName',
     };
 
     const sortColumn = sortFieldMap[sortBy] ?? 'p.createdAt';
     const sortDirection = order === SortOrder.ASC ? 'ASC' : 'DESC';
 
     query.orderBy(sortColumn, sortDirection);
-    query.skip(skip).take(limit);
+    query.addOrderBy('p.id', 'ASC');
+
+    query.skip(skip).take(safeLimit);
 
     const [products, total] = await query.getManyAndCount();
     const data = products
@@ -978,7 +1036,7 @@ export class ProductsService {
         return PublicProductResponseDto.fromEntity(p, effPrice, inStock);
       });
 
-    return createPaginatedResponse(data, total, page, limit);
+    return createPaginatedResponse(data, total, safePage, safeLimit);
   }
 
   async findEcommerceProductById(id: string): Promise<PublicProductResponseDto> {
