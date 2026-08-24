@@ -6,7 +6,12 @@ import { ProductTag } from './entities/product-tag.entity';
 import { ProductVariantConfig } from './entities/product-variant-config.entity';
 import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
+import { EcommerceProductsController } from './ecommerce-products.controller';
 import { UsersModule } from '../users/users.module';
+import { InventoryModule } from '../inventory/inventory.module';
+import { CartModule } from '../cart/cart.module';
+import { BranchesModule } from '../branches/branches.module';
+import { CategoriesModule } from '../categories/categories.module';
 
 @Module({
   imports: [
@@ -17,9 +22,13 @@ import { UsersModule } from '../users/users.module';
       ProductVariantConfig,
     ]),
     UsersModule,
+    InventoryModule,
+    CartModule,
+    BranchesModule,
+    CategoriesModule,
   ],
-  controllers: [ProductsController],
+  controllers: [ProductsController, EcommerceProductsController],
   providers: [ProductsService],
-  exports: [TypeOrmModule],
+  exports: [ProductsService, TypeOrmModule],
 })
 export class ProductsModule {}

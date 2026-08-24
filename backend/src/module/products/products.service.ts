@@ -25,6 +25,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
+import { PublicProductResponseDto } from './dto/public-product-response.dto';
 import { UploadImageResponseDto } from './dto/upload-image-response.dto';
 import {
   PaginatedResponseDto,
@@ -876,5 +877,113 @@ export class ProductsService {
         updatedById: actorId,
       },
     );
+  }
+
+  async findEcommerceProducts(
+    filterDto: ProductFilterDto,
+  ): Promise<PaginatedResponseDto<PublicProductResponseDto>> {
+    const {
+      limit = 10,
+      page = 1,
+      search,
+      supplierId,
+      categoryId,
+      tag,
+      minPrice,
+      maxPrice,
+      sortBy = 'createdAt',
+      order = SortOrder.DESC,
+    } = filterDto;
+
+    const skip = (page - 1) * limit;
+
+    const query = this.productRepository
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.inventory', 'inventory')
+      .leftJoinAndSelect('inventory.category', 'category')
+      .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoinAndSelect('p.images', 'product_images')
+      .leftJoinAndSelect('p.tags', 'product_tags')
+      .leftJoinAndSelect('p.variantConfigs', 'product_variant_config')
+      .leftJoinAndSelect(
+        'product_variant_config.inventoryDetail',
+        'inventoryDetail',
+      )
+      .where('p.deleted_at IS NULL')
+      .andWhere('p.status = :activeStatus', { activeStatus: ProductStatus.ACTIVE });
+
+    if (search) {
+      query.andWhere('(p.commercial_name ILIKE :q OR p.description ILIKE :q)', {
+        q: `%${search}%`,
+      });
+    }
+
+    if (supplierId) {
+      query.andWhere('inventory.supplier_id = :supplierId', { supplierId });
+    }
+
+    if (categoryId !== undefined) {
+      query.andWhere('inventory.category_id = :categoryId', { categoryId });
+    }
+
+    if (tag) {
+      query.andWhere('product_tags.tag = :tag', { tag });
+    }
+
+    if (minPrice !== undefined) {
+      query.andWhere('p.sale_price >= :minPrice', { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      query.andWhere('p.sale_price <= :maxPrice', { maxPrice });
+    }
+
+    const sortFieldMap: Record<string, string> = {
+      createdAt: 'p.createdAt',
+      created_at: 'p.createdAt',
+      salePrice: 'p.salePrice',
+      sale_price: 'p.salePrice',
+      commercialName: 'p.commercialName',
+      commercial_name: 'p.commercialName',
+    };
+
+    const sortColumn = sortFieldMap[sortBy] ?? 'p.createdAt';
+    const sortDirection = order === SortOrder.ASC ? 'ASC' : 'DESC';
+
+    query.orderBy(sortColumn, sortDirection);
+    query.skip(skip).take(limit);
+
+    const [products, total] = await query.getManyAndCount();
+    const data = products.map((p) => {
+      const effPrice = this.calcEffectivePrice(
+        p.salePrice,
+        p.discount,
+        p.discountStartsAt,
+        p.discountEndsAt,
+      );
+      const inStock = p.inventory ? p.inventory.status !== InventoryStatus.OUT_OF_STOCK : true;
+      return PublicProductResponseDto.fromEntity(p, effPrice, inStock);
+    });
+
+    return createPaginatedResponse(data, total, page, limit);
+  }
+
+  async findEcommerceProductById(id: string): Promise<PublicProductResponseDto> {
+    const product = await this.findOneEntity(id);
+    if (product.status !== ProductStatus.ACTIVE) {
+      throw new NotFoundException(
+        `Producto con id ${id} no encontrado o no disponible en catálogo público`,
+      );
+    }
+
+    const effPrice = this.calcEffectivePrice(
+      product.salePrice,
+      product.discount,
+      product.discountStartsAt,
+      product.discountEndsAt,
+    );
+    const inStock = product.inventory ? product.inventory.status !== InventoryStatus.OUT_OF_STOCK : true;
+
+    return PublicProductResponseDto.fromEntity(product, effPrice, inStock);
   }
 }

@@ -28,6 +28,7 @@ describe('ProductsService', () => {
     id: 'inv-uuid-1',
     productName: 'Audífonos Bluetooth',
     brand: 'Sony',
+    gender: null,
     mainImageUrl: null,
     status: InventoryStatus.ACTIVE,
     stock: 100,
@@ -45,6 +46,7 @@ describe('ProductsService', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
+    createdBy: null,
   };
 
   const mockInventoryDetail: InventoryDetail = {

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config'; // Importa ConfigService
-import { TypeOrmModule } from '@nestjs/typeorm'; // Importa TypeOrmModule
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from '../src/module/users/users.module';
@@ -14,8 +14,7 @@ import { validate } from './env.validation';
 import { SuppliersModule } from '../src/module/suppliers/suppliers.module';
 import { InventoryModule } from '../src/module/inventory/inventory.module';
 import { PurchasesModule } from '../src/module/purchases/purchases.module';
-
-
+import { BranchesModule } from '../src/module/branches/branches.module';
 
 @Module({
   imports: [
@@ -30,13 +29,13 @@ import { PurchasesModule } from '../src/module/purchases/purchases.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        host: config.get<string>('DB_HOST',),
+        host: config.get<string>('DB_HOST'),
         port: config.get<number>('DB_PORT', 5432),
         username: config.get<string>('DB_USERNAME'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
-        autoLoadEntities: true, // Carga automáticamente las entidades de tus módulos
-        synchronize: true,      // Sincroniza las tablas con tus entidades (solo para desarrollo)
+        autoLoadEntities: true,
+        synchronize: true,
       }),
     }),
 
@@ -51,9 +50,9 @@ import { PurchasesModule } from '../src/module/purchases/purchases.module';
     SuppliersModule,
     InventoryModule,
     PurchasesModule,
-
+    BranchesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
