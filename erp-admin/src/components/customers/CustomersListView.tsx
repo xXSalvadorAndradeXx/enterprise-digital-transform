@@ -2,8 +2,13 @@
 
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
+
+import {
+  useRouter,
+} from "next/navigation";
 
 import {
   Pagination,
@@ -51,11 +56,93 @@ const EMPTY_META: PageMeta = {
     false,
 };
 
-export function CustomersListView() {
+interface CustomersListViewProps {
+  initialSearch?: string;
+  initialLastOrderFrom?: string;
+  initialLastOrderTo?: string;
+  initialPage?: number;
+}
+
+interface CustomersListQueryState {
+  search: string;
+  lastOrderFrom: string;
+  lastOrderTo: string;
+  page: number;
+}
+
+function buildCustomersListHref({
+  search,
+  lastOrderFrom,
+  lastOrderTo,
+  page,
+}: CustomersListQueryState): string {
+  const params =
+    new URLSearchParams();
+  const normalizedSearch =
+    search.trim();
+
+  if (normalizedSearch) {
+    params.set(
+      "search",
+      normalizedSearch,
+    );
+  }
+
+  if (lastOrderFrom) {
+    params.set(
+      "lastOrderFrom",
+      lastOrderFrom,
+    );
+  }
+
+  if (lastOrderTo) {
+    params.set(
+      "lastOrderTo",
+      lastOrderTo,
+    );
+  }
+
+  if (page > 1) {
+    params.set(
+      "page",
+      String(page),
+    );
+  }
+
+  const query =
+    params.toString();
+
+  return query
+    ? `/clientes?${query}`
+    : "/clientes";
+}
+
+function buildCustomerDetailHref(
+  customerId: string,
+  returnTo: string,
+): string {
+  const params =
+    new URLSearchParams({
+      returnTo,
+    });
+
+  return `/clientes/${customerId}?${params.toString()}`;
+}
+
+export function CustomersListView({
+  initialSearch = "",
+  initialLastOrderFrom = "",
+  initialLastOrderTo = "",
+  initialPage = 1,
+}: CustomersListViewProps) {
+  const router =
+    useRouter();
+  const hasMountedSearchEffect =
+    useRef(false);
   const [
     page,
     setPage,
-  ] = useState(1);
+  ] = useState(initialPage);
   const [
     customers,
     setCustomers,
@@ -80,21 +167,44 @@ export function CustomersListView() {
   const [
     search,
     setSearch,
-  ] = useState("");
+  ] = useState(initialSearch);
   const [
     debouncedSearch,
     setDebouncedSearch,
-  ] = useState("");
+  ] = useState(
+    initialSearch,
+  );
   const [
     lastOrderFrom,
     setLastOrderFrom,
-  ] = useState("");
+  ] = useState(
+    initialLastOrderFrom,
+  );
   const [
     lastOrderTo,
     setLastOrderTo,
-  ] = useState("");
+  ] = useState(
+    initialLastOrderTo,
+  );
+
+  const currentListHref =
+    buildCustomersListHref({
+      search:
+        debouncedSearch,
+      lastOrderFrom,
+      lastOrderTo,
+      page,
+    });
 
   useEffect(() => {
+    if (
+      !hasMountedSearchEffect.current
+    ) {
+      hasMountedSearchEffect.current =
+        true;
+      return;
+    }
+
     const timeoutId =
       window.setTimeout(() => {
         setDebouncedSearch(
@@ -112,6 +222,19 @@ export function CustomersListView() {
     };
   }, [
     search,
+  ]);
+
+  useEffect(() => {
+    router.replace(
+      currentListHref,
+      {
+        scroll:
+          false,
+      },
+    );
+  }, [
+    currentListHref,
+    router,
   ]);
 
   useEffect(() => {
@@ -221,6 +344,14 @@ export function CustomersListView() {
     );
   };
 
+  const getCustomerHref = (
+    customer: AdminCustomerListItem,
+  ): string =>
+    buildCustomerDetailHref(
+      customer.id,
+      currentListHref,
+    );
+
   return (
     <div className="w-full min-w-0">
       <header className="mb-6">
@@ -275,6 +406,9 @@ export function CustomersListView() {
         <CustomersTable
           customers={
             customers
+          }
+          getCustomerHref={
+            getCustomerHref
           }
           isLoading={
             isLoading
