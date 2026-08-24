@@ -34,6 +34,7 @@ import { Cart } from '../cart/entities/cart.entity';
 import { CartItem } from '../cart/entities/cart-item.entity';
 import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
 import { CheckoutIdempotencyStatus } from './enums/checkout-idempotency-status.enum';
+import { CHECKOUT_CONFIG } from './config/checkout.config';
 
 @Injectable()
 export class OrdersService {
@@ -345,23 +346,57 @@ export class OrdersService {
         ? DeliveryMethod.HOME_DELIVERY
         : DeliveryMethod.PICKUP;
 
-    if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
-      const { departmentId, districtId, city, addressLine } = delivery;
+    if (delivery.deliveryType === DeliveryType.HOME_DELIVERY) {
+      const { departmentId, districtId, city, addressLine, branchId } = delivery;
       if (!departmentId || !districtId || !city || !addressLine) {
-        throw new BadRequestException('Dirección completa es requerida para entrega a domicilio');
+        throw new BadRequestException({
+          message: 'Dirección completa es requerida para entrega a domicilio',
+          code: 'INVALID_DELIVERY_DATA',
+        });
+      }
+      if (branchId) {
+        delete (delivery as any).branchId;
       }
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { validateDepartmentDistrict } = require('../../../common/utils/address.util');
       if (!validateDepartmentDistrict(departmentId, districtId)) {
-        throw new BadRequestException('Departamento y distrito no coinciden');
+        throw new BadRequestException({
+          message: 'Departamento y distrito no coinciden o tienen formato inválido',
+          code: 'INVALID_DELIVERY_DATA',
+        });
       }
-    } else {
-      if (!delivery.branchId) {
-        throw new BadRequestException('branchId es obligatorio para retiro en tienda');
+    } else if (delivery.deliveryType === DeliveryType.STORE_PICKUP) {
+      const { branchId, departmentId, districtId, city, addressLine } = delivery;
+      if (!branchId) {
+        throw new BadRequestException({
+          message: 'branchId es obligatorio para retiro en tienda',
+          code: 'INVALID_DELIVERY_DATA',
+        });
       }
-      const branch = await this.branchRepository.findOne({ where: { id: delivery.branchId } });
+      if (departmentId || districtId || city || addressLine) {
+        delete (delivery as any).departmentId;
+        delete (delivery as any).districtId;
+        delete (delivery as any).city;
+        delete (delivery as any).addressLine;
+      }
+      const branch = await this.branchRepository.findOne({ where: { id: branchId } });
       if (!branch) {
-        throw new NotFoundException(`Sucursal con ID ${delivery.branchId} no encontrada`);
+        throw new NotFoundException({
+          message: `Sucursal con ID ${branchId} no encontrada`,
+          code: 'BRANCH_NOT_FOUND',
+        });
+      }
+      if (!branch.isActive) {
+        throw new BadRequestException({
+          message: 'La sucursal seleccionada no está activa',
+          code: 'BRANCH_NOT_AVAILABLE_FOR_PICKUP',
+        });
+      }
+      if (!branch.allowsPickup) {
+        throw new BadRequestException({
+          message: 'La sucursal seleccionada no permite retiro en tienda',
+          code: 'BRANCH_NOT_AVAILABLE_FOR_PICKUP',
+        });
       }
     }
 
@@ -519,42 +554,7 @@ export class OrdersService {
         order.customerName = contact.fullName;
         order.customerPhone = phoneClean;
 
-        // D. Configurar entrega
-        if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
-          const { departmentId, districtId, city, addressLine } = delivery;
-          const orderDelivery = tx.create(OrderDelivery, {
-            departmentId,
-            districtId,
-            city,
-            addressLine,
-            trackingNumber: undefined,
-            estimatedDeliveryDate: undefined,
-            branch: null,
-            branchId: null,
-            branchName: null,
-            branchAddress: null,
-            branchPhone: null,
-          });
-          order.delivery = orderDelivery;
-        } else {
-          const branch = await tx.findOne(Branch, { where: { id: delivery.branchId } });
-          const orderDelivery = tx.create(OrderDelivery, {
-            trackingNumber: undefined,
-            estimatedDeliveryDate: undefined,
-            branch,
-            branchId: branch!.id,
-            branchName: branch!.name,
-            branchAddress: branch!.address || null,
-            branchPhone: branch!.phone || null,
-            department: null,
-            district: null,
-            city: null,
-            addressLine: null,
-          });
-          order.delivery = orderDelivery;
-        }
-
-        // E. Validar y procesar ítems contra base de datos
+        // D. Procesar y validar ítems contra base de datos
         order.items = [];
         for (const itemDto of itemsToProcess) {
           const product = await tx.findOne(Product, {
@@ -598,7 +598,7 @@ export class OrdersService {
           await tx.save(Inventory, product.inventory);
         }
 
-        // Si viene de CART, vaciar el carrito
+        // E. Si viene de CART, vaciar el carrito
         if (source === CheckoutSource.CART && userCart) {
           await tx.delete(CartItem, { cart: { id: userCart.id } });
         }
@@ -609,11 +609,20 @@ export class OrdersService {
           const base = i.salePriceSnapshot * i.quantity;
           return s + (base - i.subtotal);
         }, 0);
-        const deliveryCost = deliveryMethod === DeliveryMethod.HOME_DELIVERY ? 0 : 0; // futuro cálculo
-        const total = calculatedSubtotal + deliveryCost;
+
+        let shippingTotal = '0.00';
+        if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
+          if (calculatedSubtotal >= CHECKOUT_CONFIG.FREE_SHIPPING_THRESHOLD) {
+            shippingTotal = '0.00';
+          } else {
+            shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
+          }
+        }
+
+        const total = calculatedSubtotal + Number(shippingTotal);
         order.subtotal = calculatedSubtotal.toFixed(2);
         order.discountTotal = calculatedDiscountTotal.toFixed(2);
-        order.deliveryCost = deliveryCost.toFixed(2);
+        order.deliveryCost = shippingTotal;
         order.totalAmount = total.toFixed(2);
 
         // G. Historial inicial
@@ -628,7 +637,69 @@ export class OrdersService {
         // H. Guardar orden (cascada)
         const savedOrder = await tx.save(Order, order);
 
-        // I. Crear pago asociado
+        // I. Guardar entrega (OrderDelivery) - Snapshot inmutable
+        let orderDelivery: OrderDelivery;
+        if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
+          const { departmentId, districtId, city, addressLine } = delivery;
+          const DEPARTMENTS: Record<string, string> = {
+            'AH': 'Ahuachapán',
+            'CA': 'Cabañas',
+            'CH': 'Chalatenango',
+            'CU': 'Cuscatlán',
+            'LL': 'La Libertad',
+            'LP': 'La Paz',
+            'LM': 'La Unión',
+            'MO': 'Morazán',
+            'SM': 'San Miguel',
+            'SS': 'San Salvador',
+            'SV': 'San Vicente',
+            'SA': 'Santa Ana',
+            'SO': 'Sonsonate',
+            'US': 'Usulután',
+          };
+          const departmentName = DEPARTMENTS[departmentId!] || departmentId!;
+          const districtName = districtId!;
+
+          orderDelivery = tx.create(OrderDelivery, {
+            orderId: savedOrder.id,
+            deliveryType: DeliveryType.HOME_DELIVERY,
+            departmentId,
+            districtId,
+            departmentName,
+            districtName,
+            city,
+            addressLine,
+            shippingTotal,
+            trackingNumber: undefined,
+            estimatedDeliveryDate: undefined,
+            branch: null,
+            branchId: null,
+            branchName: null,
+            branchAddress: null,
+            branchPhone: null,
+          });
+        } else {
+          const branch = await tx.findOne(Branch, { where: { id: delivery.branchId } });
+          orderDelivery = tx.create(OrderDelivery, {
+            orderId: savedOrder.id,
+            deliveryType: DeliveryType.STORE_PICKUP,
+            shippingTotal: '0.00',
+            trackingNumber: undefined,
+            estimatedDeliveryDate: undefined,
+            branch,
+            branchId: branch!.id,
+            branchName: branch!.name,
+            branchAddress: branch!.address || null,
+            branchPhone: branch!.phone || null,
+            department: null,
+            district: null,
+            city: null,
+            addressLine: null,
+          });
+        }
+        await tx.save(OrderDelivery, orderDelivery);
+
+        // J. Crear pago asociado
         const payment = tx.create(Payment, {
           orderId: savedOrder.id,
           paymentMethod,

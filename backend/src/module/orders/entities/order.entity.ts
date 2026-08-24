@@ -133,7 +133,6 @@ export class Order {
     cascade: true,
     nullable: true,
   })
-  @JoinColumn()
   delivery?: OrderDelivery;
 
   @OneToMany(() => OrderStatusHistory, (hist) => hist.order, {

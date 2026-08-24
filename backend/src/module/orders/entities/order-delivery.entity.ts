@@ -7,17 +7,26 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Order } from './order.entity';
 import { Branch } from '../../branches/entities/branch.entity';
+import { DeliveryType } from '../enums/delivery-type.enum';
 
 @Entity({ name: 'order_deliveries' })
 export class OrderDelivery {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @OneToOne(() => Order, (order) => order.delivery)
+  @Column({ name: 'order_id', type: 'uuid', unique: true })
+  orderId!: string;
+
+  @OneToOne(() => Order, (order) => order.delivery, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'order_id' })
   order!: Order;
+
+  @Column({ type: 'enum', enum: DeliveryType, name: 'delivery_type' })
+  deliveryType!: DeliveryType;
 
   @Column({ nullable: true })
   trackingNumber?: string;
@@ -26,11 +35,17 @@ export class OrderDelivery {
   estimatedDeliveryDate?: Date;
 
   // Snapshot de dirección para entrega a domicilio
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  department?: string | null;
+  @Column({ type: 'varchar', length: 50, name: 'department_id', nullable: true })
+  departmentId?: string | null;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  district?: string | null;
+  @Column({ type: 'varchar', length: 50, name: 'district_id', nullable: true })
+  districtId?: string | null;
+
+  @Column({ type: 'varchar', length: 100, name: 'department_name', nullable: true })
+  departmentName?: string | null;
+
+  @Column({ type: 'varchar', length: 100, name: 'district_name', nullable: true })
+  districtName?: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   city?: string | null;
@@ -56,11 +71,12 @@ export class OrderDelivery {
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'branch_phone' })
   branchPhone?: string | null;
 
+  @Column({ type: 'numeric', precision: 12, scale: 2, name: 'shipping_total', default: '0.00' })
+  shippingTotal!: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 }
-
-
