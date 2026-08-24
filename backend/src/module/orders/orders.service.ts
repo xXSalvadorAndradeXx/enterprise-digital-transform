@@ -3,9 +3,12 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  ConflictException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as crypto from 'crypto';
 import { Order } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderItem } from './entities/order-item.entity';
@@ -28,8 +31,8 @@ import { PaymentStatus } from '../payments/enums/payment-status.enum';
 import { CustomerAddress } from '../users/entities/customer-address.entity';
 import { Cart } from '../cart/entities/cart.entity';
 import { CartItem } from '../cart/entities/cart-item.entity';
-
-
+import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
+import { CheckoutIdempotencyStatus } from './enums/checkout-idempotency-status.enum';
 
 @Injectable()
 export class OrdersService {
@@ -44,6 +47,8 @@ export class OrdersService {
     private readonly branchRepository: Repository<Branch>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(CheckoutIdempotency)
+    private readonly idempotencyRepository: Repository<CheckoutIdempotency>,
   ) {}
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
@@ -265,7 +270,7 @@ export class OrdersService {
   /**
    * Checkout autoritativo: valida, calcula precios, crea orden y pago en una transacción.
    */
-  async checkout(checkoutDto: CheckoutDto, userId?: string): Promise<Order> {
+  async checkout(checkoutDto: CheckoutDto, userId?: string, idempotencyKey?: string): Promise<Order> {
     const {
       source,
       items,
@@ -287,8 +292,70 @@ export class OrdersService {
       });
     }
 
-    return await this.orderRepository.manager.transaction(async (tx) => {
-      const orderNumber = await this.generateUniqueOrderNumber();
+    const requestHash = idempotencyKey ? this.generateRequestHash(checkoutDto) : '';
+
+    if (idempotencyKey) {
+      // 1. Eliminar clave expirada si existe
+      await this.idempotencyRepository.createQueryBuilder()
+        .delete()
+        .where('key = :key AND expiresAt <= :now', { key: idempotencyKey, now: new Date() })
+        .execute();
+
+      // 2. Buscar si ya existe la key activa
+      const existing = await this.idempotencyRepository.findOne({
+        where: { key: idempotencyKey },
+      });
+
+      if (existing) {
+        if (existing.requestHash !== requestHash) {
+          throw new UnprocessableEntityException({
+            message: 'La Idempotency-Key ya ha sido utilizada con un payload diferente.',
+            code: 'IDEMPOTENCY_KEY_REUSED',
+          });
+        }
+        if (existing.status === CheckoutIdempotencyStatus.PROCESSING) {
+          throw new ConflictException({
+            message: 'El checkout asociado a esta solicitud todavía está siendo procesado.',
+            code: 'CHECKOUT_ALREADY_PROCESSING',
+          });
+        }
+        if (existing.status === CheckoutIdempotencyStatus.COMPLETED) {
+          return existing.response;
+        }
+      }
+    }
+
+    try {
+      return await this.orderRepository.manager.transaction(async (tx) => {
+        if (idempotencyKey) {
+          const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h TTL
+          let cartId: string | null = null;
+          if (source === CheckoutSource.CART && userId) {
+            const cart = await tx.findOne(Cart, {
+              where: { user: { id: userId } },
+            });
+            if (cart) {
+              cartId = String(cart.id);
+            }
+          }
+
+          // Adquisición atómica de la key en estado PROCESSING
+          await tx.createQueryBuilder()
+            .insert()
+            .into(CheckoutIdempotency)
+            .values({
+              key: idempotencyKey,
+              requestHash,
+              source,
+              cartId,
+              customerId: userId || null,
+              status: CheckoutIdempotencyStatus.PROCESSING,
+              expiresAt,
+            })
+            .execute();
+        }
+
+        const orderNumber = await this.generateUniqueOrderNumber();
 
       // Mapear DeliveryType (DTO) a DeliveryMethod (entidad)
       const deliveryMethod =
@@ -522,8 +589,80 @@ export class OrdersService {
         await tx.save(CustomerAddress, address);
       }
 
+      if (idempotencyKey) {
+        await tx.update(
+          CheckoutIdempotency,
+          { key: idempotencyKey },
+          {
+            status: CheckoutIdempotencyStatus.COMPLETED,
+            orderId: savedOrder.id,
+            response: JSON.parse(JSON.stringify(savedOrder)) as any,
+          },
+        );
+      }
+
       return savedOrder;
     });
+    } catch (err: any) {
+      if (
+        idempotencyKey &&
+        (err.code === '23505' ||
+          err.message?.includes('unique constraint') ||
+          err.message?.includes('duplicate key'))
+      ) {
+        const existing = await this.idempotencyRepository.findOne({
+          where: { key: idempotencyKey },
+        });
+        if (existing) {
+          if (existing.requestHash !== requestHash) {
+            throw new UnprocessableEntityException({
+              message: 'La Idempotency-Key ya ha sido utilizada con un payload diferente.',
+              code: 'IDEMPOTENCY_KEY_REUSED',
+            });
+          }
+          if (existing.status === CheckoutIdempotencyStatus.PROCESSING) {
+            throw new ConflictException({
+              message: 'El checkout asociado a esta solicitud todavía está siendo procesado.',
+              code: 'CHECKOUT_ALREADY_PROCESSING',
+            });
+          }
+          if (existing.status === CheckoutIdempotencyStatus.COMPLETED) {
+            return existing.response;
+          }
+        }
+      }
+      throw err;
+    }
+  }
+
+  private generateRequestHash(checkoutDto: CheckoutDto): string {
+    const normalize = (obj: any): any => {
+      if (obj === null || obj === undefined) return null;
+      if (Array.isArray(obj)) {
+        return obj.map(normalize);
+      }
+      if (typeof obj === 'object') {
+        const sortedKeys = Object.keys(obj).sort();
+        const result: any = {};
+        for (const key of sortedKeys) {
+          result[key] = normalize(obj[key]);
+        }
+        return result;
+      }
+      return obj;
+    };
+
+    const normalizedPayload = JSON.stringify(
+      normalize({
+        source: checkoutDto.source,
+        items: checkoutDto.items,
+        contact: checkoutDto.contact,
+        delivery: checkoutDto.delivery,
+        paymentMethod: checkoutDto.paymentMethod,
+      }),
+    );
+
+    return crypto.createHash('sha256').update(normalizedPayload).digest('hex');
   }
 
   private async generateUniqueOrderNumber(attempt = 1): Promise<string> {

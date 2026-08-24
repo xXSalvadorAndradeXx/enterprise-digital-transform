@@ -10,6 +10,7 @@ import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { User } from '../users/entities/user.entity';
 import { Branch } from '../branches/entities/branch.entity';
 import { Product } from '../products/entities/product.entity';
+import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { Product } from '../products/entities/product.entity';
       User,
       Branch,
       Product,
+      CheckoutIdempotency,
     ]),
   ],
   controllers: [OrdersController],
