@@ -1,9 +1,9 @@
-export default function DashboardPage() {
-return (
-<div>
-<h1 className="text-3xl font-bold">CLIENTES</h1>
+import {
+  CustomersListView,
+} from "@/components/customers/CustomersListView";
 
-
-</div>
-);
+export default function ClientesPage() {
+  return (
+    <CustomersListView />
+  );
 }
