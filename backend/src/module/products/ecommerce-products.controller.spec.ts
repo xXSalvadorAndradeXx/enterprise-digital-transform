@@ -1,8 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EcommerceProductsController } from './ecommerce-products.controller';
 import { ProductsService } from './products.service';
-import { PublicProductResponseDto } from './dto/public-product-response.dto';
-import { PublicProductFilterDto, PublicAvailability, PublicGender } from './dto/public-product-filter.dto';
+import {
+  PublicProductResponseDto,
+  PublicProductDetailResponseDto,
+} from './dto/public-product-response.dto';
+import {
+  PublicProductFilterDto,
+  PublicAvailability,
+  PublicGender,
+} from './dto/public-product-filter.dto';
 
 describe('EcommerceProductsController', () => {
   let controller: EcommerceProductsController;
@@ -33,6 +40,35 @@ describe('EcommerceProductsController', () => {
     variants: [],
   };
 
+  const mockPublicDetailProduct: PublicProductDetailResponseDto = {
+    id: 'prod-uuid-1',
+    commercialName: 'Tenis Deportivos',
+    description: 'Tenis ligeros',
+    brand: 'Nike',
+    gender: 'MEN',
+    salePrice: '99.99',
+    effectivePrice: '89.99',
+    discount: { percentage: 10, isActive: true },
+    stockTotal: 10,
+    availability: 'IN_STOCK',
+    images: [
+      {
+        url: 'http://localhost:3000/uploads/products/img1.webp',
+        isPrimary: true,
+      },
+    ],
+    variants: [
+      {
+        size: 'M',
+        color: 'Negro',
+        stock: 10,
+        available: true,
+      },
+    ],
+    tags: ['deporte'],
+    category: { id: 1, name: 'Calzado', slug: 'calzado', publishedProductsCount: 1, description: null },
+  };
+
   const mockPaginatedResponse = {
     data: [mockPublicProduct],
     meta: {
@@ -47,7 +83,7 @@ describe('EcommerceProductsController', () => {
 
   const mockProductsService = {
     findEcommerceProducts: jest.fn().mockResolvedValue(mockPaginatedResponse),
-    findEcommerceProductById: jest.fn().mockResolvedValue(mockPublicProduct),
+    findEcommerceProductById: jest.fn().mockResolvedValue(mockPublicDetailProduct),
   };
 
   beforeEach(async () => {
@@ -96,9 +132,9 @@ describe('EcommerceProductsController', () => {
     expect(service.findEcommerceProducts).toHaveBeenCalledWith(filterDto);
   });
 
-  it('findOne should return single public product', async () => {
+  it('findOne should return single public detail product', async () => {
     const result = await controller.findOne('prod-uuid-1');
-    expect(result).toEqual({ data: mockPublicProduct });
+    expect(result).toEqual({ data: mockPublicDetailProduct });
     expect(service.findEcommerceProductById).toHaveBeenCalledWith('prod-uuid-1');
   });
 });

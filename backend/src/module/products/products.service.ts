@@ -30,7 +30,10 @@ import {
   PublicGender,
 } from './dto/public-product-filter.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
-import { PublicProductResponseDto } from './dto/public-product-response.dto';
+import {
+  PublicProductResponseDto,
+  PublicProductDetailResponseDto,
+} from './dto/public-product-response.dto';
 import { UploadImageResponseDto } from './dto/upload-image-response.dto';
 import { ProductSpecification } from './helpers/product-specification.helper';
 import {
@@ -1039,12 +1042,33 @@ export class ProductsService {
     return createPaginatedResponse(data, total, safePage, safeLimit);
   }
 
-  async findEcommerceProductById(id: string): Promise<PublicProductResponseDto> {
-    const product = await this.findOneEntity(id);
-    if (!ProductSpecification.isProductPublishableAndSellable(product)) {
-      throw new NotFoundException(
-        `Producto con id ${id} no encontrado o no disponible en catálogo público`,
-      );
+  async findEcommerceProductById(
+    id: string,
+  ): Promise<PublicProductDetailResponseDto> {
+    const product = await this.productRepository.findOne({
+      where: { id, deletedAt: IsNull() },
+      relations: [
+        'inventory',
+        'inventory.category',
+        'images',
+        'tags',
+        'variantConfigs',
+        'variantConfigs.inventoryDetail',
+      ],
+    });
+
+    if (!product) {
+      throw new NotFoundException({
+        code: 'PRODUCT_NOT_FOUND',
+        message: `El producto con ID ${id} no fue encontrado`,
+      });
+    }
+
+    if (!product.isPublished || product.status !== ProductStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'PRODUCT_NOT_PUBLISHED',
+        message: 'El producto no se encuentra disponible públicamente',
+      });
     }
 
     const effPrice = ProductSpecification.calculateEffectivePrice(
@@ -1053,8 +1077,10 @@ export class ProductsService {
       product.discountStartsAt,
       product.discountEndsAt,
     );
-    const inStock = product.inventory ? product.inventory.status !== InventoryStatus.OUT_OF_STOCK : true;
+    const inStock = product.inventory
+      ? product.inventory.status !== InventoryStatus.OUT_OF_STOCK
+      : true;
 
-    return PublicProductResponseDto.fromEntity(product, effPrice, inStock);
+    return PublicProductDetailResponseDto.fromEntity(product, effPrice, inStock);
   }
 }

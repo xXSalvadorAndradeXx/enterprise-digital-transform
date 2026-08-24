@@ -8,7 +8,10 @@ import {
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { PublicProductFilterDto } from './dto/public-product-filter.dto';
-import { PublicProductResponseDto } from './dto/public-product-response.dto';
+import {
+  PublicProductResponseDto,
+  PublicProductDetailResponseDto,
+} from './dto/public-product-response.dto';
 import { SingleResponse } from '../../common/interfaces/api-response.interface';
 import { PaginatedResponseDto } from '../../common/dto/paginated-response.dto';
 
@@ -41,23 +44,25 @@ export class EcommerceProductsController {
   @Get(':id')
   @ApiOperation({
     summary:
-      'Obtener detalle público de un producto por ID para el e-commerce (Precios como string decimal)',
+      'Obtener detalle público comercial de un producto por ID (Diferencia PRODUCT_NOT_FOUND y PRODUCT_NOT_PUBLISHED)',
   })
   @ApiResponse({
     status: 200,
-    description: 'Detalle del producto público obtenido exitosamente',
+    description: 'Detalle público comercial del producto obtenido exitosamente',
+    type: PublicProductDetailResponseDto,
   })
   @ApiResponse({
     status: 400,
-    description: 'ID de producto no válido (debe ser un UUID)',
+    description:
+      'ID de producto no válido (debe ser un UUID) o el producto no está publicado (PRODUCT_NOT_PUBLISHED)',
   })
   @ApiResponse({
     status: 404,
-    description: 'Producto no encontrado o no disponible en catálogo público',
+    description: 'Producto no encontrado (PRODUCT_NOT_FOUND)',
   })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<SingleResponse<PublicProductResponseDto>> {
+  ): Promise<SingleResponse<PublicProductDetailResponseDto>> {
     const product = await this.productsService.findEcommerceProductById(id);
     return { data: product };
   }
