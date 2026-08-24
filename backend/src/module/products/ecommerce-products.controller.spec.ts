@@ -19,7 +19,7 @@ describe('EcommerceProductsController', () => {
     discountEndsAt: null,
     images: [],
     tags: ['deporte'],
-    category: { id: 1, name: 'Calzado', description: null },
+    category: { id: 1, name: 'Calzado', slug: 'calzado', publishedProductsCount: 1, description: null },
     inStock: true,
     isPublished: true,
     publishedAt: '2026-08-15T12:00:00.000Z',

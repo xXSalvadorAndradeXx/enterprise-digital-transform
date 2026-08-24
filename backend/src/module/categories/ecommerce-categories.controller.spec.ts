@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EcommerceCategoriesController } from './ecommerce-categories.controller';
 import { CategoriesService } from './categories.service';
 import { PublicCategoryResponseDto } from './dto/public-category-response.dto';
+import { CategoryQueryDto } from './dto/category-query.dto';
 
 describe('EcommerceCategoriesController', () => {
   let controller: EcommerceCategoriesController;
@@ -10,6 +11,8 @@ describe('EcommerceCategoriesController', () => {
   const mockCategoryDto: PublicCategoryResponseDto = {
     id: 1,
     name: 'Calzado',
+    slug: 'calzado',
+    publishedProductsCount: 5,
     description: 'Zapatos y tenis',
   };
 
@@ -37,10 +40,17 @@ describe('EcommerceCategoriesController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('findAll should return array of PublicCategoryResponseDto', async () => {
-    const result = await controller.findAll();
+  it('findAll should return array of PublicCategoryResponseDto without query params', async () => {
+    const result = await controller.findAll({});
     expect(result).toEqual([mockCategoryDto]);
-    expect(service.findAllPublic).toHaveBeenCalled();
+    expect(service.findAllPublic).toHaveBeenCalledWith({});
+  });
+
+  it('findAll should pass publishedOnly=true to service', async () => {
+    const queryDto: CategoryQueryDto = { publishedOnly: true };
+    const result = await controller.findAll(queryDto);
+    expect(result).toEqual([mockCategoryDto]);
+    expect(service.findAllPublic).toHaveBeenCalledWith(queryDto);
   });
 
   it('findOne should return SingleResponse<PublicCategoryResponseDto>', async () => {

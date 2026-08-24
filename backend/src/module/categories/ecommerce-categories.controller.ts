@@ -1,7 +1,8 @@
-import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Param, Query, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { PublicCategoryResponseDto } from './dto/public-category-response.dto';
+import { CategoryQueryDto } from './dto/category-query.dto';
 import { SingleResponse } from '../../common/interfaces/api-response.interface';
 
 @ApiTags('Catálogo E-Commerce')
@@ -11,20 +12,23 @@ export class EcommerceCategoriesController {
 
   @Get()
   @ApiOperation({
-    summary: 'Obtener catálogo público de categorías para el e-commerce',
+    summary:
+      'Obtener catálogo público de categorías para el e-commerce (Filtrado opcional por publishedOnly=true)',
   })
   @ApiResponse({
     status: 200,
     description: 'Lista de categorías públicas obtenida exitosamente',
     type: [PublicCategoryResponseDto],
   })
-  async findAll(): Promise<PublicCategoryResponseDto[]> {
-    return this.categoriesService.findAllPublic();
+  async findAll(
+    @Query() queryDto: CategoryQueryDto,
+  ): Promise<PublicCategoryResponseDto[]> {
+    return this.categoriesService.findAllPublic(queryDto);
   }
 
   @Get(':id')
   @ApiOperation({
-    summary: 'Obtener detalle público de una categoría por ID entero',
+    summary: 'Obtener detalle público de una categoría por ID entero con conteo de productos publicados',
   })
   @ApiResponse({
     status: 200,
