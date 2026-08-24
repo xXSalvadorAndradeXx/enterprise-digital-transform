@@ -9,6 +9,7 @@ import type {
 export interface GetAdminCustomersParams {
   page: number;
   limit: number;
+  search?: string;
 }
 
 export class AdminCustomersRequestError extends Error {
@@ -62,6 +63,7 @@ async function readJsonResponse(
 export async function getAdminCustomers({
   page,
   limit,
+  search = "",
 }: GetAdminCustomersParams,
 signal?: AbortSignal): Promise<AdminCustomerListData> {
   const params =
@@ -71,6 +73,15 @@ signal?: AbortSignal): Promise<AdminCustomerListData> {
       limit:
         String(limit),
     });
+  const normalizedSearch =
+    search.trim();
+
+  if (normalizedSearch) {
+    params.set(
+      "search",
+      normalizedSearch,
+    );
+  }
 
   const response =
     await fetch(

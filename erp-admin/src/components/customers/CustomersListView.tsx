@@ -10,6 +10,10 @@ import {
 } from "@/components/ui/Pagination";
 
 import {
+  SearchBar,
+} from "@/components/ui/SearchBar";
+
+import {
   getAdminCustomers,
 } from "@/services/customers/getAdminCustomers";
 
@@ -26,6 +30,7 @@ import type {
 } from "@/types/api-contract.types";
 
 const PAGE_SIZE = 5;
+const SEARCH_DEBOUNCE_MS = 300;
 
 const EMPTY_META: PageMeta = {
   page:
@@ -68,6 +73,34 @@ export function CustomersListView() {
     error,
     setError,
   ] = useState("");
+  const [
+    search,
+    setSearch,
+  ] = useState("");
+  const [
+    debouncedSearch,
+    setDebouncedSearch,
+  ] = useState("");
+
+  useEffect(() => {
+    const timeoutId =
+      window.setTimeout(() => {
+        setDebouncedSearch(
+          search.trim(),
+        );
+        setPage(
+          1,
+        );
+      }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(
+        timeoutId,
+      );
+    };
+  }, [
+    search,
+  ]);
 
   useEffect(() => {
     const controller =
@@ -85,6 +118,8 @@ export function CustomersListView() {
         page,
         limit:
           PAGE_SIZE,
+        search:
+          debouncedSearch,
       },
       controller.signal,
     )
@@ -130,6 +165,7 @@ export function CustomersListView() {
     };
   }, [
     page,
+    debouncedSearch,
   ]);
 
   const showPagination =
@@ -155,6 +191,19 @@ export function CustomersListView() {
       )}
 
       <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="flex flex-wrap items-center gap-4 border-b border-gray-100 px-4 py-6">
+          <SearchBar
+            value={
+              search
+            }
+            onChange={
+              setSearch
+            }
+            placeholder="Buscar por nombre o correo..."
+            className="w-full sm:w-[320px]"
+          />
+        </div>
+
         <CustomersTable
           customers={
             customers
