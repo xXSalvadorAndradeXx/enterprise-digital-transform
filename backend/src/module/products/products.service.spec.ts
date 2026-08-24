@@ -76,6 +76,8 @@ describe('ProductsService', () => {
     discountStartsAt: null,
     discountEndsAt: new Date(Date.now() + 86400000), // Válido por 1 día
     status: ProductStatus.ACTIVE,
+    isPublished: true,
+    publishedAt: new Date(),
     createdById: 'user-uuid-1',
     updatedById: 'user-uuid-1',
     createdBy: null,

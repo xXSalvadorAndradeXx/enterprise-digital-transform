@@ -126,6 +126,19 @@ export class PublicProductResponseDto {
   inStock!: boolean;
 
   @ApiProperty({
+    example: true,
+    description: 'Indica si el producto está publicado en el e-commerce',
+  })
+  isPublished!: boolean;
+
+  @ApiPropertyOptional({
+    example: '2026-08-15T12:00:00.000Z',
+    description: 'Fecha y hora de publicación en e-commerce (ISO 8601)',
+    nullable: true,
+  })
+  publishedAt!: string | null;
+
+  @ApiProperty({
     type: [PublicProductVariantResponseDto],
     description: 'Variantes disponibles comercialmente para el e-commerce',
   })
@@ -140,6 +153,8 @@ export class PublicProductResponseDto {
     dto.id = entity.id;
     dto.commercialName = entity.commercialName;
     dto.description = entity.description ?? null;
+    dto.isPublished = entity.isPublished ?? false;
+    dto.publishedAt = entity.publishedAt ? entity.publishedAt.toISOString() : null;
 
     // Transformación estricta de valores monetarios a string decimal
     const rawSalePrice = Number(entity.salePrice ?? 0);

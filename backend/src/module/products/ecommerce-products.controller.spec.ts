@@ -21,6 +21,8 @@ describe('EcommerceProductsController', () => {
     tags: ['deporte'],
     category: { id: 1, name: 'Calzado', description: null },
     inStock: true,
+    isPublished: true,
+    publishedAt: '2026-08-15T12:00:00.000Z',
     variants: [],
   };
 

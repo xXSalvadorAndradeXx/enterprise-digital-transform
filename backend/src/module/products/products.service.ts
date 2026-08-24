@@ -27,6 +27,7 @@ import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
 import { PublicProductResponseDto } from './dto/public-product-response.dto';
 import { UploadImageResponseDto } from './dto/upload-image-response.dto';
+import { ProductSpecification } from './helpers/product-specification.helper';
 import {
   PaginatedResponseDto,
   createPaginatedResponse,
@@ -162,6 +163,7 @@ export class ProductsService {
       discountStartsAt,
       discountEndsAt,
       status,
+      isPublished = false,
       imageUrls = [],
       tags = [],
       variantConfigs = [],
@@ -287,6 +289,8 @@ export class ProductsService {
         discountStartsAt: discountStartsAt ? new Date(discountStartsAt) : null,
         discountEndsAt: discountEndsAt ? new Date(discountEndsAt) : null,
         status: status ?? ProductStatus.DRAFT,
+        isPublished,
+        publishedAt: isPublished ? new Date() : null,
         createdById: actorId,
         updatedById: actorId,
       });
@@ -487,6 +491,12 @@ export class ProductsService {
         updateData.discountEndsAt = updateProductDto.discountEndsAt
           ? new Date(updateProductDto.discountEndsAt)
           : null;
+      }
+      if (updateProductDto.isPublished !== undefined) {
+        updateData.isPublished = updateProductDto.isPublished;
+        if (updateProductDto.isPublished && !product.publishedAt) {
+          updateData.publishedAt = new Date();
+        }
       }
       if (actorId) {
         updateData.updatedById = actorId;
@@ -910,7 +920,8 @@ export class ProductsService {
         'inventoryDetail',
       )
       .where('p.deleted_at IS NULL')
-      .andWhere('p.status = :activeStatus', { activeStatus: ProductStatus.ACTIVE });
+      .andWhere('p.status = :activeStatus', { activeStatus: ProductStatus.ACTIVE })
+      .andWhere('p.is_published = :isPublished', { isPublished: true });
 
     if (search) {
       query.andWhere('(p.commercial_name ILIKE :q OR p.description ILIKE :q)', {
@@ -954,29 +965,31 @@ export class ProductsService {
     query.skip(skip).take(limit);
 
     const [products, total] = await query.getManyAndCount();
-    const data = products.map((p) => {
-      const effPrice = this.calcEffectivePrice(
-        p.salePrice,
-        p.discount,
-        p.discountStartsAt,
-        p.discountEndsAt,
-      );
-      const inStock = p.inventory ? p.inventory.status !== InventoryStatus.OUT_OF_STOCK : true;
-      return PublicProductResponseDto.fromEntity(p, effPrice, inStock);
-    });
+    const data = products
+      .filter((p) => ProductSpecification.isProductPublishableAndSellable(p))
+      .map((p) => {
+        const effPrice = ProductSpecification.calculateEffectivePrice(
+          p.salePrice,
+          p.discount,
+          p.discountStartsAt,
+          p.discountEndsAt,
+        );
+        const inStock = p.inventory ? p.inventory.status !== InventoryStatus.OUT_OF_STOCK : true;
+        return PublicProductResponseDto.fromEntity(p, effPrice, inStock);
+      });
 
     return createPaginatedResponse(data, total, page, limit);
   }
 
   async findEcommerceProductById(id: string): Promise<PublicProductResponseDto> {
     const product = await this.findOneEntity(id);
-    if (product.status !== ProductStatus.ACTIVE) {
+    if (!ProductSpecification.isProductPublishableAndSellable(product)) {
       throw new NotFoundException(
         `Producto con id ${id} no encontrado o no disponible en catálogo público`,
       );
     }
 
-    const effPrice = this.calcEffectivePrice(
+    const effPrice = ProductSpecification.calculateEffectivePrice(
       product.salePrice,
       product.discount,
       product.discountStartsAt,
