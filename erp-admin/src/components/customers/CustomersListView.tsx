@@ -21,6 +21,10 @@ import {
   CustomersTable,
 } from "./CustomersTable";
 
+import {
+  LastOrderDateFilter,
+} from "./LastOrderDateFilter";
+
 import type {
   AdminCustomerListItem,
 } from "@/types/customers";
@@ -81,6 +85,14 @@ export function CustomersListView() {
     debouncedSearch,
     setDebouncedSearch,
   ] = useState("");
+  const [
+    lastOrderFrom,
+    setLastOrderFrom,
+  ] = useState("");
+  const [
+    lastOrderTo,
+    setLastOrderTo,
+  ] = useState("");
 
   useEffect(() => {
     const timeoutId =
@@ -120,6 +132,8 @@ export function CustomersListView() {
           PAGE_SIZE,
         search:
           debouncedSearch,
+        lastOrderFrom,
+        lastOrderTo,
       },
       controller.signal,
     )
@@ -166,10 +180,46 @@ export function CustomersListView() {
   }, [
     page,
     debouncedSearch,
+    lastOrderFrom,
+    lastOrderTo,
   ]);
 
   const showPagination =
     meta.totalPages > 1;
+
+  const changeLastOrderFrom = (
+    value: string,
+  ): void => {
+    setLastOrderFrom(
+      value,
+    );
+    setPage(
+      1,
+    );
+  };
+
+  const changeLastOrderTo = (
+    value: string,
+  ): void => {
+    setLastOrderTo(
+      value,
+    );
+    setPage(
+      1,
+    );
+  };
+
+  const clearLastOrderFilter = (): void => {
+    setLastOrderFrom(
+      "",
+    );
+    setLastOrderTo(
+      "",
+    );
+    setPage(
+      1,
+    );
+  };
 
   return (
     <div className="w-full min-w-0">
@@ -190,7 +240,7 @@ export function CustomersListView() {
         </p>
       )}
 
-      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <section className="rounded-xl border border-gray-200 bg-white">
         <div className="flex flex-wrap items-center gap-4 border-b border-gray-100 px-4 py-6">
           <SearchBar
             value={
@@ -201,6 +251,24 @@ export function CustomersListView() {
             }
             placeholder="Buscar por nombre o correo..."
             className="w-full sm:w-[320px]"
+          />
+
+          <LastOrderDateFilter
+            from={
+              lastOrderFrom
+            }
+            to={
+              lastOrderTo
+            }
+            onFromChange={
+              changeLastOrderFrom
+            }
+            onToChange={
+              changeLastOrderTo
+            }
+            onClear={
+              clearLastOrderFilter
+            }
           />
         </div>
 

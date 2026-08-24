@@ -10,6 +10,8 @@ export interface GetAdminCustomersParams {
   page: number;
   limit: number;
   search?: string;
+  lastOrderFrom?: string;
+  lastOrderTo?: string;
 }
 
 export class AdminCustomersRequestError extends Error {
@@ -60,10 +62,28 @@ async function readJsonResponse(
   }
 }
 
+function setOptionalQueryParam(
+  params: URLSearchParams,
+  key: string,
+  value: string,
+): void {
+  const normalizedValue =
+    value.trim();
+
+  if (normalizedValue) {
+    params.set(
+      key,
+      normalizedValue,
+    );
+  }
+}
+
 export async function getAdminCustomers({
   page,
   limit,
   search = "",
+  lastOrderFrom = "",
+  lastOrderTo = "",
 }: GetAdminCustomersParams,
 signal?: AbortSignal): Promise<AdminCustomerListData> {
   const params =
@@ -73,15 +93,22 @@ signal?: AbortSignal): Promise<AdminCustomerListData> {
       limit:
         String(limit),
     });
-  const normalizedSearch =
-    search.trim();
 
-  if (normalizedSearch) {
-    params.set(
-      "search",
-      normalizedSearch,
-    );
-  }
+  setOptionalQueryParam(
+    params,
+    "search",
+    search,
+  );
+  setOptionalQueryParam(
+    params,
+    "lastOrderFrom",
+    lastOrderFrom,
+  );
+  setOptionalQueryParam(
+    params,
+    "lastOrderTo",
+    lastOrderTo,
+  );
 
   const response =
     await fetch(
