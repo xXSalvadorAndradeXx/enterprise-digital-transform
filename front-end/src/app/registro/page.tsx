@@ -1,6 +1,16 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import type {
+  RegisterCredentialsStep,
+  RegisterPersonalStep,
+} from "@/types/auth/auth.types";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const registrationSteps = [
@@ -28,9 +38,22 @@ const registrationSteps = [
 
 const navigationButtonClassName =
   "inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:shadow-none sm:w-auto";
+const inputClassName =
+  "w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-gray-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
 
 export default function RegistroPage() {
   const [activeStep, setActiveStep] = useState(0);
+  const [personalStep, setPersonalStep] = useState<RegisterPersonalStep>({
+    fullName: "",
+    dui: "",
+    phone: "",
+  });
+  const [credentialsStep, setCredentialsStep] =
+    useState<RegisterCredentialsStep>({
+      email: "",
+      password: "",
+    });
+  const [showPassword, setShowPassword] = useState(false);
   const activeStepTitleRef = useRef<HTMLHeadingElement>(null);
   const previousStepRef = useRef(activeStep);
   const lastStepIndex = registrationSteps.length - 1;
@@ -55,6 +78,26 @@ export default function RegistroPage() {
     setActiveStep((currentStepIndex) =>
       Math.min(currentStepIndex + 1, lastStepIndex),
     );
+  };
+
+  const updatePersonalField = (
+    field: keyof RegisterPersonalStep,
+    value: string,
+  ) => {
+    setPersonalStep((currentStepData) => ({
+      ...currentStepData,
+      [field]: value,
+    }));
+  };
+
+  const updateCredentialsField = (
+    field: keyof RegisterCredentialsStep,
+    value: string,
+  ) => {
+    setCredentialsStep((currentStepData) => ({
+      ...currentStepData,
+      [field]: value,
+    }));
   };
 
   return (
@@ -148,6 +191,134 @@ export default function RegistroPage() {
           <p className="mt-3 max-w-xl text-sm leading-6 text-gray-600">
             {currentStep.description}
           </p>
+
+          {activeStep === 0 ? (
+            <div className="mt-6 grid w-full min-w-0 max-w-2xl gap-4 text-left sm:grid-cols-2">
+              <div className="min-w-0 sm:col-span-2">
+                <label
+                  htmlFor="fullName"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Nombre completo
+                </label>
+                <input
+                  id="fullName"
+                  name="fullName"
+                  type="text"
+                  autoComplete="name"
+                  value={personalStep.fullName}
+                  onChange={(event) =>
+                    updatePersonalField("fullName", event.target.value)
+                  }
+                  className={`${inputClassName} mt-2`}
+                />
+              </div>
+
+              <div className="min-w-0">
+                <label
+                  htmlFor="dui"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  DUI
+                </label>
+                <input
+                  id="dui"
+                  name="dui"
+                  type="text"
+                  value={personalStep.dui}
+                  onChange={(event) =>
+                    updatePersonalField("dui", event.target.value)
+                  }
+                  className={`${inputClassName} mt-2`}
+                />
+              </div>
+
+              <div className="min-w-0">
+                <label
+                  htmlFor="phone"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Teléfono
+                </label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  value={personalStep.phone}
+                  onChange={(event) =>
+                    updatePersonalField("phone", event.target.value)
+                  }
+                  className={`${inputClassName} mt-2`}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {activeStep === 1 ? (
+            <div className="mt-6 grid w-full min-w-0 max-w-xl gap-4 text-left">
+              <div className="min-w-0">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Correo electrónico
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={credentialsStep.email}
+                  onChange={(event) =>
+                    updateCredentialsField("email", event.target.value)
+                  }
+                  className={`${inputClassName} mt-2`}
+                />
+              </div>
+
+              <div className="min-w-0">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Contraseña
+                </label>
+                <div className="relative mt-2">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={credentialsStep.password}
+                    onChange={(event) =>
+                      updateCredentialsField("password", event.target.value)
+                    }
+                    className={`${inputClassName} pr-12`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPassword((currentValue) => !currentValue)
+                    }
+                    className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-md text-gray-500 transition hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    aria-label={
+                      showPassword
+                        ? "Ocultar contraseña"
+                        : "Mostrar contraseña"
+                    }
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? (
+                      <Eye className="h-5 w-5" aria-hidden="true" />
+                    ) : (
+                      <EyeOff className="h-5 w-5" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
