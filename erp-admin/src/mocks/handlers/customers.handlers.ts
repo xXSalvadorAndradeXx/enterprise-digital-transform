@@ -20,6 +20,7 @@ import type {
 } from "@/types/api-contract.types";
 
 import {
+  mockAdminCustomerDetails,
   mockAdminCustomers,
 } from "../data/customers.mock";
 
@@ -31,6 +32,16 @@ const BACKEND_API_URL =
   "http://localhost:3000/api/v1";
 const ADMIN_CUSTOMERS_ENDPOINT =
   `${BACKEND_API_URL}/admin/customers`;
+
+function getPathParam(
+  value: string | readonly string[] | undefined,
+): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return value?.[0] ?? "";
+}
 
 function getOptionalQueryParam(
   searchParams: URLSearchParams,
@@ -215,6 +226,62 @@ function paginateCustomers(
 }
 
 export const customersHandlers = [
+  http.get(
+    `${ADMIN_CUSTOMERS_ENDPOINT}/:id`,
+    ({ params, request }) => {
+      if (!hasBearerToken(request)) {
+        return HttpResponse.json(
+          buildApiError(
+            request,
+            401,
+            "UNAUTHORIZED",
+            "Bearer token requerido.",
+            "Unauthorized",
+          ),
+          {
+            status: 401,
+          },
+        );
+      }
+
+      const customerId =
+        getPathParam(
+          params.id,
+        );
+      const customer =
+        mockAdminCustomerDetails.find(
+          (item) =>
+            item.id === customerId,
+        );
+
+      if (!customer) {
+        return HttpResponse.json(
+          buildApiError(
+            request,
+            404,
+            "CUSTOMER_NOT_FOUND",
+            "Cliente no encontrado.",
+            "Not Found",
+          ),
+          {
+            status: 404,
+          },
+        );
+      }
+
+      return HttpResponse.json({
+        success:
+          true,
+        message:
+          "Customer detail retrieved successfully.",
+        data:
+          customer,
+        timestamp:
+          new Date().toISOString(),
+      });
+    },
+  ),
+
   http.get(
     ADMIN_CUSTOMERS_ENDPOINT,
     ({ request }) => {
