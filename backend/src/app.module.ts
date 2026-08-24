@@ -16,6 +16,7 @@ import { InventoryModule } from '../src/module/inventory/inventory.module';
 import { PurchasesModule } from '../src/module/purchases/purchases.module';
 import { OrdersModule } from '../src/module/orders/orders.module';
 import { BranchesModule } from '../src/module/branches/branches.module';
+import { PaymentsModule } from '../src/module/payments/payments.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { BranchesModule } from '../src/module/branches/branches.module';
     PurchasesModule,
     OrdersModule,
     BranchesModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
