@@ -13,6 +13,7 @@ import {
 import { Exclude } from 'class-transformer';
 import { CustomerAddress } from './customer-address.entity';
 import { EcommerceAuthSession } from './ecommerce-auth-session.entity';
+import { Order } from './order.entity';
 
 
 @Entity('customers')
@@ -48,13 +49,9 @@ export class Customer {
     precision: 10,
     scale: 2,
     default: 0.0,
-    transformer: {
-      to: (value: number) => value,
-      from: (value: string) => parseFloat(value),
-    },
     nullable: false,
   })
-  totalSpent!: number;
+  totalSpent!: string | number;
 
   @Column({ name: 'total_orders', type: 'integer', default: 0, nullable: false })
   totalOrders!: number;
@@ -73,6 +70,9 @@ export class Customer {
 
   @OneToMany(() => EcommerceAuthSession, (session) => session.customer)
   authSessions!: EcommerceAuthSession[];
+
+  @OneToMany(() => Order, (order) => order.customer)
+  orders!: Order[];
 
   @BeforeInsert()
   @BeforeUpdate()

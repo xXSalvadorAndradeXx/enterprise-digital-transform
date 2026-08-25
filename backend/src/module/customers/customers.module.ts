@@ -14,9 +14,11 @@ import { EcommerceAuthController } from './controllers/ecommerce-auth.controller
 import { CustomersController } from './controllers/customers.controller';
 import { CustomersAdminController } from './controllers/customers-admin.controller';
 
+import { Order } from './entities/order.entity';
+
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Customer, CustomerAddress, EcommerceAuthSession]),
+    TypeOrmModule.forFeature([Customer, CustomerAddress, EcommerceAuthSession, Order]),
     LocationsModule,
     AuthModule,
     UsersModule,

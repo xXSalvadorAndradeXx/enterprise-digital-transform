@@ -6,13 +6,15 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { plainToInstance } from 'class-transformer';
 import { CustomersService } from '../customers.service';
 import { FindCustomersQueryDto } from '../dto/find-customers-query.dto';
+import { FindCustomerOrdersQueryDto } from '../dto/find-customer-orders-query.dto';
 import { CustomerAdminResponseDto } from '../dto/customer-admin-response.dto';
+import { CustomerOrderResponseDto } from '../dto/customer-order-response.dto';
 
 @ApiTags('Admin / Customers')
 @ApiBearerAuth()
 @Controller('admin/customers')
 export class CustomersAdminController {
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(private readonly customersService: CustomersService) { }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('customers:read')
@@ -78,7 +80,7 @@ export class CustomersAdminController {
         email: c.email,
         lastOrderAt: c.lastOrderAt ? c.lastOrderAt : null,
         totalOrders: c.totalOrders,
-        totalSpent: (c.totalSpent || 0).toFixed(2),
+        totalSpent: Number(c.totalSpent || 0).toFixed(2),
       };
       return plainToInstance(CustomerAdminResponseDto, mapped, { excludeExtraneousValues: true });
     });
@@ -144,12 +146,14 @@ export class CustomersAdminController {
   })
   @Get(':id')
   async findOne(
-    @Param('id', new ParseUUIDPipe({ version: '4', exceptionFactory: () => {
-      return new BadRequestException({
-        code: 'VALIDATION_ERROR',
-        message: 'El ID del cliente debe ser un UUID versión 4 válido',
-      });
-    }}))
+    @Param('id', new ParseUUIDPipe({
+      version: '4', exceptionFactory: () => {
+        return new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'El ID del cliente debe ser un UUID versión 4 válido',
+        });
+      }
+    }))
     id: string,
   ) {
     const customer = await this.customersService.findOne(id);
@@ -161,7 +165,7 @@ export class CustomersAdminController {
       phone: customer.phone,
       dui: customer.dui,
       isActive: customer.isActive,
-      totalSpent: (customer.totalSpent || 0).toFixed(2),
+      totalSpent: Number(customer.totalSpent || 0).toFixed(2),
       totalOrders: customer.totalOrders,
       lastOrderAt: customer.lastOrderAt ? customer.lastOrderAt : null,
       createdAt: customer.createdAt,
@@ -173,6 +177,128 @@ export class CustomersAdminController {
     return {
       success: true,
       data: serialized,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('customers:read')
+  @ApiOperation({
+    summary: 'Obtener historial de pedidos de un cliente (Admin)',
+    description: 'Obtiene los pedidos asociados a un cliente con paginación. Requiere el permiso "customers:read".',
+  })
+  @ApiParam({ name: 'id', description: 'ID del cliente (UUID v4)', format: 'uuid' })
+  @ApiOkResponse({
+    description: 'Historial de pedidos obtenido exitosamente.',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            items: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1' },
+                  orderNumber: { type: 'string', example: 'ORD-20260824-001' },
+                  total: { type: 'string', example: '125.50' },
+                  status: { type: 'string', example: 'pending' },
+                  createdAt: { type: 'string', format: 'date-time', example: '2026-08-24T12:00:00.000Z' },
+                },
+              },
+            },
+            meta: {
+              type: 'object',
+              properties: {
+                total: { type: 'integer', example: 10 },
+                page: { type: 'integer', example: 1 },
+                limit: { type: 'integer', example: 10 },
+                totalPages: { type: 'integer', example: 1 },
+                hasNextPage: { type: 'boolean', example: false },
+                hasPreviousPage: { type: 'boolean', example: false },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiNotFoundResponse({
+    description: 'No encontrado: No se encontró el cliente con el ID especificado.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'No autorizado: Token de acceso no válido o no enviado.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Acceso denegado: El usuario no cuenta con el permiso "customers:read" requerido.',
+  })
+  @Get(':id/orders')
+  async findOrders(
+    @Param('id', new ParseUUIDPipe({
+      version: '4', exceptionFactory: () => {
+        return new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'El ID del cliente debe ser un UUID versión 4 válido',
+        });
+      }
+    }))
+    id: string,
+    @Query() query: FindCustomerOrdersQueryDto,
+  ) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const { orders, meta } = await this.customersService.findOrdersForCustomer(id, page, limit);
+
+    const mapHistoricalStatus = (status: string): string => {
+      const upperStatus = (status || '').toUpperCase();
+      switch (upperStatus) {
+        case 'NEW':
+          return 'NEW';
+        case 'PENDING':
+        case 'PROCESSING':
+          return 'PENDING';
+        case 'ON_ROUTE':
+        case 'SHIPPED':
+          return 'ON_ROUTE';
+        case 'READY_FOR_PICKUP':
+          return 'READY_FOR_PICKUP';
+        case 'DELIVERED':
+        case 'COMPLETED':
+        case 'PICKED_UP':
+          return 'DELIVERED';
+        case 'CANCELLED':
+          return 'CANCELLED';
+        default:
+          return 'PENDING';
+      }
+    };
+
+    const formattedOrders = orders.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      total: Number(o.total || 0).toFixed(2),
+      status: mapHistoricalStatus(o.status),
+      createdAt: o.createdAt,
+    }));
+
+    const hasNextPage = page < meta.totalPages;
+    const hasPreviousPage = page > 1;
+
+    return {
+      success: true,
+      data: {
+        items: formattedOrders,
+        meta: {
+          page,
+          limit,
+          total: meta.total,
+          totalPages: meta.totalPages,
+          hasNextPage,
+          hasPreviousPage,
+        },
+      },
     };
   }
 }

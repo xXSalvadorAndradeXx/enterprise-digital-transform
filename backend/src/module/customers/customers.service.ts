@@ -5,6 +5,7 @@ import { Response } from 'express';
 import { Customer } from './entities/customer.entity';
 import { CustomerAddress } from './entities/customer-address.entity';
 import { EcommerceAuthSession } from './entities/ecommerce-auth-session.entity';
+import { Order } from './entities/order.entity';
 import { LocationsService } from '../locations/locations.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -28,6 +29,8 @@ export class CustomersService {
     private readonly addressRepository: Repository<CustomerAddress>,
     @InjectRepository(EcommerceAuthSession)
     private readonly sessionRepository: Repository<EcommerceAuthSession>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
     private readonly locationsService: LocationsService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
@@ -114,7 +117,7 @@ export class CustomersService {
   async create(data: Partial<Customer>): Promise<Customer> {
     await this.validateUniqueness(data.email || '', data.dui || '');
 
-    if (data.totalSpent !== undefined && data.totalSpent < 0) {
+    if (data.totalSpent !== undefined && Number(data.totalSpent) < 0) {
       throw new UnprocessableEntityException({
         code: 'INVALID_TOTAL_SPENT',
         message: 'El total gastado (totalSpent) no puede ser menor que cero',
@@ -246,7 +249,7 @@ export class CustomersService {
     const totalSpentToCheck = data.totalSpent !== undefined ? data.totalSpent : customer.totalSpent;
     const totalOrdersToCheck = data.totalOrders !== undefined ? data.totalOrders : customer.totalOrders;
 
-    if (totalSpentToCheck < 0) {
+    if (Number(totalSpentToCheck) < 0) {
       throw new UnprocessableEntityException({
         code: 'INVALID_TOTAL_SPENT',
         message: 'El total gastado (totalSpent) no puede ser menor que cero',
@@ -795,6 +798,40 @@ export class CustomersService {
 
     return {
       customers,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    };
+  }
+
+  /**
+   * Obtiene el historial de pedidos de un cliente con paginación.
+   */
+  async findOrdersForCustomer(
+    customerId: string,
+    page: number = 1,
+    limit: number = 10,
+  ) {
+    // 1. Verificar existencia del cliente
+    await this.findOne(customerId);
+
+    // 2. Consultar órdenes asociadas con paginación
+    const queryBuilder = this.orderRepository.createQueryBuilder('order');
+    queryBuilder.where('order.customerId = :customerId', { customerId });
+    queryBuilder.orderBy('order.createdAt', 'DESC');
+    queryBuilder.addOrderBy('order.id', 'ASC');
+
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    const [orders, total] = await queryBuilder.getManyAndCount();
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      orders,
       meta: {
         total,
         page,
