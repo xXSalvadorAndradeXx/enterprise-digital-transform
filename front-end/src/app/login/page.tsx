@@ -146,18 +146,7 @@ export default function LoginPage() {
   };
 
   return (
-    <>
-      <style jsx global>{`
-        body:has([data-login-page]) header,
-        body:has([data-login-page]) footer {
-          display: none;
-        }
-      `}</style>
-
-      <section
-        data-login-page
-        className="flex min-h-screen w-full flex-col overflow-x-hidden bg-white"
-      >
+    <section className="flex min-h-screen w-full flex-col overflow-x-hidden bg-white">
         <div className="bg-[#f2f5fb]">
           <ul className="mx-auto grid w-full max-w-[1440px] grid-cols-2 gap-x-3 gap-y-3 px-4 py-3 sm:grid-cols-4 sm:gap-y-0 sm:px-6 lg:px-8">
             {loginBenefits.map(([Icon, label]) => (
@@ -379,7 +368,6 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
-      </section>
-    </>
+    </section>
   );
 }
