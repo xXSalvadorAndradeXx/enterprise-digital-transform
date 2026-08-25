@@ -45,21 +45,22 @@ export default function CheckoutPayment({
   const [cvv, setCvv] =
     useState("");
 
+  const [errors, setErrors] = useState<{
+    cardNumber?: string;
+    holderName?: string;
+    expiration?: string;
+    cvv?: string;
+  }>({});
+
   const selectMethod = (
     next: PaymentMethod,
   ) => {
-    // Pagadito queda visualmente deshabilitado.
     if (next === "PAGADITO") return;
 
     setMethod(next);
+    setErrors({});
   };
 
-  /*
-   * Formatea el número de tarjeta:
-   * 4111111111111111
-   * ↓
-   * 4111 1111 1111 1111
-   */
   const handleCardNumberChange = (
     value: string,
   ) => {
@@ -67,19 +68,20 @@ export default function CheckoutPayment({
       .replace(/\D/g, "")
       .slice(0, 16);
 
-    const formatted = numbersOnly.replace(
-      /(.{4})/g,
-      "$1 ",
-    ).trim();
+    const formatted = numbersOnly
+      .replace(/(.{4})/g, "$1 ")
+      .trim();
 
     setCardNumber(formatted);
+
+    if (errors.cardNumber) {
+      setErrors((previous) => ({
+        ...previous,
+        cardNumber: undefined,
+      }));
+    }
   };
 
-  /*
-   * Detecta la franquicia según el primer dígito:
-   * 4 = VISA
-   * 5 = MASTERCARD
-   */
   const getCardBrand = (
     value: string,
   ): "VISA" | "MASTERCARD" | null => {
@@ -100,12 +102,6 @@ export default function CheckoutPayment({
   const cardBrand =
     getCardBrand(cardNumber);
 
-  /*
-   * Formatea automáticamente el vencimiento:
-   * 1230
-   * ↓
-   * 12/30
-   */
   const handleExpirationChange = (
     value: string,
   ) => {
@@ -123,24 +119,119 @@ export default function CheckoutPayment({
     }
 
     setExpiration(formatted);
+
+    if (errors.expiration) {
+      setErrors((previous) => ({
+        ...previous,
+        expiration: undefined,
+      }));
+    }
   };
 
+
+  const isValidExpiration = (value: string): boolean => {
+  const match = value.match(/^(\d{2})\/(\d{2})$/);
+
+  if (!match) return false;
+
+  const month = Number(match[1]);
+  const year = Number(match[2]);
+
+  if (month < 1 || month > 12) {
+    return false;
+  }
+
+  const currentDate = new Date();
+
+  const currentYear =
+    currentDate.getFullYear() % 100;
+
+  const currentMonth =
+    currentDate.getMonth() + 1;
+
+  if (year < currentYear) {
+    return false;
+  }
+
+  if (
+    year === currentYear &&
+    month < currentMonth
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
   const handleContinue = () => {
-    if (!onContinue || !method) return;
+    if (!method || !onContinue) return;
+
+    /*
+     * Pago en local:
+     * no necesita datos de tarjeta.
+     */
+    if (method === "PAY_AT_STORE") {
+      onContinue({
+        method: "PAY_AT_STORE",
+      });
+
+      return;
+    }
+
+    /*
+     * Validación simulada de tarjeta.
+     * No existe lógica bancaria real.
+     */
+    const newErrors: {
+      cardNumber?: string;
+      holderName?: string;
+      expiration?: string;
+      cvv?: string;
+    } = {};
+
+    if (!cardNumber.trim()) {
+      newErrors.cardNumber =
+        "Ingresa el número de tarjeta";
+    }
+
+    if (!holderName.trim()) {
+      newErrors.holderName =
+        "Ingresa el nombre de la tarjeta";
+    }
+
+    if (!expiration.trim()) {
+  newErrors.expiration =
+    "Ingresa la fecha de vencimiento";
+} else if (!isValidExpiration(expiration)) {
+  newErrors.expiration =
+    "Ingresa una fecha de vencimiento válida";
+}
+
+    if (!cvv.trim()) {
+      newErrors.cvv =
+        "Ingresa el código de seguridad";
+    }
+
+    setErrors(newErrors);
+
+    /*
+     * Si falta algún campo,
+     * no avanzamos.
+     */
+    if (Object.keys(newErrors).length > 0) {
+      return;
+    }
 
     const paymentData: PaymentData = {
-      method,
-    };
-
-    if (method === "CARD") {
-      paymentData.card = {
+      method: "CARD",
+      card: {
         number: cardNumber.replace(/\s/g, ""),
         holderName,
         expiration,
         cvv,
         brand: cardBrand,
-      };
-    }
+      },
+    };
 
     onContinue(paymentData);
   };
@@ -187,6 +278,7 @@ export default function CheckoutPayment({
               label="Número de tarjeta"
               placeholder="1234 5678 9012 4521"
               value={cardNumber}
+              error={errors.cardNumber}
               onChange={
                 handleCardNumberChange
               }
@@ -210,7 +302,17 @@ export default function CheckoutPayment({
               label="Nombre en la tarjeta"
               placeholder="Nombre completo como aparece en la tarjeta"
               value={holderName}
-              onChange={setHolderName}
+              error={errors.holderName}
+              onChange={(value) => {
+                setHolderName(value);
+
+                if (errors.holderName) {
+                  setErrors((previous) => ({
+                    ...previous,
+                    holderName: undefined,
+                  }));
+                }
+              }}
             />
 
             <div className="grid grid-cols-2 gap-3">
@@ -218,24 +320,33 @@ export default function CheckoutPayment({
                 label="Fecha de vencimiento"
                 placeholder="MM / AA"
                 value={expiration}
+                error={errors.expiration}
+                maxLength={5}
                 onChange={
                   handleExpirationChange
                 }
-                maxLength={5}
               />
 
               <TextInput
                 label="Código de seguridad"
                 placeholder="123"
                 value={cvv}
-                onChange={(value) =>
+                error={errors.cvv}
+                maxLength={4}
+                onChange={(value) => {
                   setCvv(
                     value
                       .replace(/\D/g, "")
                       .slice(0, 4),
-                  )
-                }
-                maxLength={4}
+                  );
+
+                  if (errors.cvv) {
+                    setErrors((previous) => ({
+                      ...previous,
+                      cvv: undefined,
+                    }));
+                  }
+                }}
               />
             </div>
           </div>
@@ -315,6 +426,7 @@ function TextInput({
   label,
   placeholder,
   value,
+  error,
   icon,
   maxLength,
   onChange,
@@ -322,6 +434,7 @@ function TextInput({
   label: string;
   placeholder?: string;
   value: string;
+  error?: string;
   icon?: React.ReactNode;
   maxLength?: number;
   onChange: (value: string) => void;
@@ -340,8 +453,13 @@ function TextInput({
           onChange={(e) =>
             onChange(e.target.value)
           }
-          className={`w-full rounded-md border border-gray-900 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:border-[#1B21D1] focus:outline-none focus:ring-2 focus:ring-[#1B21D1]/15 ${
+          aria-invalid={Boolean(error)}
+          className={`w-full rounded-md border bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 ${
             icon ? "pr-20" : ""
+          } ${
+            error
+              ? "border-red-400 focus:border-red-400 focus:ring-red-100"
+              : "border-gray-900 focus:border-[#1B21D1] focus:ring-[#1B21D1]/15"
           }`}
         />
 
@@ -351,6 +469,12 @@ function TextInput({
           </span>
         )}
       </div>
+
+      {error && (
+        <p className="mt-1 text-xs text-red-500">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
