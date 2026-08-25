@@ -491,8 +491,8 @@ export class CustomersService {
 
     if (!session) {
       throw new UnauthorizedException({
-        code: 'SESSION_NOT_FOUND',
-        message: 'Sesión no encontrada o ya revocada.',
+        code: 'SESSION_EXPIRED_OR_REVOKED',
+        message: 'La sesión ha expirado o ya no es válida',
       });
     }
 
@@ -503,8 +503,8 @@ export class CustomersService {
       await this.sessionRepository.save(session);
 
       throw new UnauthorizedException({
-        code: 'SESSION_EXPIRED',
-        message: 'La sesión ha expirado. Inicie sesión nuevamente.',
+        code: 'SESSION_EXPIRED_OR_REVOKED',
+        message: 'La sesión ha expirado o ya no es válida',
       });
     }
 
@@ -523,7 +523,7 @@ export class CustomersService {
   async rotateRefreshToken(
     currentRefreshToken: string,
     rememberMe: boolean,
-  ): Promise<{ rawToken: string; cookieMaxAge: number | undefined }> {
+  ): Promise<{ rawToken: string; cookieMaxAge: number | undefined; customerId: string }> {
     // 1. Validar la sesión actual
     const session = await this.validateSessionForRefresh(currentRefreshToken);
 
@@ -535,8 +535,8 @@ export class CustomersService {
       session.revokedAt = new Date();
       await this.sessionRepository.save(session);
       throw new UnauthorizedException({
-        code: 'SESSION_EXPIRED',
-        message: 'La sesión ha expirado. Inicie sesión nuevamente.',
+        code: 'SESSION_EXPIRED_OR_REVOKED',
+        message: 'La sesión ha expirado o ya no es válida',
       });
     }
 
@@ -561,7 +561,7 @@ export class CustomersService {
       ? Math.min(COOKIE_TTL_LONG_SECONDS!, remainingSeconds)
       : COOKIE_TTL_SHORT;
 
-    return { rawToken, cookieMaxAge };
+    return { rawToken, cookieMaxAge, customerId: session.customerId };
   }
 
   /**
@@ -630,14 +630,14 @@ export class CustomersService {
     if (!customer) {
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
-        message: 'Credenciales inválidas.',
+        message: 'Las credenciales proporcionadas no son válidas',
       });
     }
 
     if (!customer.isActive) {
       throw new UnauthorizedException({
-        code: 'INACTIVE_ACCOUNT',
-        message: 'La cuenta se encuentra inactiva.',
+        code: 'INVALID_CREDENTIALS',
+        message: 'Las credenciales proporcionadas no son válidas',
       });
     }
 
@@ -645,7 +645,7 @@ export class CustomersService {
     if (!isPasswordValid) {
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
-        message: 'Credenciales inválidas.',
+        message: 'Las credenciales proporcionadas no son válidas',
       });
     }
 

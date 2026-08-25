@@ -130,37 +130,39 @@ export class EcommerceAuthController {
     const currentRefreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE_NAME];
     if (!currentRefreshToken) {
       throw new UnauthorizedException({
-        code: 'MISSING_REFRESH_TOKEN',
-        message: 'No se envió el refresh token en las cookies.',
+        code: 'SESSION_EXPIRED_OR_REVOKED',
+        message: 'La sesión ha expirado o ya no es válida',
       });
     }
 
-    // Rotar el token heredando y respetando la expiración absoluta de 24h
-    // Como las cookies de refresh no envían rememberMe explícito, podemos leerlo de la cookie/sesión original,
-    // o asumir true si tiene duración o false si no la tiene. Pero para simplificar, pasamos true
-    // si queremos preservar la cookie de sesión o false por defecto. Usemos el estado anterior.
-    const { rawToken, cookieMaxAge } = await this.customersService.rotateRefreshToken(
-      currentRefreshToken,
-      true, // Mantenemos la cookie activa persistente
-    );
+    try {
+      // Rotar el token heredando y respetando la expiración absoluta de 24h
+      const { rawToken, cookieMaxAge, customerId } = await this.customersService.rotateRefreshToken(
+        currentRefreshToken,
+        true, // Mantenemos la cookie activa persistente
+      );
 
-    // Obtener información del cliente de la nueva sesión
-    const session = await this.customersService.validateSessionForRefresh(rawToken);
-    const customer = await this.customersService.findOne(session.customerId);
+      // Obtener información del cliente directamente
+      const customer = await this.customersService.findOne(customerId);
 
-    // Generar nuevo Access Token de 15 minutos
-    const accessToken = await this.customersService.generateAccessToken(customer);
+      // Generar nuevo Access Token de 15 minutos
+      const accessToken = await this.customersService.generateAccessToken(customer);
 
-    // Configurar la nueva cookie
-    this.customersService.setRefreshTokenCookie(res, rawToken, cookieMaxAge);
+      // Configurar la nueva cookie
+      this.customersService.setRefreshTokenCookie(res, rawToken, cookieMaxAge);
 
-    return {
-      success: true,
-      data: {
-        accessToken,
-        expiresIn: 900,
-      },
-    };
+      return {
+        success: true,
+        data: {
+          accessToken,
+          expiresIn: 900,
+        },
+      };
+    } catch (error) {
+      // Borrar la cookie al fallar la renovación para evitar peticiones inútiles posteriores
+      this.customersService.clearRefreshTokenCookie(res);
+      throw error;
+    }
   }
 
   @ApiOperation({
@@ -191,14 +193,21 @@ export class EcommerceAuthController {
   @Get('me')
   async me(@Req() req: any) {
     const customer = await this.customersService.findOne(req.user.id);
+    
+    if (!customer.isActive) {
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Acceso no autorizado.',
+      });
+    }
+
     return {
       success: true,
-      customer: {
+      data: {
         id: customer.id,
         fullName: customer.fullName,
         email: customer.email,
         phone: customer.phone,
-        dui: customer.dui,
       },
     };
   }
