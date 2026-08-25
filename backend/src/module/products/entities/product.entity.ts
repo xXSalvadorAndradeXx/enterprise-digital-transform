@@ -104,6 +104,18 @@ export class Product {
 
   // --- Relaciones OneToMany ---
 
+  get isActive(): boolean {
+    return this.status === ProductStatus.ACTIVE;
+  }
+
+  get isPublished(): boolean {
+    return this.status === ProductStatus.ACTIVE;
+  }
+
+  get productId(): string {
+    return this.id;
+  }
+
   @OneToMany(() => ProductImage, (image) => image.product)
   images!: ProductImage[];
 

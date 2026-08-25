@@ -5,13 +5,14 @@ import { Role } from '../roles/entities/role.entity';
 import { Permission } from '../permissions/entities/permission.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity'; 
 import { RefreshToken } from './entities/refresh-token.entity';               
+import { CustomerAddress } from './entities/customer-address.entity';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Role, Permission, PasswordResetToken, RefreshToken]), // 
+    TypeOrmModule.forFeature([User, Role, Permission, PasswordResetToken, RefreshToken, CustomerAddress]), // 
     AuthModule,
   ],
   controllers: [UsersController],

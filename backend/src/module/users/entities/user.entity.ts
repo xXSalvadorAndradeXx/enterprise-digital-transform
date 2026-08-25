@@ -16,6 +16,7 @@ import { Cart } from '../../cart/entities/cart.entity';
 import { Role } from '../../roles/entities/role.entity';
 import { PasswordResetToken } from './password-reset-token.entity';
 import { RefreshToken } from './refresh-token.entity';
+import { CustomerAddress } from './customer-address.entity';
 
 @Entity('users')
 export class User {
@@ -52,6 +53,15 @@ export class User {
   @Column({ name: 'token_version', type: 'integer', default: 0, nullable: false })
   tokenVersion!: number;
 
+  @Column({ name: 'total_orders', type: 'integer', default: 0 })
+  totalOrders!: number;
+
+  @Column({ name: 'total_spent', type: 'decimal', precision: 12, scale: 2, default: '0.00' })
+  totalSpent!: string;
+
+  @Column({ name: 'last_order_at', type: 'timestamptz', nullable: true })
+  lastOrderAt?: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
@@ -76,5 +86,8 @@ export class User {
   passwordResetTokens!: PasswordResetToken[];
 
   @OneToMany(() => RefreshToken, (token) => token.user)
+
+  @OneToMany(() => CustomerAddress, (address) => address.user)
+  addresses!: CustomerAddress[];
   refreshTokens!: RefreshToken[];
 }
