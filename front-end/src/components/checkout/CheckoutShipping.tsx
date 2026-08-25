@@ -1,17 +1,23 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { MapPin, Store, Truck } from "lucide-react";
 
-type DeliveryType =
-  | "HOME_DELIVERY"
-  | "STORE_PICKUP";
+type DeliveryType = "HOME_DELIVERY" | "STORE_PICKUP";
 
 interface CheckoutShippingProps {
   deliveryType: DeliveryType;
-  onDeliveryTypeChange: (
-    value: DeliveryType,
-  ) => void;
+  onDeliveryTypeChange: (value: DeliveryType) => void;
 }
+
+interface SavedShippingInfo {
+  departmentId: string;
+  districtId: string;
+  addressLine: string;
+  city: string;
+}
+
+const STORAGE_KEY = "woden_checkout_shipping";
 
 const MOCK_DEPARTMENTS = [
   {
@@ -58,6 +64,92 @@ export default function CheckoutShipping({
   deliveryType,
   onDeliveryTypeChange,
 }: CheckoutShippingProps) {
+  const [departmentId, setDepartmentId] = useState("");
+  const [districtId, setDistrictId] = useState("");
+  const [addressLine, setAddressLine] = useState("");
+  const [city, setCity] = useState("");
+  const [saveInfo, setSaveInfo] = useState(false);
+
+  /*
+   * Cargar información previamente guardada
+   * para el usuario invitado.
+   */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+
+      if (!saved) return;
+
+      const parsed = JSON.parse(saved) as SavedShippingInfo;
+
+      setDepartmentId(parsed.departmentId ?? "");
+      setDistrictId(parsed.districtId ?? "");
+      setAddressLine(parsed.addressLine ?? "");
+      setCity(parsed.city ?? "");
+    } catch (error) {
+      console.error(
+        "No se pudo cargar la información guardada:",
+        error,
+      );
+    }
+  }, []);
+
+  /*
+   * Guardar información cuando el usuario
+   * marca "Guardar mi información".
+   */
+  useEffect(() => {
+    if (!saveInfo) return;
+
+    const shippingInfo: SavedShippingInfo = {
+      departmentId,
+      districtId,
+      addressLine,
+      city,
+    };
+
+    /*
+     * Solo guardamos cuando hay información.
+     * No se envía nada al Backend.
+     */
+    if (
+      departmentId ||
+      districtId ||
+      addressLine ||
+      city
+    ) {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(shippingInfo),
+      );
+    }
+  }, [
+    saveInfo,
+    departmentId,
+    districtId,
+    addressLine,
+    city,
+  ]);
+
+  const handleSaveInfoChange = (
+    checked: boolean,
+  ) => {
+    setSaveInfo(checked);
+
+    if (!checked) {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  };
+
+  const handleDepartmentChange = (
+    value: string,
+  ) => {
+    setDepartmentId(value);
+
+    // Al cambiar departamento se limpia el distrito.
+    setDistrictId("");
+  };
+
   return (
     <div className="flex flex-col gap-5">
       {/* OPCIONES DE ENTREGA */}
@@ -66,7 +158,9 @@ export default function CheckoutShipping({
         <button
           type="button"
           onClick={() =>
-            onDeliveryTypeChange("HOME_DELIVERY")
+            onDeliveryTypeChange(
+              "HOME_DELIVERY",
+            )
           }
           className={`flex items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-medium transition ${
             deliveryType === "HOME_DELIVERY"
@@ -75,14 +169,15 @@ export default function CheckoutShipping({
           }`}
         >
           <Truck className="h-4 w-4" />
-
           Domicilio
         </button>
 
         <button
           type="button"
           onClick={() =>
-            onDeliveryTypeChange("STORE_PICKUP")
+            onDeliveryTypeChange(
+              "STORE_PICKUP",
+            )
           }
           className={`flex items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-medium transition ${
             deliveryType === "STORE_PICKUP"
@@ -91,7 +186,6 @@ export default function CheckoutShipping({
           }`}
         >
           <Store className="h-4 w-4" />
-
           Retiro en tienda
         </button>
       </div>
@@ -112,7 +206,12 @@ export default function CheckoutShipping({
               <select
                 id="departmentId"
                 name="departmentId"
-                defaultValue=""
+                value={departmentId}
+                onChange={(e) =>
+                  handleDepartmentChange(
+                    e.target.value,
+                  )
+                }
                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
               >
                 <option value="">
@@ -143,7 +242,12 @@ export default function CheckoutShipping({
               <select
                 id="districtId"
                 name="districtId"
-                defaultValue=""
+                value={districtId}
+                onChange={(e) =>
+                  setDistrictId(
+                    e.target.value,
+                  )
+                }
                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
               >
                 <option value="">
@@ -177,6 +281,12 @@ export default function CheckoutShipping({
                 id="addressLine"
                 name="addressLine"
                 type="text"
+                value={addressLine}
+                onChange={(e) =>
+                  setAddressLine(
+                    e.target.value,
+                  )
+                }
                 placeholder="Dirección de entrega"
                 className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
               />
@@ -194,21 +304,34 @@ export default function CheckoutShipping({
                 id="city"
                 name="city"
                 type="text"
+                value={city}
+                onChange={(e) =>
+                  setCity(e.target.value)
+                }
                 placeholder="Ciudad"
                 className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
               />
             </div>
           </div>
 
+          {/* GUARDAR INFORMACIÓN */}
+
           <label className="flex items-start gap-2 text-sm text-gray-600">
             <input
               type="checkbox"
+              checked={saveInfo}
+              onChange={(e) =>
+                handleSaveInfoChange(
+                  e.target.checked,
+                )
+              }
               className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#1B21D1] focus:ring-[#1B21D1]/30"
             />
 
             <span>
-              Guardar mi información y consultar
-              más rápidamente la próxima vez
+              Guardar mi información y
+              consultar más rápidamente la
+              próxima vez
             </span>
           </label>
         </div>
@@ -226,7 +349,9 @@ export default function CheckoutShipping({
           </label>
 
           <div className="relative">
-            <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <MapPin
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            />
 
             <select
               id="branchId"
@@ -238,14 +363,16 @@ export default function CheckoutShipping({
                 Selecciona una sucursal
               </option>
 
-              {MOCK_BRANCHES.map((branch) => (
-                <option
-                  key={branch.id}
-                  value={branch.id}
-                >
-                  {branch.name}
-                </option>
-              ))}
+              {MOCK_BRANCHES.map(
+                (branch) => (
+                  <option
+                    key={branch.id}
+                    value={branch.id}
+                  >
+                    {branch.name}
+                  </option>
+                ),
+              )}
             </select>
           </div>
         </div>
