@@ -1,10 +1,15 @@
 import { HashService } from './hash.service';
+import { ConfigService } from '@nestjs/config';
 
 describe('HashService', () => {
   let hashService: HashService;
+  let mockConfigService: jest.Mocked<ConfigService>;
 
   beforeEach(() => {
-    hashService = new HashService();
+    mockConfigService = {
+      get: jest.fn().mockReturnValue('10'),
+    } as any;
+    hashService = new HashService(mockConfigService);
   });
 
   it('debe generar un hash y poder verificar la contraseña', async () => {
