@@ -217,7 +217,7 @@ http.get(
           discountTotal: "5.00",
           shippingTotal: "0.00",
           total: "45.00",
-          guestOrderAccessToken: null,
+          guestOrderAccessToken: "mock-guest-token-123456",
         },
         {
           status: 201,

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCart } from "@/hooks/cart/useCart";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -38,6 +39,8 @@ const STEP_TITLES: Record<CheckoutStep, string> = {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { clearCart } = useCart();
+
   const [currentStep, setCurrentStep] =
     useState<CheckoutStep | null>("contact");
 
@@ -58,8 +61,8 @@ export default function CheckoutPage() {
     useState<Order | null>(null);
 
   /*
-   * La clave se genera una sola vez durante
-   * este intento de checkout.
+   * Una sola Idempotency-Key por intento
+   * de checkout.
    */
   const [idempotencyKey] = useState(
     () => crypto.randomUUID(),
@@ -104,74 +107,96 @@ export default function CheckoutPage() {
   }, [deliveryType]);
 
   const handleFinalCheckout = async (
-  payment: PaymentData,
-) => {
-  if (isSubmitting) return;
+    payment: PaymentData,
+  ) => {
+    if (isSubmitting) return;
 
-  setIsSubmitting(true);
+    setIsSubmitting(true);
 
-  try {
-    const checkoutRequest: CheckoutRequest = {
-      source: "CART",
+    try {
+      const checkoutRequest: CheckoutRequest = {
+        source: "CART",
 
-      customerType: "GUEST",
+        customerType: "GUEST",
 
-      contact: {
-        fullName: "",
-        email: "",
-        dui: "",
-        phone: "",
-      },
+        contact: {
+          fullName: "",
+          email: "",
+          dui: "",
+          phone: "",
+        },
 
-      deliveryType,
+        deliveryType,
 
-      delivery:
-        deliveryType === "HOME_DELIVERY"
+        delivery:
+          deliveryType === "HOME_DELIVERY"
+            ? {
+                departmentId: "",
+                districtId: "",
+                city: "",
+                addressLine: "",
+              }
+            : {
+                branchId: "",
+              },
+
+        paymentMethod:
+          payment.method === "PAY_AT_STORE"
+            ? "PAY_AT_STORE"
+            : "CARD",
+
+        saveAddress: false,
+
+        ...(payment.method === "CARD" &&
+        payment.card
           ? {
-              departmentId: "",
-              districtId: "",
-              city: "",
-              addressLine: "",
+              card: payment.card,
             }
-          : {
-              branchId: "",
-            },
+          : {}),
+      };
 
-      paymentMethod:
-        payment.method === "PAY_AT_STORE"
-          ? "PAY_AT_STORE"
-          : "CARD",
+      const response = await createCheckout(
+        checkoutRequest,
+        idempotencyKey,
+      );
 
-      saveAddress: false,
+      setCreatedOrder(response);
 
-      ...(payment.method === "CARD" && payment.card
-        ? {
-            card: payment.card,
-          }
-        : {}),
-    };
+      /*
+       * Guardar el token del invitado temporalmente.
+       * Nunca se agrega a la URL ni se imprime en consola.
+       */
+      if (response.guestOrderAccessToken) {
+        sessionStorage.setItem(
+          "guestOrderAccessToken",
+          response.guestOrderAccessToken,
+        );
+      }
 
-    const response = await createCheckout(
-      checkoutRequest,
-      idempotencyKey,
-    );
+      /*
+       * La orden fue creada correctamente.
+       * Ahora se limpia el carrito.
+       */
+      await clearCart();
 
-    setCreatedOrder(response);
-
-    router.push(
-      `/checkout/confirmacion?orderNumber=${encodeURIComponent(
-        response.orderNumber,
-      )}&customerType=GUEST`,
-    );
-  } catch (error) {
-    console.error(
-      "Error creando checkout:",
-      error,
-    );
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+      /*
+       * Ir a la pantalla de confirmación.
+       * El token NO viaja por la URL.
+       */
+      router.push(
+        `/checkout/confirmacion?orderNumber=${encodeURIComponent(
+          response.orderNumber,
+        )}&customerType=GUEST`,
+      );
+    } catch (error) {
+      console.error(
+        "Error creando checkout:",
+        error,
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const toggleStep = (
     step: CheckoutStep,
@@ -208,6 +233,7 @@ export default function CheckoutPage() {
     <main className="min-h-screen bg-white">
       <div className="mx-auto max-w-[1180px] px-5 py-10">
         <div className="grid gap-6 lg:items-start lg:grid-cols-[1fr_340px]">
+
           <section className="flex flex-col gap-4">
             {STEP_ORDER.map(
               (step, index) => (
@@ -258,6 +284,7 @@ export default function CheckoutPage() {
               setCurrentStep("payment")
             }
           />
+
         </div>
       </div>
     </main>

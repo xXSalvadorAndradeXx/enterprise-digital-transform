@@ -13,6 +13,7 @@ import {
 
 import {
   addCartItem,
+  clearCurrentCart,
   getCurrentCart,
   mergeGuestCart,
   removeCartItem,
@@ -35,6 +36,7 @@ import {
 } from "@/lib/auth-session";
 
 import {
+  clearCartToken,
   readCartToken,
 } from "@/lib/cart-token";
 
@@ -75,6 +77,8 @@ export interface CartContextValue {
     itemId: string,
     quantity: number,
   ) => Promise<void>;
+
+  clearCart: () => Promise<void>;
 
   totalItems: number;
 
@@ -1149,12 +1153,28 @@ export function CartProvider({
           0,
         );
 
+      const clearCart = async () => {
+        if (!readAccessToken()) {
+          cancelPendingSync();
+          clearCartToken();
+          clearCartState();
+          setSyncError(null);
+          return;
+        }
+
+        await runOptimisticOperation(
+          clearCartState,
+          clearCurrentCart,
+        );
+      };
+
       return {
         items,
 
         addItem,
         removeItem,
         updateQuantity,
+        clearCart,
 
         totalItems,
 
@@ -1177,6 +1197,7 @@ export function CartProvider({
       refreshCart,
       applyCartState,
       cancelPendingSync,
+      clearCartState,
     ]);
 
   return (

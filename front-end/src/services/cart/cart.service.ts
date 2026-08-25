@@ -202,6 +202,25 @@ export async function removeCartItem(
 }
 
 /*
+ * Vacía todas las líneas del carrito actual después de
+ * completar correctamente una orden.
+ */
+export async function clearCurrentCart(): Promise<ApiCart> {
+  const result =
+    await apiRequestWithResponse<CartResponse>(
+      "/cart",
+      {
+        method: "DELETE",
+        headers: getRequiredCartHeaders(),
+      },
+    );
+
+  persistGuestCartToken(result.response);
+
+  return result.data.data;
+}
+
+/*
  * Combina el carrito invitado con la sesión autenticada.
  *
  * Requiere simultáneamente:
