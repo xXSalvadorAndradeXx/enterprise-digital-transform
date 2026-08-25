@@ -14,6 +14,7 @@ import {
 import {
   addCartItem,
   getCurrentCart,
+  mergeGuestCart,
   removeCartItem,
   updateCartItemQuantity,
 } from "@/services/cart/cart.service";
@@ -32,6 +33,10 @@ import {
   AUTH_SESSION_CHANGED_EVENT,
   readAccessToken,
 } from "@/lib/auth-session";
+
+import {
+  readCartToken,
+} from "@/lib/cart-token";
 
 export interface CartItem {
   id: string;
@@ -70,7 +75,6 @@ export interface CartContextValue {
     itemId: string,
     quantity: number,
   ) => Promise<void>;
-
 
   totalItems: number;
 
@@ -126,6 +130,33 @@ function getCartErrorMessage(
     : "No se pudo sincronizar el carrito.";
 }
 
+function isRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null
+  );
+}
+
+function getCartErrorCode(
+  error: unknown,
+): string | null {
+  if (!isRecord(error)) {
+    return null;
+  }
+
+  const response = error.response;
+
+  if (!isRecord(response)) {
+    return null;
+  }
+
+  return typeof response.code === "string"
+    ? response.code
+    : null;
+}
+
 function apiCartItemToCartItem(
   item: ApiCartItem,
 ): CartItem {
@@ -135,6 +166,7 @@ function apiCartItemToCartItem(
     variantId: item.variantId,
 
     nombre: item.productName,
+
     imagenUrl:
       item.imageUrl?.trim() || null,
 
@@ -211,8 +243,12 @@ function createOptimisticItem(
 
   return {
     id: `optimistic-${variant.id}`,
-    productId: String(product.id),
-    variantId: variant.id,
+
+    productId:
+      String(product.id),
+
+    variantId:
+      variant.id,
 
     nombre:
       product.commercialName ??
@@ -223,11 +259,17 @@ function createOptimisticItem(
       product.imagenUrl ??
       null,
 
-    talla: variant.size,
-    color: variant.color.name,
-    colorHex: variant.color.hex,
+    talla:
+      variant.size,
 
-    precio: unitPrice,
+    color:
+      variant.color.name,
+
+    colorHex:
+      variant.color.hex,
+
+    precio:
+      unitPrice,
 
     descuentoLinea:
       unitDiscount * quantity,
@@ -235,10 +277,11 @@ function createOptimisticItem(
     totalLinea:
       effectivePrice * quantity,
 
-    stock: Math.max(
-      0,
-      variant.stock,
-    ),
+    stock:
+      Math.max(
+        0,
+        variant.stock,
+      ),
 
     quantity,
   };
@@ -279,14 +322,33 @@ export function CartProvider({
   const cancelPendingSync =
     useCallback(() => {
       refreshRequestIdRef.current += 1;
-      refreshPromiseRef.current = null;
+
+      refreshPromiseRef.current =
+        null;
     }, []);
+
+  const clearCartState =
+    useCallback(() => {
+      cancelPendingSync();
+
+      setItems([]);
+      setSubtotal(0);
+      setDiscountTotal(0);
+      setTotal(0);
+
+      setIsSyncing(false);
+      setSyncError(null);
+    }, [
+      cancelPendingSync,
+    ]);
 
   const applyCartState =
     useCallback(
       (cart: ApiCart) => {
         setItems(
-          apiCartToCartItems(cart),
+          apiCartToCartItems(
+            cart,
+          ),
         );
 
         setSubtotal(
@@ -312,32 +374,41 @@ export function CartProvider({
       [],
     );
 
-  const clearCartState =
-    useCallback(() => {
-      cancelPendingSync();
-
-      setItems([]);
-      setSubtotal(0);
-      setDiscountTotal(0);
-      setTotal(0);
-
-      setIsSyncing(false);
-      setSyncError(null);
-    }, [cancelPendingSync]);
-
+  /*
+   * Recupera el carrito actual.
+   *
+   * Puede hacerlo mediante:
+   * - JWT
+   * - X-Cart-Token
+   *
+   * Si no existe ninguno,
+   * simplemente deja el carrito vacío.
+   */
   const refreshCart =
     useCallback(async () => {
-      if (!readAccessToken()) {
+      const accessToken =
+        readAccessToken();
+
+      const cartToken =
+        readCartToken();
+
+      if (
+        !accessToken &&
+        !cartToken
+      ) {
         clearCartState();
         return;
       }
 
-      if (refreshPromiseRef.current) {
+      if (
+        refreshPromiseRef.current
+      ) {
         return refreshPromiseRef.current;
       }
 
       const requestId =
-        refreshRequestIdRef.current + 1;
+        refreshRequestIdRef.current +
+        1;
 
       refreshRequestIdRef.current =
         requestId;
@@ -356,7 +427,9 @@ export function CartProvider({
               refreshRequestIdRef.current ===
                 requestId
             ) {
-              applyCartState(cart);
+              applyCartState(
+                cart,
+              );
             }
           } catch (error) {
             if (
@@ -376,7 +449,9 @@ export function CartProvider({
               refreshRequestIdRef.current ===
                 requestId
             ) {
-              setIsSyncing(false);
+              setIsSyncing(
+                false,
+              );
 
               refreshPromiseRef.current =
                 null;
@@ -393,17 +468,163 @@ export function CartProvider({
       clearCartState,
     ]);
 
-  useEffect(() => {
-    isMountedRef.current = true;
+  /*
+   * Combina carrito invitado después
+   * de iniciar sesión.
+   */
+  const mergeCartAfterLogin =
+    useCallback(async () => {
+      const accessToken =
+        readAccessToken();
 
+      const cartToken =
+        readCartToken();
+
+      /*
+       * Solo existe merge cuando tenemos
+       * simultáneamente:
+       *
+       * - sesión
+       * - carrito invitado
+       */
+      if (
+        !accessToken ||
+        !cartToken
+      ) {
+        await refreshCart();
+        return;
+      }
+
+      cancelPendingSync();
+
+      setIsSyncing(true);
+      setSyncError(null);
+
+      try {
+        const mergedCart =
+          await mergeGuestCart();
+
+        if (
+          isMountedRef.current
+        ) {
+          applyCartState(
+            mergedCart,
+          );
+        }
+      } catch (error) {
+        if (
+          !isMountedRef.current
+        ) {
+          return;
+        }
+
+        const code =
+          getCartErrorCode(
+            error,
+          );
+
+        /*
+         * Si existe conflicto de stock:
+         *
+         * - NO borrar X-Cart-Token.
+         * - informar al usuario.
+         * - mantener disponible un
+         *   reintento posterior.
+         */
+        if (
+          code ===
+          "STOCK_INSUFFICIENT"
+        ) {
+          setSyncError(
+            getCartErrorMessage(
+              error,
+            ),
+          );
+
+          return;
+        }
+
+        setSyncError(
+          getCartErrorMessage(
+            error,
+          ),
+        );
+      } finally {
+        if (
+          isMountedRef.current
+        ) {
+          setIsSyncing(false);
+        }
+      }
+    }, [
+      applyCartState,
+      cancelPendingSync,
+      refreshCart,
+    ]);
+
+  useEffect(() => {
+    isMountedRef.current =
+      true;
+
+    /*
+     * Al montar:
+     *
+     * - si existe JWT + carrito invitado:
+     *   intentar merge.
+     *
+     * - si solo existe uno:
+     *   recuperar carrito correspondiente.
+     */
     const initialSyncTimeoutId =
       window.setTimeout(() => {
+        const accessToken =
+          readAccessToken();
+
+        const cartToken =
+          readCartToken();
+
+        if (
+          accessToken &&
+          cartToken
+        ) {
+          void mergeCartAfterLogin();
+          return;
+        }
+
         void refreshCart();
       }, 0);
 
-    const handleSessionChange = () => {
-      void refreshCart();
-    };
+    /*
+     * Después de Login/Logout,
+     * volvemos a resolver el carrito.
+     */
+    const handleSessionChange =
+      () => {
+        const accessToken =
+          readAccessToken();
+
+        const cartToken =
+          readCartToken();
+
+        if (
+          accessToken &&
+          cartToken
+        ) {
+          void mergeCartAfterLogin();
+          return;
+        }
+
+        void refreshCart();
+      };
+
+    /*
+     * Si cambia localStorage,
+     * recuperamos nuevamente el carrito.
+     */
+    const handleStorageChange =
+      () => {
+        void refreshCart();
+      };
 
     window.addEventListener(
       AUTH_SESSION_CHANGED_EVENT,
@@ -412,11 +633,12 @@ export function CartProvider({
 
     window.addEventListener(
       "storage",
-      handleSessionChange,
+      handleStorageChange,
     );
 
     return () => {
-      isMountedRef.current = false;
+      isMountedRef.current =
+        false;
 
       window.clearTimeout(
         initialSyncTimeoutId,
@@ -429,10 +651,13 @@ export function CartProvider({
 
       window.removeEventListener(
         "storage",
-        handleSessionChange,
+        handleStorageChange,
       );
     };
-  }, [refreshCart]);
+  }, [
+    mergeCartAfterLogin,
+    refreshCart,
+  ]);
 
   const value =
     useMemo<CartContextValue>(() => {
@@ -447,22 +672,30 @@ export function CartProvider({
       const restoreSnapshot = (
         snapshot: CartSnapshot,
       ) => {
-        setItems(snapshot.items);
+        setItems(
+          snapshot.items,
+        );
+
         setSubtotal(
           snapshot.subtotal,
         );
+
         setDiscountTotal(
           snapshot.discountTotal,
         );
-        setTotal(snapshot.total);
+
+        setTotal(
+          snapshot.total,
+        );
       };
 
       const runOptimisticOperation =
         async (
           applyOptimisticUpdate:
             () => void,
-          operation: () =>
-            Promise<ApiCart>,
+
+          operation:
+            () => Promise<ApiCart>,
         ) => {
           const snapshot =
             createSnapshot();
@@ -478,9 +711,13 @@ export function CartProvider({
             const cart =
               await operation();
 
-            applyCartState(cart);
+            applyCartState(
+              cart,
+            );
           } catch (error) {
-            restoreSnapshot(snapshot);
+            restoreSnapshot(
+              snapshot,
+            );
 
             setSyncError(
               getCartErrorMessage(
@@ -490,30 +727,40 @@ export function CartProvider({
 
             throw error;
           } finally {
-            setIsSyncing(false);
+            setIsSyncing(
+              false,
+            );
           }
         };
 
+      /*
+       * Agregar variante.
+       */
       const addItem = async (
         product: Product,
         variant: ProductVariant,
         quantity = 1,
       ) => {
-        if (!variant.available) {
+        if (
+          !variant.available
+        ) {
           return;
         }
 
-        const stock = Math.max(
-          0,
-          variant.stock,
-        );
+        const stock =
+          Math.max(
+            0,
+            variant.stock,
+          );
 
         if (stock === 0) {
           return;
         }
 
         const normalizedQuantity =
-          normalizeQuantity(quantity);
+          normalizeQuantity(
+            quantity,
+          );
 
         if (
           normalizedQuantity < 1
@@ -529,10 +776,12 @@ export function CartProvider({
           );
 
         const currentQuantity =
-          currentItem?.quantity ?? 0;
+          currentItem?.quantity ??
+          0;
 
         const availableQuantity =
-          stock - currentQuantity;
+          stock -
+          currentQuantity;
 
         const quantityToAdd =
           Math.min(
@@ -540,12 +789,18 @@ export function CartProvider({
             availableQuantity,
           );
 
-        if (quantityToAdd <= 0) {
+        if (
+          quantityToAdd <= 0
+        ) {
           return;
         }
 
         await runOptimisticOperation(
           () => {
+            /*
+             * Variante existente:
+             * aumentar cantidad.
+             */
             if (currentItem) {
               const oldQuantity =
                 currentItem.quantity;
@@ -553,15 +808,6 @@ export function CartProvider({
               const newQuantity =
                 oldQuantity +
                 quantityToAdd;
-
-              const unitSubtotal =
-                oldQuantity > 0
-                  ? (
-                      currentItem.precio *
-                      oldQuantity
-                    ) /
-                    oldQuantity
-                  : currentItem.precio;
 
               const unitDiscount =
                 oldQuantity > 0
@@ -575,56 +821,56 @@ export function CartProvider({
                   ? currentItem
                       .totalLinea /
                     oldQuantity
-                  : currentItem.precio;
-
-              const subtotalDelta =
-                unitSubtotal *
-                quantityToAdd;
-
-              const discountDelta =
-                unitDiscount *
-                quantityToAdd;
-
-              const totalDelta =
-                unitTotal *
-                quantityToAdd;
+                  : currentItem
+                      .precio;
 
               setItems(
-                items.map((item) =>
-                  item.variantId ===
-                  variant.id
-                    ? {
-                        ...item,
-                        quantity:
-                          newQuantity,
-                        descuentoLinea:
-                          unitDiscount *
-                          newQuantity,
-                        totalLinea:
-                          unitTotal *
-                          newQuantity,
-                      }
-                    : item,
+                items.map(
+                  (item) =>
+                    item.variantId ===
+                    variant.id
+                      ? {
+                          ...item,
+
+                          quantity:
+                            newQuantity,
+
+                          descuentoLinea:
+                            unitDiscount *
+                            newQuantity,
+
+                          totalLinea:
+                            unitTotal *
+                            newQuantity,
+                        }
+                      : item,
                 ),
               );
 
               setSubtotal(
                 subtotal +
-                  subtotalDelta,
+                  currentItem.precio *
+                    quantityToAdd,
               );
 
               setDiscountTotal(
                 discountTotal +
-                  discountDelta,
+                  unitDiscount *
+                    quantityToAdd,
               );
 
               setTotal(
-                total + totalDelta,
+                total +
+                  unitTotal *
+                    quantityToAdd,
               );
 
               return;
             }
 
+            /*
+             * Nueva variante.
+             */
             const optimisticItem =
               createOptimisticItem(
                 product,
@@ -655,69 +901,84 @@ export function CartProvider({
                   .totalLinea,
             );
           },
+
           () =>
             addCartItem({
               variantId:
                 variant.id,
+
               quantity:
                 quantityToAdd,
             }),
         );
       };
 
-      const removeItem = async (
-        itemId: string,
-      ) => {
-        const currentItem =
-          items.find(
-            (item) =>
-              item.id === itemId,
+      /*
+       * Eliminar una línea.
+       */
+      const removeItem =
+        async (
+          itemId: string,
+        ) => {
+          const currentItem =
+            items.find(
+              (item) =>
+                item.id ===
+                itemId,
+            );
+
+          if (!currentItem) {
+            return;
+          }
+
+          await runOptimisticOperation(
+            () => {
+              setItems(
+                items.filter(
+                  (item) =>
+                    item.id !==
+                    itemId,
+                ),
+              );
+
+              setSubtotal(
+                Math.max(
+                  0,
+                  subtotal -
+                    currentItem.precio *
+                      currentItem.quantity,
+                ),
+              );
+
+              setDiscountTotal(
+                Math.max(
+                  0,
+                  discountTotal -
+                    currentItem
+                      .descuentoLinea,
+                ),
+              );
+
+              setTotal(
+                Math.max(
+                  0,
+                  total -
+                    currentItem
+                      .totalLinea,
+                ),
+              );
+            },
+
+            () =>
+              removeCartItem(
+                itemId,
+              ),
           );
+        };
 
-        if (!currentItem) {
-          return;
-        }
-
-        await runOptimisticOperation(
-          () => {
-            setItems(
-              items.filter(
-                (item) =>
-                  item.id !== itemId,
-              ),
-            );
-
-            setSubtotal(
-              Math.max(
-                0,
-                subtotal -
-                  currentItem.precio *
-                    currentItem.quantity,
-              ),
-            );
-
-            setDiscountTotal(
-              Math.max(
-                0,
-                discountTotal -
-                  currentItem
-                    .descuentoLinea,
-              ),
-            );
-
-            setTotal(
-              Math.max(
-                0,
-                total -
-                  currentItem.totalLinea,
-              ),
-            );
-          },
-          () =>
-            removeCartItem(itemId),
-        );
-      };
-
+      /*
+       * Cambiar cantidad.
+       */
       const updateQuantity =
         async (
           itemId: string,
@@ -726,7 +987,8 @@ export function CartProvider({
           const currentItem =
             items.find(
               (item) =>
-                item.id === itemId,
+                item.id ===
+                itemId,
             );
 
           if (!currentItem) {
@@ -738,17 +1000,13 @@ export function CartProvider({
               quantity,
             );
 
-          /*
-           * La cantidad mínima mediante
-           * controles +/- es 1.
-           * Eliminar es una acción aparte.
-           */
           const safeQuantity =
             Math.min(
               Math.max(
                 1,
                 normalizedQuantity,
               ),
+
               Math.max(
                 1,
                 currentItem.stock,
@@ -805,18 +1063,23 @@ export function CartProvider({
           await runOptimisticOperation(
             () => {
               setItems(
-                items.map((item) =>
-                  item.id === itemId
-                    ? {
-                        ...item,
-                        quantity:
-                          safeQuantity,
-                        descuentoLinea:
-                          newDiscount,
-                        totalLinea:
-                          newTotal,
-                      }
-                    : item,
+                items.map(
+                  (item) =>
+                    item.id ===
+                    itemId
+                      ? {
+                          ...item,
+
+                          quantity:
+                            safeQuantity,
+
+                          descuentoLinea:
+                            newDiscount,
+
+                          totalLinea:
+                            newTotal,
+                        }
+                      : item,
                 ),
               );
 
@@ -847,6 +1110,7 @@ export function CartProvider({
                 ),
               );
             },
+
             () =>
               updateCartItemQuantity(
                 itemId,
@@ -858,11 +1122,12 @@ export function CartProvider({
           );
         };
 
-
-
       const totalItems =
         items.reduce(
-          (accumulator, item) =>
+          (
+            accumulator,
+            item,
+          ) =>
             accumulator +
             item.quantity,
           0,
@@ -870,6 +1135,7 @@ export function CartProvider({
 
       return {
         items,
+
         addItem,
         removeItem,
         updateQuantity,

@@ -1,7 +1,21 @@
-import type { RequestHandler } from "msw";
+import type {
+  RequestHandler,
+} from "msw";
+
+import {
+  cartHandlers,
+} from "./cart.handlers";
+
+import {
+  checkoutHandlers,
+} from "./checkout.handlers";
 
 /**
- * Registra aquí los handlers de cada dominio mientras el backend no esté listo.
- * Ejemplo: ...productHandlers, ...authHandlers, ...cartHandlers.
+ * Handlers temporales utilizados para
+ * desarrollo y pruebas mientras Backend
+ * no está disponible.
  */
-export const handlers: RequestHandler[] = [];
+export const handlers: RequestHandler[] = [
+  ...cartHandlers,
+  ...checkoutHandlers,
+];

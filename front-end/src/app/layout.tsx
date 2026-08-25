@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import {
+  Geist,
+  Geist_Mono,
+} from "next/font/google";
+
 import Layout from "@/components/layout/Layout";
+import { MockProvider } from "@/mocks/MockProvider";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,7 +21,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Woden | Tienda en línea",
-  description: "Descubre productos Woden y compra en línea.",
+  description:
+    "Descubre productos Woden y compra en línea.",
 };
 
 export default function RootLayout({
@@ -29,7 +36,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <Layout>{children}</Layout>
+        <MockProvider>
+          <Layout>
+            {children}
+          </Layout>
+        </MockProvider>
       </body>
     </html>
   );
