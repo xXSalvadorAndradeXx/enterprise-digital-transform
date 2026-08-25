@@ -101,9 +101,17 @@ export const mockAdminCustomers: AdminCustomerListItem[] = [
   },
 ];
 
+export interface MockAdminCustomerAddress {
+  id: string;
+  city: string;
+  addressLine: string;
+  isDefault: boolean;
+}
+
 export interface MockAdminCustomerDetail
   extends AdminCustomerListItem {
   phone: string;
+  addresses: MockAdminCustomerAddress[];
 }
 
 /*
@@ -142,6 +150,67 @@ const mockAdminCustomerPhones: Record<
     "7777-0112",
 };
 
+const mockAdminCustomerAddresses: Record<
+  string,
+  MockAdminCustomerAddress[]
+> = {
+  "0f9db36f-7df2-4d19-8d35-13f62307e16c": [
+    {
+      id: "address-ana-01",
+      city: "San Salvador",
+      addressLine:
+        "Colonia Escalon, avenida Norte, casa 12",
+      isDefault:
+        true,
+    },
+    {
+      id: "address-ana-02",
+      city: "Santa Tecla",
+      addressLine:
+        "Residencial Las Palmas, poligono B, casa 8",
+      isDefault:
+        false,
+    },
+  ],
+  "2d9fa0ec-6dd1-45ff-a64a-4e2c601f4f96": [
+    {
+      id: "address-carlos-01",
+      city: "Soyapango",
+      addressLine:
+        "Reparto Los Santos, pasaje 4, casa 19",
+      isDefault:
+        true,
+    },
+  ],
+  "34b8400e-d6f8-4a0c-b44a-fb339120fc1b": [
+    {
+      id: "address-sofia-01",
+      city: "Antiguo Cuscatlan",
+      addressLine:
+        "Boulevard Orden de Malta, edificio 3",
+      isDefault:
+        false,
+    },
+    {
+      id: "address-sofia-02",
+      city: "San Miguel",
+      addressLine:
+        "Barrio El Centro, 2a calle poniente",
+      isDefault:
+        true,
+    },
+    {
+      id: "address-sofia-03",
+      city: "La Libertad",
+      addressLine:
+        "Playa El Tunco, local 5",
+      isDefault:
+        false,
+    },
+  ],
+  "b1f6ce01-4fbc-4901-9107-b69e60a9d015": [],
+};
+
 export const mockAdminCustomerDetails:
   MockAdminCustomerDetail[] =
   mockAdminCustomers.map(
@@ -151,5 +220,9 @@ export const mockAdminCustomerDetails:
         mockAdminCustomerPhones[
           customer.id
         ] ?? "",
+      addresses:
+        mockAdminCustomerAddresses[
+          customer.id
+        ] ?? [],
     }),
   );

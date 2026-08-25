@@ -7,10 +7,26 @@ import {
   isoUtcDateTimeSchema,
 } from "@/types/customers";
 
+export const provisionalCustomerAddressSchema =
+  z.object({
+    id:
+      z.string(),
+    city:
+      z.string(),
+    addressLine:
+      z.string(),
+    isDefault:
+      z.boolean(),
+  });
+
 export const provisionalAdminCustomerDetailSchema =
   adminCustomerListItemSchema.extend({
     phone:
       z.string(),
+    addresses:
+      z.array(
+        provisionalCustomerAddressSchema,
+      ),
   });
 
 const provisionalAdminCustomerDetailResponseSchema =
@@ -28,6 +44,11 @@ const provisionalAdminCustomerDetailResponseSchema =
 export type ProvisionalAdminCustomerDetail =
   z.infer<
     typeof provisionalAdminCustomerDetailSchema
+  >;
+
+export type ProvisionalCustomerAddress =
+  z.infer<
+    typeof provisionalCustomerAddressSchema
   >;
 
 export class AdminCustomerDetailRequestError extends Error {

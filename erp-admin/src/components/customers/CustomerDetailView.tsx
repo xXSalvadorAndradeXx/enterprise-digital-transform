@@ -16,6 +16,7 @@ import {
   AdminCustomerDetailRequestError,
   getAdminCustomerById,
   type ProvisionalAdminCustomerDetail,
+  type ProvisionalCustomerAddress,
 } from "@/services/customers/getAdminCustomerById";
 
 import {
@@ -35,6 +36,10 @@ interface ReadOnlyFieldProps {
 interface CommercialIndicatorProps {
   label: string;
   value: string;
+}
+
+interface CustomerAddressCardProps {
+  address: ProvisionalCustomerAddress;
 }
 
 function formatLastOrderAt(
@@ -88,6 +93,66 @@ function CommercialIndicator({
         {value}
       </dd>
     </div>
+  );
+}
+
+function CustomerAddressCard({
+  address,
+}: CustomerAddressCardProps) {
+  return (
+    <li className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-semibold text-gray-950">
+            {address.addressLine}
+          </p>
+          <p className="mt-2 text-sm text-gray-600">
+            {address.city}
+          </p>
+        </div>
+
+        {address.isDefault && (
+          <span className="inline-flex shrink-0 rounded-md bg-[#E8F0FE] px-2.5 py-1 text-xs font-semibold text-[#1C21D1]">
+            Predeterminada
+          </span>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function CustomerAddressesSection({
+  addresses,
+}: {
+  addresses: ProvisionalCustomerAddress[];
+}) {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-6 lg:col-span-2">
+      <h2 className="text-lg font-semibold text-gray-950">
+        Direcciones
+      </h2>
+
+      {addresses.length === 0 ? (
+        <div className="mt-5 flex min-h-[120px] items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center">
+          <p className="text-sm text-gray-500">
+            No hay direcciones registradas.
+          </p>
+        </div>
+      ) : (
+        <ul className="mt-5 grid gap-4 md:grid-cols-2">
+          {addresses.map((address) => (
+            <CustomerAddressCard
+              key={
+                address.id
+              }
+              address={
+                address
+              }
+            />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -151,6 +216,12 @@ function CustomerDetailContent({
           />
         </dl>
       </section>
+
+      <CustomerAddressesSection
+        addresses={
+          customer.addresses
+        }
+      />
     </div>
   );
 }
