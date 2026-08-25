@@ -11,11 +11,13 @@ import {
   Res,
   UseGuards,
   ParseUUIDPipe,
+  UnauthorizedException,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiBearerAuth } from '@nestjs/swagger';
 import { CartService } from './cart.service';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SingleResponse } from '../../common/interfaces/api-response.interface';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
@@ -94,6 +96,47 @@ export class CartController {
 
     const updatedCart = await this.cartService.addItemToCart(cart.id, addCartItemDto);
     return { data: updatedCart };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('merge')
+  @ApiOperation({
+    summary:
+      'Fusionar el carrito de visitante (vía header X-Cart-Token) con el carrito activo del cliente autenticado (vía Bearer JWT)',
+  })
+  @ApiHeader({
+    name: 'X-Cart-Token',
+    required: true,
+    description: 'Token del carrito de visitante a fusionar',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Carrito fusionado exitosamente. Retorna el carrito autenticado recalculado.',
+    type: CartResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Token de invitado no válido/expirado (CART_TOKEN_INVALID) o stock insuficiente (STOCK_INSUFFICIENT)',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'No autorizado - Requiere Bearer JWT de cliente autenticado',
+  })
+  async mergeCart(
+    @Req() req: any,
+    @Headers('x-cart-token') xCartToken: string | undefined,
+  ): Promise<SingleResponse<CartResponseDto>> {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Se requiere estar autenticado para fusionar un carrito de invitado',
+      });
+    }
+
+    const mergedCart = await this.cartService.mergeGuestCartIntoUserCart(userId, xCartToken);
+    return { data: mergedCart };
   }
 
   @UseGuards(OptionalJwtAuthGuard)

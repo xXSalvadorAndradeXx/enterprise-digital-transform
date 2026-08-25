@@ -182,6 +182,7 @@ describe('ProductsService', () => {
     }).compile();
 
     service = module.get<ProductsService>(ProductsService);
+    jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {

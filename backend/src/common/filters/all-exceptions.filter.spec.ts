@@ -1,5 +1,5 @@
 import { AllExceptionsFilter } from './all-exceptions.filter';
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ArgumentsHost } from '@nestjs/common';
 
 describe('AllExceptionsFilter', () => {
@@ -10,6 +10,7 @@ describe('AllExceptionsFilter', () => {
 
   beforeEach(() => {
     filter = new AllExceptionsFilter();
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
 
     mockResponse = {
       status: jest.fn().mockReturnThis(),
@@ -26,6 +27,10 @@ describe('AllExceptionsFilter', () => {
         getRequest: jest.fn().mockReturnValue(mockRequest),
       }),
     } as unknown as ArgumentsHost;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('debe formatear una HttpException correctamente', () => {

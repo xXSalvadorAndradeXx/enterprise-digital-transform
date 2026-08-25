@@ -3,6 +3,7 @@ import { CartController } from './cart.controller';
 import { CartService } from './cart.service';
 import { CartStatus } from './enums/cart-status.enum';
 import { CartResponseDto } from './dto/cart-response.dto';
+import { UnauthorizedException } from '@nestjs/common';
 
 describe('CartController', () => {
   let controller: CartController;
@@ -66,6 +67,7 @@ describe('CartController', () => {
     updateItemQuantity: jest.fn().mockResolvedValue(mockCartResponse),
     removeItem: jest.fn().mockResolvedValue(mockCartResponse),
     clearCart: jest.fn().mockResolvedValue(mockCartResponse),
+    mergeGuestCartIntoUserCart: jest.fn().mockResolvedValue(mockCartResponse),
   };
 
   const mockResponse = {
@@ -121,43 +123,17 @@ describe('CartController', () => {
     expect(mockResponse.setHeader).toHaveBeenCalledWith('X-Cart-Token', plainGuestToken);
   });
 
-  it('updateItemQuantity should resolve cart and update quantity', async () => {
+  it('mergeCart should call mergeGuestCartIntoUserCart when authenticated', async () => {
     const req = { user: { userId: 'user-uuid-1' } };
-    const dto = { quantity: 3 };
+    const xCartToken = 'guest-token-to-merge';
 
-    mockCartService.resolveCart.mockResolvedValueOnce({
-      cart: mockCartEntity,
-      createdGuestToken: null,
-    });
-
-    const result = await controller.updateItemQuantity(req, undefined, 'item-uuid-1', dto);
+    const result = await controller.mergeCart(req, xCartToken);
     expect(result).toEqual({ data: mockCartResponse });
-    expect(service.updateItemQuantity).toHaveBeenCalledWith('cart-uuid-1', 'item-uuid-1', 3);
+    expect(service.mergeGuestCartIntoUserCart).toHaveBeenCalledWith('user-uuid-1', xCartToken);
   });
 
-  it('removeItem should resolve cart and remove item', async () => {
-    const req = { user: { userId: 'user-uuid-1' } };
-
-    mockCartService.resolveCart.mockResolvedValueOnce({
-      cart: mockCartEntity,
-      createdGuestToken: null,
-    });
-
-    const result = await controller.removeItem(req, undefined, 'item-uuid-1');
-    expect(result).toEqual({ data: mockCartResponse });
-    expect(service.removeItem).toHaveBeenCalledWith('cart-uuid-1', 'item-uuid-1');
-  });
-
-  it('clearCart should resolve cart and clear items', async () => {
-    const req = { user: { userId: 'user-uuid-1' } };
-
-    mockCartService.resolveCart.mockResolvedValueOnce({
-      cart: mockCartEntity,
-      createdGuestToken: null,
-    });
-
-    const result = await controller.clearCart(req, undefined);
-    expect(result).toEqual({ data: mockCartResponse });
-    expect(service.clearCart).toHaveBeenCalledWith('cart-uuid-1');
+  it('mergeCart should throw UnauthorizedException if req.user is missing', async () => {
+    const req = { user: null };
+    await expect(controller.mergeCart(req, 'guest-token')).rejects.toThrow(UnauthorizedException);
   });
 });

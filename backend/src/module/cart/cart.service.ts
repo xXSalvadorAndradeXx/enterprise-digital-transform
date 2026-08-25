@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, DataSource } from 'typeorm';
 import { Cart } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
 import { Product } from '../products/entities/product.entity';
@@ -31,6 +31,7 @@ export class CartService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(ProductVariantConfig)
     private readonly variantConfigRepository: Repository<ProductVariantConfig>,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -413,5 +414,155 @@ export class CartService {
 
     const updatedCart = await this.findActiveCartById(cart.id);
     return CartResponseDto.fromEntity(updatedCart);
+  }
+
+  /**
+   * Fusiona transaccionalmente los ítems de un carrito invitado hacia el carrito activo del cliente autenticado.
+   */
+  async mergeGuestCartIntoUserCart(
+    userId: string,
+    xCartToken?: string,
+  ): Promise<CartResponseDto> {
+    if (!xCartToken || xCartToken.trim().length === 0) {
+      throw new BadRequestException({
+        code: 'CART_TOKEN_INVALID',
+        message: 'Se requiere el header X-Cart-Token para realizar la fusión del carrito',
+      });
+    }
+
+    const guestTokenHash = hashGuestToken(xCartToken.trim());
+
+    return await this.dataSource.transaction(async (manager) => {
+      const cartRepo = manager.getRepository(Cart);
+      const cartItemRepo = manager.getRepository(CartItem);
+      const productRepo = manager.getRepository(Product);
+      const variantRepo = manager.getRepository(ProductVariantConfig);
+
+      // 1. Resolver y validar carrito de invitado
+      const guestCart = await cartRepo.findOne({
+        where: { guestTokenHash, deletedAt: IsNull() },
+        relations: ['items'],
+      });
+
+      if (!guestCart || guestCart.status !== CartStatus.ACTIVE) {
+        throw new BadRequestException({
+          code: 'CART_TOKEN_INVALID',
+          message: 'El token del carrito no es válido',
+        });
+      }
+
+      if (guestCart.expiresAt && guestCart.expiresAt.getTime() < Date.now()) {
+        guestCart.status = CartStatus.ABANDONED;
+        await cartRepo.save(guestCart);
+        throw new BadRequestException({
+          code: 'CART_TOKEN_INVALID',
+          message: 'El token del carrito no es válido',
+        });
+      }
+
+      // 2. Resolver o crear carrito activo para el cliente autenticado
+      let userCart = await cartRepo.findOne({
+        where: { customerId: userId, status: CartStatus.ACTIVE, deletedAt: IsNull() },
+        relations: ['items'],
+      });
+
+      if (!userCart) {
+        this.validateCartOwner(userId, null);
+        userCart = cartRepo.create({
+          customerId: userId,
+          guestTokenHash: null,
+          status: CartStatus.ACTIVE,
+        });
+        userCart = await cartRepo.save(userCart);
+        userCart.items = [];
+      }
+
+      const guestItems = guestCart.items || [];
+      const userItems = userCart.items || [];
+
+      // Si el carrito invitado no contiene ítems, marcarlo ABANDONED de inmediato
+      if (guestItems.length === 0) {
+        guestCart.status = CartStatus.ABANDONED;
+        await cartRepo.save(guestCart);
+        const updatedUserCart = await this.findActiveCartById(userCart.id);
+        return CartResponseDto.fromEntity(updatedUserCart);
+      }
+
+      // 3. Validar y fusionar cada ítem del carrito invitado
+      for (const guestItem of guestItems) {
+        // Validar producto publicable
+        const product = await productRepo.findOne({
+          where: { id: guestItem.productId, deletedAt: IsNull() },
+          relations: ['inventory'],
+        });
+
+        if (!product || !ProductSpecification.isProductPublishableAndSellable(product)) {
+          throw new BadRequestException({
+            code: 'PRODUCT_NOT_PUBLISHED',
+            message: 'El producto no se encuentra disponible para compra',
+            details: { productId: guestItem.productId },
+          });
+        }
+
+        // Validar variante exista y pertenezca al producto
+        const variantConfig = await variantRepo.findOne({
+          where: { id: guestItem.variantId, productId: guestItem.productId },
+          relations: ['inventoryDetail'],
+        });
+
+        if (!variantConfig || variantConfig.productId !== guestItem.productId) {
+          throw new BadRequestException({
+            code: 'VARIANT_NOT_FOUND',
+            message: 'La variante seleccionada no existe o no está disponible',
+            details: { variantId: guestItem.variantId },
+          });
+        }
+
+        // Buscar si la variante ya existe en el carrito del cliente
+        const existingUserItem = userItems.find((ui) => ui.variantId === guestItem.variantId);
+        const existingQty = existingUserItem ? existingUserItem.quantity : 0;
+        const combinedQty = existingQty + guestItem.quantity;
+
+        // Validar cantidad combinada contra el stock disponible
+        const availableStock = variantConfig.inventoryDetail
+          ? Number(variantConfig.inventoryDetail.stock)
+          : 0;
+
+        if (combinedQty > availableStock) {
+          throw new BadRequestException({
+            code: 'STOCK_INSUFFICIENT',
+            message: 'La cantidad combinada supera el stock disponible',
+            details: {
+              variantId: guestItem.variantId,
+              requestedQuantity: combinedQty,
+              availableStock,
+            },
+          });
+        }
+
+        // Transferir o acumular la cantidad en el carrito del usuario
+        if (existingUserItem) {
+          existingUserItem.quantity = combinedQty;
+          await cartItemRepo.save(existingUserItem);
+        } else {
+          const newItem = cartItemRepo.create({
+            cartId: userCart.id,
+            productId: guestItem.productId,
+            variantId: guestItem.variantId,
+            quantity: guestItem.quantity,
+          });
+          await cartItemRepo.save(newItem);
+        }
+      }
+
+      // 4. Vaciar ítems del carrito invitado y actualizar su estado a ABANDONED
+      await cartItemRepo.delete({ cartId: guestCart.id });
+      guestCart.status = CartStatus.ABANDONED;
+      await cartRepo.save(guestCart);
+
+      // 5. Retornar carrito autenticado actualizado y recalculado
+      const updatedUserCart = await this.findActiveCartById(userCart.id);
+      return CartResponseDto.fromEntity(updatedUserCart);
+    });
   }
 }
