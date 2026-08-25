@@ -277,11 +277,19 @@ export class CustomersService {
   async findOne(id: string): Promise<Customer> {
     const customer = await this.customerRepository.findOne({
       where: { id },
+      relations: ['addresses', 'addresses.department', 'addresses.district'],
     });
     if (!customer) {
       throw new NotFoundException({
         code: 'CUSTOMER_NOT_FOUND',
-        message: `No se encontró el cliente con id ${id}`,
+        message: 'El cliente solicitado no existe',
+      });
+    }
+    if (customer.addresses) {
+      customer.addresses.sort((a, b) => {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return a.createdAt.getTime() - b.createdAt.getTime();
       });
     }
     return customer;
