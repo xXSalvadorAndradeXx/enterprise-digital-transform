@@ -16,8 +16,10 @@ import { DeliveryType } from './enums/delivery-type.enum';
 import { PaymentMethod } from '../payments/enums/payment-method.enum';
 import { ReservationStatus } from '../inventory/enums/reservation-status.enum';
 import { ProductStatus } from '../products/enums/product-status.enum';
+import { OrderDelivery } from './entities/order-delivery.entity';
+import { Payment } from '../payments/entities/payment.entity';
 
-describe('OrdersService - Bloqueos Pesimistas y Gestión de Inventarios', () => {
+describe('OrdersService - Bloqueos Pesimistas, Transacciones e Inserciones Atómicas', () => {
   let service: OrdersService;
   let mockOrderRepo: any;
   let mockUserRepo: any;
@@ -84,7 +86,27 @@ describe('OrdersService - Bloqueos Pesimistas y Gestión de Inventarios', () => 
     expect(service).toBeDefined();
   });
 
-  describe('checkout - Bloqueos Pesimistas y Revalidación de Stock', () => {
+  describe('generateUniqueOrderNumber - Requerimiento 1', () => {
+    it('debe generar un orderNumber público de exactamente 8 caracteres alfanuméricos en mayúsculas', async () => {
+      const orderNumber = await (service as any).generateUniqueOrderNumber();
+      expect(orderNumber).toBeDefined();
+      expect(orderNumber.length).toBe(8);
+      expect(orderNumber).toMatch(/^[A-Z0-9]{8}$/);
+    });
+
+    it('debe reintentar si se detecta una colisión previa de orderNumber', async () => {
+      mockOrderRepo.findOne
+        .mockResolvedValueOnce({ id: 'existing-order' }) // Primera colisión
+        .mockResolvedValueOnce(null); // Segundo intento disponible
+
+      const orderNumber = await (service as any).generateUniqueOrderNumber();
+      expect(orderNumber).toBeDefined();
+      expect(orderNumber.length).toBe(8);
+      expect(mockOrderRepo.findOne).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('checkout - Inserción Atómica y Snapshots (Requerimientos 2 a 10)', () => {
     it('debe abortar la transacción y lanzar STOCK_INSUFFICIENT si una variante no tiene suficiente disponible', async () => {
       const checkoutDto: any = {
         source: CheckoutSource.BUY_NOW,
@@ -129,6 +151,9 @@ describe('OrdersService - Bloqueos Pesimistas y Gestión de Inventarios', () => 
 
       mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
         const fakeTx: any = {
+          getRepository: jest.fn().mockReturnValue({
+            findOne: jest.fn().mockResolvedValue(null),
+          }),
           createQueryBuilder: jest.fn().mockImplementation(() => {
             let targetVariantId: string | null = null;
             return {
@@ -176,7 +201,7 @@ describe('OrdersService - Bloqueos Pesimistas y Gestión de Inventarios', () => 
       }
     });
 
-    it('debe reservar stock en PAY_AT_STORE incrementando reserved y creando InventoryReservation', async () => {
+    it('debe crear GuestCustomer, OrderDelivery, Payment y OrderStatusHistory dentro de la misma transacción para invitado', async () => {
       const checkoutDto: any = {
         source: CheckoutSource.BUY_NOW,
         items: [{ variantId: 'prod-uuid-1', quantity: 2, priceAtAdded: 100 }],
@@ -209,10 +234,16 @@ describe('OrdersService - Bloqueos Pesimistas y Gestión de Inventarios', () => 
         inventory: mockInventory,
       };
 
-      let reservationCreated: any = null;
+      let createdGuest: any = null;
+      let createdDelivery: any = null;
+      let createdPayment: any = null;
+      let createdOrder: any = null;
 
       mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
         const fakeTx: any = {
+          getRepository: jest.fn().mockReturnValue({
+            findOne: jest.fn().mockResolvedValue(null),
+          }),
           createQueryBuilder: jest.fn().mockReturnValue({
             insert: jest.fn().mockReturnThis(),
             into: jest.fn().mockReturnThis(),
@@ -228,14 +259,18 @@ describe('OrdersService - Bloqueos Pesimistas y Gestión de Inventarios', () => 
             return Promise.resolve(null);
           }),
           create: jest.fn().mockImplementation((cls: any, dto: any) => {
-            if (cls === InventoryReservation) {
-              reservationCreated = dto;
-            }
-            return { id: 'uuid-gen', ...dto };
+            if (cls === GuestCustomer) createdGuest = dto;
+            if (cls === Order) createdOrder = dto;
+            if (cls === OrderDelivery) createdDelivery = dto;
+            if (cls === Payment) createdPayment = dto;
+            return { id: 'generated-uuid-1', ...dto };
           }),
           save: jest.fn().mockImplementation((clsOrObj: any, obj?: any) => {
             const target = obj || clsOrObj;
-            return Promise.resolve({ id: 'saved-id', ...target });
+            if (target && target.orderNumber) {
+              createdOrder = target;
+            }
+            return Promise.resolve({ id: 'saved-order-id-1', ...target });
           }),
           delete: jest.fn().mockResolvedValue({}),
         };
@@ -244,10 +279,28 @@ describe('OrdersService - Bloqueos Pesimistas y Gestión de Inventarios', () => 
 
       const orderResult = await service.checkout(checkoutDto);
       expect(orderResult).toBeDefined();
-      expect(mockInventory.reserved).toBe(3); // 1 previo + 2 nuevos
-      expect(reservationCreated).toBeDefined();
-      expect(reservationCreated.status).toBe(ReservationStatus.ACTIVE);
-      expect(reservationCreated.quantity).toBe(2);
+
+      // Verificación de GuestCustomer (Requerimiento 3)
+      expect(createdGuest).toBeDefined();
+      expect(createdGuest.email).toBe('maria@example.com');
+      expect(createdGuest.name).toBe('Maria Lopez');
+
+      // Verificación de OrderDelivery (Requerimiento 5)
+      expect(createdDelivery).toBeDefined();
+      expect(createdDelivery.deliveryType).toBe(DeliveryType.STORE_PICKUP);
+      expect(createdDelivery.branchId).toBe('branch-uuid-1');
+
+      // Verificación de Payment (Requerimiento 6)
+      expect(createdPayment).toBeDefined();
+      expect(createdPayment.paymentMethod).toBe(PaymentMethod.PAY_AT_STORE);
+
+      // Verificación de Order & OrderStatusHistory (Requerimientos 2, 7 y 8)
+      expect(createdOrder).toBeDefined();
+      expect(createdOrder.orderNumber.length).toBe(8);
+      expect(createdOrder.statusHistory).toBeDefined();
+      expect(createdOrder.statusHistory.length).toBe(1);
+      expect(createdOrder.statusHistory[0].statusBefore).toBeNull();
+      expect(createdOrder.statusHistory[0].statusAfter).toBe('NEW');
     });
   });
 

@@ -523,7 +523,7 @@ export class OrdersService {
         }
 
         // Crear objeto Order principal
-        const orderNumber = await this.generateUniqueOrderNumber();
+        const orderNumber = await this.generateUniqueOrderNumber(1, tx);
         const order = tx.create(Order, {
           orderNumber,
           status: OrderStatus.NEW,
@@ -983,20 +983,22 @@ export class OrdersService {
     return crypto.createHash('sha256').update(normalizedPayload).digest('hex');
   }
 
-  private async generateUniqueOrderNumber(attempt = 1): Promise<string> {
+  private async generateUniqueOrderNumber(attempt = 1, manager?: EntityManager): Promise<string> {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let value = '';
+    const bytes = crypto.randomBytes(8);
     for (let i = 0; i < 8; i++) {
-      value += chars.charAt(Math.floor(Math.random() * chars.length));
+      value += chars[bytes[i] % chars.length];
     }
-    const exists = await this.orderRepository.findOne({ where: { orderNumber: value } });
+    const repo = manager ? manager.getRepository(Order) : this.orderRepository;
+    const exists = await repo.findOne({ where: { orderNumber: value } });
     if (exists) {
       if (attempt >= 5) {
         throw new InternalServerErrorException(
-          'Failed to generate a unique orderNumber after multiple attempts',
+          'No se pudo generar un orderNumber único después de varios intentos',
         );
       }
-      return this.generateUniqueOrderNumber(attempt + 1);
+      return this.generateUniqueOrderNumber(attempt + 1, manager);
     }
     return value;
   }
