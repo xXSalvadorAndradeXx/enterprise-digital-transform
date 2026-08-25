@@ -1,12 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Cart } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
 import { Product } from '../products/entities/product.entity';
+import { ProductVariantConfig } from '../products/entities/product-variant-config.entity';
+import { CartStatus } from './enums/cart-status.enum';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
-
 import { ProductSpecification } from '../products/helpers/product-specification.helper';
+import { CartResponseDto } from './dto/cart-response.dto';
 
 @Injectable()
 export class CartService {
@@ -17,130 +23,263 @@ export class CartService {
     private readonly cartItemRepository: Repository<CartItem>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(ProductVariantConfig)
+    private readonly variantConfigRepository: Repository<ProductVariantConfig>,
   ) {}
 
-  async findUserCart(userId: string) {
-    const cart = await this.cartRepository.findOne({
-      where: { user: { id: userId } },
-      relations: ['items', 'items.product', 'items.product.inventory'],
+  /**
+   * Valida la restricción XOR del propietario del carrito a nivel de aplicación.
+   */
+  private validateCartOwner(customerId?: string | null, guestTokenHash?: string | null): void {
+    const hasCustomer = !!customerId;
+    const hasGuest = !!guestTokenHash;
+    if ((hasCustomer && hasGuest) || (!hasCustomer && !hasGuest)) {
+      throw new BadRequestException({
+        code: 'INVALID_CART_OWNER',
+        message:
+          'Un carrito debe pertenecer exclusivamente a un cliente autenticado o a un token de invitado, pero nunca a ambos ni a ninguno.',
+      });
+    }
+  }
+
+  /**
+   * Obtiene o crea un carrito activo para un cliente registrado.
+   */
+  async findOrCreateCartForUser(userId: string): Promise<Cart> {
+    let cart = await this.cartRepository.findOne({
+      where: { customerId: userId, status: CartStatus.ACTIVE, deletedAt: IsNull() },
+      relations: [
+        'items',
+        'items.product',
+        'items.product.images',
+        'items.variantConfig',
+        'items.variantConfig.inventoryDetail',
+      ],
     });
 
     if (!cart) {
-      throw new NotFoundException('Carrito no encontrado para este usuario');
+      this.validateCartOwner(userId, null);
+      cart = this.cartRepository.create({
+        customerId: userId,
+        guestTokenHash: null,
+        status: CartStatus.ACTIVE,
+      });
+      cart = await this.cartRepository.save(cart);
+      cart.items = [];
     }
-
-    if (cart.items && cart.items.length > 0) {
-      for (const item of cart.items) {
-        if (item.product) {
-          const effectivePrice = ProductSpecification.calculateEffectivePrice(
-            item.product.salePrice,
-            item.product.discount,
-            item.product.discountStartsAt,
-            item.product.discountEndsAt,
-          );
-          item.unitPrice = effectivePrice;
-          item.subtotal = item.quantity * effectivePrice;
-        }
-      }
-    }
-
-    cart.total = cart.items?.reduce((acc, item) => acc + Number(item.subtotal), 0) || 0;
 
     return cart;
   }
 
-  async addItemToCart(userId: string, dto: AddCartItemDto) {
-    const cart = await this.findUserCart(userId);
-    
+  /**
+   * Obtiene o crea un carrito activo para un visitante (guestTokenHash).
+   */
+  async findOrCreateCartForGuest(guestTokenHash: string): Promise<Cart> {
+    let cart = await this.cartRepository.findOne({
+      where: { guestTokenHash, status: CartStatus.ACTIVE, deletedAt: IsNull() },
+      relations: [
+        'items',
+        'items.product',
+        'items.product.images',
+        'items.variantConfig',
+        'items.variantConfig.inventoryDetail',
+      ],
+    });
+
+    if (!cart) {
+      this.validateCartOwner(null, guestTokenHash);
+      cart = this.cartRepository.create({
+        customerId: null,
+        guestTokenHash,
+        status: CartStatus.ACTIVE,
+      });
+      cart = await this.cartRepository.save(cart);
+      cart.items = [];
+    }
+
+    return cart;
+  }
+
+  /**
+   * Busca un carrito activo por su ID y valida su estado.
+   */
+  async findActiveCartById(cartId: string): Promise<Cart> {
+    const cart = await this.cartRepository.findOne({
+      where: { id: cartId, deletedAt: IsNull() },
+      relations: [
+        'items',
+        'items.product',
+        'items.product.images',
+        'items.variantConfig',
+        'items.variantConfig.inventoryDetail',
+      ],
+    });
+
+    if (!cart) {
+      throw new NotFoundException({
+        code: 'CART_NOT_FOUND',
+        message: `El carrito con ID ${cartId} no existe`,
+      });
+    }
+
+    return cart;
+  }
+
+  /**
+   * Agrega un ítem al carrito o acumula su cantidad si la variante ya existe.
+   */
+  async addItemToCart(cartId: string, dto: AddCartItemDto): Promise<CartResponseDto> {
+    const cart = await this.findActiveCartById(cartId);
+
+    if (cart.status !== CartStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'CART_NOT_ACTIVE',
+        message: 'No es posible modificar un carrito que no se encuentra activo',
+      });
+    }
+
+    // 1. Validar producto
     const product = await this.productRepository.findOne({
-      where: { id: dto.productId },
+      where: { id: dto.productId, deletedAt: IsNull() },
       relations: ['inventory'],
     });
+
     if (!product) {
-      throw new NotFoundException(`El producto con ID ${dto.productId} no existe`);
+      throw new NotFoundException({
+        code: 'PRODUCT_NOT_FOUND',
+        message: `El producto con ID ${dto.productId} no existe`,
+      });
     }
 
     if (!ProductSpecification.isProductPublishableAndSellable(product)) {
-      throw new BadRequestException(
-        `El producto con ID ${dto.productId} no se encuentra publicado o disponible para venta`,
-      );
+      throw new BadRequestException({
+        code: 'PRODUCT_NOT_AVAILABLE',
+        message: `El producto con ID ${dto.productId} no se encuentra disponible públicamente para venta`,
+      });
     }
 
-    const effectivePrice = ProductSpecification.calculateEffectivePrice(
-      product.salePrice,
-      product.discount,
-      product.discountStartsAt,
-      product.discountEndsAt,
-    );
+    // 2. Validar variante pertenezca al producto
+    const variantConfig = await this.variantConfigRepository.findOne({
+      where: { id: dto.variantId, productId: dto.productId },
+    });
 
-    const existingItem = cart.items?.find(item => item.product.id === dto.productId);
+    if (!variantConfig) {
+      throw new BadRequestException({
+        code: 'INVALID_VARIANT',
+        message: `La variante con ID ${dto.variantId} no pertenece al producto indicado (${dto.productId})`,
+      });
+    }
+
+    // 3. Buscar si la variante ya existe en el carrito
+    const existingItem = await this.cartItemRepository.findOne({
+      where: { cartId: cart.id, variantId: dto.variantId },
+    });
 
     if (existingItem) {
-      const newQuantity = existingItem.quantity + dto.quantity;
-      existingItem.quantity = newQuantity;
-      existingItem.unitPrice = effectivePrice;
-      existingItem.subtotal = newQuantity * effectivePrice;
+      existingItem.quantity = existingItem.quantity + dto.quantity;
       await this.cartItemRepository.save(existingItem);
     } else {
       const newItem = this.cartItemRepository.create({
-        cart: { id: cart.id },
-        product: { id: product.id },
+        cartId: cart.id,
+        productId: dto.productId,
+        variantId: dto.variantId,
         quantity: dto.quantity,
-        unitPrice: effectivePrice,
-        subtotal: dto.quantity * effectivePrice,
       });
       await this.cartItemRepository.save(newItem);
     }
 
-    // Retornamos el carrito actualizado
-    return this.findUserCart(userId);
+    const updatedCart = await this.findActiveCartById(cart.id);
+    return CartResponseDto.fromEntity(updatedCart);
   }
 
-  async updateItemQuantity(userId: string, itemId: number, quantity: number) {
+  /**
+   * Actualiza la cantidad de un ítem existente en el carrito.
+   */
+  async updateItemQuantity(
+    cartId: string,
+    itemId: string,
+    quantity: number,
+  ): Promise<CartResponseDto> {
+    if (quantity <= 0) {
+      throw new BadRequestException({
+        code: 'INVALID_QUANTITY',
+        message: 'La cantidad debe ser mayor que cero. Para eliminar, use la operación de eliminación explícita.',
+      });
+    }
+
+    const cart = await this.findActiveCartById(cartId);
+
+    if (cart.status !== CartStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'CART_NOT_ACTIVE',
+        message: 'No es posible modificar un carrito que no se encuentra activo',
+      });
+    }
+
     const cartItem = await this.cartItemRepository.findOne({
-      where: { id: itemId },
-      relations: ['cart', 'cart.user', 'product'],
+      where: { id: itemId, cartId: cart.id },
     });
 
     if (!cartItem) {
-      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
-    }
-
-    if (cartItem.cart.user.id !== userId) {
-      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
+      throw new NotFoundException({
+        code: 'CART_ITEM_NOT_FOUND',
+        message: `El ítem con ID ${itemId} no pertenece a este carrito`,
+      });
     }
 
     cartItem.quantity = quantity;
-    cartItem.subtotal = quantity * cartItem.unitPrice;
     await this.cartItemRepository.save(cartItem);
 
-    return this.findUserCart(userId);
+    const updatedCart = await this.findActiveCartById(cart.id);
+    return CartResponseDto.fromEntity(updatedCart);
   }
 
-  async removeItem(userId: string, itemId: number) {
+  /**
+   * Elimina un ítem explícitamente del carrito.
+   */
+  async removeItem(cartId: string, itemId: string): Promise<CartResponseDto> {
+    const cart = await this.findActiveCartById(cartId);
+
+    if (cart.status !== CartStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'CART_NOT_ACTIVE',
+        message: 'No es posible modificar un carrito que no se encuentra activo',
+      });
+    }
+
     const cartItem = await this.cartItemRepository.findOne({
-      where: { id: itemId },
-      relations: ['cart', 'cart.user'],
+      where: { id: itemId, cartId: cart.id },
     });
 
     if (!cartItem) {
-      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
-    }
-
-    if (cartItem.cart.user.id !== userId) {
-      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
+      throw new NotFoundException({
+        code: 'CART_ITEM_NOT_FOUND',
+        message: `El ítem con ID ${itemId} no pertenece a este carrito`,
+      });
     }
 
     await this.cartItemRepository.remove(cartItem);
 
-    return this.findUserCart(userId);
+    const updatedCart = await this.findActiveCartById(cart.id);
+    return CartResponseDto.fromEntity(updatedCart);
   }
 
-  async clearCart(userId: string) {
-    const cart = await this.findUserCart(userId);
+  /**
+   * Vacía todos los ítems de un carrito activo.
+   */
+  async clearCart(cartId: string): Promise<CartResponseDto> {
+    const cart = await this.findActiveCartById(cartId);
 
-    await this.cartItemRepository.delete({ cart: { id: cart.id } });
+    if (cart.status !== CartStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'CART_NOT_ACTIVE',
+        message: 'No es posible modificar un carrito que no se encuentra activo',
+      });
+    }
 
-    return this.findUserCart(userId);
+    await this.cartItemRepository.delete({ cartId: cart.id });
+
+    const updatedCart = await this.findActiveCartById(cart.id);
+    return CartResponseDto.fromEntity(updatedCart);
   }
 }

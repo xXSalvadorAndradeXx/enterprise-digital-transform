@@ -61,8 +61,8 @@ export class User {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
 
-  @OneToOne(() => Cart, (cart) => cart.user)
-  cart!: Cart;
+  @OneToMany(() => Cart, (cart) => cart.customer)
+  carts?: Cart[];
 
   @ManyToMany(() => Role, (role) => role.users)
   @JoinTable({

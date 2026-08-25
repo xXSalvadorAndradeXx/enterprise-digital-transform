@@ -26,7 +26,7 @@ describe('LocalStrategy', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     cart: null as any,
-  } as User;
+  } as unknown as User;
 
   beforeEach(async () => {
     userRepository = {

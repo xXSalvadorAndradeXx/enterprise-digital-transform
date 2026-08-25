@@ -21,7 +21,7 @@ describe('AuthController', () => {
     updatedAt: new Date(),
     cart: null as any,
     roles: [{ id: 'role-1', name: 'cliente' }] as any,
-  } as User;
+  } as unknown as User;
 
   beforeEach(async () => {
     authService = {
