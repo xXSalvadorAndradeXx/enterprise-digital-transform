@@ -4,17 +4,10 @@ import { ApiRequestError } from "@/lib/api-client";
 import { hasActiveSession, saveAuthSession } from "@/lib/auth-session";
 import { loginUser } from "@/services/auth/auth.service";
 import type { LoginRequest } from "@/types/auth/auth.types";
-import Image from "next/image";
+import { AuthBenefitsBar } from "@/components/auth/AuthBenefitsBar";
+import { AuthIllustrationPanel } from "@/components/auth/AuthIllustrationPanel";
 import Link from "next/link";
-import {
-  CheckCircle2,
-  Headphones,
-  LockKeyhole,
-  Mail,
-  RefreshCcw,
-  ShieldCheck,
-  Truck,
-} from "lucide-react";
+import { CheckCircle2, LockKeyhole, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
@@ -34,13 +27,6 @@ const inputClassName =
   "h-[38px] w-full rounded-md border border-transparent bg-[#f7f7f8] px-5 pr-12 text-xs text-[#3f3f46] outline-none transition placeholder:text-[#8a8a8f] focus:border-[#2829dd] focus:bg-white focus:ring-2 focus:ring-[#2829dd]/10";
 const primaryButtonClassName =
   "mx-auto flex h-[34px] w-[238px] max-w-full items-center justify-center rounded-[2px] bg-[#2829dd] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#2022c7] disabled:cursor-not-allowed disabled:bg-[#7f81e9]";
-
-const loginBenefits = [
-  [Truck, "Envíos gratis en compras +$50"],
-  [RefreshCcw, "Devoluciones hasta 30 días"],
-  [ShieldCheck, "Pago 100% seguro"],
-  [Headphones, "Atención personal"],
-] as const;
 
 function validateLoginForm(formData: LoginRequest): LoginFormErrors {
   const errors: LoginFormErrors = {};
@@ -147,23 +133,7 @@ export default function LoginPage() {
 
   return (
     <section className="flex min-h-screen w-full flex-col overflow-x-hidden bg-white">
-        <div className="bg-[#f2f5fb]">
-          <ul className="mx-auto grid w-full max-w-[1440px] grid-cols-2 gap-x-3 gap-y-3 px-4 py-3 sm:grid-cols-4 sm:gap-y-0 sm:px-6 lg:px-8">
-            {loginBenefits.map(([Icon, label]) => (
-              <li
-                key={label}
-                className="flex min-w-0 items-center justify-center gap-2 text-center text-[10px] font-semibold text-[#111111] lg:gap-3 lg:text-xs"
-              >
-                <Icon
-                  className="h-4 w-4 shrink-0 lg:h-[18px] lg:w-[18px]"
-                  strokeWidth={1.8}
-                  aria-hidden="true"
-                />
-                <span>{label}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <AuthBenefitsBar />
 
         <div className="mx-auto grid w-full max-w-[1120px] flex-1 grid-cols-1 px-5 sm:px-8 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.85fr)] md:gap-12 lg:gap-20">
           <div className="flex justify-center py-12 md:translate-x-4 md:items-start md:py-0 md:pt-[102px]">
@@ -354,18 +324,7 @@ export default function LoginPage() {
           </div>
 
           <div className="hidden h-full items-end justify-end pt-11 md:flex md:pr-2">
-            <div className="relative h-full min-h-[36rem] w-full max-w-[334px] overflow-hidden rounded-t-full bg-[#f0f3fc]">
-              <div className="absolute inset-x-[4%] bottom-0 h-[54%]">
-                <Image
-                  src="/images/auth/login-illustration.png"
-                  alt=""
-                  fill
-                  priority
-                  sizes="(min-width: 768px) 308px, 0px"
-                  className="object-contain object-bottom"
-                />
-              </div>
-            </div>
+            <AuthIllustrationPanel />
           </div>
         </div>
     </section>
