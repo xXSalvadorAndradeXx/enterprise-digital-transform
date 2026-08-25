@@ -12,6 +12,9 @@ import { User } from '../users/entities/user.entity';
 import { Branch } from '../branches/entities/branch.entity';
 import { Product } from '../products/entities/product.entity';
 import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
+import { Inventory } from '../inventory/entities/inventory.entity';
+import { InventoryReservation } from '../inventory/entities/inventory-reservation.entity';
+import { InventoryMovement } from '../inventory/entities/inventory-movement.entity';
 
 @Module({
   imports: [
@@ -25,6 +28,9 @@ import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
       Branch,
       Product,
       CheckoutIdempotency,
+      Inventory,
+      InventoryReservation,
+      InventoryMovement,
     ]),
   ],
   controllers: [OrdersController, EcommerceCheckoutController],

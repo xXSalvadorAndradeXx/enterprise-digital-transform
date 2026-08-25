@@ -7,7 +7,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In, EntityManager } from 'typeorm';
 import * as crypto from 'crypto';
 import { Order } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -27,6 +27,12 @@ import { CheckoutDto } from './dto/checkout.dto';
 import { DeliveryType } from './enums/delivery-type.enum';
 import { PaymentMethod } from '../payments/enums/payment-method.enum';
 import { Inventory } from '../inventory/entities/inventory.entity';
+import { InventoryStatus } from '../inventory/enums/inventory-status.enum';
+import { InventoryReservation } from '../inventory/entities/inventory-reservation.entity';
+import { ReservationStatus } from '../inventory/enums/reservation-status.enum';
+import { InventoryMovement } from '../inventory/entities/inventory-movement.entity';
+import { MovementType } from '../inventory/enums/movement-type.enum';
+import { MovementChannel } from '../inventory/enums/movement-channel.enum';
 import { Payment } from '../payments/entities/payment.entity';
 import { PaymentStatus } from '../payments/enums/payment-status.enum';
 import { CustomerAddress } from '../users/entities/customer-address.entity';
@@ -358,7 +364,7 @@ export class OrdersService {
         delete (delivery as any).branchId;
       }
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { validateDepartmentDistrict } = require('../../../common/utils/address.util');
+      const { validateDepartmentDistrict } = require('../../common/utils/address.util');
       if (!validateDepartmentDistrict(departmentId, districtId)) {
         throw new BadRequestException({
           message: 'Departamento y distrito no coinciden o tienen formato inválido',
@@ -566,12 +572,38 @@ export class OrdersService {
         let totalEffective = 0;
         let hasPriceChanged = false;
 
+        // 1. Ordenar variantIds determinísticamente (por ID ascendente) para evitar deadlocks (Requerimiento 1)
+        const sortedVariantIds = Array.from(
+          new Set(itemsToProcess.map((item) => item.variantId)),
+        ).sort();
+
+        // 2. Adquirir bloqueos pesimistas (pessimistic_write / SELECT ... FOR UPDATE) sobre inventarios (Requerimiento 1)
+        const lockedInventoriesMap = new Map<string, Inventory>();
+        for (const variantId of sortedVariantIds) {
+          const lockedInv = await tx
+            .createQueryBuilder(Inventory, 'inv')
+            .setLock('pessimistic_write')
+            .where('inv.productId = :variantId', { variantId })
+            .getOne();
+
+          if (lockedInv) {
+            lockedInventoriesMap.set(variantId, lockedInv);
+          }
+        }
+
         const loadedItemsData: {
           product: Product;
+          inventory: Inventory;
           itemDto: typeof itemsToProcess[0];
           salePrice: number;
           effectivePrice: number;
           subtotal: number;
+        }[] = [];
+
+        const stockInsufficientDetails: {
+          variantId: string;
+          requestedQuantity: number;
+          availableStock: number;
         }[] = [];
 
         for (const itemDto of itemsToProcess) {
@@ -591,13 +623,21 @@ export class OrdersService {
             throw new BadRequestException('La variante no pertenece al producto');
           }
 
-          if (!product.inventory) {
+          const inventory = lockedInventoriesMap.get(itemDto.variantId) || product.inventory;
+          if (!inventory) {
             throw new BadRequestException(`El producto ${product.id} no tiene inventario asignado`);
           }
-          if (Number(product.inventory.stock) < itemDto.quantity) {
-            throw new BadRequestException({
-              message: `Stock insuficiente para el producto ${product.id}`,
-              code: 'INSUFFICIENT_STOCK',
+
+          // 3. Revalidar el stock disponible autoritativo post-lock: availableStock = physicalStock - reservedStock (Requerimientos 2 & 4)
+          const physicalStock = Number(inventory.stock || 0);
+          const reservedStock = Number(inventory.reserved || 0);
+          const availableStock = physicalStock - reservedStock;
+
+          if (availableStock < itemDto.quantity) {
+            stockInsufficientDetails.push({
+              variantId: itemDto.variantId,
+              requestedQuantity: itemDto.quantity,
+              availableStock: Math.max(0, availableStock),
             });
           }
 
@@ -641,10 +681,23 @@ export class OrdersService {
 
           loadedItemsData.push({
             product,
+            inventory,
             itemDto,
             salePrice,
             effectivePrice,
             subtotal: lineTotal,
+          });
+        }
+
+        // 4. Si cualquier variante tiene stock insuficiente, abortar transacción completa (Requerimiento 5)
+        if (stockInsufficientDetails.length > 0) {
+          throw new UnprocessableEntityException({
+            success: false,
+            error: {
+              code: 'STOCK_INSUFFICIENT',
+              message: 'Uno o más productos no tienen stock suficiente',
+              details: stockInsufficientDetails,
+            },
           });
         }
 
@@ -665,7 +718,7 @@ export class OrdersService {
           });
         }
 
-        // Si los precios son correctos, procedemos a decrementar inventario y crear ítems de orden
+        // 5. Crear ítems de orden
         for (const loaded of loadedItemsData) {
           const { product, itemDto, salePrice, effectivePrice, subtotal } = loaded;
           
@@ -681,10 +734,6 @@ export class OrdersService {
             sku: itemDto.sku || null,
           });
           order.items.push(orderItem);
-
-          // Decrementar stock
-          product.inventory!.stock = Number(product.inventory!.stock) - itemDto.quantity;
-          await tx.save(Inventory, product.inventory!);
         }
 
         // E. Si viene de CART, vaciar el carrito
@@ -723,7 +772,51 @@ export class OrdersService {
         // H. Guardar orden (cascada)
         const savedOrder = await tx.save(Order, order);
 
-        // I. Guardar entrega (OrderDelivery) - Snapshot inmutable
+        // I. Aplicar comportamiento de inventario según paymentMethod (Requerimientos 3 y 4)
+        for (const loaded of loadedItemsData) {
+          const { product, inventory, itemDto } = loaded;
+
+          if (paymentMethod === PaymentMethod.PAY_AT_STORE) {
+            // PAY_AT_STORE -> Reserva de inventario (incrementa reserved)
+            inventory.reserved = Number(inventory.reserved || 0) + itemDto.quantity;
+            await tx.save(Inventory, inventory);
+
+            // Crear registro explícito de reserva vinculado a la orden
+            const reservation = tx.create(InventoryReservation, {
+              orderId: savedOrder.id,
+              productId: product.id,
+              inventoryId: inventory.id,
+              quantity: itemDto.quantity,
+              status: ReservationStatus.ACTIVE,
+            });
+            await tx.save(InventoryReservation, reservation);
+          } else {
+            // CARD / Pago Aprobado -> Consumo definitivo de inventario
+            const stockBefore = Number(inventory.stock || 0);
+            const newStock = stockBefore - itemDto.quantity;
+            inventory.stock = newStock;
+
+            if (newStock <= 0) {
+              inventory.status = InventoryStatus.OUT_OF_STOCK;
+            }
+            await tx.save(Inventory, inventory);
+
+            // Registrar movimiento Kardex definitivo
+            const movement = tx.create(InventoryMovement, {
+              type: MovementType.OUT,
+              quantity: itemDto.quantity,
+              stockBefore,
+              stockAfter: newStock,
+              notes: `Consumo definitivo por checkout e-commerce (Pago Tarjeta)`,
+              referenceId: savedOrder.id,
+              channel: MovementChannel.ECOMMERCE,
+              productId: product.id,
+            });
+            await tx.save(InventoryMovement, movement);
+          }
+        }
+
+        // J. Guardar entrega (OrderDelivery) - Snapshot inmutable
         let orderDelivery: OrderDelivery;
         if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
           const { departmentId, districtId, city, addressLine } = delivery;
@@ -785,7 +878,7 @@ export class OrdersService {
         }
         await tx.save(OrderDelivery, orderDelivery);
 
-        // J. Crear pago asociado
+        // K. Crear pago asociado
         const payment = tx.create(Payment, {
           orderId: savedOrder.id,
           paymentMethod,
@@ -1310,5 +1403,81 @@ export class OrdersService {
         freeShippingApplied,
       },
     };
+  }
+
+  /**
+   * Operación reutilizable para liberar de forma atómica e idempotente
+   * las reservas de stock asociadas a una orden cancelada o expirada.
+   * (Puntos 7, 8 y 9 del requerimiento).
+   */
+  async releaseOrderReservations(
+    orderId: string,
+    manager?: EntityManager,
+  ): Promise<{ releasedCount: number }> {
+    const em = manager ?? this.orderRepository.manager;
+
+    return em.transaction(async (tx) => {
+      // Adquirir y bloquear reservas de la orden en orden determinista por id
+      const reservations = await tx
+        .createQueryBuilder(InventoryReservation, 'res')
+        .setLock('pessimistic_write')
+        .where('res.orderId = :orderId', { orderId })
+        .orderBy('res.id', 'ASC')
+        .getMany();
+
+      if (!reservations || reservations.length === 0) {
+        return { releasedCount: 0 };
+      }
+
+      let releasedCount = 0;
+
+      for (const res of reservations) {
+        if (res.status === ReservationStatus.RELEASED) {
+          // Idempotencia: Si la reserva ya fue liberada, retornar éxito sin cambios adicionals
+          continue;
+        }
+
+        if (res.status === ReservationStatus.CONSUMED) {
+          // Si ya fue consumida definitivamente, impedir su liberación
+          throw new BadRequestException(
+            `La reserva ${res.id} de la orden ${orderId} ya fue consumida y no se puede liberar`,
+          );
+        }
+
+        if (res.status === ReservationStatus.ACTIVE) {
+          // Adquirir bloqueo pesimista sobre el inventario correspondiente
+          const inventory = await tx
+            .createQueryBuilder(Inventory, 'inv')
+            .setLock('pessimistic_write')
+            .where('inv.id = :id', { id: res.inventoryId })
+            .getOne();
+
+          if (inventory) {
+            const currentReserved = Number(inventory.reserved || 0);
+            inventory.reserved = Math.max(0, currentReserved - res.quantity);
+            await tx.save(Inventory, inventory);
+          }
+
+          res.status = ReservationStatus.RELEASED;
+          await tx.save(InventoryReservation, res);
+          releasedCount++;
+
+          // Registrar movimiento Kardex de liberación
+          const movement = tx.create(InventoryMovement, {
+            type: MovementType.IN,
+            quantity: res.quantity,
+            stockBefore: inventory ? Number(inventory.stock) : 0,
+            stockAfter: inventory ? Number(inventory.stock) : 0,
+            notes: `Liberación idempotente de reserva para orden ${orderId}`,
+            referenceId: orderId,
+            channel: MovementChannel.ECOMMERCE,
+            productId: res.productId,
+          });
+          await tx.save(InventoryMovement, movement);
+        }
+      }
+
+      return { releasedCount };
+    });
   }
 }

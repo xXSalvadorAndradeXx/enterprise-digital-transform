@@ -10,17 +10,25 @@ import { InventoryService } from './inventory.service';
 import { InventoryRepository } from './repositories/inventory.repository';
 import { InventoryDetailRepository } from './repositories/inventory-detail.repository';
 
+import { InventoryReservation } from './entities/inventory-reservation.entity';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Inventory,
       InventoryDetail,
       InventoryMovement,
+      InventoryReservation,
       Product,
     ]),
   ],
   controllers: [InventoryController],
   providers: [InventoryService, InventoryRepository, InventoryDetailRepository],
-  exports: [InventoryService, InventoryRepository, InventoryDetailRepository],
+  exports: [
+    InventoryService,
+    InventoryRepository,
+    InventoryDetailRepository,
+    TypeOrmModule,
+  ],
 })
 export class InventoryModule {}
