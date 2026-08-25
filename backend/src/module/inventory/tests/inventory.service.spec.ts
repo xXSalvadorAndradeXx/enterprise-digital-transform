@@ -413,12 +413,18 @@ describe('InventoryService', () => {
         setLock: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         getOne: jest.fn(),
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 0 }),
       };
 
       mockManager = {
         increment: jest.fn().mockResolvedValue({}),
         save: jest.fn().mockResolvedValue({}),
         createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+        find: jest.fn().mockResolvedValue([]),
+        findOne: jest.fn().mockResolvedValue({ id: 'inv-1', stock: 10, status: 'ACTIVE' }),
       };
     });
 
@@ -742,18 +748,18 @@ describe('InventoryService', () => {
         color: '#000000',
       });
       expect(mockQb.andWhere).toHaveBeenCalledWith(
-        'product.nombre ILIKE :search',
+        '(product.commercialName ILIKE :search OR inventory.productName ILIKE :search)',
         { search: '%Laptop%' },
       );
       expect(mockQb.andWhere).toHaveBeenCalledWith('m.channel = :channel', {
         channel: 'TIENDA_FISICA',
       });
       expect(mockQb.andWhere).toHaveBeenCalledWith(
-        'm.created_by = :responsibleUserId',
+        'm.createdById = :responsibleUserId',
         { responsibleUserId: 'user-uuid-1' },
       );
       expect(mockQb.andWhere).toHaveBeenCalledWith(
-        'm.inventory_detail_id = :inventoryDetailId',
+        'm.inventoryDetailId = :inventoryDetailId',
         { inventoryDetailId: 'detail-1' },
       );
 
@@ -813,9 +819,46 @@ describe('InventoryService', () => {
       expect(result.details).toEqual([]);
     });
 
-    it('adjust debe actualizar stock y registrar movimiento', async () => {
+    it('adjust debe actualizar stock y registrar movimiento (ajuste directo de producto)', async () => {
       const mockInventory = { id: 'inv-1', stock: 10 };
-      const mockDetail = { id: 'detail-1', sku: 'SKU-1', stock: 4 };
+      const mockQb = {
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(mockInventory),
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      };
+
+      const mockTxManager = {
+        createQueryBuilder: jest.fn().mockReturnValue(mockQb),
+        save: jest.fn().mockImplementation(async (entityClass, data) => data),
+        create: jest.fn().mockImplementation((entityClass, data) => data),
+        find: jest.fn().mockResolvedValue([]),
+        findOne: jest.fn().mockResolvedValue(mockInventory),
+      };
+
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb(mockTxManager),
+      );
+
+      const result = await service.adjust(
+        {
+          productId: 'prod-1',
+          quantity: 5,
+          type: MovementType.IN,
+        },
+        'user-uuid-1',
+      );
+
+      expect(mockInventory.stock).toBe(15);
+      expect(result.type).toBe(MovementType.IN);
+    });
+
+    it('adjust debe actualizar stock de variante y recalcular stock del inventario principal', async () => {
+      const mockInventory = { id: 'inv-1', stock: 10 };
+      const mockDetail = { id: 'detail-1', sku: 'SKU-1', stock: 4, inventoryId: 'inv-1' };
       const mockQb = {
         setLock: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -823,12 +866,18 @@ describe('InventoryService', () => {
           .fn()
           .mockResolvedValueOnce(mockInventory) // para inventario
           .mockResolvedValueOnce(mockDetail), // para variante
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 0 }),
       };
 
       const mockTxManager = {
         createQueryBuilder: jest.fn().mockReturnValue(mockQb),
         save: jest.fn().mockImplementation(async (entityClass, data) => data),
         create: jest.fn().mockImplementation((entityClass, data) => data),
+        find: jest.fn().mockResolvedValue([mockDetail]),
+        findOne: jest.fn().mockImplementation(async (entityClass, options) => mockInventory),
       };
 
       dataSource.transaction.mockImplementation(async (cb: any) =>
@@ -845,8 +894,8 @@ describe('InventoryService', () => {
         'user-uuid-1',
       );
 
-      expect(mockInventory.stock).toBe(15);
       expect(mockDetail.stock).toBe(9);
+      expect(mockInventory.stock).toBe(9); // Recalculado: sum of details (detail.stock = 9)
       expect(result.type).toBe(MovementType.IN);
       expect(result.inventoryDetailId).toBe('detail-1');
     });

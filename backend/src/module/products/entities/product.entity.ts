@@ -20,6 +20,7 @@ import { ProductStatus } from '../enums/product-status.enum';
 
 @Entity('products')
 @Index(['status'])
+@Index(['isPublished'])
 @Index(['salePrice'])
 @Index(['createdAt'])
 @Index(['discountStartsAt'])
@@ -79,6 +80,12 @@ export class Product {
   })
   status!: ProductStatus;
 
+  @Column({ name: 'is_published', type: 'boolean', default: false, nullable: false })
+  isPublished!: boolean;
+
+  @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
+  publishedAt!: Date | null;
+
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdById!: string | null;
 
@@ -101,6 +108,14 @@ export class Product {
 
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
+
+   get isActive(): boolean {
+    return this.status === ProductStatus.ACTIVE;
+  }
+
+  get productId(): string {
+    return this.id;
+  }
 
   // --- Relaciones OneToMany ---
 

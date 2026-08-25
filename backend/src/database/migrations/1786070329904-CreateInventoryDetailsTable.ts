@@ -8,10 +8,14 @@ export class CreateInventoryDetailsTable1786070329904 implements MigrationInterf
             CREATE TABLE IF NOT EXISTS "supplier_purchase_items" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "purchase_id" uuid NOT NULL,
-                "product_id" uuid NOT NULL,
-                "quantity" numeric(10,2) NOT NULL,
+                "sku" character varying(100) NOT NULL,
+                "size" character varying(50) NOT NULL,
+                "color" character varying(7) NOT NULL,
+                "quantity" integer NOT NULL,
                 "unit_cost" numeric(10,2) NOT NULL,
                 "subtotal" numeric(12,2) NOT NULL,
+                "inventory_detail_id" uuid,
+                "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
                 CONSTRAINT "PK_supplier_purchase_items_id" PRIMARY KEY ("id"),
                 CONSTRAINT "FK_supplier_purchase_items_purchase" FOREIGN KEY ("purchase_id") REFERENCES "supplier_purchases"("id") ON DELETE CASCADE ON UPDATE NO ACTION
             )

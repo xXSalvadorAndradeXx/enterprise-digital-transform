@@ -1,8 +1,8 @@
 import { Injectable, ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
-import { Role } from '../users/entities/role.entity';
-import { Permission } from '../users/entities/permission.entity';
+import { Role } from './entities/role.entity';
+import { Permission } from '../permissions/entities/permission.entity';
 import { CreateRoleDto } from './dto/create-role.dto';
 
 @Injectable()

@@ -6,6 +6,7 @@ import { ProductTag } from './entities/product-tag.entity';
 import { ProductVariantConfig } from './entities/product-variant-config.entity';
 import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
+import { EcommerceProductsController } from './ecommerce-products.controller';
 import { UsersModule } from '../users/users.module';
 
 @Module({
@@ -18,8 +19,8 @@ import { UsersModule } from '../users/users.module';
     ]),
     UsersModule,
   ],
-  controllers: [ProductsController],
+  controllers: [ProductsController, EcommerceProductsController],
   providers: [ProductsService],
-  exports: [TypeOrmModule],
+  exports: [TypeOrmModule, ProductsService],
 })
 export class ProductsModule {}

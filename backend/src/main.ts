@@ -4,12 +4,16 @@ import {
   ValidationPipe,
   HttpStatus,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as express from 'express';
+import cookieParser from 'cookie-parser';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
 
@@ -25,15 +29,24 @@ async function bootstrap() {
   app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
 
+  // Cookie parser para refresco de tokens seguro
+  app.use(cookieParser());
 
   // Prefijo global de la API
   app.setGlobalPrefix(apiPrefix);
 
   // Configuración de CORS
   app.enableCors({
-    origin: 'http://localhost:3001',
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: ['http://localhost:3001', 'http://localhost:3002'],
+    credentials: true,
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Idempotency-Key',
+      'X-Cart-Token',
+      'X-Order-Access-Token',
+    ],
+    exposedHeaders: ['X-Cart-Token'],
   });
 
   // Validaciones globales
@@ -42,9 +55,28 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+      errorHttpStatusCode: HttpStatus.BAD_REQUEST,
+      exceptionFactory: (errors) => {
+        const formattedErrors = errors.map((error) => {
+          const constraints = error.constraints ? Object.values(error.constraints) : [];
+          return {
+            field: error.property,
+            errors: constraints,
+          };
+        });
+
+        return new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'Los datos enviados no son válidos',
+          details: formattedErrors,
+        });
+      },
     }),
   );
+
+  // Interceptores y filtros globales de respuesta estándar
+  app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // Configuración de Swagger
   const swaggerConfig = new DocumentBuilder()

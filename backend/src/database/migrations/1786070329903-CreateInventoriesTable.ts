@@ -15,6 +15,7 @@ export class CreateInventoriesTable1786070329903 implements MigrationInterface {
             "id" uuid NOT NULL DEFAULT uuid_generate_v4(), 
             "product_name" character varying(200) NOT NULL, 
             "brand" character varying(100) NOT NULL, 
+            "gender" product_gender_enum,
             "main_image_url" character varying(500), 
             "status" "public"."inventories_status_enum" NOT NULL DEFAULT 'ACTIVE', 
             "supplier_id" uuid, 

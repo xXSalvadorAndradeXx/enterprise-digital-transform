@@ -3,8 +3,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { RolesService } from './roles.service';
-import { Role } from '../users/entities/role.entity';
-import { Permission } from '../users/entities/permission.entity';
+import { Role } from './entities/role.entity';
+import { Permission } from '../permissions/entities/permission.entity';
 import { User } from '../users/entities/user.entity';
 
 describe('RolesService', () => {

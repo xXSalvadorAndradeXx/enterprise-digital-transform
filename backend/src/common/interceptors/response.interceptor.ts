@@ -30,19 +30,20 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, any> {
           return data;
         }
 
-        // Respuesta paginada ya tiene { data, meta } — no envolver
+        // Si ya está envuelto en la estructura estándar, no volver a envolver
         if (
           typeof data === 'object' &&
-          'meta' in (data as object) &&
-          'data' in (data as object)
+          'success' in (data as object) &&
+          'data' in (data as object) &&
+          (data as any).success === true
         ) {
           return data;
         }
 
-        // Respuesta individual — envolver en { data, statusCode }
+        // Respuesta individual, colección o paginada — envolver en { success: true, data }
         return {
+          success: true,
           data,
-          statusCode: response.statusCode,
         };
       }),
     );

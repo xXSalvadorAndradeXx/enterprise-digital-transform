@@ -1,6 +1,6 @@
-import { Column, Entity } from 'typeorm';
+import { Column, Entity, ManyToMany, JoinTable, CreateDateColumn, PrimaryGeneratedColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
-import { CreateDateColumn, PrimaryGeneratedColumn } from 'typeorm';
+import { Role } from '../../roles/entities/role.entity';
 
 /**
  * Entidad Permission — unidad atómica de autorización.
@@ -21,7 +21,7 @@ export class Permission {
     description: 'Identificador único UUID',
   })
   @PrimaryGeneratedColumn('uuid')
-  id?: string;
+  id!: string;
 
   @ApiProperty({
     example: 'products:create',
@@ -36,7 +36,7 @@ export class Permission {
     nullable: true,
   })
   @Column({ type: 'varchar', length: 255, nullable: true })
-  description?: string | null;
+  description!: string | null;
 
   @ApiProperty({ example: '2026-07-20T10:00:00.000Z' })
   @CreateDateColumn({
@@ -44,5 +44,13 @@ export class Permission {
     type: 'timestamptz',
     default: () => 'now()',
   })
-  createdAt?: Date;
+  createdAt!: Date;
+
+  @ManyToMany(() => Role, (role) => role.permissions)
+  @JoinTable({
+    name: 'role_permissions',
+    joinColumn: { name: 'permission_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  })
+  roles!: Role[];
 }

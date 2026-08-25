@@ -40,3 +40,17 @@ export function generateTemporaryPassword(length: number = 12): string {
 
   return passwordArr.join('');
 }
+
+/**
+ * Genera un token aleatorio criptográficamente seguro para carritos de visitantes (hex de 32 bytes).
+ */
+export function generateGuestToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+/**
+ * Calcula el hash SHA256 de un token de carrito de visitante.
+ */
+export function hashGuestToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}

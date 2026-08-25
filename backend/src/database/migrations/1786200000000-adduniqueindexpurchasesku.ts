@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddUniqueIndexPurchaseSku20260819024046 implements MigrationInterface {
-  name = 'AddUniqueIndexPurchaseSku20260819024046';
+export class AddUniqueIndexPurchaseSku1786200000000 implements MigrationInterface {
+  name = 'AddUniqueIndexPurchaseSku1786200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Eliminar constraint de unicidad global si aún existe
@@ -22,8 +22,5 @@ export class AddUniqueIndexPurchaseSku20260819024046 implements MigrationInterfa
     await queryRunner.query(`
       DROP INDEX IF EXISTS "UQ_supplier_purchase_items_purchase_sku"
     `);
-
-    // NOTA: No se restaura la unicidad global (UQ sobre sku solo)
-    // porque pueden existir registros con el mismo SKU en distintas compras.
   }
 }

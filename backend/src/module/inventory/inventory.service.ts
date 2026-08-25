@@ -13,6 +13,8 @@ import { isUUID } from 'class-validator';
 import { Inventory }        from './entities/inventory.entity';
 import { InventoryDetail }  from './entities/inventory-detail.entity';
 import { InventoryMovement } from './entities/inventory-movement.entity';
+import { InventoryReservation } from './entities/inventory-reservation.entity';
+import { ReservationStatus } from './enums/reservation-status.enum';
 import { Product }           from '../products/entities/product.entity';
 import { ProductStatus }     from '../products/enums/product-status.enum';
 import { InventoryStatus }   from './enums/inventory-status.enum';
@@ -358,6 +360,15 @@ export class InventoryService {
             `Inventario para producto ${dto.productId} no encontrado`,
           );
         }
+        const stockBefore = Number(inventory.stock);
+        const stockAfter  = stockBefore + Number(dto.quantity);
+
+        if (stockAfter < 0) {
+          throw new BadRequestException(
+            `Stock insuficiente. Disponible: ${stockBefore}, solicitado: ${dto.quantity}`,
+          );
+        }
+        (inventory as any)._stockBeforeAdjust = stockBefore;
       }
 
       if (dto.inventoryDetailId) {
@@ -395,8 +406,14 @@ export class InventoryService {
 
       // Recalcular stock del inventario principal
       if (inventory) {
-        await this.recalcAndSaveInventoryStock(inventory.id, manager);
-        inventory = await manager.findOne(Inventory, { where: { id: inventory.id } }) ?? inventory;
+        if (dto.inventoryDetailId) {
+          await this.recalcAndSaveInventoryStock(inventory.id, manager);
+          inventory = await manager.findOne(Inventory, { where: { id: inventory.id } }) ?? inventory;
+        } else {
+          inventory.stock = Number(inventory.stock) + Number(dto.quantity);
+          inventory.status = inventory.stock <= 0 ? InventoryStatus.OUT_OF_STOCK : InventoryStatus.ACTIVE;
+          await manager.save(Inventory, inventory);
+        }
 
         if (inventory.status === InventoryStatus.OUT_OF_STOCK) {
           await this.checkAndPauseProductsOnOutOfStock(
@@ -558,7 +575,7 @@ export class InventoryService {
 
       if (!detail) {
         throw new NotFoundException(
-          `Detalle de inventario ${inventoryDetailId} no encontrado`,
+          `Detalle de inventario con ID ${inventoryDetailId} no encontrado`,
         );
       }
 
@@ -610,5 +627,77 @@ export class InventoryService {
       : InventoryStatus.ACTIVE;
 
     await manager.save(Inventory, inventory);
+  }
+
+  
+  async releaseOrderReservations(
+    orderId: string,
+    manager?: EntityManager,
+  ): Promise<{ releasedCount: number }> {
+    const em = manager ?? this.dataSource.manager;
+
+    return em.transaction(async (tx) => {
+      // Buscar reservas de la orden en orden determinista por id
+      const reservations = await tx
+        .createQueryBuilder(InventoryReservation, 'res')
+        .setLock('pessimistic_write')
+        .where('res.orderId = :orderId', { orderId })
+        .orderBy('res.id', 'ASC')
+        .getMany();
+
+      if (!reservations || reservations.length === 0) {
+        return { releasedCount: 0 };
+      }
+
+      let releasedCount = 0;
+
+      for (const res of reservations) {
+        if (res.status === ReservationStatus.RELEASED) {
+          // Idempotencia: Si ya fue liberada, no realizar cambios adicionales
+          continue;
+        }
+
+        if (res.status === ReservationStatus.CONSUMED) {
+          // Si ya fue consumida definitivamente, impedir su liberación
+          throw new BadRequestException(
+            `La reserva ${res.id} ya fue consumida y no puede ser liberada`,
+          );
+        }
+
+        if (res.status === ReservationStatus.ACTIVE) {
+          // Adquirir bloqueo pesimista sobre el inventario correspondiente
+          const inventory = await tx
+            .createQueryBuilder(Inventory, 'inv')
+            .setLock('pessimistic_write')
+            .where('inv.id = :id', { id: res.inventoryId })
+            .getOne();
+
+          if (inventory) {
+            const currentReserved = Number(inventory.reserved || 0);
+            inventory.reserved = Math.max(0, currentReserved - res.quantity);
+            await tx.save(Inventory, inventory);
+          }
+
+          res.status = ReservationStatus.RELEASED;
+          await tx.save(InventoryReservation, res);
+          releasedCount++;
+
+          // Registrar movimiento Kardex de liberación de reserva
+          const movement = tx.create(InventoryMovement, {
+            type: MovementType.IN,
+            quantity: res.quantity,
+            stockBefore: inventory ? Number(inventory.stock) : 0,
+            stockAfter: inventory ? Number(inventory.stock) : 0,
+            notes: `Liberación idempotente de reserva para orden ${orderId}`,
+            referenceId: orderId,
+            channel: MovementChannel.ECOMMERCE,
+            productId: res.productId,
+          });
+          await tx.save(InventoryMovement, movement);
+        }
+      }
+
+      return { releasedCount };
+    });
   }
 }
