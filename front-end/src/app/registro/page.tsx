@@ -2,13 +2,16 @@
 
 import { AuthBenefitsBar } from "@/components/auth/AuthBenefitsBar";
 import { AuthIllustrationPanel } from "@/components/auth/AuthIllustrationPanel";
-import type {
-  RegisterAddressStep,
-  RegisterCredentialsStep,
-  RegisterPersonalStep,
-} from "@/types/auth/auth.types";
+import {
+  registrationPasswordRequirements,
+  registerSchema,
+} from "@/lib/validations/auth.schemas";
+import { mockDepartments, mockDistricts } from "@/mocks/data";
+import type { RegisterRequest } from "@/types/auth/auth.types";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Eye, EyeOff, Mail } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 
 const registrationSteps = [
   {
@@ -16,8 +19,7 @@ const registrationSteps = [
     progressLabel: "Información personal",
     title: "Crea una cuenta",
     contentClassName: "max-w-[330px]",
-    positionClassName:
-      "md:-translate-x-0.5 md:translate-y-[5px]",
+    positionClassName: "md:-translate-x-0.5 md:translate-y-[5px]",
     navigationClassName: "mt-7",
     previousButtonClassName: "w-[74px]",
     nextButtonClassName: "w-[74px]",
@@ -63,40 +65,92 @@ const registrationSteps = [
 ] as const;
 
 const editableSteps = registrationSteps.slice(0, 3);
-const passwordRequirements = [
-  "Mínimo 8 caracteres",
-  "Una letra mayúscula y una minúscula",
-  "Un número o carácter especial (!@#$%^&*)",
-] as const;
+const stepFields: Array<Array<keyof RegisterRequest>> = [
+  ["fullName", "dui", "phone"],
+  ["email", "password"],
+  ["departmentId", "districtId", "city", "addressLine"],
+];
+
+const initialFormData: RegisterRequest = {
+  fullName: "",
+  dui: "",
+  phone: "",
+  email: "",
+  password: "",
+  departmentId: "",
+  districtId: "",
+  city: "",
+  addressLine: "",
+};
 
 const inputClassName =
-  "h-10 w-full rounded-lg border border-transparent bg-[#f7f7f8] px-5 text-sm text-[#4a4a4a] outline-none transition placeholder:text-[#929292] focus:border-[#1c21d1] focus:bg-white focus:ring-2 focus:ring-[#1c21d1]/10";
+  "h-10 w-full rounded-lg border border-transparent bg-[#f7f7f8] px-5 text-sm text-[#4a4a4a] outline-none transition placeholder:text-[#929292] focus:border-[#1c21d1] focus:bg-white focus:ring-2 focus:ring-[#1c21d1]/10 aria-invalid:border-red-600 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/10";
 const navigationButtonClassName =
   "inline-flex h-[21px] items-center justify-center whitespace-nowrap rounded-[2px] border px-0 text-[9px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c21d1] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-100";
 
+interface FieldErrorMessageProps {
+  id: string;
+  message?: string;
+}
+
+function FieldErrorMessage({ id, message }: FieldErrorMessageProps) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p id={id} role="alert" className="mt-1.5 px-1 text-xs text-red-600">
+      {message}
+    </p>
+  );
+}
+
 export default function RegistroPage() {
   const [activeStep, setActiveStep] = useState(0);
-  const [personalStep, setPersonalStep] = useState<RegisterPersonalStep>({
-    fullName: "",
-    dui: "",
-    phone: "",
-  });
-  const [credentialsStep, setCredentialsStep] =
-    useState<RegisterCredentialsStep>({
-      email: "",
-      password: "",
-    });
-  const [addressStep, setAddressStep] = useState<RegisterAddressStep>({
-    departmentId: "",
-    districtId: "",
-    city: "",
-    addressLine: "",
-  });
   const [showPassword, setShowPassword] = useState(false);
   const activeStepTitleRef = useRef<HTMLHeadingElement>(null);
   const previousStepRef = useRef(activeStep);
+  const {
+    clearErrors,
+    control,
+    register,
+    setValue,
+    trigger,
+    formState: { errors },
+  } = useForm<RegisterRequest>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: initialFormData,
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+    shouldFocusError: true,
+    shouldUnregister: false,
+  });
+  const formValues = useWatch({ control });
+  const selectedDepartmentId = formValues.departmentId ?? "";
+  const selectedDistrictId = formValues.districtId ?? "";
+  const passwordValue = formValues.password ?? "";
+  const previousDepartmentIdRef = useRef(selectedDepartmentId);
   const lastStepIndex = registrationSteps.length - 1;
   const currentStep = registrationSteps[activeStep];
+  const availableDistricts = mockDistricts.filter(
+    (district) => district.departmentId === selectedDepartmentId,
+  );
+  const selectedDepartmentLabel =
+    mockDepartments.find(
+      (department) => department.id === selectedDepartmentId,
+    )?.label ?? "";
+  const selectedDistrictLabel =
+    mockDistricts.find((district) => district.id === selectedDistrictId)
+      ?.label ?? "";
+  const confirmationRows = [
+    ["Nombre completo:", formValues.fullName],
+    ["Teléfono:", formValues.phone],
+    ["Email:", formValues.email],
+    ["Dirección:", formValues.addressLine],
+    ["Ciudad:", formValues.city],
+    ["Departamento:", selectedDepartmentLabel],
+    ["Distrito", selectedDistrictLabel],
+  ] as const;
 
   useEffect(() => {
     if (previousStepRef.current === activeStep) {
@@ -107,57 +161,48 @@ export default function RegistroPage() {
     activeStepTitleRef.current?.focus();
   }, [activeStep]);
 
+  useEffect(() => {
+    if (previousDepartmentIdRef.current === selectedDepartmentId) {
+      return;
+    }
+
+    previousDepartmentIdRef.current = selectedDepartmentId;
+    setValue("districtId", "", { shouldDirty: true });
+    clearErrors("districtId");
+  }, [clearErrors, selectedDepartmentId, setValue]);
+
   const goToPreviousStep = () => {
     setActiveStep((currentStepIndex) =>
       Math.max(currentStepIndex - 1, 0),
     );
   };
 
-  const goToNextStep = () => {
+  const goToNextStep = async () => {
+    if (activeStep >= editableSteps.length) {
+      return;
+    }
+
+    const isCurrentStepValid = await trigger(stepFields[activeStep], {
+      shouldFocus: true,
+    });
+
+    if (!isCurrentStepValid) {
+      return;
+    }
+
     setActiveStep((currentStepIndex) =>
       Math.min(currentStepIndex + 1, lastStepIndex),
     );
   };
 
-  const updatePersonalField = (
-    field: keyof RegisterPersonalStep,
-    value: string,
-  ) => {
-    setPersonalStep((currentStepData) => ({
-      ...currentStepData,
-      [field]: value,
-    }));
-  };
+  const selectStep = (stepIndex: number) => {
+    if (stepIndex <= activeStep) {
+      setActiveStep(stepIndex);
+      return;
+    }
 
-  const updateCredentialsField = (
-    field: keyof RegisterCredentialsStep,
-    value: string,
-  ) => {
-    setCredentialsStep((currentStepData) => ({
-      ...currentStepData,
-      [field]: value,
-    }));
+    void goToNextStep();
   };
-
-  const updateAddressField = (
-    field: keyof RegisterAddressStep,
-    value: string,
-  ) => {
-    setAddressStep((currentStepData) => ({
-      ...currentStepData,
-      [field]: value,
-    }));
-  };
-
-  const confirmationRows = [
-    ["Nombre completo:", personalStep.fullName],
-    ["Teléfono:", personalStep.phone],
-    ["Email:", credentialsStep.email],
-    ["Dirección:", addressStep.addressLine],
-    ["Ciudad:", addressStep.city],
-    ["Departamento:", addressStep.departmentId],
-    ["Distrito", addressStep.districtId],
-  ] as const;
 
   return (
     <section className="flex min-h-screen w-full flex-col overflow-x-hidden bg-white">
@@ -171,6 +216,7 @@ export default function RegistroPage() {
           <ol className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(3,171px)] sm:justify-between sm:gap-0">
             {editableSteps.map((step, stepIndex) => {
               const isActive = stepIndex === activeStep;
+              const isUnavailable = stepIndex > activeStep + 1;
 
               return (
                 <li
@@ -182,8 +228,9 @@ export default function RegistroPage() {
                 >
                   <button
                     type="button"
-                    onClick={() => setActiveStep(stepIndex)}
-                    className="flex w-full min-w-0 items-center justify-center gap-2 sm:justify-start sm:gap-3"
+                    onClick={() => selectStep(stepIndex)}
+                    disabled={isUnavailable}
+                    className="flex w-full min-w-0 items-center justify-center gap-2 disabled:cursor-not-allowed sm:justify-start sm:gap-3"
                     aria-label={`Ir al paso ${stepIndex + 1}: ${step.progressLabel}`}
                   >
                     <span
@@ -220,8 +267,13 @@ export default function RegistroPage() {
           className="flex justify-center pb-12 md:translate-x-5 md:pb-0"
           aria-labelledby="active-registration-step"
         >
-          <div
+          <form
             className={`w-full ${currentStep.contentClassName} ${currentStep.positionClassName}`}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void goToNextStep();
+            }}
+            noValidate
           >
             <h1
               ref={activeStepTitleRef}
@@ -240,15 +292,19 @@ export default function RegistroPage() {
                   </label>
                   <input
                     id="fullName"
-                    name="fullName"
                     type="text"
                     autoComplete="name"
                     placeholder="Nombre completo"
-                    value={personalStep.fullName}
-                    onChange={(event) =>
-                      updatePersonalField("fullName", event.target.value)
-                    }
+                    {...register("fullName")}
                     className={inputClassName}
+                    aria-invalid={Boolean(errors.fullName)}
+                    aria-describedby={
+                      errors.fullName ? "fullName-error" : undefined
+                    }
+                  />
+                  <FieldErrorMessage
+                    id="fullName-error"
+                    message={errors.fullName?.message}
                   />
                 </div>
 
@@ -258,14 +314,17 @@ export default function RegistroPage() {
                   </label>
                   <input
                     id="dui"
-                    name="dui"
                     type="text"
+                    inputMode="numeric"
                     placeholder="Documento Único de Identidad (DUI)"
-                    value={personalStep.dui}
-                    onChange={(event) =>
-                      updatePersonalField("dui", event.target.value)
-                    }
+                    {...register("dui")}
                     className={inputClassName}
+                    aria-invalid={Boolean(errors.dui)}
+                    aria-describedby={errors.dui ? "dui-error" : undefined}
+                  />
+                  <FieldErrorMessage
+                    id="dui-error"
+                    message={errors.dui?.message}
                   />
                 </div>
 
@@ -275,15 +334,19 @@ export default function RegistroPage() {
                   </label>
                   <input
                     id="phone"
-                    name="phone"
                     type="tel"
                     autoComplete="tel"
                     placeholder="Teléfono"
-                    value={personalStep.phone}
-                    onChange={(event) =>
-                      updatePersonalField("phone", event.target.value)
-                    }
+                    {...register("phone")}
                     className={inputClassName}
+                    aria-invalid={Boolean(errors.phone)}
+                    aria-describedby={
+                      errors.phone ? "phone-error" : undefined
+                    }
+                  />
+                  <FieldErrorMessage
+                    id="phone-error"
+                    message={errors.phone?.message}
                   />
                 </div>
               </div>
@@ -298,15 +361,15 @@ export default function RegistroPage() {
                   <div className="relative">
                     <input
                       id="email"
-                      name="email"
                       type="email"
                       autoComplete="email"
                       placeholder="Correo"
-                      value={credentialsStep.email}
-                      onChange={(event) =>
-                        updateCredentialsField("email", event.target.value)
-                      }
+                      {...register("email")}
                       className={`${inputClassName} pr-11`}
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={
+                        errors.email ? "email-error" : undefined
+                      }
                     />
                     <Mail
                       className="pointer-events-none absolute top-1/2 right-4 h-[18px] w-[18px] -translate-y-1/2 text-[#93969d]"
@@ -314,6 +377,10 @@ export default function RegistroPage() {
                       aria-hidden="true"
                     />
                   </div>
+                  <FieldErrorMessage
+                    id="email-error"
+                    message={errors.email?.message}
+                  />
                 </div>
 
                 <div className="mt-[14px]">
@@ -323,15 +390,17 @@ export default function RegistroPage() {
                   <div className="relative">
                     <input
                       id="password"
-                      name="password"
                       type={showPassword ? "text" : "password"}
                       autoComplete="new-password"
                       placeholder="Contraseña"
-                      value={credentialsStep.password}
-                      onChange={(event) =>
-                        updateCredentialsField("password", event.target.value)
-                      }
+                      {...register("password")}
                       className={`${inputClassName} pr-11`}
+                      aria-invalid={Boolean(errors.password)}
+                      aria-describedby={
+                        errors.password
+                          ? "password-error password-requirements"
+                          : "password-requirements"
+                      }
                     />
                     <button
                       type="button"
@@ -361,26 +430,42 @@ export default function RegistroPage() {
                       )}
                     </button>
                   </div>
+                  <FieldErrorMessage
+                    id="password-error"
+                    message={errors.password?.message}
+                  />
                 </div>
 
-                <div className="mt-px px-0.5 text-[#929292]">
+                <div
+                  id="password-requirements"
+                  className="mt-px px-0.5 text-[#929292]"
+                >
                   <p className="text-[11px] font-semibold text-[#363636]">
                     La contraseña debe contener:
                   </p>
                   <ul className="mt-0.5">
-                    {passwordRequirements.map((requirement) => (
-                      <li
-                        key={requirement}
-                        className="flex items-center gap-2 text-[10px] leading-[14px]"
-                      >
-                        <CheckCircle2
-                          className="h-3.5 w-3.5 shrink-0"
-                          strokeWidth={1.8}
-                          aria-hidden="true"
-                        />
-                        <span>{requirement}</span>
-                      </li>
-                    ))}
+                    {registrationPasswordRequirements.map((requirement) => {
+                      const isMet = requirement.isMet(passwordValue);
+
+                      return (
+                        <li
+                          key={requirement.id}
+                          className={`flex items-center gap-2 text-[10px] leading-[14px] ${
+                            isMet ? "text-emerald-600" : "text-[#929292]"
+                          }`}
+                        >
+                          <CheckCircle2
+                            className="h-3.5 w-3.5 shrink-0"
+                            strokeWidth={1.8}
+                            aria-hidden="true"
+                          />
+                          <span>{requirement.label}</span>
+                          <span className="sr-only">
+                            {isMet ? " cumplido" : " pendiente"}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               </div>
@@ -392,17 +477,25 @@ export default function RegistroPage() {
                   <label htmlFor="departmentId" className="sr-only">
                     Departamento
                   </label>
-                  <input
+                  <select
                     id="departmentId"
-                    name="departmentId"
-                    type="text"
-                    autoComplete="address-level1"
-                    placeholder="Departamento"
-                    value={addressStep.departmentId}
-                    onChange={(event) =>
-                      updateAddressField("departmentId", event.target.value)
+                    {...register("departmentId")}
+                    className={`${inputClassName} cursor-pointer`}
+                    aria-invalid={Boolean(errors.departmentId)}
+                    aria-describedby={
+                      errors.departmentId ? "departmentId-error" : undefined
                     }
-                    className={inputClassName}
+                  >
+                    <option value="">Departamento</option>
+                    {mockDepartments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.label}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldErrorMessage
+                    id="departmentId-error"
+                    message={errors.departmentId?.message}
                   />
                 </div>
 
@@ -410,17 +503,26 @@ export default function RegistroPage() {
                   <label htmlFor="districtId" className="sr-only">
                     Distrito
                   </label>
-                  <input
+                  <select
                     id="districtId"
-                    name="districtId"
-                    type="text"
-                    autoComplete="address-level3"
-                    placeholder="Distrito"
-                    value={addressStep.districtId}
-                    onChange={(event) =>
-                      updateAddressField("districtId", event.target.value)
+                    {...register("districtId")}
+                    disabled={!selectedDepartmentId}
+                    className={`${inputClassName} cursor-pointer disabled:cursor-not-allowed disabled:opacity-60`}
+                    aria-invalid={Boolean(errors.districtId)}
+                    aria-describedby={
+                      errors.districtId ? "districtId-error" : undefined
                     }
-                    className={inputClassName}
+                  >
+                    <option value="">Distrito</option>
+                    {availableDistricts.map((district) => (
+                      <option key={district.id} value={district.id}>
+                        {district.label}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldErrorMessage
+                    id="districtId-error"
+                    message={errors.districtId?.message}
                   />
                 </div>
 
@@ -430,15 +532,17 @@ export default function RegistroPage() {
                   </label>
                   <input
                     id="city"
-                    name="city"
                     type="text"
                     autoComplete="address-level2"
                     placeholder="Ciudad"
-                    value={addressStep.city}
-                    onChange={(event) =>
-                      updateAddressField("city", event.target.value)
-                    }
+                    {...register("city")}
                     className={inputClassName}
+                    aria-invalid={Boolean(errors.city)}
+                    aria-describedby={errors.city ? "city-error" : undefined}
+                  />
+                  <FieldErrorMessage
+                    id="city-error"
+                    message={errors.city?.message}
                   />
                 </div>
 
@@ -448,15 +552,19 @@ export default function RegistroPage() {
                   </label>
                   <input
                     id="addressLine"
-                    name="addressLine"
                     type="text"
                     autoComplete="street-address"
                     placeholder="Dirección"
-                    value={addressStep.addressLine}
-                    onChange={(event) =>
-                      updateAddressField("addressLine", event.target.value)
-                    }
+                    {...register("addressLine")}
                     className={inputClassName}
+                    aria-invalid={Boolean(errors.addressLine)}
+                    aria-describedby={
+                      errors.addressLine ? "addressLine-error" : undefined
+                    }
+                  />
+                  <FieldErrorMessage
+                    id="addressLine-error"
+                    message={errors.addressLine?.message}
                   />
                 </div>
               </div>
@@ -492,17 +600,14 @@ export default function RegistroPage() {
               ) : null}
 
               <button
-                type="button"
-                onClick={
-                  activeStep < lastStepIndex ? goToNextStep : undefined
-                }
+                type={activeStep < lastStepIndex ? "submit" : "button"}
                 disabled={activeStep === lastStepIndex}
                 className={`${navigationButtonClassName} ${currentStep.nextButtonClassName} border-[#1c21d1] bg-[#1c21d1] text-white hover:bg-[#171bb8] disabled:bg-[#1c21d1] disabled:text-white`}
               >
                 {currentStep.nextLabel}
               </button>
             </div>
-          </div>
+          </form>
         </main>
 
         <aside className="hidden h-full items-end justify-end md:flex md:pr-2">

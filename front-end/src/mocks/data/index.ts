@@ -7,3 +7,11 @@ export {
   mockDuplicateRegistration,
   mockLoginCredentials,
 } from "./auth.data";
+export {
+  mockDepartments,
+  mockDistricts,
+} from "./locations.data";
+export type {
+  MockDepartmentOption,
+  MockDistrictOption,
+} from "./locations.data";
