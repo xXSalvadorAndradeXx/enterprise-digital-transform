@@ -13,6 +13,12 @@ import { CartStatus } from './enums/cart-status.enum';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { ProductSpecification } from '../products/helpers/product-specification.helper';
 import { CartResponseDto } from './dto/cart-response.dto';
+import { generateGuestToken, hashGuestToken } from '../../common/utils/security.util';
+
+export interface ResolvedCartResult {
+  cart: Cart;
+  createdGuestToken: string | null;
+}
 
 @Injectable()
 export class CartService {
@@ -43,36 +49,112 @@ export class CartService {
   }
 
   /**
+   * Resuelve el carrito dando prioridad a la identidad JWT (customerId) o al header X-Cart-Token (guestTokenHash).
+   */
+  async resolveCart(
+    userId?: string | null,
+    xCartToken?: string | null,
+    isCreateOnPost = false,
+  ): Promise<ResolvedCartResult> {
+    // 1. Prioridad: JWT Autenticado (customerId)
+    if (userId) {
+      let cart = await this.cartRepository.findOne({
+        where: { customerId: userId, status: CartStatus.ACTIVE, deletedAt: IsNull() },
+        relations: [
+          'items',
+          'items.product',
+          'items.product.images',
+          'items.variantConfig',
+          'items.variantConfig.inventoryDetail',
+        ],
+      });
+
+      if (!cart) {
+        this.validateCartOwner(userId, null);
+        cart = this.cartRepository.create({
+          customerId: userId,
+          guestTokenHash: null,
+          status: CartStatus.ACTIVE,
+        });
+        cart = await this.cartRepository.save(cart);
+        cart.items = [];
+      }
+
+      return { cart, createdGuestToken: null };
+    }
+
+    // 2. Visitante con X-Cart-Token
+    if (xCartToken && xCartToken.trim().length > 0) {
+      const guestTokenHash = hashGuestToken(xCartToken.trim());
+      const cart = await this.cartRepository.findOne({
+        where: { guestTokenHash, deletedAt: IsNull() },
+        relations: [
+          'items',
+          'items.product',
+          'items.product.images',
+          'items.variantConfig',
+          'items.variantConfig.inventoryDetail',
+        ],
+      });
+
+      if (!cart || cart.status !== CartStatus.ACTIVE) {
+        throw new BadRequestException({
+          code: 'CART_TOKEN_INVALID',
+          message: 'El token del carrito no es válido',
+        });
+      }
+
+      // Verificación de expiración (expiresAt)
+      if (cart.expiresAt && cart.expiresAt.getTime() < Date.now()) {
+        cart.status = CartStatus.ABANDONED;
+        await this.cartRepository.save(cart);
+        throw new BadRequestException({
+          code: 'CART_TOKEN_INVALID',
+          message: 'El token del carrito no es válido',
+        });
+      }
+
+      return { cart, createdGuestToken: null };
+    }
+
+    // 3. Visitante sin X-Cart-Token
+    if (isCreateOnPost) {
+      const plainToken = generateGuestToken();
+      const guestTokenHash = hashGuestToken(plainToken);
+      const ttlHours = Number(process.env.GUEST_CART_TTL_HOURS) || 168; // 7 días por defecto
+      const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000);
+
+      this.validateCartOwner(null, guestTokenHash);
+      let cart = this.cartRepository.create({
+        customerId: null,
+        guestTokenHash,
+        status: CartStatus.ACTIVE,
+        expiresAt,
+      });
+
+      cart = await this.cartRepository.save(cart);
+      cart.items = [];
+
+      return { cart, createdGuestToken: plainToken };
+    }
+
+    // Sin JWT ni X-Cart-Token en operaciones de lectura/modificación
+    throw new BadRequestException({
+      code: 'CART_TOKEN_INVALID',
+      message: 'El token del carrito no es válido',
+    });
+  }
+
+  /**
    * Obtiene o crea un carrito activo para un cliente registrado.
    */
   async findOrCreateCartForUser(userId: string): Promise<Cart> {
-    let cart = await this.cartRepository.findOne({
-      where: { customerId: userId, status: CartStatus.ACTIVE, deletedAt: IsNull() },
-      relations: [
-        'items',
-        'items.product',
-        'items.product.images',
-        'items.variantConfig',
-        'items.variantConfig.inventoryDetail',
-      ],
-    });
-
-    if (!cart) {
-      this.validateCartOwner(userId, null);
-      cart = this.cartRepository.create({
-        customerId: userId,
-        guestTokenHash: null,
-        status: CartStatus.ACTIVE,
-      });
-      cart = await this.cartRepository.save(cart);
-      cart.items = [];
-    }
-
+    const { cart } = await this.resolveCart(userId, null, true);
     return cart;
   }
 
   /**
-   * Obtiene o crea un carrito activo para un visitante (guestTokenHash).
+   * Obtiene o crea un carrito activo para un visitante.
    */
   async findOrCreateCartForGuest(guestTokenHash: string): Promise<Cart> {
     let cart = await this.cartRepository.findOne({
@@ -126,7 +208,7 @@ export class CartService {
   }
 
   /**
-   * Agrega un ítem al carrito o acumula su cantidad si la variante ya existe.
+   * Agrega un ítem al carrito resuelto o acumula su cantidad si la variante ya existe.
    */
   async addItemToCart(cartId: string, dto: AddCartItemDto): Promise<CartResponseDto> {
     const cart = await this.findActiveCartById(cartId);

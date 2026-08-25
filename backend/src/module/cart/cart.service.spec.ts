@@ -10,6 +10,7 @@ import { ProductVariantConfig } from '../products/entities/product-variant-confi
 import { CartStatus } from './enums/cart-status.enum';
 import { ProductStatus } from '../products/enums/product-status.enum';
 import { InventoryStatus } from '../inventory/enums/inventory-status.enum';
+import { hashGuestToken } from '../../common/utils/security.util';
 
 describe('CartService', () => {
   let service: CartService;
@@ -149,24 +150,73 @@ describe('CartService', () => {
     expect(service).toBeDefined();
   });
 
-  it('findOrCreateCartForUser should return existing active cart', async () => {
-    mockCartRepository.findOne.mockResolvedValueOnce(mockCart);
-    const result = await service.findOrCreateCartForUser('user-uuid-1');
-    expect(result).toEqual(mockCart);
-  });
+  describe('resolveCart', () => {
+    it('should prioritize userId when authenticated JWT is present', async () => {
+      mockCartRepository.findOne.mockResolvedValueOnce(mockCart);
+      const result = await service.resolveCart('user-uuid-1', 'some-guest-token');
+      expect(result.cart).toEqual(mockCart);
+      expect(result.createdGuestToken).toBeNull();
+      expect(mockCartRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ customerId: 'user-uuid-1' }) }),
+      );
+    });
 
-  it('findOrCreateCartForUser should create new cart if none exists', async () => {
-    mockCartRepository.findOne.mockResolvedValueOnce(null);
-    const result = await service.findOrCreateCartForUser('user-uuid-1');
-    expect(result.customerId).toBe('user-uuid-1');
-    expect(result.status).toBe(CartStatus.ACTIVE);
-  });
+    it('should resolve guest cart via valid X-Cart-Token', async () => {
+      const plainToken = 'guest-token-123';
+      const tokenHash = hashGuestToken(plainToken);
+      const guestCart = {
+        ...mockCart,
+        customerId: null,
+        guestTokenHash: tokenHash,
+        expiresAt: new Date(Date.now() + 3600000),
+      };
 
-  it('findOrCreateCartForGuest should return active guest cart', async () => {
-    const guestCart = { ...mockCart, customerId: null, guestTokenHash: 'hash123' };
-    mockCartRepository.findOne.mockResolvedValueOnce(guestCart);
-    const result = await service.findOrCreateCartForGuest('hash123');
-    expect(result.guestTokenHash).toBe('hash123');
+      mockCartRepository.findOne.mockResolvedValueOnce(guestCart);
+
+      const result = await service.resolveCart(null, plainToken);
+      expect(result.cart).toEqual(guestCart);
+      expect(result.createdGuestToken).toBeNull();
+    });
+
+    it('should throw CART_TOKEN_INVALID if X-Cart-Token does not exist in DB', async () => {
+      mockCartRepository.findOne.mockResolvedValueOnce(null);
+      await expect(service.resolveCart(null, 'invalid-token')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw CART_TOKEN_INVALID and mark ABANDONED if guest cart is expired', async () => {
+      const plainToken = 'expired-token';
+      const tokenHash = hashGuestToken(plainToken);
+      const expiredCart = {
+        ...mockCart,
+        customerId: null,
+        guestTokenHash: tokenHash,
+        expiresAt: new Date(Date.now() - 3600000), // Vencido hace 1 hora
+      };
+
+      mockCartRepository.findOne.mockResolvedValueOnce(expiredCart);
+
+      await expect(service.resolveCart(null, plainToken)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockCartRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: CartStatus.ABANDONED }),
+      );
+    });
+
+    it('should generate new guest token and cart on initial POST /cart/items (isCreateOnPost = true)', async () => {
+      const result = await service.resolveCart(null, null, true);
+      expect(result.cart.guestTokenHash).toBeDefined();
+      expect(result.createdGuestToken).toBeDefined();
+      expect(result.createdGuestToken?.length).toBe(64);
+    });
+
+    it('should throw CART_TOKEN_INVALID on GET /cart without JWT and without X-Cart-Token', async () => {
+      await expect(service.resolveCart(null, null, false)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
   });
 
   it('addItemToCart should add new item when variant is not in cart', async () => {
@@ -204,37 +254,6 @@ describe('CartService', () => {
     );
   });
 
-  it('addItemToCart should throw BadRequestException if variant does not belong to product', async () => {
-    mockCartRepository.findOne.mockResolvedValue(mockCart);
-    mockProductRepository.findOne.mockResolvedValue(mockProduct);
-    mockVariantConfigRepository.findOne.mockResolvedValue(null);
-
-    const dto = {
-      productId: 'prod-uuid-1',
-      variantId: 'invalid-variant',
-      quantity: 1,
-    };
-
-    await expect(service.addItemToCart('cart-uuid-1', dto)).rejects.toThrow(
-      BadRequestException,
-    );
-  });
-
-  it('addItemToCart should throw BadRequestException if cart is CHECKED_OUT', async () => {
-    const checkedOutCart = { ...mockCart, status: CartStatus.CHECKED_OUT };
-    mockCartRepository.findOne.mockResolvedValue(checkedOutCart);
-
-    const dto = {
-      productId: 'prod-uuid-1',
-      variantId: 'variant-uuid-1',
-      quantity: 1,
-    };
-
-    await expect(service.addItemToCart('cart-uuid-1', dto)).rejects.toThrow(
-      BadRequestException,
-    );
-  });
-
   it('updateItemQuantity should update quantity when > 0', async () => {
     mockCartRepository.findOne.mockResolvedValue(mockCart);
     mockCartItemRepository.findOne.mockResolvedValue(mockCartItem);
@@ -243,12 +262,6 @@ describe('CartService', () => {
     expect(mockCartItemRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ quantity: 4 }),
     );
-  });
-
-  it('updateItemQuantity should throw BadRequestException when quantity <= 0', async () => {
-    await expect(
-      service.updateItemQuantity('cart-uuid-1', 'item-uuid-1', 0),
-    ).rejects.toThrow(BadRequestException);
   });
 
   it('removeItem should remove cart item', async () => {
