@@ -9,6 +9,7 @@ import { LocationsService } from '../locations/locations.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { HashService } from '../auth/services/hash.service';
+import { EcommerceRegisterDto } from './dto/ecommerce-register.dto';
 import {
   SESSION_ABSOLUTE_MAX_TTL_SECONDS,
   COOKIE_TTL_SHORT,
@@ -129,6 +130,98 @@ export class CustomersService {
 
     const customer = this.customerRepository.create(data);
     return await this.customerRepository.save(customer);
+  }
+
+  /**
+   * Registro transaccional de un nuevo cliente comprador (Customer + dirección principal + sesión de autenticación).
+   */
+  async register(
+    dto: EcommerceRegisterDto,
+    userAgent?: string,
+    ipHash?: string,
+  ): Promise<{
+    customer: Customer;
+    accessToken: string;
+    rawRefreshToken: string;
+    cookieMaxAge: number | undefined;
+  }> {
+    // 1. Normalizar y validar unicidad de email y DUI
+    await this.validateUniqueness(dto.email, dto.dui);
+
+    // 2. Validar que el par departamento-distrito sea válido
+    await this.locationsService.validateDepartmentDistrict(dto.departmentId, dto.districtId);
+
+    // 3. Hashear la contraseña utilizando HashService
+    const hashedPassword = await this.hashService.hashPassword(dto.password);
+
+    // 4. Ejecutar la creación en una transacción única de base de datos
+    return await this.customerRepository.manager.transaction(async (manager) => {
+      const customer = manager.create(Customer, {
+        fullName: dto.fullName,
+        email: dto.email,
+        dui: dto.dui,
+        phone: dto.phone,
+        passwordHash: hashedPassword,
+        isActive: true,
+        totalSpent: 0,
+        totalOrders: 0,
+        lastOrderAt: null,
+      });
+
+      const savedCustomer = await manager.save(Customer, customer);
+
+      // Crear dirección principal (isDefault = true, label = 'Casa')
+      const address = manager.create(CustomerAddress, {
+        customerId: savedCustomer.id,
+        departmentId: dto.departmentId,
+        districtId: dto.districtId,
+        city: dto.city || null,
+        addressLine: dto.addressLine,
+        label: 'Casa',
+        isDefault: true,
+      });
+
+      await manager.save(CustomerAddress, address);
+
+      // Crear sesión de autenticación en la misma transacción
+      const refreshSecret =
+        this.configService.get<string>('JWT_REFRESH_SECRET') ||
+        this.configService.get<string>('JWT_SECRET') ||
+        'default_secret';
+
+      const rawRefreshToken = await this.jwtService.signAsync(
+        { sub: savedCustomer.id, type: 'refresh' },
+        { secret: refreshSecret, expiresIn: SESSION_ABSOLUTE_MAX_TTL_SECONDS },
+      );
+
+      const tokenHash = hashToken(rawRefreshToken);
+      const expiresAt = new Date(Date.now() + SESSION_ABSOLUTE_MAX_TTL_SECONDS * 1000);
+
+      const session = manager.create(EcommerceAuthSession, {
+        customerId: savedCustomer.id,
+        refreshTokenHash: tokenHash,
+        expiresAt,
+        revokedAt: null,
+        lastUsedAt: null,
+        userAgent: userAgent || null,
+        ipHash: ipHash || null,
+      });
+
+      await manager.save(EcommerceAuthSession, session);
+
+      // Generar el Access Token con duración fija de 15 minutos (900s)
+      const accessToken = await this.generateAccessToken(savedCustomer);
+
+      // rememberMe es false por defecto en el registro
+      const cookieMaxAge = COOKIE_TTL_SHORT;
+
+      return {
+        customer: savedCustomer,
+        accessToken,
+        rawRefreshToken,
+        cookieMaxAge,
+      };
+    });
   }
 
   /**
@@ -523,5 +616,39 @@ export class CustomersService {
       path: '/api/v1/ecommerce/auth',
       secure: isProduction,
     });
+  }
+
+  /**
+   * Valida las credenciales de inicio de sesión de un cliente comprador.
+   */
+  async validateCredentials(email: string, password: string): Promise<Customer> {
+    const normalizedEmail = this.normalizeEmail(email);
+    const customer = await this.customerRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+
+    if (!customer) {
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Credenciales inválidas.',
+      });
+    }
+
+    if (!customer.isActive) {
+      throw new UnauthorizedException({
+        code: 'INACTIVE_ACCOUNT',
+        message: 'La cuenta se encuentra inactiva.',
+      });
+    }
+
+    const isPasswordValid = await this.hashService.comparePassword(password, customer.passwordHash);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Credenciales inválidas.',
+      });
+    }
+
+    return customer;
   }
 }

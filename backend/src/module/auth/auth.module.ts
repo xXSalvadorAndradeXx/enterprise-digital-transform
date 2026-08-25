@@ -16,6 +16,7 @@ import { MustChangePasswordGuard } from './guards/must-change-password.guard';
 
 @Module({
   imports: [
+    ConfigModule,
     TypeOrmModule.forFeature([User, Cart, RefreshToken, PasswordResetToken]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

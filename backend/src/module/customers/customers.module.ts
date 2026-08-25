@@ -9,6 +9,7 @@ import { CustomersService } from './customers.service';
 import { LocationsModule } from '../locations/locations.module';
 import { CustomerJwtStrategy } from './strategies/customer-jwt.strategy';
 import { AuthModule } from '../auth/auth.module';
+import { EcommerceAuthController } from './controllers/ecommerce-auth.controller';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AuthModule } from '../auth/auth.module';
     LocationsModule,
     AuthModule,
   ],
+  controllers: [EcommerceAuthController],
   providers: [CustomersService, CustomerJwtStrategy],
   exports: [TypeOrmModule, CustomersService, CustomerJwtStrategy],
 })
