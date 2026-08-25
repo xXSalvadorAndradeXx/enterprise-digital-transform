@@ -712,4 +712,87 @@ export class CustomersService {
 
     return customer;
   }
+
+  /**
+   * Obtiene la lista de clientes con paginación, filtros de búsqueda y ordenación.
+   * Exclusivo para administradores/backoffice.
+   */
+  async findAllForAdmin(
+    page: number = 1,
+    limit: number = 10,
+    filters?: {
+      search?: string;
+      isActive?: boolean;
+      lastOrderFrom?: Date;
+      lastOrderTo?: Date;
+      sortBy?: string;
+      order?: 'ASC' | 'DESC';
+    },
+  ) {
+    const queryBuilder = this.customerRepository.createQueryBuilder('customer');
+
+    if (filters) {
+      if (filters.search) {
+        const normalizedSearch = filters.search.trim();
+        queryBuilder.andWhere(
+          '(customer.fullName ILIKE :search OR customer.email ILIKE :search)',
+          { search: `%${normalizedSearch}%` },
+        );
+      }
+      if (filters.isActive !== undefined) {
+        queryBuilder.andWhere('customer.isActive = :isActive', { isActive: filters.isActive });
+      }
+
+      // Validar coherencia del rango de fecha de última orden
+      if (filters.lastOrderFrom && filters.lastOrderTo && filters.lastOrderFrom > filters.lastOrderTo) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'La fecha de inicio (lastOrderFrom) no puede ser posterior a la fecha de fin (lastOrderTo)',
+        });
+      }
+
+      if (filters.lastOrderFrom) {
+        queryBuilder.andWhere('customer.lastOrderAt >= :lastOrderFrom', {
+          lastOrderFrom: filters.lastOrderFrom,
+        });
+      }
+      if (filters.lastOrderTo) {
+        queryBuilder.andWhere('customer.lastOrderAt <= :lastOrderTo', {
+          lastOrderTo: filters.lastOrderTo,
+        });
+      }
+    }
+
+    queryBuilder.andWhere('customer.deletedAt IS NULL');
+
+    // Mapeo seguro mediante lista blanca
+    const sortByWhitelist: Record<string, string> = {
+      fullName: 'customer.fullName',
+      lastOrderAt: 'customer.lastOrderAt',
+      totalSpent: 'customer.totalSpent',
+      totalOrders: 'customer.totalOrders',
+    };
+
+    const sortColumn = (filters && filters.sortBy && sortByWhitelist[filters.sortBy]) || 'customer.createdAt';
+    const sortOrder = (filters && filters.order) || 'DESC';
+
+    queryBuilder.orderBy(sortColumn, sortOrder);
+    queryBuilder.addOrderBy('customer.id', 'ASC'); // Criterio secundario estable para paginación determinista
+
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    const [customers, total] = await queryBuilder.getManyAndCount();
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      customers,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    };
+  }
 }
