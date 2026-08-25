@@ -260,8 +260,15 @@ export function CartProvider({ children }: CartProviderProps) {
     };
 
     const clearCart = async () => {
-      await runCartOperation(clearCurrentCart);
-    };
+  // Si no hay sesión, no existe carrito backend que limpiar.
+  // Limpiamos solamente el estado local del contexto.
+  if (!readAccessToken()) {
+    clearCartState();
+    return;
+  }
+
+  await runCartOperation(clearCurrentCart);
+};
 
     const totalItems = items.reduce((total, item) => total + item.quantity, 0);
     const totalPrice = items.reduce(
