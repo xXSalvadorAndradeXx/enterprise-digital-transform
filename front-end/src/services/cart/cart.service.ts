@@ -84,16 +84,5 @@ export async function removeCartItem(
   return response.data;
 }
 
-export async function clearCurrentCart(): Promise<ApiCart> {
-  const response = await apiRequest<CartResponse>(
-    "/cart",
-    {
-      method: "DELETE",
-      headers: getAuthHeaders(),
-    },
-  );
-
-  return response.data;
-}
 
 export type { ApiCart };

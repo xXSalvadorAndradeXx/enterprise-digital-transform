@@ -13,7 +13,6 @@ import {
 
 import {
   addCartItem,
-  clearCurrentCart,
   getCurrentCart,
   removeCartItem,
   updateCartItemQuantity,
@@ -72,7 +71,6 @@ export interface CartContextValue {
     quantity: number,
   ) => Promise<void>;
 
-  clearCart: () => Promise<void>;
 
   totalItems: number;
 
@@ -89,6 +87,13 @@ export interface CartContextValue {
 type CartProviderProps = {
   children: ReactNode;
 };
+
+interface CartSnapshot {
+  items: CartItem[];
+  subtotal: number;
+  discountTotal: number;
+  total: number;
+}
 
 const CartContext = createContext<
   CartContextValue | undefined
@@ -108,7 +113,7 @@ function normalizeQuantity(
 }
 
 function normalizePrice(
-  price: string | number,
+  price: string | number | undefined,
 ) {
   return Number(price) || 0;
 }
@@ -168,6 +173,77 @@ function apiCartToCartItems(
   );
 }
 
+function getProductGrossPrice(
+  product: Product,
+) {
+  return normalizePrice(
+    product.salePrice ??
+      product.precio ??
+      product.effectivePrice,
+  );
+}
+
+function getProductEffectivePrice(
+  product: Product,
+) {
+  return normalizePrice(
+    product.effectivePrice ??
+      product.salePrice ??
+      product.precio,
+  );
+}
+
+function createOptimisticItem(
+  product: Product,
+  variant: ProductVariant,
+  quantity: number,
+): CartItem {
+  const unitPrice =
+    getProductGrossPrice(product);
+
+  const effectivePrice =
+    getProductEffectivePrice(product);
+
+  const unitDiscount = Math.max(
+    0,
+    unitPrice - effectivePrice,
+  );
+
+  return {
+    id: `optimistic-${variant.id}`,
+    productId: String(product.id),
+    variantId: variant.id,
+
+    nombre:
+      product.commercialName ??
+      product.nombre,
+
+    imagenUrl:
+      product.primaryImage?.url ??
+      product.imagenUrl ??
+      null,
+
+    talla: variant.size,
+    color: variant.color.name,
+    colorHex: variant.color.hex,
+
+    precio: unitPrice,
+
+    descuentoLinea:
+      unitDiscount * quantity,
+
+    totalLinea:
+      effectivePrice * quantity,
+
+    stock: Math.max(
+      0,
+      variant.stock,
+    ),
+
+    quantity,
+  };
+}
+
 export function CartProvider({
   children,
 }: CartProviderProps) {
@@ -204,21 +280,7 @@ export function CartProvider({
     useCallback(() => {
       refreshRequestIdRef.current += 1;
       refreshPromiseRef.current = null;
-
-      setIsSyncing(false);
     }, []);
-
-  const clearCartState =
-    useCallback(() => {
-      cancelPendingSync();
-
-      setItems([]);
-      setSubtotal(0);
-      setDiscountTotal(0);
-      setTotal(0);
-
-      setSyncError(null);
-    }, [cancelPendingSync]);
 
   const applyCartState =
     useCallback(
@@ -249,6 +311,19 @@ export function CartProvider({
       },
       [],
     );
+
+  const clearCartState =
+    useCallback(() => {
+      cancelPendingSync();
+
+      setItems([]);
+      setSubtotal(0);
+      setDiscountTotal(0);
+      setTotal(0);
+
+      setIsSyncing(false);
+      setSyncError(null);
+    }, [cancelPendingSync]);
 
   const refreshCart =
     useCallback(async () => {
@@ -318,42 +393,6 @@ export function CartProvider({
       clearCartState,
     ]);
 
-  const runCartOperation =
-    useCallback(
-      async (
-        operation: () =>
-          Promise<ApiCart>,
-      ) => {
-        const tokenAtStart =
-          readAccessToken();
-
-        cancelPendingSync();
-        setSyncError(null);
-
-        try {
-          const cart =
-            await operation();
-
-          if (
-            readAccessToken() ===
-            tokenAtStart
-          ) {
-            applyCartState(cart);
-          }
-        } catch (error) {
-          setSyncError(
-            getCartErrorMessage(error),
-          );
-
-          throw error;
-        }
-      },
-      [
-        applyCartState,
-        cancelPendingSync,
-      ],
-    );
-
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -397,6 +436,64 @@ export function CartProvider({
 
   const value =
     useMemo<CartContextValue>(() => {
+      const createSnapshot =
+        (): CartSnapshot => ({
+          items,
+          subtotal,
+          discountTotal,
+          total,
+        });
+
+      const restoreSnapshot = (
+        snapshot: CartSnapshot,
+      ) => {
+        setItems(snapshot.items);
+        setSubtotal(
+          snapshot.subtotal,
+        );
+        setDiscountTotal(
+          snapshot.discountTotal,
+        );
+        setTotal(snapshot.total);
+      };
+
+      const runOptimisticOperation =
+        async (
+          applyOptimisticUpdate:
+            () => void,
+          operation: () =>
+            Promise<ApiCart>,
+        ) => {
+          const snapshot =
+            createSnapshot();
+
+          cancelPendingSync();
+
+          setSyncError(null);
+          setIsSyncing(true);
+
+          applyOptimisticUpdate();
+
+          try {
+            const cart =
+              await operation();
+
+            applyCartState(cart);
+          } catch (error) {
+            restoreSnapshot(snapshot);
+
+            setSyncError(
+              getCartErrorMessage(
+                error,
+              ),
+            );
+
+            throw error;
+          } finally {
+            setIsSyncing(false);
+          }
+        };
+
       const addItem = async (
         product: Product,
         variant: ProductVariant,
@@ -411,6 +508,19 @@ export function CartProvider({
           variant.stock,
         );
 
+        if (stock === 0) {
+          return;
+        }
+
+        const normalizedQuantity =
+          normalizeQuantity(quantity);
+
+        if (
+          normalizedQuantity < 1
+        ) {
+          return;
+        }
+
         const currentItem =
           items.find(
             (item) =>
@@ -418,41 +528,193 @@ export function CartProvider({
               variant.id,
           );
 
+        const currentQuantity =
+          currentItem?.quantity ?? 0;
+
         const availableQuantity =
-          stock -
-          (currentItem?.quantity ??
-            0);
+          stock - currentQuantity;
 
         const quantityToAdd =
           Math.min(
-            normalizeQuantity(
-              quantity,
-            ),
+            normalizedQuantity,
             availableQuantity,
           );
 
-        if (
-          stock === 0 ||
-          quantityToAdd <= 0
-        ) {
+        if (quantityToAdd <= 0) {
           return;
         }
 
-        await runCartOperation(() =>
-          addCartItem({
-            variantId:
-              variant.id,
-            quantity:
-              quantityToAdd,
-          }),
+        await runOptimisticOperation(
+          () => {
+            if (currentItem) {
+              const oldQuantity =
+                currentItem.quantity;
+
+              const newQuantity =
+                oldQuantity +
+                quantityToAdd;
+
+              const unitSubtotal =
+                oldQuantity > 0
+                  ? (
+                      currentItem.precio *
+                      oldQuantity
+                    ) /
+                    oldQuantity
+                  : currentItem.precio;
+
+              const unitDiscount =
+                oldQuantity > 0
+                  ? currentItem
+                      .descuentoLinea /
+                    oldQuantity
+                  : 0;
+
+              const unitTotal =
+                oldQuantity > 0
+                  ? currentItem
+                      .totalLinea /
+                    oldQuantity
+                  : currentItem.precio;
+
+              const subtotalDelta =
+                unitSubtotal *
+                quantityToAdd;
+
+              const discountDelta =
+                unitDiscount *
+                quantityToAdd;
+
+              const totalDelta =
+                unitTotal *
+                quantityToAdd;
+
+              setItems(
+                items.map((item) =>
+                  item.variantId ===
+                  variant.id
+                    ? {
+                        ...item,
+                        quantity:
+                          newQuantity,
+                        descuentoLinea:
+                          unitDiscount *
+                          newQuantity,
+                        totalLinea:
+                          unitTotal *
+                          newQuantity,
+                      }
+                    : item,
+                ),
+              );
+
+              setSubtotal(
+                subtotal +
+                  subtotalDelta,
+              );
+
+              setDiscountTotal(
+                discountTotal +
+                  discountDelta,
+              );
+
+              setTotal(
+                total + totalDelta,
+              );
+
+              return;
+            }
+
+            const optimisticItem =
+              createOptimisticItem(
+                product,
+                variant,
+                quantityToAdd,
+              );
+
+            setItems([
+              ...items,
+              optimisticItem,
+            ]);
+
+            setSubtotal(
+              subtotal +
+                optimisticItem.precio *
+                  optimisticItem.quantity,
+            );
+
+            setDiscountTotal(
+              discountTotal +
+                optimisticItem
+                  .descuentoLinea,
+            );
+
+            setTotal(
+              total +
+                optimisticItem
+                  .totalLinea,
+            );
+          },
+          () =>
+            addCartItem({
+              variantId:
+                variant.id,
+              quantity:
+                quantityToAdd,
+            }),
         );
       };
 
       const removeItem = async (
         itemId: string,
       ) => {
-        await runCartOperation(() =>
-          removeCartItem(itemId),
+        const currentItem =
+          items.find(
+            (item) =>
+              item.id === itemId,
+          );
+
+        if (!currentItem) {
+          return;
+        }
+
+        await runOptimisticOperation(
+          () => {
+            setItems(
+              items.filter(
+                (item) =>
+                  item.id !== itemId,
+              ),
+            );
+
+            setSubtotal(
+              Math.max(
+                0,
+                subtotal -
+                  currentItem.precio *
+                    currentItem.quantity,
+              ),
+            );
+
+            setDiscountTotal(
+              Math.max(
+                0,
+                discountTotal -
+                  currentItem
+                    .descuentoLinea,
+              ),
+            );
+
+            setTotal(
+              Math.max(
+                0,
+                total -
+                  currentItem.totalLinea,
+              ),
+            );
+          },
+          () =>
+            removeCartItem(itemId),
         );
       };
 
@@ -461,65 +723,142 @@ export function CartProvider({
           itemId: string,
           quantity: number,
         ) => {
-          const normalizedQuantity =
-            normalizeQuantity(
-              quantity,
-            );
-
-          if (
-            normalizedQuantity === 0
-          ) {
-            await removeItem(
-              itemId,
-            );
-
-            return;
-          }
-
           const currentItem =
             items.find(
               (item) =>
                 item.id === itemId,
             );
 
-          const safeQuantity =
-            currentItem
-              ? Math.min(
-                  normalizedQuantity,
-                  Math.max(
-                    0,
-                    currentItem.stock,
-                  ),
-                )
-              : normalizedQuantity;
-
-          if (
-            safeQuantity === 0
-          ) {
-            await removeItem(
-              itemId,
-            );
-
+          if (!currentItem) {
             return;
           }
 
-          await runCartOperation(() =>
-            updateCartItemQuantity(
-              itemId,
-              {
-                quantity:
-                  safeQuantity,
-              },
-            ),
+          const normalizedQuantity =
+            normalizeQuantity(
+              quantity,
+            );
+
+          /*
+           * La cantidad mínima mediante
+           * controles +/- es 1.
+           * Eliminar es una acción aparte.
+           */
+          const safeQuantity =
+            Math.min(
+              Math.max(
+                1,
+                normalizedQuantity,
+              ),
+              Math.max(
+                1,
+                currentItem.stock,
+              ),
+            );
+
+          if (
+            safeQuantity ===
+            currentItem.quantity
+          ) {
+            return;
+          }
+
+          const oldQuantity =
+            currentItem.quantity;
+
+          const unitDiscount =
+            oldQuantity > 0
+              ? currentItem
+                  .descuentoLinea /
+                oldQuantity
+              : 0;
+
+          const unitTotal =
+            oldQuantity > 0
+              ? currentItem
+                  .totalLinea /
+                oldQuantity
+              : currentItem.precio;
+
+          const oldSubtotal =
+            currentItem.precio *
+            oldQuantity;
+
+          const newSubtotal =
+            currentItem.precio *
+            safeQuantity;
+
+          const oldDiscount =
+            currentItem
+              .descuentoLinea;
+
+          const newDiscount =
+            unitDiscount *
+            safeQuantity;
+
+          const oldTotal =
+            currentItem.totalLinea;
+
+          const newTotal =
+            unitTotal *
+            safeQuantity;
+
+          await runOptimisticOperation(
+            () => {
+              setItems(
+                items.map((item) =>
+                  item.id === itemId
+                    ? {
+                        ...item,
+                        quantity:
+                          safeQuantity,
+                        descuentoLinea:
+                          newDiscount,
+                        totalLinea:
+                          newTotal,
+                      }
+                    : item,
+                ),
+              );
+
+              setSubtotal(
+                Math.max(
+                  0,
+                  subtotal -
+                    oldSubtotal +
+                    newSubtotal,
+                ),
+              );
+
+              setDiscountTotal(
+                Math.max(
+                  0,
+                  discountTotal -
+                    oldDiscount +
+                    newDiscount,
+                ),
+              );
+
+              setTotal(
+                Math.max(
+                  0,
+                  total -
+                    oldTotal +
+                    newTotal,
+                ),
+              );
+            },
+            () =>
+              updateCartItemQuantity(
+                itemId,
+                {
+                  quantity:
+                    safeQuantity,
+                },
+              ),
           );
         };
 
-      const clearCart =
-        async () => {
-          await runCartOperation(
-            clearCurrentCart,
-          );
-        };
+
 
       const totalItems =
         items.reduce(
@@ -534,7 +873,6 @@ export function CartProvider({
         addItem,
         removeItem,
         updateQuantity,
-        clearCart,
 
         totalItems,
 
@@ -544,6 +882,7 @@ export function CartProvider({
 
         isSyncing,
         syncError,
+
         refreshCart,
       };
     }, [
@@ -552,9 +891,10 @@ export function CartProvider({
       discountTotal,
       total,
       isSyncing,
-      refreshCart,
-      runCartOperation,
       syncError,
+      refreshCart,
+      applyCartState,
+      cancelPendingSync,
     ]);
 
   return (
