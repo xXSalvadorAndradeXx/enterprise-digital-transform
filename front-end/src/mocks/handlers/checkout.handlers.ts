@@ -1,234 +1,116 @@
-import {
-  http,
-  HttpResponse,
-} from "msw";
+import { http, HttpResponse } from "msw";
 
-import type {
-  CheckoutPreviewRequest,
-  CheckoutPreviewResponse,
-} from "@/types/checkout/checkout.types";
+const API_BASE_URL = "/api/v1/ecommerce";
 
-import {
-  buyNowCheckoutPreviewMock,
-  cartCheckoutPreviewMock,
-  priceChangedPreviewMock,
-  stockInsufficientDetailsMock,
-} from "@/mocks/data/checkout.mock";
+const isValidIdempotencyKey = (value: string | null): boolean => {
+  if (!value) return false;
 
-const API_BASE_URL =
-  "http://localhost:3000";
+  
 
-type CheckoutScenario =
-  | "SUCCESS"
-  | "INVALID_DELIVERY"
-  | "INVALID_PAYMENT_COMBINATION"
-  | "PRICE_CHANGED"
-  | "STOCK_INSUFFICIENT"
-  | "UNAUTHORIZED"
-  | "SERVER_ERROR";
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-let currentCheckoutScenario: CheckoutScenario =
-  "SUCCESS";
+  return uuidRegex.test(value);
+};
 
-function createPreviewResponse(
-  data: CheckoutPreviewResponse["data"],
-): CheckoutPreviewResponse {
-  return {
-    success: true,
-    message:
-      "Checkout preview calculated successfully",
-    data,
-    timestamp:
-      new Date().toISOString(),
-  };
-}
 
-function createApiError(
-  statusCode: number,
-  code: string,
-  message: string,
-  details?: Record<string, unknown>,
-) {
-  return {
-    success: false,
-    statusCode,
-    code,
-    message,
 
-    error:
-      statusCode >= 500
-        ? "Internal Server Error"
-        : statusCode === 401
-          ? "Unauthorized"
-          : statusCode === 409
-            ? "Conflict"
-            : "Bad Request",
 
-    details,
-
-    timestamp:
-      new Date().toISOString(),
-
-    path:
-      "/checkout/preview",
-  };
-}
-
-/*
- * Permite cambiar temporalmente
- * el escenario desde pruebas.
- */
-export function setCheckoutMockScenario(
-  scenario: CheckoutScenario,
-) {
-  currentCheckoutScenario =
-    scenario;
-}
-
-/*
- * Restaura escenario exitoso.
- */
-export function resetCheckoutMockScenario() {
-  currentCheckoutScenario =
-    "SUCCESS";
-}
-
-const checkoutPreviewHandler =
-  http.post(
-    `${API_BASE_URL}/checkout/preview`,
-
-    async ({
-      request,
-    }) => {
-      if (
-        currentCheckoutScenario ===
-        "UNAUTHORIZED"
-      ) {
-        return HttpResponse.json(
-          createApiError(
-            401,
-            "SESSION_EXPIRED_OR_REVOKED",
-            "La sesión no es válida o ha expirado.",
-          ),
-          {
-            status: 401,
-          },
-        );
-      }
-
-      if (
-        currentCheckoutScenario ===
-        "SERVER_ERROR"
-      ) {
-        return HttpResponse.json(
-          createApiError(
-            500,
-            "INTERNAL_SERVER_ERROR",
-            "No se pudo calcular la vista previa del pedido.",
-          ),
-          {
-            status: 500,
-          },
-        );
-      }
-
-      if (
-        currentCheckoutScenario ===
-        "INVALID_DELIVERY"
-      ) {
-        return HttpResponse.json(
-          createApiError(
-            400,
-            "INVALID_DELIVERY",
-            "La información de entrega no es válida.",
-          ),
-          {
-            status: 400,
-          },
-        );
-      }
-
-      if (
-        currentCheckoutScenario ===
-        "INVALID_PAYMENT_COMBINATION"
-      ) {
-        return HttpResponse.json(
-          createApiError(
-            400,
-            "INVALID_PAYMENT_COMBINATION",
-            "El método de pago no es compatible con el tipo de entrega.",
-          ),
-          {
-            status: 400,
-          },
-        );
-      }
-
-      if (
-        currentCheckoutScenario ===
-        "PRICE_CHANGED"
-      ) {
-        return HttpResponse.json(
-          createApiError(
-            409,
-            "PRICE_CHANGED",
-            "El precio o descuento cambió.",
-            {
-              recalculated:
-                priceChangedPreviewMock,
-            },
-          ),
-          {
-            status: 409,
-          },
-        );
-      }
-
-      if (
-        currentCheckoutScenario ===
-        "STOCK_INSUFFICIENT"
-      ) {
-        return HttpResponse.json(
-          createApiError(
-            409,
-            "STOCK_INSUFFICIENT",
-            "El stock cambió antes de confirmar.",
-            stockInsufficientDetailsMock,
-          ),
-          {
-            status: 409,
-          },
-        );
-      }
-
-      const body =
-        await request.json() as
-          CheckoutPreviewRequest;
-
-      if (
-        body.source === "BUY_NOW"
-      ) {
-        return HttpResponse.json(
-          createPreviewResponse(
-            buyNowCheckoutPreviewMock,
-          ),
-          {
-            status: 200,
-          },
-        );
-      }
-
-      return HttpResponse.json(
-        createPreviewResponse(
-          cartCheckoutPreviewMock,
-        ),
-        {
-          status: 200,
-        },
-      );
-    },
-  );
 
 export const checkoutHandlers = [
-  checkoutPreviewHandler,
+  http.post(`${API_BASE_URL}/checkout/preview`, async () => {
+    return HttpResponse.json(
+      {
+        subtotal: "60.00",
+        discountTotal: "6.00",
+        shippingTotal: "0.00",
+        total: "54.00",
+        freeShippingApplied: true,
+      },
+      { status: 200 },
+    );
+  }),
+
+  http.post(`${API_BASE_URL}/checkout`, async ({ request }) => {
+    const idempotencyKey = request.headers.get("Idempotency-Key");
+    const mockError = request.headers.get("X-Mock-Error");
+
+const errors: Record<
+  string,
+  { status: 400 | 409; detail: string }
+> = {
+  INVALID_DELIVERY: {
+    status: 400,
+    detail: "Los datos de entrega no son válidos.",
+  },
+  INVALID_PAYMENT_COMBINATION: {
+    status: 400,
+    detail: "La combinación de método de pago y entrega no es válida.",
+  },
+  INVALID_CHECKOUT_SOURCE: {
+    status: 400,
+    detail: "La fuente del checkout no es válida.",
+  },
+  STOCK_INSUFFICIENT: {
+    status: 409,
+    detail: "No hay stock suficiente para completar el checkout.",
+  },
+  PRICE_CHANGED: {
+    status: 409,
+    detail: "El precio de uno o más productos ha cambiado.",
+  },
+  CHECKOUT_ALREADY_PROCESSING: {
+    status: 409,
+    detail: "Ya existe un checkout en proceso.",
+  },
+  IDEMPOTENCY_KEY_REUSED: {
+    status: 409,
+    detail: "La Idempotency-Key ya fue utilizada.",
+  },
+};
+
+if (mockError && errors[mockError]) {
+  const error = errors[mockError];
+
+  return HttpResponse.json(
+    {
+      type: "https://example.com/problems/checkout",
+      title: "Checkout error",
+      status: error.status,
+      detail: error.detail,
+      code: mockError,
+    },
+    { status: error.status },
+  );
+}
+
+    if (!isValidIdempotencyKey(idempotencyKey)) {
+      return HttpResponse.json(
+        {
+          type: "https://example.com/problems/invalid-request",
+          title: "Solicitud inválida",
+          status: 400,
+          detail: "Idempotency-Key es obligatorio y debe ser un UUID válido.",
+          code: "INVALID_REQUEST",
+        },
+        { status: 400 },
+      );
+    }
+
+    return HttpResponse.json(
+      {
+        orderNumber: "ARP33451",
+        status: "PENDING",
+        paymentMethod: "PAY_AT_STORE",
+        paymentStatus: "PENDING",
+        paymentDeadline: "2026-08-25T20:15:00.000Z",
+        subtotal: "50.00",
+        discountTotal: "5.00",
+        shippingTotal: "0.00",
+        total: "45.00",
+        guestOrderAccessToken: null,
+      },
+      { status: 201 },
+    );
+  }),
 ];
