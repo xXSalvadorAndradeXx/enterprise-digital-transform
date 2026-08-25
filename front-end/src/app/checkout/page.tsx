@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from "react";
 
-import { previewCheckout } from "@/services/checkout/checkout.service";
+import {
+  previewCheckout,
+  createCheckout,
+} from "@/services/checkout/checkout.service";
 
 import type {
+  CheckoutRequest,
   CheckoutPreviewRequest,
   CheckoutPreviewResponse,
+  Order,
 } from "@/types/checkout/checkout.types";
+
+import type { PaymentData } from "@/components/checkout/CheckoutPayment";
 
 import AccordionStep from "@/components/checkout/AccordionStep";
 import type { CheckoutStep } from "@/components/checkout/CheckoutSteps";
@@ -42,8 +49,23 @@ export default function CheckoutPage() {
   const [completedSteps, setCompletedSteps] =
     useState<Set<CheckoutStep>>(new Set());
 
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+
+  const [createdOrder, setCreatedOrder] =
+    useState<Order | null>(null);
+
+  /*
+   * La clave se genera una sola vez durante
+   * este intento de checkout.
+   */
+  const [idempotencyKey] = useState(
+    () => crypto.randomUUID(),
+  );
+
   const previewRequest: CheckoutPreviewRequest = {
     source: "CART",
+
     deliveryType,
 
     delivery:
@@ -64,7 +86,8 @@ export default function CheckoutPage() {
   useEffect(() => {
     const loadPreview = async () => {
       try {
-        const response = await previewCheckout(previewRequest);
+        const response =
+          await previewCheckout(previewRequest);
 
         setPreview(response);
       } catch (error) {
@@ -78,13 +101,89 @@ export default function CheckoutPage() {
     loadPreview();
   }, [deliveryType]);
 
-  const toggleStep = (step: CheckoutStep) => {
+  const handleFinalCheckout = async (
+    payment: PaymentData,
+  ) => {
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const checkoutRequest: CheckoutRequest = {
+        source: "CART",
+
+        customerType: "GUEST",
+
+        contact: {
+          fullName: "",
+          email: "",
+          dui: "",
+          phone: "",
+        },
+
+        deliveryType,
+
+        delivery:
+          deliveryType === "HOME_DELIVERY"
+            ? {
+                departmentId: "",
+                districtId: "",
+                city: "",
+                addressLine: "",
+              }
+            : {
+                branchId: "",
+              },
+
+        paymentMethod: payment.method,
+
+        saveAddress: false,
+
+        ...(payment.method === "CARD" &&
+        payment.card
+          ? {
+              card: payment.card,
+            }
+          : {}),
+      };
+
+      const response =
+        await createCheckout(
+          checkoutRequest,
+          idempotencyKey,
+        );
+
+      setCreatedOrder(response);
+
+      console.log(
+        "Orden creada:",
+        response,
+      );
+    } catch (error) {
+      console.error(
+        "Error creando checkout:",
+        error,
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const toggleStep = (
+    step: CheckoutStep,
+  ) => {
     setCurrentStep((previous) =>
-      previous === step ? null : step,
+      previous === step
+        ? null
+        : step,
     );
   };
 
-  const goToNext = (step: CheckoutStep) => {
+  const goToNext = (
+    step: CheckoutStep,
+  ) => {
     setCompletedSteps((previous) => {
       const next = new Set(previous);
 
@@ -108,31 +207,47 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-[1180px] px-5 py-10">
         <div className="grid gap-6 lg:items-start lg:grid-cols-[1fr_340px]">
           <section className="flex flex-col gap-4">
-            {STEP_ORDER.map((step, index) => (
-              <AccordionStep
-                key={step}
-                index={index + 1}
-                title={STEP_TITLES[step]}
-                isOpen={currentStep === step}
-                isComplete={completedSteps.has(step)}
-                onToggle={() => toggleStep(step)}
-              >
-                {step === "contact" && (
-                  <CheckoutContact />
-                )}
+            {STEP_ORDER.map(
+              (step, index) => (
+                <AccordionStep
+                  key={step}
+                  index={index + 1}
+                  title={STEP_TITLES[step]}
+                  isOpen={
+                    currentStep === step
+                  }
+                  isComplete={completedSteps.has(
+                    step,
+                  )}
+                  onToggle={() =>
+                    toggleStep(step)
+                  }
+                >
+                  {step === "contact" && (
+                    <CheckoutContact />
+                  )}
 
-                {step === "shipping" && (
-                  <CheckoutShipping
-                    deliveryType={deliveryType}
-                    onDeliveryTypeChange={setDeliveryType}
-                  />
-                )}
+                  {step === "shipping" && (
+                    <CheckoutShipping
+                      deliveryType={
+                        deliveryType
+                      }
+                      onDeliveryTypeChange={
+                        setDeliveryType
+                      }
+                    />
+                  )}
 
-                {step === "payment" && (
-                  <CheckoutPayment />
-                )}
-              </AccordionStep>
-            ))}
+                  {step === "payment" && (
+                    <CheckoutPayment
+                      onContinue={
+                        handleFinalCheckout
+                      }
+                    />
+                  )}
+                </AccordionStep>
+              ),
+            )}
           </section>
 
           <CheckoutSummary

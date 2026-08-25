@@ -1,48 +1,149 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, ChevronDown, CreditCard } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronDown,
+  CreditCard,
+} from "lucide-react";
 
-type PaymentMethod = "PAGADITO" | "PAY_AT_STORE" | "CARD";
-type CardBrand = "Visa" | "Mastercard" | null;
+export type PaymentMethod =
+  | "PAGADITO"
+  | "PAY_AT_STORE"
+  | "CARD";
 
-export default function CheckoutPayment() {
-  const [method, setMethod] = useState<PaymentMethod | null>(null);
+export interface PaymentData {
+  method: PaymentMethod;
+  card?: {
+    number: string;
+    holderName: string;
+    expiration: string;
+    cvv: string;
+    brand: "VISA" | "MASTERCARD" | null;
+  };
+}
 
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardBrand, setCardBrand] = useState<CardBrand>(null);
+interface CheckoutPaymentProps {
+  onContinue?: (payment: PaymentData) => void;
+}
 
-  const [holderName, setHolderName] = useState("");
-  const [expiration, setExpiration] = useState("");
-  const [cvv, setCvv] = useState("");
+export default function CheckoutPayment({
+  onContinue,
+}: CheckoutPaymentProps) {
+  const [method, setMethod] =
+    useState<PaymentMethod | null>(null);
 
-  const selectMethod = (next: PaymentMethod) => {
-    // Pagadito es únicamente visual y permanece deshabilitado.
+  const [cardNumber, setCardNumber] =
+    useState("");
+
+  const [holderName, setHolderName] =
+    useState("");
+
+  const [expiration, setExpiration] =
+    useState("");
+
+  const [cvv, setCvv] =
+    useState("");
+
+  const selectMethod = (
+    next: PaymentMethod,
+  ) => {
+    // Pagadito queda visualmente deshabilitado.
     if (next === "PAGADITO") return;
 
     setMethod(next);
   };
 
-  const handleCardNumberChange = (value: string) => {
-    // Solo números y máximo 16 dígitos.
-    const numbers = value.replace(/\D/g, "").slice(0, 16);
+  /*
+   * Formatea el número de tarjeta:
+   * 4111111111111111
+   * ↓
+   * 4111 1111 1111 1111
+   */
+  const handleCardNumberChange = (
+    value: string,
+  ) => {
+    const numbersOnly = value
+      .replace(/\D/g, "")
+      .slice(0, 16);
 
-    setCardNumber(numbers);
+    const formatted = numbersOnly.replace(
+      /(.{4})/g,
+      "$1 ",
+    ).trim();
 
-    // Detectar franquicia por el primer dígito.
-    if (numbers.startsWith("4")) {
-      setCardBrand("Visa");
-    } else if (numbers.startsWith("5")) {
-      setCardBrand("Mastercard");
-    } else {
-      setCardBrand(null);
-    }
+    setCardNumber(formatted);
   };
 
-  // Mostrar el número separado cada 4 dígitos.
-  const formattedCardNumber = cardNumber
-    .replace(/(.{4})/g, "$1 ")
-    .trim();
+  /*
+   * Detecta la franquicia según el primer dígito:
+   * 4 = VISA
+   * 5 = MASTERCARD
+   */
+  const getCardBrand = (
+    value: string,
+  ): "VISA" | "MASTERCARD" | null => {
+    const firstDigit =
+      value.replace(/\D/g, "")[0];
+
+    if (firstDigit === "4") {
+      return "VISA";
+    }
+
+    if (firstDigit === "5") {
+      return "MASTERCARD";
+    }
+
+    return null;
+  };
+
+  const cardBrand =
+    getCardBrand(cardNumber);
+
+  /*
+   * Formatea automáticamente el vencimiento:
+   * 1230
+   * ↓
+   * 12/30
+   */
+  const handleExpirationChange = (
+    value: string,
+  ) => {
+    const numbersOnly = value
+      .replace(/\D/g, "")
+      .slice(0, 4);
+
+    let formatted = numbersOnly;
+
+    if (numbersOnly.length > 2) {
+      formatted =
+        numbersOnly.slice(0, 2) +
+        "/" +
+        numbersOnly.slice(2);
+    }
+
+    setExpiration(formatted);
+  };
+
+  const handleContinue = () => {
+    if (!onContinue || !method) return;
+
+    const paymentData: PaymentData = {
+      method,
+    };
+
+    if (method === "CARD") {
+      paymentData.card = {
+        number: cardNumber.replace(/\s/g, ""),
+        holderName,
+        expiration,
+        cvv,
+        brand: cardBrand,
+      };
+    }
+
+    onContinue(paymentData);
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -50,26 +151,31 @@ export default function CheckoutPayment() {
         Selecciona tu forma de pago
       </p>
 
-      {/* PAGADITO */}
       <MethodRow
         label="pagadito"
         disabled
         expanded={false}
-        onClick={() => selectMethod("PAGADITO")}
+        onClick={() =>
+          selectMethod("PAGADITO")
+        }
       />
 
-      {/* PAGO EN LOCAL */}
       <MethodRow
         label="pago en local"
-        expanded={method === "PAY_AT_STORE"}
-        onClick={() => selectMethod("PAY_AT_STORE")}
+        expanded={
+          method === "PAY_AT_STORE"
+        }
+        onClick={() =>
+          selectMethod("PAY_AT_STORE")
+        }
       />
 
-      {/* PAGO CON TARJETA */}
       <MethodRow
         label="pago con tarjeta"
         expanded={method === "CARD"}
-        onClick={() => selectMethod("CARD")}
+        onClick={() =>
+          selectMethod("CARD")
+        }
       >
         <div className="mt-4 rounded-md border border-gray-200 p-4">
           <p className="mb-3 text-sm font-semibold text-gray-800">
@@ -77,46 +183,29 @@ export default function CheckoutPayment() {
           </p>
 
           <div className="flex flex-col gap-3">
-            {/* NÚMERO DE TARJETA */}
-            <div>
-              <label
-                htmlFor="cardNumber"
-                className="mb-1 block text-xs text-gray-900"
-              >
-                Número de tarjeta
-              </label>
+            <TextInput
+              label="Número de tarjeta"
+              placeholder="1234 5678 9012 4521"
+              value={cardNumber}
+              onChange={
+                handleCardNumberChange
+              }
+              icon={
+                <div className="flex items-center gap-2">
+                  {cardBrand && (
+                    <span className="text-xs font-semibold text-gray-600">
+                      {cardBrand}
+                    </span>
+                  )}
 
-              <div className="relative">
-                <input
-                  id="cardNumber"
-                  name="cardNumber"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="cc-number"
-                  value={formattedCardNumber}
-                  placeholder="1234 5678 9012 4521"
-                  onChange={(e) =>
-                    handleCardNumberChange(e.target.value)
-                  }
-                  className="w-full rounded-md border border-gray-900 bg-white px-4 py-2.5 pr-24 text-sm text-gray-900 placeholder:text-gray-500 focus:border-[#1B21D1] focus:outline-none focus:ring-2 focus:ring-[#1B21D1]/15"
-                />
-
-                {cardBrand ? (
-                  <span className="absolute right-10 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-700">
-                    {cardBrand}
-                  </span>
-                ) : null}
-
-                <span className="absolute right-3 top-1/2 -translate-y-1/2">
                   <CreditCard
                     className="h-4 w-4 text-gray-400"
                     aria-hidden="true"
                   />
-                </span>
-              </div>
-            </div>
+                </div>
+              }
+            />
 
-            {/* NOMBRE */}
             <TextInput
               label="Nombre en la tarjeta"
               placeholder="Nombre completo como aparece en la tarjeta"
@@ -124,25 +213,44 @@ export default function CheckoutPayment() {
               onChange={setHolderName}
             />
 
-            {/* VENCIMIENTO Y CVV */}
             <div className="grid grid-cols-2 gap-3">
               <TextInput
                 label="Fecha de vencimiento"
                 placeholder="MM / AA"
                 value={expiration}
-                onChange={setExpiration}
+                onChange={
+                  handleExpirationChange
+                }
+                maxLength={5}
               />
 
               <TextInput
                 label="Código de seguridad"
                 placeholder="123"
                 value={cvv}
-                onChange={setCvv}
+                onChange={(value) =>
+                  setCvv(
+                    value
+                      .replace(/\D/g, "")
+                      .slice(0, 4),
+                  )
+                }
+                maxLength={4}
               />
             </div>
           </div>
         </div>
       </MethodRow>
+
+      {method && (
+        <button
+          type="button"
+          onClick={handleContinue}
+          className="mt-2 w-full rounded-md bg-[#1B21D1] py-3 text-sm font-medium text-white transition hover:bg-[#1519A3]"
+        >
+          Finalizar compra
+        </button>
+      )}
     </div>
   );
 }
@@ -163,7 +271,9 @@ function MethodRow({
   return (
     <div
       className={`rounded-md border ${
-        expanded ? "border-[#1B21D1]" : "border-gray-900"
+        expanded
+          ? "border-[#1B21D1]"
+          : "border-gray-900"
       }`}
     >
       <button
@@ -206,12 +316,14 @@ function TextInput({
   placeholder,
   value,
   icon,
+  maxLength,
   onChange,
 }: {
   label: string;
   placeholder?: string;
   value: string;
   icon?: React.ReactNode;
+  maxLength?: number;
   onChange: (value: string) => void;
 }) {
   return (
@@ -224,9 +336,12 @@ function TextInput({
         <input
           value={value}
           placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
+          maxLength={maxLength}
+          onChange={(e) =>
+            onChange(e.target.value)
+          }
           className={`w-full rounded-md border border-gray-900 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:border-[#1B21D1] focus:outline-none focus:ring-2 focus:ring-[#1B21D1]/15 ${
-            icon ? "pr-10" : ""
+            icon ? "pr-20" : ""
           }`}
         />
 
