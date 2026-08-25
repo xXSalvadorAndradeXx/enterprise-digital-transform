@@ -23,9 +23,14 @@ import {
   formatCurrency,
 } from "@/utils/formatCurrency";
 
+import {
+  CustomerOrderHistory,
+} from "./CustomerOrderHistory";
+
 interface CustomerDetailViewProps {
   customerId: string;
   returnHref: string;
+  initialOrdersPage: number;
 }
 
 interface ReadOnlyFieldProps {
@@ -158,8 +163,12 @@ function CustomerAddressesSection({
 
 function CustomerDetailContent({
   customer,
+  returnHref,
+  initialOrdersPage,
 }: {
   customer: ProvisionalAdminCustomerDetail;
+  returnHref: string;
+  initialOrdersPage: number;
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
@@ -222,6 +231,18 @@ function CustomerDetailContent({
           customer.addresses
         }
       />
+
+      <CustomerOrderHistory
+        customerId={
+          customer.id
+        }
+        initialPage={
+          initialOrdersPage
+        }
+        returnHref={
+          returnHref
+        }
+      />
     </div>
   );
 }
@@ -229,6 +250,7 @@ function CustomerDetailContent({
 export function CustomerDetailView({
   customerId,
   returnHref,
+  initialOrdersPage,
 }: CustomerDetailViewProps) {
   const [
     customer,
@@ -389,6 +411,12 @@ export function CustomerDetailView({
         <CustomerDetailContent
           customer={
             customer
+          }
+          returnHref={
+            returnHref
+          }
+          initialOrdersPage={
+            initialOrdersPage
           }
         />
       ) : null}

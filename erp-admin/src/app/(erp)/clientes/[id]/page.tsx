@@ -7,6 +7,7 @@ interface CustomerDetailPageProps {
     id: string;
   }>;
   searchParams: Promise<{
+    ordersPage?: SearchParamValue;
     returnTo?: SearchParamValue;
   }>;
 }
@@ -67,6 +68,27 @@ function getSafeReturnTo(
   }
 }
 
+function getPageParam(
+  value: SearchParamValue,
+): number {
+  const parsedPage =
+    Number.parseInt(
+      getStringParam(
+        value,
+      ),
+      10,
+    );
+
+  if (
+    Number.isNaN(parsedPage) ||
+    parsedPage < 1
+  ) {
+    return 1;
+  }
+
+  return parsedPage;
+}
+
 export default async function CustomerDetailPage({
   params,
   searchParams,
@@ -75,17 +97,25 @@ export default async function CustomerDetailPage({
     id,
   } = await params;
   const {
+    ordersPage,
     returnTo,
   } = await searchParams;
   const returnHref =
     getSafeReturnTo(
       returnTo,
     );
+  const initialOrdersPage =
+    getPageParam(
+      ordersPage,
+    );
 
   return (
     <CustomerDetailView
       customerId={
         id
+      }
+      initialOrdersPage={
+        initialOrdersPage
       }
       returnHref={
         returnHref

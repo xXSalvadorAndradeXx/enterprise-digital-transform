@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   ADMIN_CUSTOMER_SORT_BY_VALUES,
+  ORDER_STATUS_VALUES,
   SORT_ORDER_VALUES,
 } from "./customers.types";
 
@@ -42,6 +43,9 @@ export const adminCustomerSortBySchema =
 
 export const sortOrderSchema =
   z.enum(SORT_ORDER_VALUES);
+
+export const orderStatusSchema =
+  z.enum(ORDER_STATUS_VALUES);
 
 export const isoDateSchema =
   z.string().refine(isIsoDate, {
@@ -97,9 +101,44 @@ export const adminCustomersQuerySchema =
     order: sortOrderSchema.optional(),
   });
 
+export const adminCustomerOrdersQuerySchema =
+  z.object({
+    page: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .optional(),
+  });
+
 export const adminCustomerListDataSchema =
   z.object({
     items: z.array(adminCustomerListItemSchema),
+    meta: pageMetaSchema,
+  });
+
+export const adminCustomerOrderHistoryItemSchema =
+  z.object({
+    orderNumber: z.string(),
+    createdAt: isoUtcDateTimeSchema,
+    total: z
+      .string()
+      .regex(
+        DECIMAL_WITH_TWO_PLACES_PATTERN,
+        "Debe ser un decimal con dos posiciones.",
+      ),
+    status: orderStatusSchema,
+  });
+
+export const adminCustomerOrdersDataSchema =
+  z.object({
+    items: z.array(
+      adminCustomerOrderHistoryItemSchema,
+    ),
     meta: pageMetaSchema,
   });
 
@@ -108,5 +147,13 @@ export const adminCustomerListResponseSchema =
     success: z.literal(true),
     message: z.string(),
     data: adminCustomerListDataSchema,
+    timestamp: isoUtcDateTimeSchema,
+  });
+
+export const adminCustomerOrdersResponseSchema =
+  z.object({
+    success: z.literal(true),
+    message: z.string(),
+    data: adminCustomerOrdersDataSchema,
     timestamp: isoUtcDateTimeSchema,
   });

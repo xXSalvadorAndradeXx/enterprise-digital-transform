@@ -4,11 +4,13 @@ import {
 } from "msw";
 
 import {
+  adminCustomerOrdersQuerySchema,
   adminCustomersQuerySchema,
 } from "@/types/customers";
 
 import type {
   AdminCustomerListItem,
+  AdminCustomerOrdersResponse,
   AdminCustomerListResponse,
   AdminCustomerSortBy,
   SortOrder,
@@ -21,7 +23,12 @@ import type {
 
 import {
   mockAdminCustomerDetails,
+  mockAdminCustomerOrders,
   mockAdminCustomers,
+} from "../data/customers.mock";
+
+import type {
+  MockAdminCustomerOrderHistoryItem,
 } from "../data/customers.mock";
 
 const DEFAULT_PAGE = 1;
@@ -225,7 +232,151 @@ function paginateCustomers(
   };
 }
 
+function paginateCustomerOrders(
+  orders: MockAdminCustomerOrderHistoryItem[],
+  page: number,
+  limit: number,
+): {
+  items: MockAdminCustomerOrderHistoryItem[];
+  meta: PageMeta;
+} {
+  const total =
+    orders.length;
+  const totalPages =
+    total === 0
+      ? 0
+      : Math.ceil(total / limit);
+  const startIndex =
+    (page - 1) * limit;
+  const items =
+    orders.slice(
+      startIndex,
+      startIndex + limit,
+    );
+
+  return {
+    items,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage:
+        totalPages > 0 && page > 1,
+    },
+  };
+}
+
 export const customersHandlers = [
+  http.get(
+    `${ADMIN_CUSTOMERS_ENDPOINT}/:id/orders`,
+    ({ params, request }) => {
+      if (!hasBearerToken(request)) {
+        return HttpResponse.json(
+          buildApiError(
+            request,
+            401,
+            "UNAUTHORIZED",
+            "Bearer token requerido.",
+            "Unauthorized",
+          ),
+          {
+            status: 401,
+          },
+        );
+      }
+
+      const customerId =
+        getPathParam(
+          params.id,
+        );
+      const customerExists =
+        mockAdminCustomerDetails.some(
+          (item) =>
+            item.id === customerId,
+        );
+
+      if (!customerExists) {
+        return HttpResponse.json(
+          buildApiError(
+            request,
+            404,
+            "CUSTOMER_NOT_FOUND",
+            "Cliente no encontrado.",
+            "Not Found",
+          ),
+          {
+            status: 404,
+          },
+        );
+      }
+
+      const requestUrl =
+        new URL(request.url);
+      const parsedQuery =
+        adminCustomerOrdersQuerySchema.safeParse({
+          page: getOptionalQueryParam(
+            requestUrl.searchParams,
+            "page",
+          ),
+          limit: getOptionalQueryParam(
+            requestUrl.searchParams,
+            "limit",
+          ),
+        });
+
+      if (!parsedQuery.success) {
+        return HttpResponse.json(
+          buildApiError(
+            request,
+            400,
+            "INVALID_CUSTOMER_ORDERS_QUERY",
+            "Los parametros de paginacion de pedidos no son validos.",
+            "Bad Request",
+            {
+              issues:
+                parsedQuery.error.issues.map((issue) => ({
+                  path: issue.path.join("."),
+                  message: issue.message,
+                })),
+            },
+          ),
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const query =
+        parsedQuery.data;
+      const page =
+        query.page ?? DEFAULT_PAGE;
+      const limit =
+        query.limit ?? DEFAULT_LIMIT;
+      const orders =
+        mockAdminCustomerOrders[customerId] ?? [];
+      const data =
+        paginateCustomerOrders(
+          orders,
+          page,
+          limit,
+        );
+      const response: AdminCustomerOrdersResponse =
+        {
+          success:
+            true,
+          message:
+            "Customer orders retrieved successfully.",
+          data,
+          timestamp:
+            new Date().toISOString(),
+        };
+
+      return HttpResponse.json(response);
+    },
+  ),
+
   http.get(
     `${ADMIN_CUSTOMERS_ENDPOINT}/:id`,
     ({ params, request }) => {

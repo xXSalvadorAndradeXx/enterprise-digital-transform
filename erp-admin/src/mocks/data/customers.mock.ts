@@ -1,5 +1,7 @@
-import type {
-  AdminCustomerListItem,
+import {
+  ORDER_STATUS_VALUES,
+  type AdminCustomerListItem,
+  type OrderStatus,
 } from "@/types/customers";
 
 export const mockAdminCustomers: AdminCustomerListItem[] = [
@@ -101,6 +103,13 @@ export const mockAdminCustomers: AdminCustomerListItem[] = [
   },
 ];
 
+export interface MockAdminCustomerOrderHistoryItem {
+  orderNumber: string;
+  createdAt: string;
+  total: string;
+  status: OrderStatus;
+}
+
 export interface MockAdminCustomerAddress {
   id: string;
   city: string;
@@ -113,6 +122,79 @@ export interface MockAdminCustomerDetail
   phone: string;
   addresses: MockAdminCustomerAddress[];
 }
+
+function buildMockOrderHistory(
+  customer: AdminCustomerListItem,
+  customerIndex: number,
+): MockAdminCustomerOrderHistoryItem[] {
+  if (customer.totalOrders === 0) {
+    return [];
+  }
+
+  const orderTotal =
+    (
+      Number(customer.totalSpent) /
+      customer.totalOrders
+    ).toFixed(2);
+
+  return Array.from(
+    {
+      length:
+        customer.totalOrders,
+    },
+    (_, orderIndex) => {
+      const createdAt =
+        new Date(customer.lastOrderAt);
+
+      createdAt.setUTCDate(
+        createdAt.getUTCDate() -
+          orderIndex * 7,
+      );
+
+      return {
+        orderNumber: `ORD-${String(
+          customerIndex + 1,
+        ).padStart(2, "0")}-${String(
+          orderIndex + 1,
+        ).padStart(4, "0")}`,
+        createdAt:
+          createdAt.toISOString(),
+        total:
+          orderTotal,
+        status:
+          orderIndex === 0
+            ? "DELIVERED"
+            : ORDER_STATUS_VALUES[
+                (customerIndex + orderIndex) %
+                  ORDER_STATUS_VALUES.length
+              ],
+      };
+    },
+  );
+}
+
+export const mockAdminCustomerOrders =
+  mockAdminCustomers.reduce<
+    Record<
+      string,
+      MockAdminCustomerOrderHistoryItem[]
+    >
+  >(
+    (
+      ordersByCustomer,
+      customer,
+      customerIndex,
+    ) => {
+      ordersByCustomer[customer.id] =
+        buildMockOrderHistory(
+          customer,
+          customerIndex,
+        );
+
+      return ordersByCustomer;
+    },
+    {},
+  );
 
 /*
  * MOCK PROVISIONAL TASK 893:
