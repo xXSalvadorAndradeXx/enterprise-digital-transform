@@ -19,6 +19,7 @@ import { Inventory } from '../inventory/entities/inventory.entity';
 import { InventoryDetail } from '../inventory/entities/inventory-detail.entity';
 import { InventoryStatus } from '../inventory/enums/inventory-status.enum';
 import { ProductStatus } from './enums/product-status.enum';
+import { ProductGender } from '../purchases/enums/product-gender.enum';
 import { PRODUCT_STATUS_TRANSITIONS } from './constants/product-status-transitions.constant';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -957,9 +958,16 @@ export class ProductsService {
       query.andWhere('inventory.brand ILIKE :brand', { brand: `%${brand}%` });
     }
 
-    // 4. Filtro por Género
+    // 4. Filtro por Género (Mapeo de PublicGender MEN/WOMEN/UNISEX a enum DB ProductGender MALE/FEMALE/UNISEX)
     if (gender) {
-      query.andWhere('inventory.gender = :gender', { gender });
+      let dbGender: ProductGender | string | null = null;
+      if (gender === PublicGender.MEN) dbGender = ProductGender.MALE;
+      else if (gender === PublicGender.WOMEN) dbGender = ProductGender.FEMALE;
+      else if (gender === PublicGender.UNISEX) dbGender = ProductGender.UNISEX;
+
+      if (dbGender) {
+        query.andWhere('inventory.gender = :gender', { gender: dbGender });
+      }
     }
 
     // 5. Filtro por Talla mediante subconsulta EXISTS para evitar multiplicación de filas
