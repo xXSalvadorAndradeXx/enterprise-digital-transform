@@ -25,10 +25,12 @@ export interface PaymentData {
 
 interface CheckoutPaymentProps {
   onContinue?: (payment: PaymentData) => void;
+  isSubmitting?: boolean;
 }
 
 export default function CheckoutPayment({
   onContinue,
+  isSubmitting = false,
 }: CheckoutPaymentProps) {
   const [method, setMethod] =
     useState<PaymentMethod | null>(null);
@@ -354,14 +356,21 @@ export default function CheckoutPayment({
       </MethodRow>
 
       {method && (
-        <button
-          type="button"
-          onClick={handleContinue}
-          className="mt-2 w-full rounded-md bg-[#1B21D1] py-3 text-sm font-medium text-white transition hover:bg-[#1519A3]"
-        >
-          Finalizar compra
-        </button>
-      )}
+  <button
+    type="button"
+    onClick={handleContinue}
+    disabled={isSubmitting}
+    className={`mt-2 w-full rounded-md py-3 text-sm font-medium text-white transition ${
+      isSubmitting
+        ? "cursor-not-allowed bg-gray-400"
+        : "bg-[#1B21D1] hover:bg-[#1519A3]"
+    }`}
+  >
+    {isSubmitting
+      ? "Procesando compra..."
+      : "Finalizar compra"}
+  </button>
+)}
     </div>
   );
 }

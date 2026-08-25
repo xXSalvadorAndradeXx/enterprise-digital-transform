@@ -7,6 +7,22 @@ import type {
 
 const API_BASE_URL = "/api/v1/ecommerce";
 
+export class CheckoutError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+  ) {
+    super(message);
+    this.name = "CheckoutError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 export async function previewCheckout(
   data: CheckoutPreviewRequest,
 ): Promise<CheckoutPreviewResponse> {
@@ -30,43 +46,52 @@ export async function previewCheckout(
       body: errorBody,
     });
 
-    throw new Error(
+    throw new CheckoutError(
       `No se pudo obtener la vista previa del checkout (${response.status})`,
+      response.status,
     );
   }
 
   return response.json();
 }
 
-/**
- * Crea la orden final.
- *
- * La Idempotency-Key se genera una sola vez por intento
- * y debe reutilizarse si el usuario vuelve a enviar
- * exactamente el mismo formulario.
- */
 export async function createCheckout(
   data: CheckoutRequest,
   idempotencyKey: string,
+  mockError?: string,
 ): Promise<Order> {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    "Idempotency-Key": idempotencyKey,
+  };
+
+  /*
+   * Solo para pruebas con MSW.
+   * Se elimina después de validar la TASK 907.
+   */
+  if (mockError) {
+    headers["X-Mock-Error"] = mockError;
+  }
+
   const response = await fetch(
     `${API_BASE_URL}/checkout`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Idempotency-Key": idempotencyKey,
-      },
+      headers,
       body: JSON.stringify(data),
     },
   );
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
+    const errorBody = await response
+      .json()
+      .catch(() => null);
 
-    throw new Error(
+    throw new CheckoutError(
       errorBody?.detail ??
         "No se pudo completar el checkout",
+      response.status,
+      errorBody?.code,
     );
   }
 
