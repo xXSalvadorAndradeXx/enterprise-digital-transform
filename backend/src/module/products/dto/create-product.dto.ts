@@ -7,6 +7,7 @@ import {
   IsUUID,
   IsDateString,
   IsArray,
+  IsBoolean,
   Min,
   Max,
   ValidateNested,
@@ -59,6 +60,11 @@ export class CreateProductDto {
   @IsEnum(ProductStatus)
   @IsOptional()
   status?: ProductStatus;
+
+  @ApiPropertyOptional({ example: true, description: 'Indica si el producto está publicado en e-commerce' })
+  @IsBoolean()
+  @IsOptional()
+  isPublished?: boolean;
 
   @ApiPropertyOptional({ example: ['https://images.com/prod1.jpg'] })
   @IsArray()

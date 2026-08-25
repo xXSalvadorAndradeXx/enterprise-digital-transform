@@ -76,7 +76,7 @@ export class AuthService {
 
     const savedUser = await this.userRepository.save(newUser);
 
-    const newCart = this.cartRepository.create({ user: savedUser });
+    const newCart = this.cartRepository.create({ customerId: savedUser.id });
     await this.cartRepository.save(newCart);
 
     const { passwordHash: _, ...result } = savedUser;
