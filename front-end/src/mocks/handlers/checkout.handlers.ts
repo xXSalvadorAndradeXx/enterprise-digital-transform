@@ -14,6 +14,30 @@ const isValidIdempotencyKey = (
 };
 
 export const checkoutHandlers = [
+
+  /*
+ * GET /auth/me
+ *
+ * Mock temporal para simular un usuario logueado.
+ * Cuando exista el Backend real, este handler se elimina.
+ */
+http.get(
+  `${API_BASE_URL}/auth/me`,
+  async () => {
+    return HttpResponse.json(
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        fullName: "Henry Anderson Sanchez",
+        email: "henry@example.com",
+        dui: "12345678-9",
+        phone: "71234567",
+      },
+      {
+        status: 200,
+      },
+    );
+  },
+),
   /*
    * POST /checkout/preview
    */
@@ -74,6 +98,8 @@ export const checkoutHandlers = [
       );
     },
   ),
+
+  
 
   /*
    * POST /checkout
