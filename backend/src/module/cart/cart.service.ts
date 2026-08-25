@@ -220,45 +220,66 @@ export class CartService {
       });
     }
 
-    // 1. Validar producto
+    // 1. Validar producto publicable
     const product = await this.productRepository.findOne({
       where: { id: dto.productId, deletedAt: IsNull() },
       relations: ['inventory'],
     });
 
-    if (!product) {
-      throw new NotFoundException({
-        code: 'PRODUCT_NOT_FOUND',
-        message: `El producto con ID ${dto.productId} no existe`,
-      });
-    }
-
-    if (!ProductSpecification.isProductPublishableAndSellable(product)) {
+    if (!product || !ProductSpecification.isProductPublishableAndSellable(product)) {
       throw new BadRequestException({
-        code: 'PRODUCT_NOT_AVAILABLE',
-        message: `El producto con ID ${dto.productId} no se encuentra disponible públicamente para venta`,
+        code: 'PRODUCT_NOT_PUBLISHED',
+        message: 'El producto no se encuentra disponible para compra',
+        details: {
+          productId: dto.productId,
+        },
       });
     }
 
-    // 2. Validar variante pertenezca al producto
+    // 2. Validar variante exista y pertenezca al producto
     const variantConfig = await this.variantConfigRepository.findOne({
       where: { id: dto.variantId, productId: dto.productId },
+      relations: ['inventoryDetail'],
     });
 
-    if (!variantConfig) {
+    if (!variantConfig || variantConfig.productId !== dto.productId) {
       throw new BadRequestException({
-        code: 'INVALID_VARIANT',
-        message: `La variante con ID ${dto.variantId} no pertenece al producto indicado (${dto.productId})`,
+        code: 'VARIANT_NOT_FOUND',
+        message: 'La variante seleccionada no existe o no está disponible',
+        details: {
+          variantId: dto.variantId,
+        },
       });
     }
 
-    // 3. Buscar si la variante ya existe en el carrito
+    // 3. Buscar si la variante ya existe en el carrito para calcular la cantidad final acumulada
     const existingItem = await this.cartItemRepository.findOne({
       where: { cartId: cart.id, variantId: dto.variantId },
     });
 
+    const existingQuantity = existingItem ? existingItem.quantity : 0;
+    const finalRequestedQuantity = existingQuantity + dto.quantity;
+
+    // 4. Validar cantidad final acumulada contra stock disponible de la variante
+    const availableStock = variantConfig.inventoryDetail
+      ? Number(variantConfig.inventoryDetail.stock)
+      : 0;
+
+    if (finalRequestedQuantity > availableStock) {
+      throw new BadRequestException({
+        code: 'STOCK_INSUFFICIENT',
+        message: 'No existe suficiente stock para la cantidad solicitada',
+        details: {
+          variantId: dto.variantId,
+          requestedQuantity: finalRequestedQuantity,
+          availableStock,
+        },
+      });
+    }
+
+    // 5. Insertar o acumular la línea en el carrito
     if (existingItem) {
-      existingItem.quantity = existingItem.quantity + dto.quantity;
+      existingItem.quantity = finalRequestedQuantity;
       await this.cartItemRepository.save(existingItem);
     } else {
       const newItem = this.cartItemRepository.create({
@@ -306,6 +327,28 @@ export class CartService {
       throw new NotFoundException({
         code: 'CART_ITEM_NOT_FOUND',
         message: `El ítem con ID ${itemId} no pertenece a este carrito`,
+      });
+    }
+
+    // Validar stock disponible de la variante antes de actualizar la cantidad
+    const variantConfig = await this.variantConfigRepository.findOne({
+      where: { id: cartItem.variantId },
+      relations: ['inventoryDetail'],
+    });
+
+    const availableStock = variantConfig?.inventoryDetail
+      ? Number(variantConfig.inventoryDetail.stock)
+      : 0;
+
+    if (quantity > availableStock) {
+      throw new BadRequestException({
+        code: 'STOCK_INSUFFICIENT',
+        message: 'No existe suficiente stock para la cantidad solicitada',
+        details: {
+          variantId: cartItem.variantId,
+          requestedQuantity: quantity,
+          availableStock,
+        },
       });
     }
 

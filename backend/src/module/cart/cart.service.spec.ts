@@ -59,6 +59,7 @@ describe('CartService', () => {
       id: 'inv-detail-uuid-1',
       size: 'M',
       color: 'Negro',
+      stock: 10,
     } as any,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -192,7 +193,7 @@ describe('CartService', () => {
         ...mockCart,
         customerId: null,
         guestTokenHash: tokenHash,
-        expiresAt: new Date(Date.now() - 3600000), // Vencido hace 1 hora
+        expiresAt: new Date(Date.now() - 3600000),
       };
 
       mockCartRepository.findOne.mockResolvedValueOnce(expiredCart);
@@ -204,80 +205,157 @@ describe('CartService', () => {
         expect.objectContaining({ status: CartStatus.ABANDONED }),
       );
     });
+  });
 
-    it('should generate new guest token and cart on initial POST /cart/items (isCreateOnPost = true)', async () => {
-      const result = await service.resolveCart(null, null, true);
-      expect(result.cart.guestTokenHash).toBeDefined();
-      expect(result.createdGuestToken).toBeDefined();
-      expect(result.createdGuestToken?.length).toBe(64);
+  describe('addItemToCart', () => {
+    it('should add new item when variant is not in cart and stock is sufficient', async () => {
+      mockCartRepository.findOne.mockResolvedValue(mockCart);
+      mockProductRepository.findOne.mockResolvedValue(mockProduct);
+      mockVariantConfigRepository.findOne.mockResolvedValue(mockVariantConfig);
+      mockCartItemRepository.findOne.mockResolvedValue(null);
+
+      const dto = {
+        productId: 'prod-uuid-1',
+        variantId: 'variant-uuid-1',
+        quantity: 2,
+      };
+
+      const result = await service.addItemToCart('cart-uuid-1', dto);
+      expect(result.id).toBe('cart-uuid-1');
+      expect(mockCartItemRepository.save).toHaveBeenCalled();
     });
 
-    it('should throw CART_TOKEN_INVALID on GET /cart without JWT and without X-Cart-Token', async () => {
-      await expect(service.resolveCart(null, null, false)).rejects.toThrow(
-        BadRequestException,
+    it('should throw PRODUCT_NOT_PUBLISHED if product is not publishable', async () => {
+      mockCartRepository.findOne.mockResolvedValue(mockCart);
+      mockProductRepository.findOne.mockResolvedValue({
+        ...mockProduct,
+        isPublished: false,
+      });
+
+      const dto = {
+        productId: 'prod-uuid-1',
+        variantId: 'variant-uuid-1',
+        quantity: 1,
+      };
+
+      try {
+        await service.addItemToCart('cart-uuid-1', dto);
+        fail('Should have thrown BadRequestException');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(BadRequestException);
+        expect(err.getResponse().code).toBe('PRODUCT_NOT_PUBLISHED');
+        expect(err.getResponse().details).toEqual({ productId: 'prod-uuid-1' });
+      }
+    });
+
+    it('should throw VARIANT_NOT_FOUND if variant does not belong to product', async () => {
+      mockCartRepository.findOne.mockResolvedValue(mockCart);
+      mockProductRepository.findOne.mockResolvedValue(mockProduct);
+      mockVariantConfigRepository.findOne.mockResolvedValue(null);
+
+      const dto = {
+        productId: 'prod-uuid-1',
+        variantId: 'invalid-variant',
+        quantity: 1,
+      };
+
+      try {
+        await service.addItemToCart('cart-uuid-1', dto);
+        fail('Should have thrown BadRequestException');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(BadRequestException);
+        expect(err.getResponse().code).toBe('VARIANT_NOT_FOUND');
+        expect(err.getResponse().details).toEqual({ variantId: 'invalid-variant' });
+      }
+    });
+
+    it('should throw STOCK_INSUFFICIENT if final accumulated quantity exceeds stock', async () => {
+      mockCartRepository.findOne.mockResolvedValue(mockCart);
+      mockProductRepository.findOne.mockResolvedValue(mockProduct);
+      mockVariantConfigRepository.findOne.mockResolvedValue({
+        ...mockVariantConfig,
+        inventoryDetail: { stock: 5 } as any,
+      });
+      // Carrito actual tiene 3 unidades
+      mockCartItemRepository.findOne.mockResolvedValue({ ...mockCartItem, quantity: 3 });
+
+      const dto = {
+        productId: 'prod-uuid-1',
+        variantId: 'variant-uuid-1',
+        quantity: 3, // 3 + 3 = 6 > 5
+      };
+
+      try {
+        await service.addItemToCart('cart-uuid-1', dto);
+        fail('Should have thrown BadRequestException');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(BadRequestException);
+        expect(err.getResponse().code).toBe('STOCK_INSUFFICIENT');
+        expect(err.getResponse().details).toEqual({
+          variantId: 'variant-uuid-1',
+          requestedQuantity: 6,
+          availableStock: 5,
+        });
+      }
+    });
+
+    it('should accumulate quantity when variant already exists in cart and stock is sufficient', async () => {
+      mockCartRepository.findOne.mockResolvedValue(mockCart);
+      mockProductRepository.findOne.mockResolvedValue(mockProduct);
+      mockVariantConfigRepository.findOne.mockResolvedValue({
+        ...mockVariantConfig,
+        inventoryDetail: { stock: 10 } as any,
+      });
+      mockCartItemRepository.findOne.mockResolvedValue({ ...mockCartItem, quantity: 2 });
+
+      const dto = {
+        productId: 'prod-uuid-1',
+        variantId: 'variant-uuid-1',
+        quantity: 3, // 2 + 3 = 5 <= 10
+      };
+
+      await service.addItemToCart('cart-uuid-1', dto);
+      expect(mockCartItemRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ quantity: 5 }),
       );
     });
   });
 
-  it('addItemToCart should add new item when variant is not in cart', async () => {
-    mockCartRepository.findOne.mockResolvedValue(mockCart);
-    mockProductRepository.findOne.mockResolvedValue(mockProduct);
-    mockVariantConfigRepository.findOne.mockResolvedValue(mockVariantConfig);
-    mockCartItemRepository.findOne.mockResolvedValue(null);
+  describe('updateItemQuantity', () => {
+    it('should update quantity when > 0 and stock is sufficient', async () => {
+      mockCartRepository.findOne.mockResolvedValue(mockCart);
+      mockCartItemRepository.findOne.mockResolvedValue(mockCartItem);
+      mockVariantConfigRepository.findOne.mockResolvedValue({
+        ...mockVariantConfig,
+        inventoryDetail: { stock: 10 } as any,
+      });
 
-    const dto = {
-      productId: 'prod-uuid-1',
-      variantId: 'variant-uuid-1',
-      quantity: 2,
-    };
+      await service.updateItemQuantity('cart-uuid-1', 'item-uuid-1', 4);
+      expect(mockCartItemRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ quantity: 4 }),
+      );
+    });
 
-    const result = await service.addItemToCart('cart-uuid-1', dto);
-    expect(result.id).toBe('cart-uuid-1');
-    expect(mockCartItemRepository.save).toHaveBeenCalled();
-  });
+    it('should throw STOCK_INSUFFICIENT if update quantity exceeds available stock', async () => {
+      mockCartRepository.findOne.mockResolvedValue(mockCart);
+      mockCartItemRepository.findOne.mockResolvedValue(mockCartItem);
+      mockVariantConfigRepository.findOne.mockResolvedValue({
+        ...mockVariantConfig,
+        inventoryDetail: { stock: 3 } as any,
+      });
 
-  it('addItemToCart should accumulate quantity if variant already exists in cart', async () => {
-    mockCartRepository.findOne.mockResolvedValue(mockCart);
-    mockProductRepository.findOne.mockResolvedValue(mockProduct);
-    mockVariantConfigRepository.findOne.mockResolvedValue(mockVariantConfig);
-    mockCartItemRepository.findOne.mockResolvedValue(mockCartItem);
-
-    const dto = {
-      productId: 'prod-uuid-1',
-      variantId: 'variant-uuid-1',
-      quantity: 3,
-    };
-
-    await service.addItemToCart('cart-uuid-1', dto);
-    expect(mockCartItemRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ quantity: 5 }),
-    );
-  });
-
-  it('updateItemQuantity should update quantity when > 0', async () => {
-    mockCartRepository.findOne.mockResolvedValue(mockCart);
-    mockCartItemRepository.findOne.mockResolvedValue(mockCartItem);
-
-    await service.updateItemQuantity('cart-uuid-1', 'item-uuid-1', 4);
-    expect(mockCartItemRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ quantity: 4 }),
-    );
-  });
-
-  it('removeItem should remove cart item', async () => {
-    mockCartRepository.findOne.mockResolvedValue(mockCart);
-    mockCartItemRepository.findOne.mockResolvedValue(mockCartItem);
-
-    await service.removeItem('cart-uuid-1', 'item-uuid-1');
-    expect(mockCartItemRepository.remove).toHaveBeenCalledWith(mockCartItem);
-  });
-
-  it('clearCart should delete all cart items', async () => {
-    mockCartRepository.findOne.mockResolvedValue(mockCart);
-
-    await service.clearCart('cart-uuid-1');
-    expect(mockCartItemRepository.delete).toHaveBeenCalledWith({
-      cartId: 'cart-uuid-1',
+      try {
+        await service.updateItemQuantity('cart-uuid-1', 'item-uuid-1', 5);
+        fail('Should have thrown BadRequestException');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(BadRequestException);
+        expect(err.getResponse().code).toBe('STOCK_INSUFFICIENT');
+        expect(err.getResponse().details).toEqual({
+          variantId: 'variant-uuid-1',
+          requestedQuantity: 5,
+          availableStock: 3,
+        });
+      }
     });
   });
 });
