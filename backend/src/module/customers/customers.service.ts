@@ -1,6 +1,6 @@
 import { Injectable, ConflictException, NotFoundException, UnprocessableEntityException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, Repository, EntityManager } from 'typeorm';
 import { Response } from 'express';
 import { Customer } from './entities/customer.entity';
 import { CustomerAddress } from './entities/customer-address.entity';
@@ -288,6 +288,31 @@ export class CustomersService {
   }
 
   /**
+   * Obtiene todas las direcciones de un cliente, ordenadas de forma consistente (predeterminada primero).
+   */
+  async getAddresses(customerId: string): Promise<CustomerAddress[]> {
+    return await this.addressRepository.find({
+      where: { customerId },
+      relations: ['department', 'district'],
+      order: {
+        isDefault: 'DESC',
+        createdAt: 'ASC',
+      },
+    });
+  }
+
+  /**
+   * Desmarca la dirección principal activa anterior para el cliente en el manager dado.
+   */
+  private async clearDefaultAddress(manager: EntityManager, customerId: string): Promise<void> {
+    await manager.update(
+      CustomerAddress,
+      { customerId, isDefault: true, deletedAt: IsNull() },
+      { isDefault: false },
+    );
+  }
+
+  /**
    * Crea una dirección asociada a un cliente, validando el par department-district.
    */
   async createAddress(customerId: string, data: Partial<CustomerAddress>): Promise<CustomerAddress> {
@@ -303,11 +328,34 @@ export class CustomersService {
       data.districtId,
     );
 
-    const address = this.addressRepository.create({
-      ...data,
-      customerId: customer.id,
+    return await this.customerRepository.manager.transaction(async (manager) => {
+      // Contar direcciones activas (no borradas)
+      const activeAddressCount = await manager.count(CustomerAddress, {
+        where: { customerId, deletedAt: IsNull() },
+      });
+
+      // Si es la primera dirección activa o el DTO solicita isDefault = true, marcar como principal
+      const isDefault = activeAddressCount === 0 || data.isDefault === true;
+
+      if (isDefault) {
+        // Desmarcar principal anterior
+        await this.clearDefaultAddress(manager, customerId);
+      }
+
+      const address = manager.create(CustomerAddress, {
+        ...data,
+        customerId: customer.id,
+        isDefault,
+      });
+
+      const savedAddress = await manager.save(CustomerAddress, address);
+
+      // Recargar con relaciones
+      return (await manager.findOne(CustomerAddress, {
+        where: { id: savedAddress.id },
+        relations: ['department', 'district'],
+      }))!;
     });
-    return await this.addressRepository.save(address);
   }
 
   /**
@@ -337,8 +385,20 @@ export class CustomersService {
       await this.locationsService.validateDepartmentDistrict(deptId, distId);
     }
 
-    Object.assign(address, data);
-    return await this.addressRepository.save(address);
+    return await this.customerRepository.manager.transaction(async (manager) => {
+      // Si cambia a isDefault = true
+      if (data.isDefault === true) {
+        await this.clearDefaultAddress(manager, customerId);
+      }
+
+      Object.assign(address, data);
+      const saved = await manager.save(CustomerAddress, address);
+
+      return (await manager.findOne(CustomerAddress, {
+        where: { id: saved.id },
+        relations: ['department', 'district'],
+      }))!;
+    });
   }
 
   /**
@@ -360,15 +420,16 @@ export class CustomersService {
     // 2. Ejecutar dentro de una transacción para asegurar consistencia
     return await this.customerRepository.manager.transaction(async (transactionalEntityManager) => {
       // Desmarcar la dirección principal actual
-      await transactionalEntityManager.update(
-        CustomerAddress,
-        { customerId, isDefault: true, deletedAt: null },
-        { isDefault: false },
-      );
+      await this.clearDefaultAddress(transactionalEntityManager, customerId);
 
       // Marcar la nueva dirección como principal
       targetAddress.isDefault = true;
-      return await transactionalEntityManager.save(targetAddress);
+      const saved = await transactionalEntityManager.save(targetAddress);
+
+      return (await transactionalEntityManager.findOne(CustomerAddress, {
+        where: { id: saved.id },
+        relations: ['department', 'district'],
+      }))!;
     });
   }
 
@@ -383,7 +444,7 @@ export class CustomersService {
     });
 
     if (!address) {
-      throw new NotFoundException({
+      throw new NotFoundException({ 
         code: 'ADDRESS_NOT_FOUND',
         message: `No se encontró la dirección con id ${addressId} para el cliente`,
       });
