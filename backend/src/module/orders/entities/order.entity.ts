@@ -140,9 +140,12 @@ export class Order {
   })
   statusHistory!: OrderStatusHistory[];
 
-  // Auditoría
+  // Auditoría y plazos
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
+
+  @Column({ type: 'timestamp with time zone', nullable: true, name: 'payment_deadline' })
+  paymentDeadline?: Date | null;
 
   @Column({ type: 'jsonb', nullable: true, name: 'contact_snapshot' })
   contactSnapshot?: Record<string, any>;

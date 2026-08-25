@@ -168,6 +168,15 @@ export class CheckoutCardDto {
   @IsOptional()
   @IsString()
   cardToken?: string;
+
+  @ApiProperty({
+    description: 'Flag para simular el resultado exitoso (true) o fallido (false) del pago con tarjeta',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  simulateSuccess?: boolean;
 }
 
 export class CheckoutDto {

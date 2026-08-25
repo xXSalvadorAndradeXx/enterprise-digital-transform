@@ -522,6 +522,12 @@ export class OrdersService {
           });
         }
 
+        // Calcular plazo de pago a 3 días (72 horas) para PAY_AT_STORE
+        const paymentDeadline =
+          paymentMethod === PaymentMethod.PAY_AT_STORE
+            ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+            : null;
+
         // Crear objeto Order principal
         const orderNumber = await this.generateUniqueOrderNumber(1, tx);
         const order = tx.create(Order, {
@@ -532,6 +538,7 @@ export class OrdersService {
           discountTotal: '0.00',
           deliveryCost: '0.00',
           totalAmount: '0.00',
+          paymentDeadline,
           contactSnapshot: {
             fullName: contact.fullName,
             email: emailNormal,
@@ -878,14 +885,32 @@ export class OrdersService {
         }
         await tx.save(OrderDelivery, orderDelivery);
 
-        // K. Crear pago asociado
+        // Evaluar resultado de pago simulado para CARD (Requerimiento 1, 3, 4)
+        if (paymentMethod === PaymentMethod.CARD && card?.simulateSuccess === false) {
+          throw new BadRequestException({
+            success: false,
+            error: {
+              code: 'PAYMENT_FAILED',
+              message: 'El pago con tarjeta fue rechazado por la entidad emisora',
+            },
+          });
+        }
+
+        const initialPaymentStatus =
+          paymentMethod === PaymentMethod.CARD
+            ? PaymentStatus.APPROVED
+            : PaymentStatus.PENDING;
+
+        // K. Crear pago asociado con metadatos permitidos (sin PAN ni CVV)
         const payment = tx.create(Payment, {
           orderId: savedOrder.id,
           paymentMethod,
           amount: savedOrder.totalAmount,
-          status: PaymentStatus.PENDING,
-          cardLastFour: card?.cardLastFour,
-          cardBrand: card?.cardBrand,
+          status: initialPaymentStatus,
+          cardLastFour: card?.cardLastFour || null,
+          cardBrand: card?.cardBrand || null,
+          approvedAt: initialPaymentStatus === PaymentStatus.APPROVED ? new Date() : null,
+          responseCode: initialPaymentStatus === PaymentStatus.APPROVED ? '200' : 'PENDING',
         });
         await tx.save(Payment, payment);
 
@@ -1416,9 +1441,7 @@ export class OrdersService {
     orderId: string,
     manager?: EntityManager,
   ): Promise<{ releasedCount: number }> {
-    const em = manager ?? this.orderRepository.manager;
-
-    return em.transaction(async (tx) => {
+    const runInTx = async (tx: EntityManager) => {
       // Adquirir y bloquear reservas de la orden en orden determinista por id
       const reservations = await tx
         .createQueryBuilder(InventoryReservation, 'res')
@@ -1435,7 +1458,7 @@ export class OrdersService {
 
       for (const res of reservations) {
         if (res.status === ReservationStatus.RELEASED) {
-          // Idempotencia: Si la reserva ya fue liberada, retornar éxito sin cambios adicionals
+          // Idempotencia: Si la reserva ya fue liberada, retornar éxito sin cambios adicionales
           continue;
         }
 
@@ -1480,6 +1503,67 @@ export class OrdersService {
       }
 
       return { releasedCount };
-    });
+    };
+
+    if (manager) {
+      return runInTx(manager);
+    }
+    return this.orderRepository.manager.transaction(runInTx);
+  }
+
+  /**
+   * Revisa y libera de forma atómica e idempotente las reservas de órdenes PAY_AT_STORE
+   * cuyo plazo de pago (paymentDeadline de 3 días / 72h) haya vencido.
+   * (Puntos 7, 8 y 9 del requerimiento).
+   */
+  async checkAndReleaseExpiredReservations(
+    manager?: EntityManager,
+  ): Promise<{ cancelledOrdersCount: number }> {
+    const runInTx = async (tx: EntityManager) => {
+      const now = new Date();
+
+      const expiredOrders = await tx
+        .createQueryBuilder(Order, 'ord')
+        .where('ord.paymentDeadline IS NOT NULL')
+        .andWhere('ord.paymentDeadline <= :now', { now })
+        .andWhere('ord.status IN (:...statuses)', {
+          statuses: [OrderStatus.NEW, OrderStatus.PENDING],
+        })
+        .getMany();
+
+      let cancelledOrdersCount = 0;
+
+      for (const expiredOrder of expiredOrders) {
+        // Liberación idempotente de reservas de inventario
+        await this.releaseOrderReservations(expiredOrder.id, tx);
+
+        // Actualizar estado de orden a CANCELLED
+        const statusBefore = expiredOrder.status;
+        expiredOrder.status = OrderStatus.CANCELLED;
+        await tx.save(Order, expiredOrder);
+
+        // Actualizar estado de pago a CANCELLED
+        await tx.update(Payment, { orderId: expiredOrder.id }, { status: PaymentStatus.CANCELLED });
+
+        // Historial de cambio de estado
+        const history = tx.create(OrderStatusHistory, {
+          statusBefore,
+          statusAfter: OrderStatus.CANCELLED,
+          notes: 'Cancelación automática por vencimiento de plazo de pago (paymentDeadline de 3 días)',
+          changedById: null,
+        });
+        history.order = expiredOrder;
+        await tx.save(OrderStatusHistory, history);
+
+        cancelledOrdersCount++;
+      }
+
+      return { cancelledOrdersCount };
+    };
+
+    if (manager) {
+      return runInTx(manager);
+    }
+    return this.orderRepository.manager.transaction(runInTx);
   }
 }

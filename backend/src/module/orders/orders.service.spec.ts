@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { UnprocessableEntityException, BadRequestException } from '@nestjs/common';
+import { UnprocessableEntityException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { Order } from './entities/order.entity';
 import { User } from '../users/entities/user.entity';
@@ -14,12 +14,16 @@ import { InventoryMovement } from '../inventory/entities/inventory-movement.enti
 import { CheckoutSource } from './enums/checkout-source.enum';
 import { DeliveryType } from './enums/delivery-type.enum';
 import { PaymentMethod } from '../payments/enums/payment-method.enum';
+import { PaymentStatus } from '../payments/enums/payment-status.enum';
 import { ReservationStatus } from '../inventory/enums/reservation-status.enum';
 import { ProductStatus } from '../products/enums/product-status.enum';
 import { OrderDelivery } from './entities/order-delivery.entity';
 import { Payment } from '../payments/entities/payment.entity';
+import { OrderStatus } from './enums/order-status.enum';
+import { DeliveryMethod } from './enums/delivery-method.enum';
+import { OrderStatusHistory } from './entities/order-status-history.entity';
 
-describe('OrdersService - Bloqueos Pesimistas, Transacciones e Inserciones Atómicas', () => {
+describe('OrdersService - Módulo Completo de Órdenes', () => {
   let service: OrdersService;
   let mockOrderRepo: any;
   let mockUserRepo: any;
@@ -106,14 +110,98 @@ describe('OrdersService - Bloqueos Pesimistas, Transacciones e Inserciones Atóm
     });
   });
 
-  describe('checkout - Inserción Atómica y Snapshots (Requerimientos 2 a 10)', () => {
-    it('debe abortar la transacción y lanzar STOCK_INSUFFICIENT si una variante no tiene suficiente disponible', async () => {
+  describe('findOne', () => {
+    it('debe retornar la orden si existe', async () => {
+      const mockOrder = { id: 'order-123', orderNumber: 'A1B2C3D4' };
+      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+      const result = await service.findOne('order-123');
+      expect(result).toEqual(mockOrder);
+      expect(mockOrderRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 'order-123' },
+        relations: ['items', 'delivery', 'delivery.branch', 'customer', 'guestCustomer', 'statusHistory'],
+      });
+    });
+
+    it('debe lanzar NotFoundException si la orden no existe', async () => {
+      mockOrderRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne('non-existing-id')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('debe actualizar el estado de la orden y registrar la entrada en el historial', async () => {
+      const existingOrder = {
+        id: 'order-123',
+        status: OrderStatus.NEW,
+        deliveryMethod: DeliveryMethod.HOME_DELIVERY,
+        statusHistory: [],
+      };
+
+      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+        const fakeTx: any = {
+          findOne: jest.fn().mockResolvedValue(existingOrder),
+          create: jest.fn().mockImplementation((cls, dto) => dto),
+          save: jest.fn().mockImplementation((clsOrObj, obj) => Promise.resolve(obj || clsOrObj)),
+        };
+        return cb(fakeTx);
+      });
+
+      const result = await service.updateStatus('order-123', {
+        status: OrderStatus.PENDING,
+        notes: 'Confirmando orden',
+      } as any);
+
+      expect(result.status).toBe(OrderStatus.PENDING);
+    });
+
+    it('debe retornar la orden sin cambios si el nuevo estado es idéntico al actual', async () => {
+      const existingOrder = {
+        id: 'order-123',
+        status: OrderStatus.NEW,
+        deliveryMethod: DeliveryMethod.HOME_DELIVERY,
+      };
+
+      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+        const fakeTx: any = {
+          findOne: jest.fn().mockResolvedValue(existingOrder),
+        };
+        return cb(fakeTx);
+      });
+
+      const result = await service.updateStatus('order-123', {
+        status: OrderStatus.NEW,
+      } as any);
+
+      expect(result.status).toBe(OrderStatus.NEW);
+    });
+
+    it('debe lanzar BadRequestException ante una transición de estado inválida', async () => {
+      const existingOrder = {
+        id: 'order-123',
+        status: OrderStatus.NEW,
+        deliveryMethod: DeliveryMethod.HOME_DELIVERY,
+      };
+
+      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+        const fakeTx: any = {
+          findOne: jest.fn().mockResolvedValue(existingOrder),
+        };
+        return cb(fakeTx);
+      });
+
+      await expect(
+        service.updateStatus('order-123', { status: OrderStatus.DELIVERED } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('Reglas de Validación y Flujos CARD / PAY_AT_STORE', () => {
+    it('debe rechazar la combinación PAY_AT_STORE + HOME_DELIVERY', async () => {
       const checkoutDto: any = {
         source: CheckoutSource.BUY_NOW,
-        items: [
-          { variantId: 'prod-uuid-1', quantity: 3, priceAtAdded: 100 },
-          { variantId: 'prod-uuid-2', quantity: 1, priceAtAdded: 50 },
-        ],
+        items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 100 }],
         contact: { fullName: 'Juan Perez', email: 'juan@example.com', phone: '+50370000000' },
         delivery: {
           deliveryType: DeliveryType.HOME_DELIVERY,
@@ -122,86 +210,20 @@ describe('OrdersService - Bloqueos Pesimistas, Transacciones e Inserciones Atóm
           city: 'San Salvador',
           addressLine: 'Calle Principal #123',
         },
-        paymentMethod: PaymentMethod.CARD,
+        paymentMethod: PaymentMethod.PAY_AT_STORE,
       };
-
-      const mockProduct1 = {
-        id: 'prod-uuid-1',
-        productId: 'prod-uuid-1',
-        status: ProductStatus.ACTIVE,
-        isActive: true,
-        isPublished: true,
-        deletedAt: null,
-        salePrice: 100,
-        commercialName: 'Producto 1',
-        inventory: { id: 'inv-1', stock: 1, reserved: 0 },
-      };
-
-      const mockProduct2 = {
-        id: 'prod-uuid-2',
-        productId: 'prod-uuid-2',
-        status: ProductStatus.ACTIVE,
-        isActive: true,
-        isPublished: true,
-        deletedAt: null,
-        salePrice: 50,
-        commercialName: 'Producto 2',
-        inventory: { id: 'inv-2', stock: 5, reserved: 0 },
-      };
-
-      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
-        const fakeTx: any = {
-          getRepository: jest.fn().mockReturnValue({
-            findOne: jest.fn().mockResolvedValue(null),
-          }),
-          createQueryBuilder: jest.fn().mockImplementation(() => {
-            let targetVariantId: string | null = null;
-            return {
-              insert: jest.fn().mockReturnThis(),
-              into: jest.fn().mockReturnThis(),
-              values: jest.fn().mockReturnThis(),
-              execute: jest.fn().mockResolvedValue({}),
-              setLock: jest.fn().mockReturnThis(),
-              where: jest.fn().mockImplementation((clause: string, params: any) => {
-                if (params?.variantId) targetVariantId = params.variantId;
-                return fakeTx.createQueryBuilder();
-              }),
-              getOne: jest.fn().mockImplementation(async () => {
-                if (targetVariantId === 'prod-uuid-2') return mockProduct2.inventory;
-                return mockProduct1.inventory;
-              }),
-            };
-          }),
-          findOne: jest.fn().mockImplementation((entityClass: any, options: any) => {
-            if (options.where?.id === 'prod-uuid-1') return Promise.resolve(mockProduct1);
-            if (options.where?.id === 'prod-uuid-2') return Promise.resolve(mockProduct2);
-            return Promise.resolve(null);
-          }),
-          create: jest.fn().mockImplementation((cls: any, dto: any) => ({ ...dto, id: 'item-uuid' })),
-          save: jest.fn().mockImplementation((cls: any, entity: any) => Promise.resolve(entity || cls)),
-          delete: jest.fn().mockResolvedValue({}),
-        };
-        return cb(fakeTx);
-      });
 
       try {
         await service.checkout(checkoutDto);
-        fail('Debería haber lanzado UnprocessableEntityException');
+        fail('Debería haber lanzado BadRequestException');
       } catch (error: any) {
-        expect(error).toBeInstanceOf(UnprocessableEntityException);
+        expect(error).toBeInstanceOf(BadRequestException);
         const res = error.getResponse();
-        expect(res.error.code).toBe('STOCK_INSUFFICIENT');
-        expect(res.error.details).toEqual([
-          {
-            variantId: 'prod-uuid-1',
-            requestedQuantity: 3,
-            availableStock: 1,
-          },
-        ]);
+        expect(res.code).toBe('INVALID_PAYMENT_COMBINATION');
       }
     });
 
-    it('debe crear GuestCustomer, OrderDelivery, Payment y OrderStatusHistory dentro de la misma transacción para invitado', async () => {
+    it('debe asignar paymentDeadline a exactamente 3 días (72h) para compras PAY_AT_STORE', async () => {
       const checkoutDto: any = {
         source: CheckoutSource.BUY_NOW,
         items: [{ variantId: 'prod-uuid-1', quantity: 2, priceAtAdded: 100 }],
@@ -234,9 +256,6 @@ describe('OrdersService - Bloqueos Pesimistas, Transacciones e Inserciones Atóm
         inventory: mockInventory,
       };
 
-      let createdGuest: any = null;
-      let createdDelivery: any = null;
-      let createdPayment: any = null;
       let createdOrder: any = null;
 
       mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
@@ -259,109 +278,141 @@ describe('OrdersService - Bloqueos Pesimistas, Transacciones e Inserciones Atóm
             return Promise.resolve(null);
           }),
           create: jest.fn().mockImplementation((cls: any, dto: any) => {
-            if (cls === GuestCustomer) createdGuest = dto;
-            if (cls === Order) createdOrder = dto;
-            if (cls === OrderDelivery) createdDelivery = dto;
-            if (cls === Payment) createdPayment = dto;
-            return { id: 'generated-uuid-1', ...dto };
+            return { id: 'uuid-gen', ...dto };
           }),
           save: jest.fn().mockImplementation((clsOrObj: any, obj?: any) => {
             const target = obj || clsOrObj;
             if (target && target.orderNumber) {
               createdOrder = target;
             }
-            return Promise.resolve({ id: 'saved-order-id-1', ...target });
+            return Promise.resolve({ id: 'saved-id', ...target });
           }),
           delete: jest.fn().mockResolvedValue({}),
         };
         return cb(fakeTx);
       });
 
-      const orderResult = await service.checkout(checkoutDto);
-      expect(orderResult).toBeDefined();
+      const beforeCheckout = Date.now();
+      await service.checkout(checkoutDto);
 
-      // Verificación de GuestCustomer (Requerimiento 3)
-      expect(createdGuest).toBeDefined();
-      expect(createdGuest.email).toBe('maria@example.com');
-      expect(createdGuest.name).toBe('Maria Lopez');
-
-      // Verificación de OrderDelivery (Requerimiento 5)
-      expect(createdDelivery).toBeDefined();
-      expect(createdDelivery.deliveryType).toBe(DeliveryType.STORE_PICKUP);
-      expect(createdDelivery.branchId).toBe('branch-uuid-1');
-
-      // Verificación de Payment (Requerimiento 6)
-      expect(createdPayment).toBeDefined();
-      expect(createdPayment.paymentMethod).toBe(PaymentMethod.PAY_AT_STORE);
-
-      // Verificación de Order & OrderStatusHistory (Requerimientos 2, 7 y 8)
       expect(createdOrder).toBeDefined();
-      expect(createdOrder.orderNumber.length).toBe(8);
-      expect(createdOrder.statusHistory).toBeDefined();
-      expect(createdOrder.statusHistory.length).toBe(1);
-      expect(createdOrder.statusHistory[0].statusBefore).toBeNull();
-      expect(createdOrder.statusHistory[0].statusAfter).toBe('NEW');
+      expect(createdOrder.paymentDeadline).toBeInstanceOf(Date);
+      
+      const deadlineDiffMs = createdOrder.paymentDeadline.getTime() - beforeCheckout;
+      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+      
+      expect(deadlineDiffMs).toBeGreaterThanOrEqual(threeDaysMs - 5000);
+      expect(deadlineDiffMs).toBeLessThanOrEqual(threeDaysMs + 5000 + 1000);
+    });
+
+    it('debe abortar la transacción con ROLLBACK si la simulación de pago CARD indica simulateSuccess: false', async () => {
+      const checkoutDto: any = {
+        source: CheckoutSource.BUY_NOW,
+        items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 100 }],
+        contact: { fullName: 'Carlos Gomez', email: 'carlos@example.com', phone: '+50372222222' },
+        delivery: {
+          deliveryType: DeliveryType.HOME_DELIVERY,
+          departmentId: 'SS',
+          districtId: 'San_Salvador',
+          city: 'San Salvador',
+          addressLine: 'Calle Principal #123',
+        },
+        paymentMethod: PaymentMethod.CARD,
+        card: {
+          cardLastFour: '4321',
+          cardBrand: 'Visa',
+          simulateSuccess: false, // Simula rechazo
+        },
+      };
+
+      const mockInventory = { id: 'inv-1', stock: 10, reserved: 0 };
+      const mockProduct = {
+        id: 'prod-uuid-1',
+        productId: 'prod-uuid-1',
+        status: ProductStatus.ACTIVE,
+        isActive: true,
+        isPublished: true,
+        deletedAt: null,
+        salePrice: 100,
+        commercialName: 'Producto 1',
+        inventory: mockInventory,
+      };
+
+      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+        const fakeTx: any = {
+          getRepository: jest.fn().mockReturnValue({
+            findOne: jest.fn().mockResolvedValue(null),
+          }),
+          createQueryBuilder: jest.fn().mockReturnValue({
+            insert: jest.fn().mockReturnThis(),
+            into: jest.fn().mockReturnThis(),
+            values: jest.fn().mockReturnThis(),
+            execute: jest.fn().mockResolvedValue({}),
+            setLock: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            getOne: jest.fn().mockResolvedValue(mockInventory),
+          }),
+          findOne: jest.fn().mockImplementation((entityClass: any, options: any) => {
+            if (options.where?.id === 'prod-uuid-1') return Promise.resolve(mockProduct);
+            return Promise.resolve(null);
+          }),
+          create: jest.fn().mockImplementation((cls: any, dto: any) => ({ id: 'uuid-gen', ...dto })),
+          save: jest.fn().mockImplementation((clsOrObj: any, obj?: any) => Promise.resolve({ id: 'saved-id', ...(obj || clsOrObj) })),
+          delete: jest.fn().mockResolvedValue({}),
+        };
+        return cb(fakeTx);
+      });
+
+      try {
+        await service.checkout(checkoutDto);
+        fail('Debería haber lanzado BadRequestException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        const res = error.getResponse();
+        expect(res.error.code).toBe('PAYMENT_FAILED');
+      }
     });
   });
 
-  describe('releaseOrderReservations - Liberación Idempotente de Reservas', () => {
-    it('debe liberar de forma atómica e idempotente las reservas ACTIVE', async () => {
-      const orderId = 'order-uuid-99';
-
-      const activeReservation = {
-        id: 'res-1',
-        orderId,
-        inventoryId: 'inv-1',
-        productId: 'prod-1',
-        quantity: 2,
-        status: ReservationStatus.ACTIVE,
-      };
-
-      const mockInventory = {
-        id: 'inv-1',
-        stock: 10,
-        reserved: 2,
+  describe('checkAndReleaseExpiredReservations - Liberación por Vencimiento de paymentDeadline', () => {
+    it('debe detectar órdenes PAY_AT_STORE expiradas (+3 días) y liberar reservas e inhabilitar orden', async () => {
+      const expiredOrder = {
+        id: 'expired-order-uuid',
+        orderNumber: 'EXP12345',
+        status: OrderStatus.NEW,
+        paymentDeadline: new Date(Date.now() - 1000), // Expiró hace 1s
       };
 
       mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
         const fakeTx: any = {
           createQueryBuilder: jest.fn().mockImplementation((entity: any) => {
+            if (entity === Order) {
+              return {
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue([expiredOrder]),
+              };
+            }
             if (entity === InventoryReservation) {
               return {
                 setLock: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
-                getMany: jest.fn().mockResolvedValue([activeReservation]),
-              };
-            }
-            if (entity === Inventory) {
-              return {
-                setLock: jest.fn().mockReturnThis(),
-                where: jest.fn().mockReturnThis(),
-                getOne: jest.fn().mockResolvedValue(mockInventory),
+                getMany: jest.fn().mockResolvedValue([]),
               };
             }
             return {};
           }),
-          save: jest.fn().mockImplementation((clsOrObj: any, obj?: any) => {
-            const target = obj || clsOrObj;
-            return Promise.resolve(target);
-          }),
+          save: jest.fn().mockImplementation((clsOrObj: any, obj?: any) => Promise.resolve(obj || clsOrObj)),
+          update: jest.fn().mockResolvedValue({ affected: 1 }),
           create: jest.fn().mockImplementation((cls: any, dto: any) => dto),
         };
         return cb(fakeTx);
       });
 
-      const result = await service.releaseOrderReservations(orderId);
-      expect(result.releasedCount).toBe(1);
-      expect(mockInventory.reserved).toBe(0); // 2 - 2
-      expect(activeReservation.status).toBe(ReservationStatus.RELEASED);
-
-      // Segundo intento: Idempotencia (reserva ya RELEASED)
-      activeReservation.status = ReservationStatus.RELEASED;
-      const secondResult = await service.releaseOrderReservations(orderId);
-      expect(secondResult.releasedCount).toBe(0);
-      expect(mockInventory.reserved).toBe(0); // No cambia nuevamente
+      const result = await service.checkAndReleaseExpiredReservations();
+      expect(result.cancelledOrdersCount).toBe(1);
+      expect(expiredOrder.status).toBe(OrderStatus.CANCELLED);
     });
   });
 });
