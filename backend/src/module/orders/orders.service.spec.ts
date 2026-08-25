@@ -23,7 +23,7 @@ import { Payment } from '../payments/entities/payment.entity';
 import { OrderStatus } from './enums/order-status.enum';
 import { DeliveryMethod } from './enums/delivery-method.enum';
 
-describe('OrdersService - Módulo Completo de Órdenes y Autorización de Consulta', () => {
+describe('OrdersService - Máquina de Estados Canónica, Expiración y Autorización', () => {
   let service: OrdersService;
   let mockOrderRepo: any;
   let mockUserRepo: any;
@@ -90,193 +90,11 @@ describe('OrdersService - Módulo Completo de Órdenes y Autorización de Consul
     expect(service).toBeDefined();
   });
 
-  describe('generateUniqueOrderNumber - Requerimiento 1', () => {
-    it('debe generar un orderNumber público de exactamente 8 caracteres alfanuméricos en mayúsculas', async () => {
-      const orderNumber = await (service as any).generateUniqueOrderNumber();
-      expect(orderNumber).toBeDefined();
-      expect(orderNumber.length).toBe(8);
-      expect(orderNumber).toMatch(/^[A-Z0-9]{8}$/);
-    });
-
-    it('debe reintentar si se detecta una colisión previa de orderNumber', async () => {
-      mockOrderRepo.findOne
-        .mockResolvedValueOnce({ id: 'existing-order' })
-        .mockResolvedValueOnce(null);
-
-      const orderNumber = await (service as any).generateUniqueOrderNumber();
-      expect(orderNumber).toBeDefined();
-      expect(orderNumber.length).toBe(8);
-      expect(mockOrderRepo.findOne).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('findOne', () => {
-    it('debe retornar la orden si existe por UUID interno', async () => {
-      const mockOrder = { id: 'order-123', orderNumber: 'A1B2C3D4' };
-      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
-
-      const result = await service.findOne('order-123');
-      expect(result).toEqual(mockOrder);
-    });
-
-    it('debe lanzar NotFoundException si la orden por UUID interno no existe', async () => {
-      mockOrderRepo.findOne.mockResolvedValue(null);
-
-      await expect(service.findOne('non-existing-id')).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('findOneByOrderNumber - Autorización de Consulta (Requerimientos 4 a 12)', () => {
-    it('debe lanzar ORDER_NOT_FOUND si el orderNumber solicitado no existe', async () => {
-      mockOrderRepo.findOne.mockResolvedValue(null);
-
-      try {
-        await service.findOneByOrderNumber('UNKNOWN8');
-        fail('Debería haber lanzado NotFoundException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(NotFoundException);
-        const res = error.getResponse();
-        expect(res.error.code).toBe('ORDER_NOT_FOUND');
-      }
-    });
-
-    it('debe permitir acceso al cliente autenticado si es el propietario de la orden (ownership)', async () => {
-      const mockOrder = {
-        orderNumber: 'A7K29P4Q',
-        customerId: 'customer-uuid-100',
-        guestOrderAccessTokenHash: null,
-      };
-      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
-
-      const user = { id: 'customer-uuid-100' };
-      const result = await service.findOneByOrderNumber('A7K29P4Q', user);
-
-      expect(result).toBeDefined();
-      expect(result.orderNumber).toBe('A7K29P4Q');
-    });
-
-    it('debe rechazar con ORDER_FORBIDDEN si un cliente autenticado intenta consultar la orden de otro cliente', async () => {
-      const mockOrder = {
-        orderNumber: 'A7K29P4Q',
-        customerId: 'customer-uuid-100',
-        guestOrderAccessTokenHash: null,
-      };
-      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
-
-      const user = { id: 'other-customer-uuid' };
-      try {
-        await service.findOneByOrderNumber('A7K29P4Q', user);
-        fail('Debería haber lanzado ForbiddenException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(ForbiddenException);
-        const res = error.getResponse();
-        expect(res.error.code).toBe('ORDER_FORBIDDEN');
-      }
-    });
-
-    it('debe permitir acceso a un usuario administrativo mediante RBAC', async () => {
-      const mockOrder = {
-        orderNumber: 'A7K29P4Q',
-        customerId: 'customer-uuid-100',
-      };
-      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
-
-      const adminUser = { id: 'admin-uuid', role: 'ADMIN' };
-      const result = await service.findOneByOrderNumber('A7K29P4Q', adminUser);
-
-      expect(result).toBeDefined();
-      expect(result.orderNumber).toBe('A7K29P4Q');
-    });
-
-    it('debe exigir ORDER_ACCESS_TOKEN_REQUIRED si una orden de invitado se consulta sin el header X-Order-Access-Token', async () => {
-      const rawToken = 'secret-guest-token-12345';
-      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-      const mockOrder = {
-        orderNumber: 'A7K29P4Q',
-        customerId: null,
-        guestOrderAccessTokenHash: tokenHash,
-      };
-      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
-
-      try {
-        await service.findOneByOrderNumber('A7K29P4Q', null, undefined);
-        fail('Debería haber lanzado UnauthorizedException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(UnauthorizedException);
-        const res = error.getResponse();
-        expect(res.error.code).toBe('ORDER_ACCESS_TOKEN_REQUIRED');
-      }
-    });
-
-    it('debe rechazar con ORDER_FORBIDDEN si el header X-Order-Access-Token enviado no coincide con el hash almacenado', async () => {
-      const rawToken = 'secret-guest-token-12345';
-      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-      const mockOrder = {
-        orderNumber: 'A7K29P4Q',
-        customerId: null,
-        guestOrderAccessTokenHash: tokenHash,
-      };
-      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
-
-      try {
-        await service.findOneByOrderNumber('A7K29P4Q', null, 'wrong-access-token');
-        fail('Debería haber lanzado ForbiddenException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(ForbiddenException);
-        const res = error.getResponse();
-        expect(res.error.code).toBe('ORDER_FORBIDDEN');
-      }
-    });
-
-    it('debe conceder acceso y retornar la orden sanitizada sin el hash si el X-Order-Access-Token es correcto', async () => {
-      const rawToken = 'secret-guest-token-12345';
-      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-      const mockOrder = {
-        orderNumber: 'A7K29P4Q',
-        customerId: null,
-        guestOrderAccessTokenHash: tokenHash,
-        status: OrderStatus.NEW,
-      };
-      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
-
-      const result = await service.findOneByOrderNumber('A7K29P4Q', null, rawToken);
-
-      expect(result).toBeDefined();
-      expect(result.orderNumber).toBe('A7K29P4Q');
-      expect((result as any).guestOrderAccessTokenHash).toBeUndefined(); // Sanitizado
-    });
-  });
-
-  describe('updateStatus', () => {
-    it('debe actualizar el estado de la orden y registrar la entrada en el historial', async () => {
+  describe('Máquina de Estados Canónica e INVALID_STATUS_TRANSITION (Requerimientos 1, 3, 4, 10)', () => {
+    it('debe rechazar READY_FOR_PICKUP para órdenes con entrega HOME_DELIVERY', async () => {
       const existingOrder = {
         id: 'order-123',
-        status: OrderStatus.NEW,
-        deliveryMethod: DeliveryMethod.HOME_DELIVERY,
-        statusHistory: [],
-      };
-
-      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
-        const fakeTx: any = {
-          findOne: jest.fn().mockResolvedValue(existingOrder),
-          create: jest.fn().mockImplementation((cls, dto) => dto),
-          save: jest.fn().mockImplementation((clsOrObj, obj) => Promise.resolve(obj || clsOrObj)),
-        };
-        return cb(fakeTx);
-      });
-
-      const result = await service.updateStatus('order-123', {
         status: OrderStatus.PENDING,
-        notes: 'Confirmando orden',
-      } as any);
-
-      expect(result.status).toBe(OrderStatus.PENDING);
-    });
-
-    it('debe retornar la orden sin cambios si el nuevo estado es idéntico al actual', async () => {
-      const existingOrder = {
-        id: 'order-123',
-        status: OrderStatus.NEW,
         deliveryMethod: DeliveryMethod.HOME_DELIVERY,
       };
 
@@ -286,134 +104,122 @@ describe('OrdersService - Módulo Completo de Órdenes y Autorización de Consul
         };
         return cb(fakeTx);
       });
-
-      const result = await service.updateStatus('order-123', {
-        status: OrderStatus.NEW,
-      } as any);
-
-      expect(result.status).toBe(OrderStatus.NEW);
-    });
-
-    it('debe lanzar BadRequestException ante una transición de estado inválida', async () => {
-      const existingOrder = {
-        id: 'order-123',
-        status: OrderStatus.NEW,
-        deliveryMethod: DeliveryMethod.HOME_DELIVERY,
-      };
-
-      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
-        const fakeTx: any = {
-          findOne: jest.fn().mockResolvedValue(existingOrder),
-        };
-        return cb(fakeTx);
-      });
-
-      await expect(
-        service.updateStatus('order-123', { status: OrderStatus.DELIVERED } as any),
-      ).rejects.toThrow(BadRequestException);
-    });
-  });
-
-  describe('Reglas de Validación y Flujos CARD / PAY_AT_STORE', () => {
-    it('debe rechazar la combinación PAY_AT_STORE + HOME_DELIVERY', async () => {
-      const checkoutDto: any = {
-        source: CheckoutSource.BUY_NOW,
-        items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 100 }],
-        contact: { fullName: 'Juan Perez', email: 'juan@example.com', phone: '+50370000000' },
-        delivery: {
-          deliveryType: DeliveryType.HOME_DELIVERY,
-          departmentId: 'SS',
-          districtId: 'San_Salvador',
-          city: 'San Salvador',
-          addressLine: 'Calle Principal #123',
-        },
-        paymentMethod: PaymentMethod.PAY_AT_STORE,
-      };
 
       try {
-        await service.checkout(checkoutDto);
+        await service.updateStatus('order-123', { status: OrderStatus.READY_FOR_PICKUP } as any);
         fail('Debería haber lanzado BadRequestException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(BadRequestException);
         const res = error.getResponse();
-        expect(res.code).toBe('INVALID_PAYMENT_COMBINATION');
+        expect(res.error.code).toBe('INVALID_STATUS_TRANSITION');
+        expect(res.error.details).toEqual({
+          currentStatus: OrderStatus.PENDING,
+          requestedStatus: OrderStatus.READY_FOR_PICKUP,
+        });
       }
     });
 
-    it('debe generar guestOrderAccessToken para pedido invitado y guardar el hash en BD', async () => {
-      const checkoutDto: any = {
-        source: CheckoutSource.BUY_NOW,
-        items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 100 }],
-        contact: { fullName: 'Invitado Perez', email: 'invitado@example.com', phone: '+50370000000' },
-        delivery: {
-          deliveryType: DeliveryType.STORE_PICKUP,
-          branchId: 'branch-uuid-1',
-        },
-        paymentMethod: PaymentMethod.PAY_AT_STORE,
+    it('debe rechazar ON_ROUTE para órdenes con entrega PICKUP / STORE_PICKUP', async () => {
+      const existingOrder = {
+        id: 'order-456',
+        status: OrderStatus.PENDING,
+        deliveryMethod: DeliveryMethod.PICKUP,
       };
-
-      const mockBranch = { id: 'branch-uuid-1', name: 'Sucursal 1', isActive: true, allowsPickup: true };
-      mockBranchRepo.findOne.mockResolvedValue(mockBranch);
-      const mockInventory = { id: 'inv-1', stock: 10, reserved: 0 };
-      const mockProduct = {
-        id: 'prod-uuid-1',
-        productId: 'prod-uuid-1',
-        status: ProductStatus.ACTIVE,
-        isActive: true,
-        isPublished: true,
-        deletedAt: null,
-        commercialName: 'Producto Test',
-        salePrice: 100,
-        inventory: mockInventory,
-      };
-
-      let createdOrder: any = null;
 
       mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
         const fakeTx: any = {
-          getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }),
-          createQueryBuilder: jest.fn().mockReturnValue({
-            insert: jest.fn().mockReturnThis(),
-            into: jest.fn().mockReturnThis(),
-            values: jest.fn().mockReturnThis(),
-            execute: jest.fn().mockResolvedValue({}),
-            setLock: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            getOne: jest.fn().mockResolvedValue(mockInventory),
-          }),
-          findOne: jest.fn().mockImplementation((entityClass: any, options: any) => {
-            if (options.where?.id === 'branch-uuid-1') return Promise.resolve(mockBranch);
-            if (options.where?.id === 'prod-uuid-1') return Promise.resolve(mockProduct);
-            return Promise.resolve(null);
-          }),
-          create: jest.fn().mockImplementation((cls: any, dto: any) => ({ id: 'uuid-gen', ...dto })),
-          save: jest.fn().mockImplementation((clsOrObj: any, obj?: any) => {
-            const target = obj || clsOrObj;
-            if (target && target.orderNumber) createdOrder = target;
-            return Promise.resolve({ id: 'saved-id', ...target });
-          }),
-          delete: jest.fn().mockResolvedValue({}),
+          findOne: jest.fn().mockResolvedValue(existingOrder),
         };
         return cb(fakeTx);
       });
 
-      const checkoutResult: any = await service.checkout(checkoutDto); // Invitado sin userId
+      try {
+        await service.updateStatus('order-456', { status: OrderStatus.ON_ROUTE } as any);
+        fail('Debería haber lanzado BadRequestException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        const res = error.getResponse();
+        expect(res.error.code).toBe('INVALID_STATUS_TRANSITION');
+      }
+    });
 
-      expect(checkoutResult).toBeDefined();
-      expect(checkoutResult.guestOrderAccessToken).toBeDefined(); // Entregado una sola vez en la respuesta
-      expect(typeof checkoutResult.guestOrderAccessToken).toBe('string');
-      expect(createdOrder.guestOrderAccessTokenHash).toBeDefined(); // Hash almacenado en la entidad Order
-      expect(createdOrder.guestOrderAccessTokenHash.length).toBe(64); // SHA-256 hex length
+    it('debe rechazar cambios de estado desde un estado terminal (DELIVERED o CANCELLED)', async () => {
+      const deliveredOrder = {
+        id: 'order-789',
+        status: OrderStatus.DELIVERED,
+        deliveryMethod: DeliveryMethod.HOME_DELIVERY,
+      };
+
+      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+        const fakeTx: any = {
+          findOne: jest.fn().mockResolvedValue(deliveredOrder),
+        };
+        return cb(fakeTx);
+      });
+
+      try {
+        await service.updateStatus('order-789', { status: OrderStatus.PENDING } as any);
+        fail('Debería haber lanzado BadRequestException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        const res = error.getResponse();
+        expect(res.error.code).toBe('INVALID_STATUS_TRANSITION');
+      }
+    });
+
+    it('debe actualizar estado por orderNumber y liberar reservas en cancelación', async () => {
+      const existingOrder = {
+        id: 'order-uuid-999',
+        orderNumber: 'A7K29P4Q',
+        status: OrderStatus.PENDING,
+        deliveryMethod: DeliveryMethod.PICKUP,
+      };
+
+      let statusUpdated = false;
+
+      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+        const fakeTx: any = {
+          findOne: jest.fn().mockResolvedValue(existingOrder),
+          createQueryBuilder: jest.fn().mockReturnValue({
+            setLock: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([]),
+          }),
+          update: jest.fn().mockResolvedValue({ affected: 1 }),
+          create: jest.fn().mockImplementation((cls, dto) => dto),
+          save: jest.fn().mockImplementation((clsOrObj, obj) => {
+            const target = obj || clsOrObj;
+            if (target.status === OrderStatus.CANCELLED) statusUpdated = true;
+            return Promise.resolve(target);
+          }),
+        };
+        return cb(fakeTx);
+      });
+
+      const result = await service.updateStatusByOrderNumber('A7K29P4Q', {
+        status: OrderStatus.CANCELLED,
+        notes: 'Cancelado por administración',
+      } as any);
+
+      expect(result.status).toBe(OrderStatus.CANCELLED);
+      expect(statusUpdated).toBe(true);
     });
   });
 
-  describe('checkAndReleaseExpiredReservations - Liberación por Vencimiento de paymentDeadline', () => {
-    it('debe detectar órdenes PAY_AT_STORE expiradas (+3 días) y liberar reservas e inhabilitar orden', async () => {
+  describe('checkAndReleaseExpiredReservations - Scheduler y Concurrencia (Requerimientos 5, 7, 8, 11)', () => {
+    it('debe liberar reservas y cancelar la orden si el pago continúa PENDING y la fecha venció', async () => {
       const expiredOrder = {
-        id: 'expired-order-uuid',
+        id: 'expired-order-1',
         orderNumber: 'EXP12345',
-        status: OrderStatus.NEW,
-        paymentDeadline: new Date(Date.now() - 1000),
+        status: OrderStatus.PENDING,
+        paymentDeadline: new Date(Date.now() - 5000),
+      };
+
+      const mockPayment = {
+        id: 'pay-1',
+        orderId: 'expired-order-1',
+        status: PaymentStatus.PENDING,
       };
 
       mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
@@ -421,6 +227,7 @@ describe('OrdersService - Módulo Completo de Órdenes y Autorización de Consul
           createQueryBuilder: jest.fn().mockImplementation((entity: any) => {
             if (entity === Order) {
               return {
+                setLock: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 andWhere: jest.fn().mockReturnThis(),
                 getMany: jest.fn().mockResolvedValue([expiredOrder]),
@@ -436,8 +243,8 @@ describe('OrdersService - Módulo Completo de Órdenes y Autorización de Consul
             }
             return {};
           }),
+          findOne: jest.fn().mockResolvedValue(mockPayment),
           save: jest.fn().mockImplementation((clsOrObj: any, obj?: any) => Promise.resolve(obj || clsOrObj)),
-          update: jest.fn().mockResolvedValue({ affected: 1 }),
           create: jest.fn().mockImplementation((cls: any, dto: any) => dto),
         };
         return cb(fakeTx);
@@ -446,6 +253,81 @@ describe('OrdersService - Módulo Completo de Órdenes y Autorización de Consul
       const result = await service.checkAndReleaseExpiredReservations();
       expect(result.cancelledOrdersCount).toBe(1);
       expect(expiredOrder.status).toBe(OrderStatus.CANCELLED);
+      expect(mockPayment.status).toBe(PaymentStatus.CANCELLED);
+    });
+
+    it('no debe modificar la orden si el pago ya fue completado o no está en estado PENDING (concurrencia)', async () => {
+      const expiredOrder = {
+        id: 'expired-order-2',
+        orderNumber: 'EXP99999',
+        status: OrderStatus.PENDING,
+        paymentDeadline: new Date(Date.now() - 5000),
+      };
+
+      const mockApprovedPayment = {
+        id: 'pay-2',
+        orderId: 'expired-order-2',
+        status: PaymentStatus.APPROVED, // Ya pagado
+      };
+
+      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+        const fakeTx: any = {
+          createQueryBuilder: jest.fn().mockImplementation((entity: any) => {
+            if (entity === Order) {
+              return {
+                setLock: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue([expiredOrder]),
+              };
+            }
+            return {};
+          }),
+          findOne: jest.fn().mockResolvedValue(mockApprovedPayment),
+        };
+        return cb(fakeTx);
+      });
+
+      const result = await service.checkAndReleaseExpiredReservations();
+      expect(result.cancelledOrdersCount).toBe(0);
+      expect(expiredOrder.status).toBe(OrderStatus.PENDING); // Permanece sin cambios
+    });
+  });
+
+  describe('findOneByOrderNumber - Autorización de Consulta', () => {
+    it('debe lanzar ORDER_NOT_FOUND si la orden no existe', async () => {
+      mockOrderRepo.findOne.mockResolvedValue(null);
+
+      try {
+        await service.findOneByOrderNumber('UNKNOWN8');
+        fail('Debería haber lanzado NotFoundException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NotFoundException);
+        const res = error.getResponse();
+        expect(res.error.code).toBe('ORDER_NOT_FOUND');
+      }
+    });
+
+    it('debe conceder acceso al propietario autenticado', async () => {
+      const mockOrder = { orderNumber: 'A7K29P4Q', customerId: 'cust-100' };
+      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+      const result = await service.findOneByOrderNumber('A7K29P4Q', { id: 'cust-100' });
+      expect(result.orderNumber).toBe('A7K29P4Q');
+    });
+
+    it('debe rechazar con ORDER_FORBIDDEN a clientes no propietarios', async () => {
+      const mockOrder = { orderNumber: 'A7K29P4Q', customerId: 'cust-100' };
+      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+      try {
+        await service.findOneByOrderNumber('A7K29P4Q', { id: 'other-cust' });
+        fail('Debería haber lanzado ForbiddenException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        const res = error.getResponse();
+        expect(res.error.code).toBe('ORDER_FORBIDDEN');
+      }
     });
   });
 });

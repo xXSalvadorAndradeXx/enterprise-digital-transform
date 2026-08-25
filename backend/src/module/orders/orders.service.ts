@@ -1151,8 +1151,8 @@ export class OrdersService {
   async updateStatus(id: string, updateStatusDto: UpdateOrderStatusDto): Promise<Order> {
     const { status: newStatus, changedById, notes } = updateStatusDto;
 
-    return await this.orderRepository.manager.transaction(async (transactionalEntityManager) => {
-      const order = await transactionalEntityManager.findOne(Order, {
+    return await this.orderRepository.manager.transaction(async (tx) => {
+      const order = await tx.findOne(Order, {
         where: { id },
         relations: ['statusHistory'],
       });
@@ -1163,21 +1163,32 @@ export class OrdersService {
 
       const oldStatus = order.status;
       if (oldStatus === newStatus) {
-        return order; // No hay cambio de estado
+        return order;
       }
 
-      // Validar la transición de estado según las reglas de negocio y el método de entrega
       if (!this.isValidTransition(oldStatus, newStatus, order.deliveryMethod)) {
-        throw new BadRequestException(
-          `Transición de estado inválida de ${oldStatus} a ${newStatus} para el método de entrega ${order.deliveryMethod}`,
-        );
+        throw new BadRequestException({
+          success: false,
+          error: {
+            code: 'INVALID_STATUS_TRANSITION',
+            message: 'La transición de estado solicitada no está permitida',
+            details: {
+              currentStatus: oldStatus,
+              requestedStatus: newStatus,
+            },
+          },
+        });
       }
 
-      // Actualizar el estado de la orden
+      // Si la orden se cancela, liberar reservas e inhabilitar pago de forma atómica
+      if (newStatus === OrderStatus.CANCELLED) {
+        await this.releaseOrderReservations(order.id, tx);
+        await tx.update(Payment, { orderId: order.id, status: PaymentStatus.PENDING }, { status: PaymentStatus.CANCELLED });
+      }
+
       order.status = newStatus;
 
-      // Crear el registro de historial
-      const historyEntry = transactionalEntityManager.create(OrderStatusHistory, {
+      const historyEntry = tx.create(OrderStatusHistory, {
         order,
         statusBefore: oldStatus,
         statusAfter: newStatus,
@@ -1185,8 +1196,75 @@ export class OrdersService {
         notes: notes || null,
       });
 
-      await transactionalEntityManager.save(Order, order);
-      await transactionalEntityManager.save(OrderStatusHistory, historyEntry);
+      await tx.save(Order, order);
+      await tx.save(OrderStatusHistory, historyEntry);
+
+      return order;
+    });
+  }
+
+  /**
+   * Actualiza el estado de una orden buscando por orderNumber público de 8 caracteres (PATCH /admin/orders/:orderNumber/status)
+   */
+  async updateStatusByOrderNumber(
+    orderNumber: string,
+    updateStatusDto: UpdateOrderStatusDto,
+    changedById?: string,
+  ): Promise<Order> {
+    const { status: newStatus, notes } = updateStatusDto;
+
+    return await this.orderRepository.manager.transaction(async (tx) => {
+      const order = await tx.findOne(Order, {
+        where: { orderNumber },
+        relations: ['statusHistory'],
+      });
+
+      if (!order) {
+        throw new NotFoundException({
+          success: false,
+          error: {
+            code: 'ORDER_NOT_FOUND',
+            message: 'El pedido solicitado no existe',
+          },
+        });
+      }
+
+      const oldStatus = order.status;
+      if (oldStatus === newStatus) {
+        return order;
+      }
+
+      if (!this.isValidTransition(oldStatus, newStatus, order.deliveryMethod)) {
+        throw new BadRequestException({
+          success: false,
+          error: {
+            code: 'INVALID_STATUS_TRANSITION',
+            message: 'La transición de estado solicitada no está permitida',
+            details: {
+              currentStatus: oldStatus,
+              requestedStatus: newStatus,
+            },
+          },
+        });
+      }
+
+      if (newStatus === OrderStatus.CANCELLED) {
+        await this.releaseOrderReservations(order.id, tx);
+        await tx.update(Payment, { orderId: order.id, status: PaymentStatus.PENDING }, { status: PaymentStatus.CANCELLED });
+      }
+
+      order.status = newStatus;
+
+      const historyEntry = tx.create(OrderStatusHistory, {
+        order,
+        statusBefore: oldStatus,
+        statusAfter: newStatus,
+        changedById: changedById || updateStatusDto.changedById || null,
+        notes: notes || null,
+      });
+
+      await tx.save(Order, order);
+      await tx.save(OrderStatusHistory, historyEntry);
 
       return order;
     });
@@ -1194,7 +1272,7 @@ export class OrdersService {
 
   /**
    * Valida si la transición entre el estado actual y el nuevo es permitida
-   * según las reglas del flujo de entrega de la orden.
+   * según la máquina de estados canónica y el método de entrega de la orden.
    */
   private isValidTransition(
     currentStatus: OrderStatus,
@@ -1203,12 +1281,20 @@ export class OrdersService {
   ): boolean {
     if (currentStatus === newStatus) return true;
 
-    // Regla de cancelación: cualquier estado previo no final (no DELIVERED ni CANCELLED) puede pasar a CANCELLED
+    // Los estados terminales (DELIVERED y CANCELLED) no permiten ninguna transición posterior
+    if (currentStatus === OrderStatus.DELIVERED || currentStatus === OrderStatus.CANCELLED) {
+      return false;
+    }
+
+    // Regla de cancelación: cualquier estado previo no terminal puede transicionar a CANCELLED
     if (newStatus === OrderStatus.CANCELLED) {
-      return currentStatus !== OrderStatus.DELIVERED && currentStatus !== OrderStatus.CANCELLED;
+      return true;
     }
 
     if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
+      // Para HOME_DELIVERY: READY_FOR_PICKUP está prohibido
+      if (newStatus === OrderStatus.READY_FOR_PICKUP) return false;
+
       switch (currentStatus) {
         case OrderStatus.NEW:
           return newStatus === OrderStatus.PENDING;
@@ -1220,6 +1306,9 @@ export class OrdersService {
           return false;
       }
     } else if (deliveryMethod === DeliveryMethod.PICKUP) {
+      // Para STORE_PICKUP / PICKUP: ON_ROUTE está prohibido
+      if (newStatus === OrderStatus.ON_ROUTE) return false;
+
       switch (currentStatus) {
         case OrderStatus.NEW:
           return newStatus === OrderStatus.PENDING;
@@ -1631,18 +1720,26 @@ export class OrdersService {
     const runInTx = async (tx: EntityManager) => {
       const now = new Date();
 
+      // Consultar órdenes expiradas no terminales con bloqueo pesimista (Requerimientos 5 y 11)
       const expiredOrders = await tx
         .createQueryBuilder(Order, 'ord')
+        .setLock('pessimistic_write')
         .where('ord.paymentDeadline IS NOT NULL')
         .andWhere('ord.paymentDeadline <= :now', { now })
-        .andWhere('ord.status IN (:...statuses)', {
-          statuses: [OrderStatus.NEW, OrderStatus.PENDING],
+        .andWhere('ord.status NOT IN (:...terminalStatuses)', {
+          terminalStatuses: [OrderStatus.CANCELLED, OrderStatus.DELIVERED],
         })
         .getMany();
 
       let cancelledOrdersCount = 0;
 
       for (const expiredOrder of expiredOrders) {
+        // Re-verificar PaymentStatus dentro de la transacción para evitar ejecuciones concurrentes
+        const payment = await tx.findOne(Payment, { where: { orderId: expiredOrder.id } });
+        if (payment && payment.status !== PaymentStatus.PENDING) {
+          continue;
+        }
+
         // Liberación idempotente de reservas de inventario
         await this.releaseOrderReservations(expiredOrder.id, tx);
 
@@ -1652,9 +1749,14 @@ export class OrdersService {
         await tx.save(Order, expiredOrder);
 
         // Actualizar estado de pago a CANCELLED
-        await tx.update(Payment, { orderId: expiredOrder.id }, { status: PaymentStatus.CANCELLED });
+        if (payment) {
+          payment.status = PaymentStatus.CANCELLED;
+          await tx.save(Payment, payment);
+        } else {
+          await tx.update(Payment, { orderId: expiredOrder.id }, { status: PaymentStatus.CANCELLED });
+        }
 
-        // Historial de cambio de estado
+        // Historial obligatorio de cambio de estado (Requerimiento 2 y 6)
         const history = tx.create(OrderStatusHistory, {
           statusBefore,
           statusAfter: OrderStatus.CANCELLED,

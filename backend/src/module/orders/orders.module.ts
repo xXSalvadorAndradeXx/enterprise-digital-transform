@@ -16,6 +16,8 @@ import { Inventory } from '../inventory/entities/inventory.entity';
 import { InventoryReservation } from '../inventory/entities/inventory-reservation.entity';
 import { InventoryMovement } from '../inventory/entities/inventory-movement.entity';
 
+import { AdminOrdersController } from './admin-orders.controller';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -33,7 +35,7 @@ import { InventoryMovement } from '../inventory/entities/inventory-movement.enti
       InventoryMovement,
     ]),
   ],
-  controllers: [OrdersController, EcommerceCheckoutController],
+  controllers: [OrdersController, EcommerceCheckoutController, AdminOrdersController],
   providers: [OrdersService],
   exports: [OrdersService],
 })
