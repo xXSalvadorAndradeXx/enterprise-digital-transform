@@ -20,6 +20,7 @@ import { ProductStatus } from '../enums/product-status.enum';
 
 @Entity('products')
 @Index(['status'])
+@Index(['isPublished'])
 @Index(['salePrice'])
 @Index(['createdAt'])
 @Index(['discountStartsAt'])
@@ -78,6 +79,12 @@ export class Product {
     nullable: false,
   })
   status!: ProductStatus;
+
+  @Column({ name: 'is_published', type: 'boolean', default: false, nullable: false })
+  isPublished!: boolean;
+
+  @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
+  publishedAt!: Date | null;
 
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdById!: string | null;

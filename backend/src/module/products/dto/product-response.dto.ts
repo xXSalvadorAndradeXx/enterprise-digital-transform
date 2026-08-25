@@ -104,6 +104,12 @@ export class ProductResponseDto {
   @ApiProperty({ enum: ProductStatus })
   status!: ProductStatus;
 
+  @ApiProperty({ example: false, description: 'Indica si el producto está publicado en e-commerce' })
+  isPublished!: boolean;
+
+  @ApiPropertyOptional({ description: 'Fecha y hora de primera publicación en e-commerce', nullable: true })
+  publishedAt!: Date | null;
+
   @ApiPropertyOptional()
   createdById!: string | null;
 
@@ -167,6 +173,8 @@ export class ProductResponseDto {
     dto.discountStartsAt = product.discountStartsAt ?? null;
     dto.discountEndsAt = product.discountEndsAt ?? null;
     dto.status = product.status;
+    dto.isPublished = product.isPublished ?? false;
+    dto.publishedAt = product.publishedAt ?? null;
     dto.createdById = product.createdById ?? null;
     dto.updatedById = product.updatedById ?? null;
     dto.createdAt = product.createdAt;
