@@ -2,19 +2,17 @@
 
 import { ApiRequestError } from "@/lib/api-client";
 import { hasActiveSession, saveAuthSession } from "@/lib/auth-session";
+import { loginSchema } from "@/lib/validations/auth.schemas";
 import { loginUser } from "@/services/auth/auth.service";
 import type { LoginRequest } from "@/types/auth/auth.types";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { AuthBenefitsBar } from "@/components/auth/AuthBenefitsBar";
 import { AuthIllustrationPanel } from "@/components/auth/AuthIllustrationPanel";
 import Link from "next/link";
 import { CheckCircle2, LockKeyhole, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
-
-type LoginFormErrors = Partial<
-  Record<keyof Pick<LoginRequest, "email" | "password">, string>
->;
+import { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 
 const initialFormData: LoginRequest = {
   email: "",
@@ -22,39 +20,29 @@ const initialFormData: LoginRequest = {
   rememberMe: false,
 };
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 const inputClassName =
-  "h-[38px] w-full rounded-md border border-transparent bg-[#f7f7f8] px-5 pr-12 text-xs text-[#3f3f46] outline-none transition placeholder:text-[#8a8a8f] focus:border-[#2829dd] focus:bg-white focus:ring-2 focus:ring-[#2829dd]/10";
+  "h-[38px] w-full rounded-md border border-transparent bg-[#f7f7f8] px-5 pr-12 text-xs text-[#3f3f46] outline-none transition placeholder:text-[#8a8a8f] focus:border-[#2829dd] focus:bg-white focus:ring-2 focus:ring-[#2829dd]/10 aria-invalid:border-red-600 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/10";
 const primaryButtonClassName =
   "mx-auto flex h-[34px] w-[238px] max-w-full items-center justify-center rounded-[2px] bg-[#2829dd] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#2022c7] disabled:cursor-not-allowed disabled:bg-[#7f81e9]";
 
-function validateLoginForm(formData: LoginRequest): LoginFormErrors {
-  const errors: LoginFormErrors = {};
-  const email = formData.email.trim();
-
-  if (!email) {
-    errors.email = "El correo electrónico es obligatorio.";
-  } else if (!emailRegex.test(email)) {
-    errors.email = "Ingresa un correo electrónico válido.";
-  }
-
-  if (!formData.password) {
-    errors.password = "La contraseña es obligatoria.";
-  } else if (formData.password.length < 6) {
-    errors.password = "La contraseña debe tener al menos 6 caracteres.";
-  }
-
-  return errors;
-}
-
 export default function LoginPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState<LoginRequest>(initialFormData);
-  const [errors, setErrors] = useState<LoginFormErrors>({});
   const [submitError, setSubmitError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const pendingLoginRequest = useRef<Promise<void> | null>(null);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginRequest>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: initialFormData,
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+    shouldFocusError: true,
+  });
 
   useEffect(() => {
     if (hasActiveSession()) {
@@ -62,72 +50,44 @@ export default function LoginPage() {
     }
   }, [router]);
 
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { checked, name, value } = event.target;
-
-    if (name === "rememberMe") {
-      setFormData((currentFormData) => ({
-        ...currentFormData,
-        rememberMe: checked,
-      }));
-    } else {
-      const fieldName = name as keyof Pick<
-        LoginRequest,
-        "email" | "password"
-      >;
-
-      setFormData((currentFormData) => ({
-        ...currentFormData,
-        [fieldName]: value,
-      }));
-
-      setErrors((currentErrors) => ({
-        ...currentErrors,
-        [fieldName]: undefined,
-      }));
-    }
-
+  const clearSubmitFeedback = () => {
     setSubmitError("");
     setSuccessMessage("");
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitLogin = async (formData: LoginRequest) => {
+    if (pendingLoginRequest.current) {
+      return pendingLoginRequest.current;
+    }
 
-    const validationErrors = validateLoginForm(formData);
-    setErrors(validationErrors);
     setSubmitError("");
     setSuccessMessage("");
 
-    if (Object.keys(validationErrors).length > 0) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const responseData = await loginUser({
-        email: formData.email.trim(),
-        password: formData.password,
+    const loginAttempt = loginUser({
+      email: formData.email,
+      password: formData.password,
+    })
+      .then((responseData) => {
+        saveAuthSession(responseData);
+        reset(initialFormData);
+        setSuccessMessage("Inicio de sesión exitoso. Preparando tu cuenta...");
+        router.push("/cuenta");
+      })
+      .catch((error: unknown) => {
+        setSubmitError(
+          error instanceof ApiRequestError &&
+            error.message.toLowerCase().includes("credenciales inválidas")
+            ? "Credenciales inválidas o usuario no encontrado."
+            : "No se pudo iniciar sesión. Inténtalo de nuevo.",
+        );
       });
 
-      saveAuthSession(responseData);
-      setFormData(initialFormData);
-      setSuccessMessage("Inicio de sesión exitoso. Preparando tu cuenta...");
-      router.push("/cuenta");
-    } catch (error) {
-      if (error instanceof ApiRequestError) {
-        setSubmitError(
-          error.message.toLowerCase().includes("credenciales inválidas")
-            ? "Credenciales inválidas o usuario no encontrado."
-            : error.message,
-        );
-        return;
-      }
+    pendingLoginRequest.current = loginAttempt;
 
-      setSubmitError("No se pudo conectar con el servidor.");
+    try {
+      await loginAttempt;
     } finally {
-      setIsSubmitting(false);
+      pendingLoginRequest.current = null;
     }
   };
 
@@ -144,7 +104,12 @@ export default function LoginPage() {
                 nuevo!
               </h1>
 
-              <form className="mt-[18px]" onSubmit={handleSubmit} noValidate>
+              <form
+                className="mt-[18px]"
+                onSubmit={(event) => void handleSubmit(submitLogin)(event)}
+                noValidate
+                aria-busy={isSubmitting}
+              >
                 <div>
                   <label htmlFor="email" className="sr-only">
                     Correo electrónico
@@ -152,12 +117,10 @@ export default function LoginPage() {
                   <div className="relative">
                     <input
                       id="email"
-                      name="email"
                       type="email"
                       autoComplete="email"
                       placeholder="Correo electrónico"
-                      value={formData.email}
-                      onChange={handleChange}
+                      {...register("email", { onChange: clearSubmitFeedback })}
                       className={inputClassName}
                       aria-invalid={Boolean(errors.email)}
                       aria-describedby={errors.email ? "email-error" : undefined}
@@ -169,8 +132,12 @@ export default function LoginPage() {
                     />
                   </div>
                   {errors.email ? (
-                    <p id="email-error" className="mt-1.5 px-1 text-xs text-red-600">
-                      {errors.email}
+                    <p
+                      id="email-error"
+                      role="alert"
+                      className="mt-1.5 px-1 text-xs text-red-600"
+                    >
+                      {errors.email.message}
                     </p>
                   ) : null}
                 </div>
@@ -182,12 +149,12 @@ export default function LoginPage() {
                   <div className="relative">
                     <input
                       id="password"
-                      name="password"
                       type={showPassword ? "text" : "password"}
                       autoComplete="current-password"
                       placeholder="Contraseña"
-                      value={formData.password}
-                      onChange={handleChange}
+                      {...register("password", {
+                        onChange: clearSubmitFeedback,
+                      })}
                       className={inputClassName}
                       aria-invalid={Boolean(errors.password)}
                       aria-describedby={
@@ -217,9 +184,10 @@ export default function LoginPage() {
                   {errors.password ? (
                     <p
                       id="password-error"
+                      role="alert"
                       className="mt-1.5 px-1 text-xs text-red-600"
                     >
-                      {errors.password}
+                      {errors.password.message}
                     </p>
                   ) : null}
                 </div>
@@ -228,10 +196,8 @@ export default function LoginPage() {
                   <div className="flex items-center gap-1.5">
                     <input
                       id="rememberMe"
-                      name="rememberMe"
                       type="checkbox"
-                      checked={formData.rememberMe}
-                      onChange={handleChange}
+                      {...register("rememberMe")}
                       className="h-3 w-3 shrink-0 rounded-[2px] border-slate-300 accent-[#2829dd]"
                     />
                     <label
@@ -252,13 +218,19 @@ export default function LoginPage() {
                 </div>
 
                 {submitError ? (
-                  <p className="mt-3 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  <p
+                    role="alert"
+                    className="mt-3 rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+                  >
                     {submitError}
                   </p>
                 ) : null}
 
                 {successMessage ? (
-                  <p className="mt-3 flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                  <p
+                    role="status"
+                    className="mt-3 flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
+                  >
                     <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                     {successMessage}
                   </p>
