@@ -46,4 +46,7 @@ export const PERMISSIONS_CATALOG: PermissionDefinition[] = [
 
   // Módulo de Inventario (Introducido por el módulo de Inventario)
   { code: 'inventory:read', description: 'Permite consultar inventarios y sus variantes' },
+
+  // Módulo de Clientes (Customers Admin)
+  { code: 'customers:read', description: 'Permite visualizar la lista y detalles de clientes de ecommerce' },
 ];

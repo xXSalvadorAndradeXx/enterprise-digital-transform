@@ -17,6 +17,8 @@ import { PurchasesModule } from '../src/module/purchases/purchases.module';
 import { BranchesModule } from '../src/module/branches/branches.module';
 import { OrdersModule } from '../src/module/orders/orders.module';
 import { PaymentsModule } from '../src/module/payments/payments.module';
+import { LocationsModule } from '../src/module/locations/locations.module';
+import { CustomersModule } from '../src/module/customers/customers.module';
 
 @Module({
   imports: [
@@ -55,6 +57,8 @@ import { PaymentsModule } from '../src/module/payments/payments.module';
     BranchesModule,
     OrdersModule,
     PaymentsModule,
+    LocationsModule,
+    CustomersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

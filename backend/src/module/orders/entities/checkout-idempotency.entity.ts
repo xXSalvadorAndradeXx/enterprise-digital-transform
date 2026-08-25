@@ -9,7 +9,7 @@ import {
 import { CheckoutSource } from '../enums/checkout-source.enum';
 import { CheckoutIdempotencyStatus } from '../enums/checkout-idempotency-status.enum';
 
-@Entity('checkout_idempotency')
+@Entity('checkout_idempotencies')
 export class CheckoutIdempotency {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

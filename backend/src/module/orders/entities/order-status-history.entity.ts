@@ -23,11 +23,11 @@ export class OrderStatusHistory {
   order!: Order;
 
   // Estado anterior (nulo en la creación inicial de la orden)
-  @Column({ type: 'enum', enum: OrderStatus, name: 'status_before', nullable: true })
+  @Column({ type: 'varchar', length: 50, name: 'status_before', nullable: true })
   statusBefore!: OrderStatus | null;
 
   // Nuevo estado asignado
-  @Column({ type: 'enum', enum: OrderStatus, name: 'status_after' })
+  @Column({ type: 'varchar', length: 50, name: 'status_after' })
   statusAfter!: OrderStatus;
 
   // Actor o usuario que realizó el cambio de estado
