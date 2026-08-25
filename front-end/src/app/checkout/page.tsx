@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   previewCheckout,
   createCheckout,
+  CheckoutError,
 } from "@/services/checkout/checkout.service";
 
 import type {
@@ -60,6 +61,13 @@ export default function CheckoutPage() {
   const [createdOrder, setCreatedOrder] =
     useState<Order | null>(null);
 
+  const [checkoutError, setCheckoutError] =
+    useState<string | null>(null);
+    // SOLO PARA PRUEBAS DE LA TASK 907.
+// Cambiar a "STOCK_INSUFFICIENT" para probar stock.
+// Cambiar a undefined para volver al checkout normal.
+  const MOCK_CHECKOUT_ERROR = "STOCK_INSUFFICIENT";
+
   /*
    * Una sola Idempotency-Key por intento
    * de checkout.
@@ -112,6 +120,7 @@ export default function CheckoutPage() {
     if (isSubmitting) return;
 
     setIsSubmitting(true);
+    setCheckoutError(null);
 
     try {
       const checkoutRequest: CheckoutRequest = {
@@ -156,9 +165,10 @@ export default function CheckoutPage() {
       };
 
       const response = await createCheckout(
-        checkoutRequest,
-        idempotencyKey,
-      );
+  checkoutRequest,
+  idempotencyKey,
+  MOCK_CHECKOUT_ERROR,
+);
 
       setCreatedOrder(response);
 
@@ -189,9 +199,61 @@ export default function CheckoutPage() {
         )}&customerType=GUEST`,
       );
     } catch (error) {
-      console.error(
-        "Error creando checkout:",
-        error,
+      /*
+       * PRICE_CHANGED
+       */
+      if (
+        error instanceof CheckoutError &&
+        error.code === "PRICE_CHANGED"
+      ) {
+        setCheckoutError(
+          "El precio de uno o más productos cambió. Actualizamos los totales. Revisa el resumen e intenta nuevamente.",
+        );
+
+        try {
+          const updatedPreview =
+            await previewCheckout(
+              previewRequest,
+            );
+
+          setPreview(updatedPreview);
+        } catch {
+          setCheckoutError(
+            "Los precios cambiaron y no se pudieron actualizar. Intenta nuevamente.",
+          );
+        }
+
+        return;
+      }
+
+      /*
+       * STOCK_INSUFFICIENT
+       */
+      if (
+        error instanceof CheckoutError &&
+        error.code === "STOCK_INSUFFICIENT"
+      ) {
+        setCheckoutError(
+          "No hay stock suficiente para completar la compra. Revisa tu carrito e intenta nuevamente.",
+        );
+
+        return;
+      }
+
+      /*
+       * Cualquier otro error controlado
+       */
+      if (error instanceof CheckoutError) {
+        setCheckoutError(error.message);
+
+        return;
+      }
+
+      /*
+       * Error inesperado
+       */
+      setCheckoutError(
+        "Ocurrió un error al procesar la compra. Intenta nuevamente.",
       );
     } finally {
       setIsSubmitting(false);
@@ -235,6 +297,16 @@ export default function CheckoutPage() {
         <div className="grid gap-6 lg:items-start lg:grid-cols-[1fr_340px]">
 
           <section className="flex flex-col gap-4">
+
+            {checkoutError && (
+              <div
+                role="alert"
+                className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                {checkoutError}
+              </div>
+            )}
+
             {STEP_ORDER.map(
               (step, index) => (
                 <AccordionStep
@@ -270,6 +342,9 @@ export default function CheckoutPage() {
                     <CheckoutPayment
                       onContinue={
                         handleFinalCheckout
+                      }
+                      isSubmitting={
+                        isSubmitting
                       }
                     />
                   )}
