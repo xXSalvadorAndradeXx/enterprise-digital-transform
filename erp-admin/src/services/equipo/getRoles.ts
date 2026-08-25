@@ -1,3 +1,5 @@
+import { unwrapApiSuccess } from "@/lib/api-response";
+
 export interface RoleCatalogItem {
   id: string;
   name: string;
@@ -51,16 +53,18 @@ export async function getRoles(): Promise<RoleCatalogItem[]> {
     );
   }
 
+  const normalizedBody = unwrapApiSuccess<unknown>(responseBody);
+
   if (
-    typeof responseBody !== "object" ||
-    responseBody === null ||
-    !("data" in responseBody) ||
-    !Array.isArray(responseBody.data)
+    typeof normalizedBody !== "object" ||
+    normalizedBody === null ||
+    !("data" in normalizedBody) ||
+    !Array.isArray(normalizedBody.data)
   ) {
     throw new Error(
       "El servidor devolvió un catálogo de roles inválido.",
     );
   }
 
-  return (responseBody as RolesApiResponse).data;
+  return (normalizedBody as RolesApiResponse).data;
 }

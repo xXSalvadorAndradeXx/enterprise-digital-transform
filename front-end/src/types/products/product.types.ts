@@ -36,5 +36,11 @@ export interface Product {
   tags?: string[];
 }
 
-export interface ProductsResponse { data: Product[]; total: number; page: number; limit: number; }
+export interface ProductsResponse {
+  data: Product[];
+  meta?: { total: number; page: number; limit: number; totalPages?: number };
+  total?: number;
+  page?: number;
+  limit?: number;
+}
 export interface ProductDetailResponse { data: Product; }

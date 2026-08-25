@@ -9,13 +9,36 @@ const API="http://localhost:3000/api/v1";
 const money=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
 type Result={status:"success";product:Product;related:Product[]}|{status:"not-found"}|{status:"error"};
 
+function extractProducts(payload:unknown):Product[]{
+  if(Array.isArray(payload))return payload as Product[];
+  if(!payload||typeof payload!=="object"||!("data" in payload))return[];
+  const data=(payload as {data?:unknown}).data;
+  if(Array.isArray(data))return data as Product[];
+  if(data&&typeof data==="object"&&"items" in data&&Array.isArray((data as {items?:unknown}).items))return (data as {items:Product[]}).items;
+  return[];
+}
+
 async function getData(id:string):Promise<Result>{
   try{
-    const [detailResponse,relatedResponse]=await Promise.all([fetch(`${API}/products/${encodeURIComponent(id)}`,{cache:"no-store"}),fetch(`${API}/products/${encodeURIComponent(id)}/related?limit=4`,{cache:"no-store"})]);
+    const detailResponse=await fetch(`${API}/products/${encodeURIComponent(id)}`,{cache:"no-store"});
     if(detailResponse.status===404)return{status:"not-found"}; if(!detailResponse.ok)return{status:"error"};
     const detail=(await detailResponse.json()) as ProductDetailResponse|{data?:Product}; const product=detail.data;
     if(!product)return{status:"not-found"};
-    let related:Product[]=[]; if(relatedResponse.ok){const payload=await relatedResponse.json() as Product[]|{data?:Product[]|{items?:Product[]}};const raw=Array.isArray(payload)?payload:payload.data;related=Array.isArray(raw)?raw:Array.isArray(raw?.items)?raw.items:[];}
+    let related:Product[]=[];
+    try{
+      const relatedResponse=await fetch(`${API}/products/${encodeURIComponent(id)}/related?limit=4`,{cache:"no-store"});
+      if(relatedResponse.ok)related=extractProducts(await relatedResponse.json());
+    }catch{}
+    if(related.length===0){
+      const rawProduct=product as unknown as {inventory?:{categoryId?:number;category?:{id?:number}}};
+      const categoryId=rawProduct.inventory?.categoryId??rawProduct.inventory?.category?.id;
+      const query=new URLSearchParams({page:"1",limit:"5",sortBy:"createdAt",order:"DESC"});
+      if(categoryId)query.set("categoryId",String(categoryId));
+      try{
+        const fallbackResponse=await fetch(`${API}/products?${query.toString()}`,{cache:"no-store"});
+        if(fallbackResponse.ok)related=extractProducts(await fallbackResponse.json());
+      }catch{}
+    }
     return{status:"success",product,related:related.filter(item=>String(item.id)!==String(product.id)).slice(0,4)};
   }catch{return{status:"error"}}
 }

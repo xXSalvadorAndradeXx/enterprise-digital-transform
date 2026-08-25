@@ -56,7 +56,9 @@ export default function ProductCard({ product }: ProductCardProps) {
       : 0;
   const hasActiveDiscount = discountPercentage > 0 && Number(currentPrice) < Number(originalPrice ?? currentPrice);
   const brand = product.brand ?? backendProduct.inventory?.brand ?? "Woden";
-  const isAvailable = stock > 0;
+  const isAvailable = product.availability
+    ? product.availability !== "OUT_OF_STOCK"
+    : stock > 0;
   const shouldShowImage = imageUrl.length > 0 && failedImageUrl !== imageUrl;
   const detailHref = `/producto/${product.id}`;
 

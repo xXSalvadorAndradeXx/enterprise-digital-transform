@@ -5,13 +5,7 @@ import { ChevronDown, Headphones, LogIn, Menu, PackageCheck, RefreshCcw, Search,
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
-
-const fallbackCategories = [
-  { id: 1, name: "Ropa" },
-  { id: 2, name: "Calzado" },
-  { id: 3, name: "Accesorios" },
-];
-type HeaderCategory = { id: number; name: string };
+import { usePublicCategories } from "@/hooks/categories/usePublicCategories";
 
 function TopBar() {
   const benefits = [[PackageCheck, "Envíos gratis en compras +$50"], [RefreshCcw, "Devoluciones hasta 30 días"], [ShieldCheck, "Pago 100% seguro"], [Headphones, "Atención personal"]] as const;
@@ -24,12 +18,13 @@ export default function Header() {
   const accountRef = useRef<HTMLDivElement>(null);
   const categoriesRef = useRef<HTMLDivElement>(null);
   const [mobileOpen,setMobileOpen] = useState(false);
+  const [mobileCategoriesOpen,setMobileCategoriesOpen] = useState(false);
   const [categoriesOpen,setCategoriesOpen] = useState(false);
   const [accountOpen,setAccountOpen] = useState(false);
   const [authenticated,setAuthenticated] = useState(false);
   const [userName,setUserName] = useState("Mi cuenta");
   const [search,setSearch] = useState("");
-  const [categories,setCategories] = useState<HeaderCategory[]>(fallbackCategories);
+  const { categories, isLoading: categoriesLoading, hasError: categoriesError } = usePublicCategories();
 
   useEffect(() => {
     const sync = () => { const user = readSessionUser() as Record<string, unknown> | null; setAuthenticated(hasActiveSession()); setUserName(String(user?.nombre ?? user?.name ?? user?.fullName ?? "Mi cuenta")); };
@@ -37,22 +32,13 @@ export default function Header() {
     return () => { window.removeEventListener("storage",sync); window.removeEventListener(AUTH_SESSION_CHANGED_EVENT,sync); };
   },[pathname]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("http://localhost:3000/api/v1/categories?publishedOnly=true",{signal:controller.signal}).then(r=>r.ok?r.json():Promise.reject()).then((payload:unknown)=>{
-      const raw = typeof payload === "object" && payload && "data" in payload ? (payload as {data?:unknown}).data : payload;
-      if (!Array.isArray(raw)) return;
-      const result = raw.flatMap((item):HeaderCategory[]=>{ if(!item||typeof item!=="object")return[]; const value=item as Record<string,unknown>; const id=Number(value.id); const name=String(value.name??value.nombre??"").trim(); return Number.isFinite(id)&&name?[{id,name}]:[]; });
-      if(result.length)setCategories(result);
-    }).catch(()=>undefined); return()=>controller.abort();
-  },[]);
-
   useEffect(()=>{document.body.style.overflow=mobileOpen?"hidden":"";return()=>{document.body.style.overflow="";}},[mobileOpen]);
   useEffect(()=>{const close=(e:MouseEvent)=>{const target=e.target as Node;if(accountRef.current&&!accountRef.current.contains(target))setAccountOpen(false);if(categoriesRef.current&&!categoriesRef.current.contains(target))setCategoriesOpen(false)};document.addEventListener("mousedown",close);return()=>document.removeEventListener("mousedown",close)},[]);
 
   const submitSearch=(event:FormEvent)=>{event.preventDefault();const value=search.trim();router.push(value?`/productos?search=${encodeURIComponent(value)}`:"/productos")};
-  const closeCategoryMenus=()=>{setCategoriesOpen(false);setMobileOpen(false)};
-  const categoryLinks = <><Link href="/productos" onClick={closeCategoryMenus} className="block rounded-md px-4 py-2 text-sm font-semibold hover:bg-[#f2f5fb]">Todos los productos</Link>{categories.map(category=><Link key={category.id} href={`/productos?categoryId=${category.id}`} onClick={closeCategoryMenus} className="block rounded-md px-4 py-2 text-sm hover:bg-[#f2f5fb]">{category.name}</Link>)}</>;
+  const closeMobileMenu=()=>{setMobileOpen(false);setMobileCategoriesOpen(false)};
+  const closeCategoryMenus=()=>{setCategoriesOpen(false);setMobileCategoriesOpen(false);setMobileOpen(false)};
+  const categoryLinks = <><Link href="/productos" onClick={closeCategoryMenus} className="block rounded-md px-4 py-2 text-sm font-semibold hover:bg-[#f2f5fb]">Todos los productos</Link>{categoriesLoading?<p className="px-4 py-2 text-sm text-slate-500">Cargando categorías...</p>:categoriesError?<p className="max-w-64 px-4 py-2 text-sm leading-5 text-red-600">No pudimos conectarnos al servidor. Inténtalo más tarde.</p>:categories.length===0?<p className="px-4 py-2 text-sm text-slate-500">No hay categorías disponibles.</p>:categories.map(category=><Link key={category.id} href={`/productos?categoryId=${category.id}`} onClick={closeCategoryMenus} className="block rounded-md px-4 py-2 text-sm hover:bg-[#f2f5fb]">{category.name}</Link>)}</>;
 
   return <header className="sticky top-0 z-50 border-b border-[#e1e5ed] bg-white">
     <TopBar/>
@@ -64,6 +50,6 @@ export default function Header() {
       <Link href="/carrito" aria-label="Abrir carrito" className="ml-auto md:ml-0"><ShoppingCart className="h-5 w-5"/></Link>
       <div className="relative" ref={accountRef}><button onClick={()=>setAccountOpen(v=>!v)} className="flex items-center gap-1 rounded-full p-2 hover:bg-[#f2f5fb]" aria-label="Menú de usuario"><User className="h-5 w-5"/><ChevronDown className="h-3 w-3"/></button>{accountOpen&&<div className="absolute right-0 top-12 w-56 rounded-lg border bg-white p-2 shadow-xl">{authenticated?<><p className="px-3 py-2 text-xs text-slate-500">Sesión iniciada</p><Link href="/cuenta" className="block rounded-md px-3 py-2 text-sm font-semibold hover:bg-[#f2f5fb]">{userName}</Link></>:<><Link href="/login" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-[#f2f5fb]"><LogIn className="h-4 w-4"/>Iniciar sesión</Link><Link href="/registro" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-[#f2f5fb]"><UserPlus className="h-4 w-4"/>Registrarse</Link></>}</div>}</div>
     </div>
-    {mobileOpen&&<div className="fixed inset-0 z-[60] bg-black/30 lg:hidden" onMouseDown={e=>e.target===e.currentTarget&&setMobileOpen(false)}><aside className="h-full w-[min(88vw,340px)] overflow-y-auto bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><span className="font-serif text-2xl">Woden</span><button onClick={()=>setMobileOpen(false)} aria-label="Cerrar menú"><X/></button></div><form onSubmit={submitSearch} className="mt-6 flex items-center rounded border px-3"><Search className="h-4 w-4"/><input value={search} onChange={e=>setSearch(e.target.value)} className="h-11 min-w-0 flex-1 px-2 outline-none" placeholder="Buscar productos"/></form><nav className="mt-6 space-y-1"><Link href="/" className="block rounded px-3 py-3 hover:bg-[#f2f5fb]">Inicio</Link>{categoryLinks}{!authenticated?<><Link href="/login" className="block rounded px-3 py-3 hover:bg-[#f2f5fb]">Iniciar sesión</Link><Link href="/registro" className="block rounded px-3 py-3 hover:bg-[#f2f5fb]">Registrarse</Link></>:<Link href="/cuenta" className="block rounded px-3 py-3 hover:bg-[#f2f5fb]">Mi cuenta</Link>}</nav></aside></div>}
+    {mobileOpen&&<div className="fixed inset-0 z-[60] bg-black/30 lg:hidden" onMouseDown={e=>e.target===e.currentTarget&&closeMobileMenu()}><aside className="h-full w-[min(88vw,340px)] overflow-y-auto bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><span className="font-serif text-2xl">Woden</span><button onClick={closeMobileMenu} aria-label="Cerrar menú"><X/></button></div><form onSubmit={submitSearch} className="mt-6 flex items-center rounded border px-3"><Search className="h-4 w-4"/><input value={search} onChange={e=>setSearch(e.target.value)} className="h-11 min-w-0 flex-1 px-2 outline-none" placeholder="Buscar productos"/></form><nav className="mt-6 space-y-1"><Link href="/" onClick={closeMobileMenu} className="block rounded px-3 py-3 hover:bg-[#f2f5fb]">Inicio</Link><div><button type="button" onClick={()=>setMobileCategoriesOpen(value=>!value)} aria-expanded={mobileCategoriesOpen} className="flex w-full items-center justify-between rounded px-3 py-3 text-left font-semibold hover:bg-[#f2f5fb]">Categorías<ChevronDown className={`h-4 w-4 transition-transform ${mobileCategoriesOpen?"rotate-180":""}`}/></button>{mobileCategoriesOpen?<div className="ml-3 border-l border-[#e1e5ed] pl-2">{categoryLinks}</div>:null}</div></nav></aside></div>}
   </header>;
 }

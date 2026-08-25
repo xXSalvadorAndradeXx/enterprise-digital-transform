@@ -1,6 +1,7 @@
 import { apiRequest } from "../lib/api";
 import { MOVEMENT_ENDPOINTS } from "../constants/endpoints";
 import { MovementChannel, MovementDirection } from "../types";
+import { unwrapApiSuccess } from "@/lib/api-response";
 
 import type {
   MovementListItem,
@@ -116,9 +117,12 @@ export async function getMovements(
     );
   }
 
-  const response = await apiRequest<PaginatedResponseDto<BackendMovementDto>>(
+  const rawResponse = await apiRequest<unknown>(
     `${MOVEMENT_ENDPOINTS.LIST}?${params.toString()}`,
     { method: "GET", token },
+  );
+  const response = unwrapApiSuccess<PaginatedResponseDto<BackendMovementDto>>(
+    rawResponse,
   );
   const normalizedItems = response.data.map(toMovementListItem);
 

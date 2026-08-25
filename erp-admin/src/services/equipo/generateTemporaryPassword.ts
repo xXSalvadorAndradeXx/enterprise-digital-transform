@@ -1,3 +1,5 @@
+import { unwrapApiSuccess } from "@/lib/api-response";
+
 interface GenerateTemporaryPasswordResponse {
   status: string;
   message: string;
@@ -48,5 +50,5 @@ export async function generateTemporaryPassword(
     );
   }
 
-  return responseBody as GenerateTemporaryPasswordResponse;
+  return unwrapApiSuccess<GenerateTemporaryPasswordResponse>(responseBody);
 }

@@ -207,17 +207,18 @@ async function getProducts(
       };
     }
 
-    const responseData = (await response.json()) as ProductsResponse | { data?: { items?: Product[]; meta?: { total?: number; page?: number; limit?: number } } };
+    const responseData = (await response.json()) as ProductsResponse | { data?: { items?: Product[]; meta?: { total?: number; page?: number; limit?: number } }; meta?: { total?: number; page?: number; limit?: number } };
     const payload = responseData.data;
     const products = Array.isArray(payload) ? payload : Array.isArray(payload?.items) ? payload.items : [];
+    const rootMeta = "meta" in responseData ? responseData.meta : undefined;
     const total =
-      "total" in responseData && typeof responseData.total === "number" ? responseData.total : (!Array.isArray(payload) && typeof payload?.meta?.total === "number" ? payload.meta.total : products.length);
+      "total" in responseData && typeof responseData.total === "number" ? responseData.total : (typeof rootMeta?.total === "number" ? rootMeta.total : (!Array.isArray(payload) && typeof payload?.meta?.total === "number" ? payload.meta.total : products.length));
     const page =
-      "page" in responseData && typeof responseData.page === "number" ? responseData.page : (!Array.isArray(payload) && typeof payload?.meta?.page === "number" ? payload.meta.page : pagination.page);
+      "page" in responseData && typeof responseData.page === "number" ? responseData.page : (typeof rootMeta?.page === "number" ? rootMeta.page : (!Array.isArray(payload) && typeof payload?.meta?.page === "number" ? payload.meta.page : pagination.page));
     const limit =
       "limit" in responseData && typeof responseData.limit === "number"
         ? responseData.limit
-        : (!Array.isArray(payload) && typeof payload?.meta?.limit === "number" ? payload.meta.limit : pagination.limit);
+        : (typeof rootMeta?.limit === "number" ? rootMeta.limit : (!Array.isArray(payload) && typeof payload?.meta?.limit === "number" ? payload.meta.limit : pagination.limit));
 
     return {
       products,
