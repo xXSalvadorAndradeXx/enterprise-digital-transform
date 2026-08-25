@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   previewCheckout,
@@ -36,6 +37,7 @@ const STEP_TITLES: Record<CheckoutStep, string> = {
 };
 
 export default function CheckoutPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] =
     useState<CheckoutStep | null>("contact");
 
@@ -102,74 +104,74 @@ export default function CheckoutPage() {
   }, [deliveryType]);
 
   const handleFinalCheckout = async (
-    payment: PaymentData,
-  ) => {
-    if (isSubmitting) {
-      return;
-    }
+  payment: PaymentData,
+) => {
+  if (isSubmitting) return;
 
-    setIsSubmitting(true);
+  setIsSubmitting(true);
 
-    try {
-      const checkoutRequest: CheckoutRequest = {
-        source: "CART",
+  try {
+    const checkoutRequest: CheckoutRequest = {
+      source: "CART",
 
-        customerType: "GUEST",
+      customerType: "GUEST",
 
-        contact: {
-          fullName: "",
-          email: "",
-          dui: "",
-          phone: "",
-        },
+      contact: {
+        fullName: "",
+        email: "",
+        dui: "",
+        phone: "",
+      },
 
-        deliveryType,
+      deliveryType,
 
-        delivery:
-          deliveryType === "HOME_DELIVERY"
-            ? {
-                departmentId: "",
-                districtId: "",
-                city: "",
-                addressLine: "",
-              }
-            : {
-                branchId: "",
-              },
-
-        paymentMethod: payment.method,
-
-        saveAddress: false,
-
-        ...(payment.method === "CARD" &&
-        payment.card
+      delivery:
+        deliveryType === "HOME_DELIVERY"
           ? {
-              card: payment.card,
+              departmentId: "",
+              districtId: "",
+              city: "",
+              addressLine: "",
             }
-          : {}),
-      };
+          : {
+              branchId: "",
+            },
 
-      const response =
-        await createCheckout(
-          checkoutRequest,
-          idempotencyKey,
-        );
+      paymentMethod:
+        payment.method === "PAY_AT_STORE"
+          ? "PAY_AT_STORE"
+          : "CARD",
 
-      setCreatedOrder(response);
+      saveAddress: false,
 
-      console.log(
-        "Orden creada:",
-        response,
-      );
-    } catch (error) {
-      console.error(
-        "Error creando checkout:",
-        error,
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+      ...(payment.method === "CARD" && payment.card
+        ? {
+            card: payment.card,
+          }
+        : {}),
+    };
+
+    const response = await createCheckout(
+      checkoutRequest,
+      idempotencyKey,
+    );
+
+    setCreatedOrder(response);
+
+    router.push(
+      `/checkout/confirmacion?orderNumber=${encodeURIComponent(
+        response.orderNumber,
+      )}&customerType=GUEST`,
+    );
+  } catch (error) {
+    console.error(
+      "Error creando checkout:",
+      error,
+    );
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const toggleStep = (
     step: CheckoutStep,
