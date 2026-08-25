@@ -70,14 +70,21 @@ export class CartService {
       });
 
       if (!cart) {
-        this.validateCartOwner(userId, null);
-        cart = this.cartRepository.create({
-          customerId: userId,
-          guestTokenHash: null,
-          status: CartStatus.ACTIVE,
-        });
-        cart = await this.cartRepository.save(cart);
-        cart.items = [];
+        if (isCreateOnPost) {
+          this.validateCartOwner(userId, null);
+          cart = this.cartRepository.create({
+            customerId: userId,
+            guestTokenHash: null,
+            status: CartStatus.ACTIVE,
+          });
+          cart = await this.cartRepository.save(cart);
+          cart.items = [];
+        } else {
+          throw new NotFoundException({
+            code: 'CART_NOT_FOUND',
+            message: 'El carrito solicitado no existe o no se encuentra activo',
+          });
+        }
       }
 
       return { cart, createdGuestToken: null };
@@ -326,7 +333,7 @@ export class CartService {
     if (!cartItem) {
       throw new NotFoundException({
         code: 'CART_ITEM_NOT_FOUND',
-        message: `El ítem con ID ${itemId} no pertenece a este carrito`,
+        message: 'El producto solicitado no existe en el carrito',
       });
     }
 
@@ -379,7 +386,7 @@ export class CartService {
     if (!cartItem) {
       throw new NotFoundException({
         code: 'CART_ITEM_NOT_FOUND',
-        message: `El ítem con ID ${itemId} no pertenece a este carrito`,
+        message: 'El producto solicitado no existe en el carrito',
       });
     }
 

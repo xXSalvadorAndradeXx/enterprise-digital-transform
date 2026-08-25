@@ -229,7 +229,7 @@ export class CreateCartAndCartItemsTables1786500000000
       new TableForeignKey({
         name: 'FK_cart_items_variant',
         columnNames: ['variant_id'],
-        referencedTableName: 'product_variant_config',
+        referencedTableName: 'product_variant_configs',
         referencedColumnNames: ['id'],
         onDelete: 'CASCADE',
       }),
