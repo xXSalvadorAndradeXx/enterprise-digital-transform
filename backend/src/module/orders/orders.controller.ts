@@ -46,9 +46,19 @@ export class OrdersController {
     return this.ordersService.create(createOrderDto);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.ordersService.findOne(id);
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get(':orderNumber')
+  @ApiHeader({
+    name: 'X-Order-Access-Token',
+    required: false,
+    description: 'Token criptográfico de acceso para consultar pedidos realizados como invitado',
+  })
+  async findOneByOrderNumber(
+    @Param('orderNumber') orderNumber: string,
+    @Req() req: any,
+    @Headers('x-order-access-token') accessToken?: string,
+  ) {
+    return this.ordersService.findOneByOrderNumber(orderNumber, req.user, accessToken);
   }
 
   @Patch(':id/status')

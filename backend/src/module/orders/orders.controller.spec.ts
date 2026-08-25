@@ -19,6 +19,7 @@ describe('OrdersController', () => {
       checkout: jest.fn(),
       create: jest.fn(),
       findOne: jest.fn(),
+      findOneByOrderNumber: jest.fn(),
       updateStatus: jest.fn(),
     };
 
@@ -94,13 +95,16 @@ describe('OrdersController', () => {
     });
   });
 
-  describe('findOne', () => {
-    it('debe llamar a ordersService.findOne con el ID provisto', async () => {
-      const mockOrder = { id: 'order-99' };
-      ordersService.findOne.mockResolvedValue(mockOrder);
+  describe('findOneByOrderNumber', () => {
+    it('debe llamar a ordersService.findOneByOrderNumber con orderNumber, req.user y X-Order-Access-Token', async () => {
+      const mockOrder = { orderNumber: 'A7K29P4Q', status: 'NEW' };
+      const req = { user: { id: 'customer-1' } };
+      const accessToken = 'guest-token-123';
 
-      const result = await controller.findOne('order-99');
-      expect(ordersService.findOne).toHaveBeenCalledWith('order-99');
+      ordersService.findOneByOrderNumber.mockResolvedValue(mockOrder);
+
+      const result = await controller.findOneByOrderNumber('A7K29P4Q', req, accessToken);
+      expect(ordersService.findOneByOrderNumber).toHaveBeenCalledWith('A7K29P4Q', req.user, 'guest-token-123');
       expect(result).toEqual(mockOrder);
     });
   });
@@ -108,10 +112,10 @@ describe('OrdersController', () => {
   describe('updateStatus', () => {
     it('debe llamar a ordersService.updateStatus con ID y UpdateOrderStatusDto', async () => {
       const updateDto: UpdateOrderStatusDto = {
-        status: OrderStatus.COMPLETED,
-        notes: 'Entrega realizada con éxito',
+        status: OrderStatus.PENDING,
+        notes: 'Entrega en proceso',
       } as any;
-      const mockOrder = { id: 'order-99', status: OrderStatus.COMPLETED };
+      const mockOrder = { id: 'order-99', status: OrderStatus.PENDING };
       ordersService.updateStatus.mockResolvedValue(mockOrder);
 
       const result = await controller.updateStatus('order-99', updateDto);

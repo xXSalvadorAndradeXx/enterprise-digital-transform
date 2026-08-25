@@ -5,6 +5,8 @@ import {
   InternalServerErrorException,
   ConflictException,
   UnprocessableEntityException,
+  ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, EntityManager } from 'typeorm';
@@ -547,12 +549,22 @@ export class OrdersService {
           },
         });
 
+        let rawGuestAccessToken: string | null = null;
+
         // Vincular comprador según resolución
         if (customerId) {
           order.customerId = customerId;
+          order.guestOrderAccessTokenHash = null;
           const userObj = await tx.findOne(User, { where: { id: customerId } });
           order.customer = userObj!;
         } else {
+          // Generar token de acceso seguro para la orden de invitado (Requerimientos 1 y 2)
+          rawGuestAccessToken = crypto.randomBytes(32).toString('hex');
+          order.guestOrderAccessTokenHash = crypto
+            .createHash('sha256')
+            .update(rawGuestAccessToken)
+            .digest('hex');
+
           // Crear/usar GuestCustomer
           let guest = await tx.findOne(GuestCustomer, { where: { email: emailNormal } });
           if (!guest) {
@@ -944,6 +956,10 @@ export class OrdersService {
           );
         }
 
+        if (rawGuestAccessToken) {
+          (savedOrder as any).guestOrderAccessToken = rawGuestAccessToken;
+        }
+
         return savedOrder;
       });
     } catch (err: any) {
@@ -1037,6 +1053,99 @@ export class OrdersService {
       throw new NotFoundException(`Order with id ${id} not found`);
     }
     return order;
+  }
+
+  /**
+   * Consulta pública autorizada por orderNumber de 8 caracteres (Requerimientos 4 a 12)
+   */
+  async findOneByOrderNumber(
+    orderNumber: string,
+    user?: any,
+    accessToken?: string,
+  ): Promise<Partial<Order>> {
+    const order = await this.orderRepository.findOne({
+      where: { orderNumber },
+      relations: ['items', 'delivery', 'delivery.branch', 'customer', 'guestCustomer', 'statusHistory'],
+    });
+
+    if (!order) {
+      throw new NotFoundException({
+        success: false,
+        error: {
+          code: 'ORDER_NOT_FOUND',
+          message: 'El pedido solicitado no existe',
+        },
+      });
+    }
+
+    let isAuthorized = false;
+
+    // 1. Verificación de JWT Administrativo (RBAC)
+    if (
+      user &&
+      (user.role === 'ADMIN' ||
+        (Array.isArray(user.roles) && user.roles.includes('ADMIN')) ||
+        (Array.isArray(user.permissions) && user.permissions.includes('orders:read')))
+    ) {
+      isAuthorized = true;
+    }
+
+    // 2. Verificación de JWT de Cliente (Ownership)
+    if (!isAuthorized && user && user.id) {
+      if (order.customerId && order.customerId === user.id) {
+        isAuthorized = true;
+      } else {
+        throw new ForbiddenException({
+          success: false,
+          error: {
+            code: 'ORDER_FORBIDDEN',
+            message: 'No tiene autorización para consultar este pedido',
+          },
+        });
+      }
+    }
+
+    // 3. Verificación de Pedido Invitado (customerId = null) vía X-Order-Access-Token
+    if (!isAuthorized && !order.customerId) {
+      if (!accessToken) {
+        throw new UnauthorizedException({
+          success: false,
+          error: {
+            code: 'ORDER_ACCESS_TOKEN_REQUIRED',
+            message: 'Se requiere un token de acceso para consultar este pedido',
+          },
+        });
+      }
+
+      const tokenHash = crypto.createHash('sha256').update(accessToken).digest('hex');
+      if (order.guestOrderAccessTokenHash && tokenHash === order.guestOrderAccessTokenHash) {
+        isAuthorized = true;
+      } else {
+        throw new ForbiddenException({
+          success: false,
+          error: {
+            code: 'ORDER_FORBIDDEN',
+            message: 'No tiene autorización para consultar este pedido',
+          },
+        });
+      }
+    }
+
+    if (!isAuthorized) {
+      throw new ForbiddenException({
+        success: false,
+        error: {
+          code: 'ORDER_FORBIDDEN',
+          message: 'No tiene autorización para consultar este pedido',
+        },
+      });
+    }
+
+    // Sanitización de la respuesta (Requerimiento 12)
+    const sanitizedOrder = { ...order };
+    delete sanitizedOrder.guestOrderAccessTokenHash;
+
+    return sanitizedOrder;
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateOrderStatusDto): Promise<Order> {

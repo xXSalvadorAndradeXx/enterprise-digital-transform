@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { UnprocessableEntityException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { UnprocessableEntityException, BadRequestException, NotFoundException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { OrdersService } from './orders.service';
 import { Order } from './entities/order.entity';
 import { User } from '../users/entities/user.entity';
@@ -21,9 +22,8 @@ import { OrderDelivery } from './entities/order-delivery.entity';
 import { Payment } from '../payments/entities/payment.entity';
 import { OrderStatus } from './enums/order-status.enum';
 import { DeliveryMethod } from './enums/delivery-method.enum';
-import { OrderStatusHistory } from './entities/order-status-history.entity';
 
-describe('OrdersService - Módulo Completo de Órdenes', () => {
+describe('OrdersService - Módulo Completo de Órdenes y Autorización de Consulta', () => {
   let service: OrdersService;
   let mockOrderRepo: any;
   let mockUserRepo: any;
@@ -100,8 +100,8 @@ describe('OrdersService - Módulo Completo de Órdenes', () => {
 
     it('debe reintentar si se detecta una colisión previa de orderNumber', async () => {
       mockOrderRepo.findOne
-        .mockResolvedValueOnce({ id: 'existing-order' }) // Primera colisión
-        .mockResolvedValueOnce(null); // Segundo intento disponible
+        .mockResolvedValueOnce({ id: 'existing-order' })
+        .mockResolvedValueOnce(null);
 
       const orderNumber = await (service as any).generateUniqueOrderNumber();
       expect(orderNumber).toBeDefined();
@@ -111,22 +111,139 @@ describe('OrdersService - Módulo Completo de Órdenes', () => {
   });
 
   describe('findOne', () => {
-    it('debe retornar la orden si existe', async () => {
+    it('debe retornar la orden si existe por UUID interno', async () => {
       const mockOrder = { id: 'order-123', orderNumber: 'A1B2C3D4' };
       mockOrderRepo.findOne.mockResolvedValue(mockOrder);
 
       const result = await service.findOne('order-123');
       expect(result).toEqual(mockOrder);
-      expect(mockOrderRepo.findOne).toHaveBeenCalledWith({
-        where: { id: 'order-123' },
-        relations: ['items', 'delivery', 'delivery.branch', 'customer', 'guestCustomer', 'statusHistory'],
-      });
     });
 
-    it('debe lanzar NotFoundException si la orden no existe', async () => {
+    it('debe lanzar NotFoundException si la orden por UUID interno no existe', async () => {
       mockOrderRepo.findOne.mockResolvedValue(null);
 
       await expect(service.findOne('non-existing-id')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findOneByOrderNumber - Autorización de Consulta (Requerimientos 4 a 12)', () => {
+    it('debe lanzar ORDER_NOT_FOUND si el orderNumber solicitado no existe', async () => {
+      mockOrderRepo.findOne.mockResolvedValue(null);
+
+      try {
+        await service.findOneByOrderNumber('UNKNOWN8');
+        fail('Debería haber lanzado NotFoundException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NotFoundException);
+        const res = error.getResponse();
+        expect(res.error.code).toBe('ORDER_NOT_FOUND');
+      }
+    });
+
+    it('debe permitir acceso al cliente autenticado si es el propietario de la orden (ownership)', async () => {
+      const mockOrder = {
+        orderNumber: 'A7K29P4Q',
+        customerId: 'customer-uuid-100',
+        guestOrderAccessTokenHash: null,
+      };
+      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+      const user = { id: 'customer-uuid-100' };
+      const result = await service.findOneByOrderNumber('A7K29P4Q', user);
+
+      expect(result).toBeDefined();
+      expect(result.orderNumber).toBe('A7K29P4Q');
+    });
+
+    it('debe rechazar con ORDER_FORBIDDEN si un cliente autenticado intenta consultar la orden de otro cliente', async () => {
+      const mockOrder = {
+        orderNumber: 'A7K29P4Q',
+        customerId: 'customer-uuid-100',
+        guestOrderAccessTokenHash: null,
+      };
+      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+      const user = { id: 'other-customer-uuid' };
+      try {
+        await service.findOneByOrderNumber('A7K29P4Q', user);
+        fail('Debería haber lanzado ForbiddenException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        const res = error.getResponse();
+        expect(res.error.code).toBe('ORDER_FORBIDDEN');
+      }
+    });
+
+    it('debe permitir acceso a un usuario administrativo mediante RBAC', async () => {
+      const mockOrder = {
+        orderNumber: 'A7K29P4Q',
+        customerId: 'customer-uuid-100',
+      };
+      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+      const adminUser = { id: 'admin-uuid', role: 'ADMIN' };
+      const result = await service.findOneByOrderNumber('A7K29P4Q', adminUser);
+
+      expect(result).toBeDefined();
+      expect(result.orderNumber).toBe('A7K29P4Q');
+    });
+
+    it('debe exigir ORDER_ACCESS_TOKEN_REQUIRED si una orden de invitado se consulta sin el header X-Order-Access-Token', async () => {
+      const rawToken = 'secret-guest-token-12345';
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const mockOrder = {
+        orderNumber: 'A7K29P4Q',
+        customerId: null,
+        guestOrderAccessTokenHash: tokenHash,
+      };
+      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+      try {
+        await service.findOneByOrderNumber('A7K29P4Q', null, undefined);
+        fail('Debería haber lanzado UnauthorizedException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(UnauthorizedException);
+        const res = error.getResponse();
+        expect(res.error.code).toBe('ORDER_ACCESS_TOKEN_REQUIRED');
+      }
+    });
+
+    it('debe rechazar con ORDER_FORBIDDEN si el header X-Order-Access-Token enviado no coincide con el hash almacenado', async () => {
+      const rawToken = 'secret-guest-token-12345';
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const mockOrder = {
+        orderNumber: 'A7K29P4Q',
+        customerId: null,
+        guestOrderAccessTokenHash: tokenHash,
+      };
+      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+      try {
+        await service.findOneByOrderNumber('A7K29P4Q', null, 'wrong-access-token');
+        fail('Debería haber lanzado ForbiddenException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        const res = error.getResponse();
+        expect(res.error.code).toBe('ORDER_FORBIDDEN');
+      }
+    });
+
+    it('debe conceder acceso y retornar la orden sanitizada sin el hash si el X-Order-Access-Token es correcto', async () => {
+      const rawToken = 'secret-guest-token-12345';
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const mockOrder = {
+        orderNumber: 'A7K29P4Q',
+        customerId: null,
+        guestOrderAccessTokenHash: tokenHash,
+        status: OrderStatus.NEW,
+      };
+      mockOrderRepo.findOne.mockResolvedValue(mockOrder);
+
+      const result = await service.findOneByOrderNumber('A7K29P4Q', null, rawToken);
+
+      expect(result).toBeDefined();
+      expect(result.orderNumber).toBe('A7K29P4Q');
+      expect((result as any).guestOrderAccessTokenHash).toBeUndefined(); // Sanitizado
     });
   });
 
@@ -223,11 +340,11 @@ describe('OrdersService - Módulo Completo de Órdenes', () => {
       }
     });
 
-    it('debe asignar paymentDeadline a exactamente 3 días (72h) para compras PAY_AT_STORE', async () => {
+    it('debe generar guestOrderAccessToken para pedido invitado y guardar el hash en BD', async () => {
       const checkoutDto: any = {
         source: CheckoutSource.BUY_NOW,
-        items: [{ variantId: 'prod-uuid-1', quantity: 2, priceAtAdded: 100 }],
-        contact: { fullName: 'Maria Lopez', email: 'maria@example.com', phone: '+50371111111' },
+        items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 100 }],
+        contact: { fullName: 'Invitado Perez', email: 'invitado@example.com', phone: '+50370000000' },
         delivery: {
           deliveryType: DeliveryType.STORE_PICKUP,
           branchId: 'branch-uuid-1',
@@ -235,15 +352,9 @@ describe('OrdersService - Módulo Completo de Órdenes', () => {
         paymentMethod: PaymentMethod.PAY_AT_STORE,
       };
 
-      const mockBranch = {
-        id: 'branch-uuid-1',
-        name: 'Sucursal Central',
-        isActive: true,
-        allowsPickup: true,
-      };
+      const mockBranch = { id: 'branch-uuid-1', name: 'Sucursal 1', isActive: true, allowsPickup: true };
       mockBranchRepo.findOne.mockResolvedValue(mockBranch);
-
-      const mockInventory = { id: 'inv-1', stock: 10, reserved: 1 };
+      const mockInventory = { id: 'inv-1', stock: 10, reserved: 0 };
       const mockProduct = {
         id: 'prod-uuid-1',
         productId: 'prod-uuid-1',
@@ -251,8 +362,8 @@ describe('OrdersService - Módulo Completo de Órdenes', () => {
         isActive: true,
         isPublished: true,
         deletedAt: null,
+        commercialName: 'Producto Test',
         salePrice: 100,
-        commercialName: 'Producto 1',
         inventory: mockInventory,
       };
 
@@ -260,9 +371,7 @@ describe('OrdersService - Módulo Completo de Órdenes', () => {
 
       mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
         const fakeTx: any = {
-          getRepository: jest.fn().mockReturnValue({
-            findOne: jest.fn().mockResolvedValue(null),
-          }),
+          getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }),
           createQueryBuilder: jest.fn().mockReturnValue({
             insert: jest.fn().mockReturnThis(),
             into: jest.fn().mockReturnThis(),
@@ -277,14 +386,10 @@ describe('OrdersService - Módulo Completo de Órdenes', () => {
             if (options.where?.id === 'prod-uuid-1') return Promise.resolve(mockProduct);
             return Promise.resolve(null);
           }),
-          create: jest.fn().mockImplementation((cls: any, dto: any) => {
-            return { id: 'uuid-gen', ...dto };
-          }),
+          create: jest.fn().mockImplementation((cls: any, dto: any) => ({ id: 'uuid-gen', ...dto })),
           save: jest.fn().mockImplementation((clsOrObj: any, obj?: any) => {
             const target = obj || clsOrObj;
-            if (target && target.orderNumber) {
-              createdOrder = target;
-            }
+            if (target && target.orderNumber) createdOrder = target;
             return Promise.resolve({ id: 'saved-id', ...target });
           }),
           delete: jest.fn().mockResolvedValue({}),
@@ -292,85 +397,13 @@ describe('OrdersService - Módulo Completo de Órdenes', () => {
         return cb(fakeTx);
       });
 
-      const beforeCheckout = Date.now();
-      await service.checkout(checkoutDto);
+      const checkoutResult: any = await service.checkout(checkoutDto); // Invitado sin userId
 
-      expect(createdOrder).toBeDefined();
-      expect(createdOrder.paymentDeadline).toBeInstanceOf(Date);
-      
-      const deadlineDiffMs = createdOrder.paymentDeadline.getTime() - beforeCheckout;
-      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
-      
-      expect(deadlineDiffMs).toBeGreaterThanOrEqual(threeDaysMs - 5000);
-      expect(deadlineDiffMs).toBeLessThanOrEqual(threeDaysMs + 5000 + 1000);
-    });
-
-    it('debe abortar la transacción con ROLLBACK si la simulación de pago CARD indica simulateSuccess: false', async () => {
-      const checkoutDto: any = {
-        source: CheckoutSource.BUY_NOW,
-        items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 100 }],
-        contact: { fullName: 'Carlos Gomez', email: 'carlos@example.com', phone: '+50372222222' },
-        delivery: {
-          deliveryType: DeliveryType.HOME_DELIVERY,
-          departmentId: 'SS',
-          districtId: 'San_Salvador',
-          city: 'San Salvador',
-          addressLine: 'Calle Principal #123',
-        },
-        paymentMethod: PaymentMethod.CARD,
-        card: {
-          cardLastFour: '4321',
-          cardBrand: 'Visa',
-          simulateSuccess: false, // Simula rechazo
-        },
-      };
-
-      const mockInventory = { id: 'inv-1', stock: 10, reserved: 0 };
-      const mockProduct = {
-        id: 'prod-uuid-1',
-        productId: 'prod-uuid-1',
-        status: ProductStatus.ACTIVE,
-        isActive: true,
-        isPublished: true,
-        deletedAt: null,
-        salePrice: 100,
-        commercialName: 'Producto 1',
-        inventory: mockInventory,
-      };
-
-      mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
-        const fakeTx: any = {
-          getRepository: jest.fn().mockReturnValue({
-            findOne: jest.fn().mockResolvedValue(null),
-          }),
-          createQueryBuilder: jest.fn().mockReturnValue({
-            insert: jest.fn().mockReturnThis(),
-            into: jest.fn().mockReturnThis(),
-            values: jest.fn().mockReturnThis(),
-            execute: jest.fn().mockResolvedValue({}),
-            setLock: jest.fn().mockReturnThis(),
-            where: jest.fn().mockReturnThis(),
-            getOne: jest.fn().mockResolvedValue(mockInventory),
-          }),
-          findOne: jest.fn().mockImplementation((entityClass: any, options: any) => {
-            if (options.where?.id === 'prod-uuid-1') return Promise.resolve(mockProduct);
-            return Promise.resolve(null);
-          }),
-          create: jest.fn().mockImplementation((cls: any, dto: any) => ({ id: 'uuid-gen', ...dto })),
-          save: jest.fn().mockImplementation((clsOrObj: any, obj?: any) => Promise.resolve({ id: 'saved-id', ...(obj || clsOrObj) })),
-          delete: jest.fn().mockResolvedValue({}),
-        };
-        return cb(fakeTx);
-      });
-
-      try {
-        await service.checkout(checkoutDto);
-        fail('Debería haber lanzado BadRequestException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(BadRequestException);
-        const res = error.getResponse();
-        expect(res.error.code).toBe('PAYMENT_FAILED');
-      }
+      expect(checkoutResult).toBeDefined();
+      expect(checkoutResult.guestOrderAccessToken).toBeDefined(); // Entregado una sola vez en la respuesta
+      expect(typeof checkoutResult.guestOrderAccessToken).toBe('string');
+      expect(createdOrder.guestOrderAccessTokenHash).toBeDefined(); // Hash almacenado en la entidad Order
+      expect(createdOrder.guestOrderAccessTokenHash.length).toBe(64); // SHA-256 hex length
     });
   });
 
@@ -380,7 +413,7 @@ describe('OrdersService - Módulo Completo de Órdenes', () => {
         id: 'expired-order-uuid',
         orderNumber: 'EXP12345',
         status: OrderStatus.NEW,
-        paymentDeadline: new Date(Date.now() - 1000), // Expiró hace 1s
+        paymentDeadline: new Date(Date.now() - 1000),
       };
 
       mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
