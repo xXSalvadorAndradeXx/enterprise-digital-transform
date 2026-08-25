@@ -11,6 +11,7 @@ import {
   UseGuards,
   Req,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -139,6 +140,9 @@ export class CartController {
     @Headers('x-cart-token') xCartToken: string,
   ): Promise<CartResponseDto> {
     const userId = (req as any).user?.userId || (req as any).user?.id;
+    if (!userId) {
+      throw new UnauthorizedException('Usuario no autenticado');
+    }
     return this.cartService.mergeGuestCartIntoUserCart(userId, xCartToken);
   }
 }

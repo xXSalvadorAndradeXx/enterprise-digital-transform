@@ -62,4 +62,8 @@ export class Cart {
 
   // Propiedad virtual para compatibilidad con código legado
   total?: number;
+
+  get user(): User | null {
+    return this.customer;
+  }
 }

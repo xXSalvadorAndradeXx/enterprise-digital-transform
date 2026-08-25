@@ -13,6 +13,6 @@ import { ProductVariantConfig } from '../products/entities/product-variant-confi
   ],
   controllers: [CartController],
   providers: [CartService],
-  exports: [CartService],
+  exports: [TypeOrmModule, CartService],
 })
 export class CartModule {}

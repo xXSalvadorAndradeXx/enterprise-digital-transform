@@ -53,4 +53,11 @@ export class CartItem {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
+
+  get unitPrice(): number {
+    if (this.product?.salePrice) {
+      return Number(this.product.salePrice);
+    }
+    return 0;
+  }
 }

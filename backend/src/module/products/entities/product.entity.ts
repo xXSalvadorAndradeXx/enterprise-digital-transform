@@ -109,6 +109,14 @@ export class Product {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
 
+   get isActive(): boolean {
+    return this.status === ProductStatus.ACTIVE;
+  }
+
+  get productId(): string {
+    return this.id;
+  }
+
   // --- Relaciones OneToMany ---
 
   @OneToMany(() => ProductImage, (image) => image.product)

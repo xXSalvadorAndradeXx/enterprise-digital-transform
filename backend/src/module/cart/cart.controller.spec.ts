@@ -103,7 +103,7 @@ describe('CartController', () => {
     });
 
     const result = await controller.getCart(req, undefined);
-    expect(result.data.id).toBe('cart-uuid-1');
+    expect(result.id).toBe('cart-uuid-1');
     expect(service.resolveCart).toHaveBeenCalledWith('user-uuid-1', undefined, false);
   });
 
@@ -118,8 +118,8 @@ describe('CartController', () => {
     });
     mockCartService.addItemToCart.mockResolvedValueOnce(mockCartResponse);
 
-    const result = await controller.addItem(req, undefined, dto, mockResponse);
-    expect(result).toEqual({ data: mockCartResponse });
+    const result = await controller.addItem(req, mockResponse, undefined, dto);
+    expect(result).toEqual(mockCartResponse);
     expect(mockResponse.setHeader).toHaveBeenCalledWith('X-Cart-Token', plainGuestToken);
   });
 
@@ -128,7 +128,7 @@ describe('CartController', () => {
     const xCartToken = 'guest-token-to-merge';
 
     const result = await controller.mergeCart(req, xCartToken);
-    expect(result).toEqual({ data: mockCartResponse });
+    expect(result).toEqual(mockCartResponse);
     expect(service.mergeGuestCartIntoUserCart).toHaveBeenCalledWith('user-uuid-1', xCartToken);
   });
 
