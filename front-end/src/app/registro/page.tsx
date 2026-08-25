@@ -347,13 +347,13 @@ export default function RegistroPage() {
                       aria-pressed={showPassword}
                     >
                       {showPassword ? (
-                        <EyeOff
+                        <Eye
                           className="h-[18px] w-[18px]"
                           strokeWidth={1.7}
                           aria-hidden="true"
                         />
                       ) : (
-                        <Eye
+                        <EyeOff
                           className="h-[18px] w-[18px]"
                           strokeWidth={1.7}
                           aria-hidden="true"
