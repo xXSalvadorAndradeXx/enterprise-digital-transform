@@ -40,7 +40,6 @@ import { Payment } from '../payments/entities/payment.entity';
 import { PaymentStatus } from '../payments/enums/payment-status.enum';
 import { CustomerAddress } from '../users/entities/customer-address.entity';
 import { Cart } from '../cart/entities/cart.entity';
-import { CartItem } from '../cart/entities/cart-item.entity';
 import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
 import { CheckoutIdempotencyStatus } from './enums/checkout-idempotency-status.enum';
 import { CHECKOUT_CONFIG } from './config/checkout.config';
@@ -281,7 +280,7 @@ export class OrdersService {
   /**
    * Checkout autoritativo: valida, calcula precios, crea orden y pago en una transacción.
    */
-  async checkout(checkoutDto: CheckoutDto, userId?: string, idempotencyKey?: string): Promise<Order> {
+  async checkout(checkoutDto: CheckoutDto, userId?: string, idempotencyKey?: string): Promise<any> {
 
     const {
       source,
@@ -998,8 +997,7 @@ export class OrdersService {
             { key: idempotencyKey },
             {
               status: CheckoutIdempotencyStatus.COMPLETED,
-              orderId: savedOrder.id,
-              response: responseBody,
+              response: responseBody as any,
             },
           );
         }

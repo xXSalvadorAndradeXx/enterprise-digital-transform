@@ -23,6 +23,9 @@ import { Payment } from '../payments/entities/payment.entity';
 import { OrderStatus } from './enums/order-status.enum';
 import { DeliveryMethod } from './enums/delivery-method.enum';
 import { CheckoutIdempotencyStatus } from './enums/checkout-idempotency-status.enum';
+jest.mock('../../../common/utils/address.util', () => ({
+  validateDepartmentDistrict: jest.fn().mockReturnValue(true),
+}), { virtual: true });
 
 describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigurosa', () => {
   let service: OrdersService;
@@ -274,4 +277,174 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       }
     });
   });
+
+  describe('Pruebas Unitarias de Lógica de Negocio y Reglas de Checkout', () => {
+    let mockCartRepo: any;
+
+    beforeEach(() => {
+      mockCartRepo = {
+        findOne: jest.fn(),
+        delete: jest.fn(),
+      };
+      mockOrderRepo.manager.getRepository = jest.fn().mockImplementation((cls) => {
+        if (cls.name === 'Cart') return mockCartRepo;
+        return {};
+      });
+    });
+
+    describe('CART vs BUY_NOW y Clientes vs Invitados', () => {
+      it('debe rechazar items enviados manualmente en CART', async () => {
+        const dto: any = {
+          source: CheckoutSource.CART,
+          items: [{ variantId: 'prod-uuid-1', quantity: 2 }],
+          contact: { fullName: 'Invitado', email: 'guest@example.com', phone: '+50370000000' },
+          delivery: { deliveryType: DeliveryType.STORE_PICKUP, branchId: 'branch-1' },
+          paymentMethod: PaymentMethod.PAY_AT_STORE,
+        };
+
+        // Si es CART, debe obtener del carrito activo. Si el carrito está vacío o no se encuentra, arroja error
+        mockCartRepo.findOne.mockResolvedValue(null);
+        await expect(service.checkoutPreview(dto, undefined, '123')).rejects.toThrow();
+      });
+
+      it('debe validar que un carrito vacío no pueda completar checkout', async () => {
+        const dto: any = {
+          source: CheckoutSource.CART,
+          contact: { fullName: 'Invitado', email: 'guest@example.com', phone: '+50370000000' },
+          delivery: { deliveryType: DeliveryType.STORE_PICKUP, branchId: 'branch-1' },
+          paymentMethod: PaymentMethod.PAY_AT_STORE,
+        };
+
+        mockCartRepo.findOne.mockResolvedValue({ id: 1, items: [] });
+        await expect(service.checkoutPreview(dto, undefined, '1')).rejects.toThrow();
+      });
+    });
+
+    describe('Preview de Checkout sin Efectos Secundarios', () => {
+      it('debe calcular correctamente los totales y no mutar la base de datos', async () => {
+        const dto: any = {
+          source: CheckoutSource.BUY_NOW,
+          items: [{ variantId: 'prod-uuid-1', quantity: 2, priceAtAdded: 10.00 }],
+          contact: { fullName: 'Juan', email: 'juan@example.com', phone: '+50370000000' },
+          delivery: { deliveryType: DeliveryType.STORE_PICKUP, branchId: 'branch-1' },
+          paymentMethod: PaymentMethod.PAY_AT_STORE,
+        };
+
+        const mockBranch = { id: 'branch-1', name: 'Sucursal Central', isActive: true, allowsPickup: true };
+        mockBranchRepo.findOne.mockResolvedValue(mockBranch);
+
+        const mockProduct = {
+          id: 'prod-uuid-1',
+          productId: 'prod-uuid-1',
+          status: ProductStatus.ACTIVE,
+          isActive: true,
+          isPublished: true,
+          deletedAt: null,
+          commercialName: 'Producto 1',
+          salePrice: 10.00,
+          inventory: { stock: 100 },
+        };
+        mockProductRepo.findOne.mockResolvedValue(mockProduct);
+
+        const previewResult = await service.checkoutPreview(dto, undefined);
+        expect(previewResult.success).toBe(true);
+        expect(previewResult.data.subtotal).toBe('20.00');
+        expect(previewResult.data.discountTotal).toBe('0.00');
+        expect(previewResult.data.shippingTotal).toBe('0.00');
+        expect(previewResult.data.total).toBe('20.00');
+        expect(previewResult.data.freeShippingApplied).toBe(false);
+      });
+    });
+
+    describe('HOME_DELIVERY vs STORE_PICKUP y Envío Gratuito', () => {
+      it('debe aplicar la tarifa de envío estándar en HOME_DELIVERY si el subtotal es 49.99', async () => {
+        const dto: any = {
+          source: CheckoutSource.BUY_NOW,
+          items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 49.99 }],
+          contact: { fullName: 'Juan', email: 'juan@example.com', phone: '+50370000000' },
+          delivery: {
+            deliveryType: DeliveryType.HOME_DELIVERY,
+            departmentId: 'SS',
+            districtId: 'San_Salvador',
+            city: 'San Salvador',
+            addressLine: 'Calle 1',
+          },
+          paymentMethod: PaymentMethod.CARD,
+        };
+
+        const mockProduct = {
+          id: 'prod-uuid-1',
+          productId: 'prod-uuid-1',
+          status: ProductStatus.ACTIVE,
+          isActive: true,
+          isPublished: true,
+          deletedAt: null,
+          commercialName: 'Producto 1',
+          salePrice: 49.99,
+          inventory: { stock: 100 },
+        };
+        mockProductRepo.findOne.mockResolvedValue(mockProduct);
+
+        const previewResult = await service.checkoutPreview(dto, undefined);
+        expect(previewResult.data.freeShippingApplied).toBe(false);
+        expect(previewResult.data.shippingTotal).toBe('5.00');
+        expect(previewResult.data.total).toBe('54.99');
+      });
+
+      it('debe aplicar envío gratuito si el subtotal es exactamente 50.00', async () => {
+        const dto: any = {
+          source: CheckoutSource.BUY_NOW,
+          items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 50.00 }],
+          contact: { fullName: 'Juan', email: 'juan@example.com', phone: '+50370000000' },
+          delivery: {
+            deliveryType: DeliveryType.HOME_DELIVERY,
+            departmentId: 'SS',
+            districtId: 'San_Salvador',
+            city: 'San Salvador',
+            addressLine: 'Calle 1',
+          },
+          paymentMethod: PaymentMethod.CARD,
+        };
+
+        const mockProduct = {
+          id: 'prod-uuid-1',
+          productId: 'prod-uuid-1',
+          status: ProductStatus.ACTIVE,
+          isActive: true,
+          isPublished: true,
+          deletedAt: null,
+          commercialName: 'Producto 1',
+          salePrice: 50.00,
+          inventory: { stock: 100 },
+        };
+        mockProductRepo.findOne.mockResolvedValue(mockProduct);
+
+        const previewResult = await service.checkoutPreview(dto, undefined);
+        expect(previewResult.data.freeShippingApplied).toBe(true);
+        expect(previewResult.data.shippingTotal).toBe('0.00');
+        expect(previewResult.data.total).toBe('50.00');
+      });
+    });
+
+    describe('CARD vs PAY_AT_STORE', () => {
+      it('debe rechazar PAY_AT_STORE con HOME_DELIVERY', async () => {
+        const dto: any = {
+          source: CheckoutSource.BUY_NOW,
+          items: [{ variantId: 'prod-uuid-1', quantity: 1 }],
+          contact: { fullName: 'Juan', email: 'juan@example.com', phone: '+50370000000' },
+          delivery: {
+            deliveryType: DeliveryType.HOME_DELIVERY,
+            departmentId: 'SS',
+            districtId: 'San_Salvador',
+            city: 'San Salvador',
+            addressLine: 'Calle 1',
+          },
+          paymentMethod: PaymentMethod.PAY_AT_STORE,
+        };
+
+        await expect(service.checkoutPreview(dto, undefined)).rejects.toThrow();
+      });
+    });
+  });
 });
+
