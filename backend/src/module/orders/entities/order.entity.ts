@@ -150,6 +150,9 @@ export class Order {
   @Column({ type: 'varchar', length: 64, nullable: true, name: 'guest_order_access_token_hash' })
   guestOrderAccessTokenHash?: string | null;
 
+  @Column({ type: 'timestamp with time zone', nullable: true, name: 'customer_metrics_counted_at' })
+  customerMetricsCountedAt?: Date | null;
+
   @Column({ type: 'jsonb', nullable: true, name: 'contact_snapshot' })
   contactSnapshot?: Record<string, any>;
 }

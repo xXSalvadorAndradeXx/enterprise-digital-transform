@@ -33,6 +33,7 @@ import { InventoryStatus } from '../inventory/enums/inventory-status.enum';
 import { InventoryReservation } from '../inventory/entities/inventory-reservation.entity';
 import { ReservationStatus } from '../inventory/enums/reservation-status.enum';
 import { InventoryMovement } from '../inventory/entities/inventory-movement.entity';
+import { CartItem } from '../cart/entities/cart-item.entity';
 import { MovementType } from '../inventory/enums/movement-type.enum';
 import { MovementChannel } from '../inventory/enums/movement-channel.enum';
 import { Payment } from '../payments/entities/payment.entity';
@@ -424,15 +425,21 @@ export class OrdersService {
 
       if (existing) {
         if (existing.requestHash !== requestHash) {
-          throw new UnprocessableEntityException({
-            message: 'La Idempotency-Key ya ha sido utilizada con un payload diferente.',
-            code: 'IDEMPOTENCY_KEY_REUSED',
+          throw new BadRequestException({
+            success: false,
+            error: {
+              code: 'IDEMPOTENCY_KEY_REUSED',
+              message: 'La Idempotency-Key especificada ya fue utilizada con un payload diferente',
+            },
           });
         }
         if (existing.status === CheckoutIdempotencyStatus.PROCESSING) {
           throw new ConflictException({
-            message: 'El checkout asociado a esta solicitud todavía está siendo procesado.',
-            code: 'CHECKOUT_ALREADY_PROCESSING',
+            success: false,
+            error: {
+              code: 'CHECKOUT_ALREADY_PROCESSING',
+              message: 'El checkout asociado a esta solicitud todavía está siendo procesado',
+            },
           });
         }
         if (existing.status === CheckoutIdempotencyStatus.COMPLETED) {
@@ -943,7 +950,48 @@ export class OrdersService {
           await tx.save(CustomerAddress, address);
         }
 
-        // K. Confirmar idempotencia a COMPLETED
+        // K. Si source = CART, vaciar/marcar el carrito como CHECKED_OUT (Requerimiento 11 y 12)
+        if (source === CheckoutSource.CART && userCart) {
+          await tx.delete(CartItem, { cart: { id: userCart.id } });
+        }
+
+        // L. Actualizar métricas de Customer una sola vez con marca de conteo (Requerimientos 13 y 14)
+        if (customerId && !savedOrder.customerMetricsCountedAt) {
+          savedOrder.customerMetricsCountedAt = new Date();
+          await tx.save(Order, savedOrder);
+
+          const userObj = await tx.findOne(User, { where: { id: customerId } });
+          if (userObj) {
+            userObj.totalOrders = Number(userObj.totalOrders || 0) + 1;
+            const currentSpent = Number(userObj.totalSpent || 0);
+            const orderTotal = Number(savedOrder.totalAmount || 0);
+            userObj.totalSpent = (currentSpent + orderTotal).toFixed(2);
+            userObj.lastOrderAt = savedOrder.createdAt || new Date();
+            await tx.save(User, userObj);
+          }
+        }
+
+        if (rawGuestAccessToken) {
+          (savedOrder as any).guestOrderAccessToken = rawGuestAccessToken;
+        }
+
+        // M. Construir y guardar responseBody inmutable en la Idempotencia (Requerimientos 15, 16 y 17)
+        const responseBody = {
+          success: true,
+          data: {
+            orderNumber: savedOrder.orderNumber,
+            status: savedOrder.status,
+            paymentMethod,
+            paymentStatus: payment.status,
+            paymentDeadline: savedOrder.paymentDeadline ? savedOrder.paymentDeadline.toISOString() : null,
+            subtotal: savedOrder.subtotal,
+            discountTotal: savedOrder.discountTotal,
+            shippingTotal: savedOrder.deliveryCost,
+            total: savedOrder.totalAmount,
+            ...(rawGuestAccessToken ? { guestOrderAccessToken: rawGuestAccessToken } : {}),
+          },
+        };
+
         if (idempotencyKey) {
           await tx.update(
             CheckoutIdempotency,
@@ -951,16 +999,12 @@ export class OrdersService {
             {
               status: CheckoutIdempotencyStatus.COMPLETED,
               orderId: savedOrder.id,
-              response: JSON.parse(JSON.stringify(savedOrder)) as any,
+              response: responseBody,
             },
           );
         }
 
-        if (rawGuestAccessToken) {
-          (savedOrder as any).guestOrderAccessToken = rawGuestAccessToken;
-        }
-
-        return savedOrder;
+        return responseBody;
       });
     } catch (err: any) {
       if (
