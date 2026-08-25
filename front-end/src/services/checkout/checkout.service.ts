@@ -22,8 +22,16 @@ export async function previewCheckout(
   );
 
   if (!response.ok) {
+    const errorBody = await response.text();
+
+    console.error("CHECKOUT PREVIEW ERROR", {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorBody,
+    });
+
     throw new Error(
-      "No se pudo obtener la vista previa del checkout",
+      `No se pudo obtener la vista previa del checkout (${response.status})`,
     );
   }
 
