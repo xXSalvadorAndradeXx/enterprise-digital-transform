@@ -2,12 +2,24 @@ import {
   CustomersListView,
 } from "@/components/customers/CustomersListView";
 
+import {
+  ADMIN_CUSTOMER_SORT_BY_VALUES,
+  SORT_ORDER_VALUES,
+} from "@/types/customers";
+
+import type {
+  AdminCustomerSortBy,
+  SortOrder,
+} from "@/types/customers";
+
 interface ClientesPageProps {
   searchParams: Promise<{
     search?: SearchParamValue;
     lastOrderFrom?: SearchParamValue;
     lastOrderTo?: SearchParamValue;
     page?: SearchParamValue;
+    sortBy?: SearchParamValue;
+    order?: SearchParamValue;
   }>;
 }
 
@@ -48,7 +60,11 @@ function getPageParam(
   value: SearchParamValue,
 ): number {
   const candidate =
-    Number(value);
+    Number(
+      getStringParam(
+        value,
+      ),
+    );
 
   return Number.isInteger(
     candidate,
@@ -57,11 +73,45 @@ function getPageParam(
     : 1;
 }
 
+function getSortByParam(
+  value: SearchParamValue,
+): AdminCustomerSortBy | "" {
+  const candidate =
+    getStringParam(
+      value,
+    );
+
+  return ADMIN_CUSTOMER_SORT_BY_VALUES.includes(
+    candidate as AdminCustomerSortBy,
+  )
+    ? (candidate as AdminCustomerSortBy)
+    : "";
+}
+
+function getOrderParam(
+  value: SearchParamValue,
+): SortOrder {
+  const candidate =
+    getStringParam(
+      value,
+    );
+
+  return SORT_ORDER_VALUES.includes(
+    candidate as SortOrder,
+  )
+    ? (candidate as SortOrder)
+    : "ASC";
+}
+
 export default async function ClientesPage({
   searchParams,
 }: ClientesPageProps) {
   const params =
     await searchParams;
+  const initialSortBy =
+    getSortByParam(
+      params.sortBy,
+    );
 
   return (
     <CustomersListView
@@ -84,6 +134,16 @@ export default async function ClientesPage({
         getPageParam(
           params.page,
         )
+      }
+      initialSortBy={
+        initialSortBy
+      }
+      initialOrder={
+        initialSortBy
+          ? getOrderParam(
+              params.order,
+            )
+          : "ASC"
       }
     />
   );

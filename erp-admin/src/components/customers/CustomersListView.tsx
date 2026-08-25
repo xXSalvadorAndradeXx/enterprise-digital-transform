@@ -30,8 +30,14 @@ import {
   LastOrderDateFilter,
 } from "./LastOrderDateFilter";
 
+import {
+  CustomersSortControls,
+} from "./CustomersSortControls";
+
 import type {
   AdminCustomerListItem,
+  AdminCustomerSortBy,
+  SortOrder,
 } from "@/types/customers";
 
 import type {
@@ -61,6 +67,8 @@ interface CustomersListViewProps {
   initialLastOrderFrom?: string;
   initialLastOrderTo?: string;
   initialPage?: number;
+  initialSortBy?: AdminCustomerSortBy | "";
+  initialOrder?: SortOrder;
 }
 
 interface CustomersListQueryState {
@@ -68,6 +76,8 @@ interface CustomersListQueryState {
   lastOrderFrom: string;
   lastOrderTo: string;
   page: number;
+  sortBy: AdminCustomerSortBy | "";
+  order: SortOrder;
 }
 
 function buildCustomersListHref({
@@ -75,6 +85,8 @@ function buildCustomersListHref({
   lastOrderFrom,
   lastOrderTo,
   page,
+  sortBy,
+  order,
 }: CustomersListQueryState): string {
   const params =
     new URLSearchParams();
@@ -109,6 +121,17 @@ function buildCustomersListHref({
     );
   }
 
+  if (sortBy) {
+    params.set(
+      "sortBy",
+      sortBy,
+    );
+    params.set(
+      "order",
+      order,
+    );
+  }
+
   const query =
     params.toString();
 
@@ -129,16 +152,35 @@ function buildCustomerDetailHref(
   return `/clientes/${customerId}?${params.toString()}`;
 }
 
+function getDateRangeError(
+  lastOrderFrom: string,
+  lastOrderTo: string,
+): string {
+  if (
+    lastOrderFrom &&
+    lastOrderTo &&
+    lastOrderFrom > lastOrderTo
+  ) {
+    return "La fecha inicial no puede ser posterior a la fecha final.";
+  }
+
+  return "";
+}
+
 export function CustomersListView({
   initialSearch = "",
   initialLastOrderFrom = "",
   initialLastOrderTo = "",
   initialPage = 1,
+  initialSortBy = "",
+  initialOrder = "ASC",
 }: CustomersListViewProps) {
   const router =
     useRouter();
   const hasMountedSearchEffect =
     useRef(false);
+  const latestRequestId =
+    useRef(0);
   const [
     page,
     setPage,
@@ -186,6 +228,25 @@ export function CustomersListView({
   ] = useState(
     initialLastOrderTo,
   );
+  const [
+    sortBy,
+    setSortBy,
+  ] =
+    useState<AdminCustomerSortBy | "">(
+      initialSortBy,
+    );
+  const [
+    order,
+    setOrder,
+  ] = useState<SortOrder>(
+    initialOrder,
+  );
+
+  const dateRangeError =
+    getDateRangeError(
+      lastOrderFrom,
+      lastOrderTo,
+    );
 
   const currentListHref =
     buildCustomersListHref({
@@ -194,6 +255,8 @@ export function CustomersListView({
       lastOrderFrom,
       lastOrderTo,
       page,
+      sortBy,
+      order,
     });
 
   useEffect(() => {
@@ -238,6 +301,29 @@ export function CustomersListView({
   ]);
 
   useEffect(() => {
+    const requestId =
+      latestRequestId.current + 1;
+
+    latestRequestId.current =
+      requestId;
+
+    if (dateRangeError) {
+      setIsLoading(
+        false,
+      );
+      setError(
+        "",
+      );
+      setCustomers(
+        [],
+      );
+      setMeta({
+        ...EMPTY_META,
+        page,
+      });
+      return;
+    }
+
     const controller =
       new AbortController();
 
@@ -257,10 +343,24 @@ export function CustomersListView({
           debouncedSearch,
         lastOrderFrom,
         lastOrderTo,
+        sortBy:
+          sortBy || undefined,
+        order:
+          sortBy
+            ? order
+            : undefined,
       },
       controller.signal,
     )
       .then((response) => {
+        if (
+          controller.signal.aborted ||
+          requestId !==
+            latestRequestId.current
+        ) {
+          return;
+        }
+
         setCustomers(
           response.items,
         );
@@ -272,6 +372,13 @@ export function CustomersListView({
         if (
           caughtError instanceof DOMException &&
           caughtError.name === "AbortError"
+        ) {
+          return;
+        }
+
+        if (
+          requestId !==
+          latestRequestId.current
         ) {
           return;
         }
@@ -290,7 +397,11 @@ export function CustomersListView({
         );
       })
       .finally(() => {
-        if (!controller.signal.aborted) {
+        if (
+          !controller.signal.aborted &&
+          requestId ===
+            latestRequestId.current
+        ) {
           setIsLoading(
             false,
           );
@@ -305,6 +416,9 @@ export function CustomersListView({
     debouncedSearch,
     lastOrderFrom,
     lastOrderTo,
+    sortBy,
+    order,
+    dateRangeError,
   ]);
 
   const showPagination =
@@ -344,6 +458,34 @@ export function CustomersListView({
     );
   };
 
+  const changeSortBy = (
+    value: AdminCustomerSortBy | "",
+  ): void => {
+    setSortBy(
+      value,
+    );
+    setPage(
+      1,
+    );
+
+    if (!value) {
+      setOrder(
+        "ASC",
+      );
+    }
+  };
+
+  const changeOrder = (
+    value: SortOrder,
+  ): void => {
+    setOrder(
+      value,
+    );
+    setPage(
+      1,
+    );
+  };
+
   const getCustomerHref = (
     customer: AdminCustomerListItem,
   ): string =>
@@ -360,7 +502,18 @@ export function CustomersListView({
         </h1>
       </header>
 
-      {error && (
+      {dateRangeError && (
+        <p
+          role="alert"
+          className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {
+            dateRangeError
+          }
+        </p>
+      )}
+
+      {!dateRangeError && error && (
         <p
           role="alert"
           className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
@@ -399,6 +552,21 @@ export function CustomersListView({
             }
             onClear={
               clearLastOrderFilter
+            }
+          />
+
+          <CustomersSortControls
+            sortBy={
+              sortBy
+            }
+            order={
+              order
+            }
+            onSortByChange={
+              changeSortBy
+            }
+            onOrderChange={
+              changeOrder
             }
           />
         </div>

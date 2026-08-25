@@ -4,6 +4,8 @@ import {
 
 import type {
   AdminCustomerListData,
+  AdminCustomerSortBy,
+  SortOrder,
 } from "@/types/customers";
 
 export interface GetAdminCustomersParams {
@@ -12,6 +14,8 @@ export interface GetAdminCustomersParams {
   search?: string;
   lastOrderFrom?: string;
   lastOrderTo?: string;
+  sortBy?: AdminCustomerSortBy;
+  order?: SortOrder;
 }
 
 export class AdminCustomersRequestError extends Error {
@@ -84,6 +88,8 @@ export async function getAdminCustomers({
   search = "",
   lastOrderFrom = "",
   lastOrderTo = "",
+  sortBy,
+  order,
 }: GetAdminCustomersParams,
 signal?: AbortSignal): Promise<AdminCustomerListData> {
   const params =
@@ -109,6 +115,20 @@ signal?: AbortSignal): Promise<AdminCustomerListData> {
     "lastOrderTo",
     lastOrderTo,
   );
+
+  if (sortBy) {
+    params.set(
+      "sortBy",
+      sortBy,
+    );
+
+    if (order) {
+      params.set(
+        "order",
+        order,
+      );
+    }
+  }
 
   const response =
     await fetch(
