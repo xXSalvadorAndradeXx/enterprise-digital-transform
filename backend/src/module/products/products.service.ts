@@ -182,6 +182,15 @@ export class ProductsService {
     const safeImageUrls = imageUrls || [];
     const safeTags = tags || [];
     const safeVariantConfigs = variantConfigs || [];
+    if (safeVariantConfigs.length > 0) {
+      const detailIds = safeVariantConfigs.map((vc) => vc.inventoryDetailId);
+      const uniqueIds = new Set(detailIds);
+      if (detailIds.length !== uniqueIds.size) {
+        throw new UnprocessableEntityException(
+          'No se permiten configuraciones de variante duplicadas',
+        );
+      }
+    }
     const actorId = user?.id ?? user?.userId ?? null;
 
     // Regla RN-P-003: Advertencia mediante Logger.warn cuando salePrice === 0
@@ -218,6 +227,7 @@ export class ProductsService {
     await queryRunner.startTransaction();
 
     try {
+      let finalVariantConfigs = [...safeVariantConfigs];
       // 1. Validación de Inventario
       if (inventoryId) {
         const inventory = await queryRunner.manager.findOne(Inventory, {
@@ -264,17 +274,28 @@ export class ProductsService {
             'El inventario seleccionado ya se encuentra asociado a un producto activo',
           );
         }
+
+        // Si finalVariantConfigs está vacío, autogeneramos para todos los detalles del inventario
+        if (finalVariantConfigs.length === 0) {
+          const details = await queryRunner.manager.find(InventoryDetail, {
+            where: { inventoryId },
+          });
+          finalVariantConfigs = details.map((d) => ({
+            inventoryDetailId: d.id,
+            minStock: d.minStock ?? 0,
+          }));
+        }
       }
 
       // Validación de variantes
-      if (safeVariantConfigs.length > 0) {
+      if (finalVariantConfigs.length > 0) {
         if (!inventoryId) {
           throw new UnprocessableEntityException(
             'Debe asociar un inventario para configurar variantes',
           );
         }
 
-        for (const vc of safeVariantConfigs) {
+        for (const vc of finalVariantConfigs) {
           const detail = await queryRunner.manager.findOne(InventoryDetail, {
             where: { id: vc.inventoryDetailId, inventoryId },
           });
@@ -334,8 +355,8 @@ export class ProductsService {
       }
 
       // Step 4: INSERT product_variant_config & Step 5: UPDATE inventory_details
-      if (safeVariantConfigs.length > 0) {
-        const variantEntities = safeVariantConfigs.map((vc) =>
+      if (finalVariantConfigs.length > 0) {
+        const variantEntities = finalVariantConfigs.map((vc) =>
           queryRunner.manager.create(ProductVariantConfig, {
             productId: savedProduct.id,
             inventoryDetailId: vc.inventoryDetailId,
@@ -344,7 +365,7 @@ export class ProductsService {
         );
         await queryRunner.manager.save(ProductVariantConfig, variantEntities);
 
-        for (const vc of safeVariantConfigs) {
+        for (const vc of finalVariantConfigs) {
           await queryRunner.manager.update(
             InventoryDetail,
             { id: vc.inventoryDetailId },
@@ -444,16 +465,38 @@ export class ProductsService {
       }
     }
 
+    let finalVariantConfigs: any[] | undefined = undefined;
     if (updateProductDto.variantConfigs !== undefined) {
       const safeVariantConfigs = updateProductDto.variantConfigs || [];
-      if (safeVariantConfigs.length > 0) {
+      const detailIds = safeVariantConfigs.map((vc) => vc.inventoryDetailId);
+      const uniqueIds = new Set(detailIds);
+      if (detailIds.length !== uniqueIds.size) {
+        throw new UnprocessableEntityException(
+          'No se permiten configuraciones de variante duplicadas',
+        );
+      }
+
+      finalVariantConfigs = [...safeVariantConfigs];
+      if (finalVariantConfigs.length === 0 && product.inventoryId) {
+        const details = await this.dataSource
+          .getRepository(InventoryDetail)
+          .find({
+            where: { inventoryId: product.inventoryId },
+          });
+        finalVariantConfigs = details.map((d) => ({
+          inventoryDetailId: d.id,
+          minStock: d.minStock ?? 0,
+        }));
+      }
+
+      if (finalVariantConfigs.length > 0) {
         if (!product.inventoryId) {
           throw new UnprocessableEntityException(
             'El producto no tiene un inventario asociado para configurar variantes',
           );
         }
 
-        for (const vc of safeVariantConfigs) {
+        for (const vc of finalVariantConfigs) {
           const detail = await this.dataSource
             .getRepository(InventoryDetail)
             .findOne({
@@ -546,14 +589,13 @@ export class ProductsService {
       }
 
       // Paso 4 — Actualizar variantes (si variantConfigs viene en DTO)
-      if (updateProductDto.variantConfigs !== undefined) {
+      if (finalVariantConfigs !== undefined) {
         await queryRunner.manager.delete(ProductVariantConfig, {
           productId: id,
         });
-        const safeVariantConfigs = updateProductDto.variantConfigs || [];
 
-        if (safeVariantConfigs.length > 0) {
-          const variantEntities = safeVariantConfigs.map((vc) =>
+        if (finalVariantConfigs.length > 0) {
+          const variantEntities = finalVariantConfigs.map((vc) =>
             queryRunner.manager.create(ProductVariantConfig, {
               productId: id,
               inventoryDetailId: vc.inventoryDetailId,
@@ -563,7 +605,7 @@ export class ProductsService {
           await queryRunner.manager.save(ProductVariantConfig, variantEntities);
 
           // Paso 5 — Actualizar min_stock en inventory_details
-          for (const vc of safeVariantConfigs) {
+          for (const vc of finalVariantConfigs) {
             await queryRunner.manager.update(
               InventoryDetail,
               { id: vc.inventoryDetailId },
