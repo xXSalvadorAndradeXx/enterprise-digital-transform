@@ -9,7 +9,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, EntityManager } from 'typeorm';
+import { Repository, In, EntityManager, IsNull } from 'typeorm';
 import * as crypto from 'crypto';
 import { Order } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -43,6 +43,10 @@ import { Cart } from '../cart/entities/cart.entity';
 import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
 import { CheckoutIdempotencyStatus } from './enums/checkout-idempotency-status.enum';
 import { CHECKOUT_CONFIG } from './config/checkout.config';
+import { CartStatus } from '../cart/enums/cart-status.enum';
+import { hashGuestToken } from '../../common/utils/security.util';
+import { ProductVariantConfig } from '../products/entities/product-variant-config.entity';
+import { InventoryDetail } from '../inventory/entities/inventory-detail.entity';
 
 @Injectable()
 export class OrdersService {
@@ -57,6 +61,8 @@ export class OrdersService {
     private readonly branchRepository: Repository<Branch>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(ProductVariantConfig)
+    private readonly variantConfigRepository: Repository<ProductVariantConfig>,
     @InjectRepository(CheckoutIdempotency)
     private readonly idempotencyRepository: Repository<CheckoutIdempotency>,
   ) {}
@@ -280,7 +286,12 @@ export class OrdersService {
   /**
    * Checkout autoritativo: valida, calcula precios, crea orden y pago en una transacción.
    */
-  async checkout(checkoutDto: CheckoutDto, userId?: string, idempotencyKey?: string): Promise<any> {
+  async checkout(
+    checkoutDto: CheckoutDto,
+    userId?: string,
+    idempotencyKey?: string,
+    xCartToken?: string,
+  ): Promise<any> {
 
     const {
       source,
@@ -453,10 +464,24 @@ export class OrdersService {
         if (idempotencyKey) {
           const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h TTL
           let cartId: string | null = null;
-          if (source === CheckoutSource.CART && userId) {
-            const cart = await tx.findOne(Cart, {
-              where: { customerId: userId },
-            });
+          if (source === CheckoutSource.CART) {
+            const cart = userId
+              ? await tx.findOne(Cart, {
+                  where: {
+                    customerId: userId,
+                    status: CartStatus.ACTIVE,
+                    deletedAt: IsNull(),
+                  },
+                })
+              : xCartToken?.trim()
+                ? await tx.findOne(Cart, {
+                    where: {
+                      guestTokenHash: hashGuestToken(xCartToken.trim()),
+                      status: CartStatus.ACTIVE,
+                      deletedAt: IsNull(),
+                    },
+                  })
+                : null;
             if (cart) {
               cartId = String(cart.id);
             }
@@ -494,17 +519,54 @@ export class OrdersService {
             referencePrice: item.priceAtAdded ? Number(item.priceAtAdded) : undefined,
           }));
         } else if (source === CheckoutSource.CART) {
-          if (!userId) {
-            throw new BadRequestException('El userId es requerido para realizar checkout desde el carrito');
+          if (userId) {
+            userCart = await tx.findOne(Cart, {
+              where: {
+                customerId: userId,
+                status: CartStatus.ACTIVE,
+                deletedAt: IsNull(),
+              },
+              relations: [
+                'items',
+                'items.product',
+                'items.product.inventory',
+                'items.variantConfig',
+                'items.variantConfig.inventoryDetail',
+              ],
+            });
+          } else if (xCartToken?.trim()) {
+            userCart = await tx.findOne(Cart, {
+              where: {
+                guestTokenHash: hashGuestToken(xCartToken.trim()),
+                status: CartStatus.ACTIVE,
+                deletedAt: IsNull(),
+              },
+              relations: [
+                'items',
+                'items.product',
+                'items.product.inventory',
+                'items.variantConfig',
+                'items.variantConfig.inventoryDetail',
+              ],
+            });
+          } else {
+            throw new BadRequestException({
+              code: 'CART_TOKEN_INVALID',
+              message: 'El token del carrito es requerido para completar el checkout como invitado',
+            });
           }
-          userCart = await tx.findOne(Cart, {
-            where: { customerId: userId },
-            relations: ['items', 'items.product', 'items.product.inventory'],
-          });
+
           if (!userCart) {
             throw new NotFoundException({
-              message: 'Carrito no encontrado para este usuario',
-              code: 'CART_NOT_FOUND',
+              code: 'CART_TOKEN_INVALID',
+              message: 'El token del carrito no es válido',
+            });
+          }
+
+          if (userCart.expiresAt && userCart.expiresAt.getTime() < Date.now()) {
+            throw new BadRequestException({
+              code: 'CART_TOKEN_INVALID',
+              message: 'El token del carrito no es válido',
             });
           }
           if (!userCart.items || userCart.items.length === 0) {
@@ -517,14 +579,15 @@ export class OrdersService {
             if (!item.product) {
               throw new BadRequestException('El carrito contiene un producto no válido');
             }
-            const dtoItem = items?.find(di => di.variantId === item.product.id);
+            const dtoItem = items?.find(di => di.variantId === item.variantId);
+            const detail = item.variantConfig?.inventoryDetail;
             const refPrice = dtoItem?.priceAtAdded ? Number(dtoItem.priceAtAdded) : Number(item.unitPrice);
             return {
-              variantId: item.product.id,
+              variantId: item.variantId,
               quantity: item.quantity,
-              size: (item as any).size,
-              color: (item as any).color,
-              sku: (item as any).sku,
+              size: detail?.size,
+              color: detail?.color,
+              sku: detail?.sku,
               referencePrice: refPrice,
             };
           });
@@ -597,28 +660,10 @@ export class OrdersService {
         let totalEffective = 0;
         let hasPriceChanged = false;
 
-        // 1. Ordenar variantIds determinísticamente (por ID ascendente) para evitar deadlocks (Requerimiento 1)
-        const sortedVariantIds = Array.from(
-          new Set(itemsToProcess.map((item) => item.variantId)),
-        ).sort();
-
-        // 2. Adquirir bloqueos pesimistas (pessimistic_write / SELECT ... FOR UPDATE) sobre inventarios (Requerimiento 1)
-        const lockedInventoriesMap = new Map<string, Inventory>();
-        for (const variantId of sortedVariantIds) {
-          const lockedInv = await tx
-            .createQueryBuilder(Inventory, 'inv')
-            .setLock('pessimistic_write')
-            .where('inv.productId = :variantId', { variantId })
-            .getOne();
-
-          if (lockedInv) {
-            lockedInventoriesMap.set(variantId, lockedInv);
-          }
-        }
-
         const loadedItemsData: {
           product: Product;
           inventory: Inventory;
+          inventoryDetail: InventoryDetail;
           itemDto: typeof itemsToProcess[0];
           salePrice: number;
           effectivePrice: number;
@@ -632,31 +677,48 @@ export class OrdersService {
         }[] = [];
 
         for (const itemDto of itemsToProcess) {
-          const product = await tx.findOne(Product, {
+          const variant = await tx.findOne(ProductVariantConfig, {
             where: { id: itemDto.variantId },
-            relations: ['inventory'],
+            relations: ['product', 'product.inventory', 'inventoryDetail'],
           });
-          if (!product) {
-            throw new NotFoundException(`Producto con ID ${itemDto.variantId} no encontrado`);
+          if (!variant?.product || !variant.inventoryDetail) {
+            throw new NotFoundException({
+              code: 'VARIANT_NOT_FOUND',
+              message: `Variante con ID ${itemDto.variantId} no encontrada`,
+            });
           }
+          const product = variant.product;
           if (product.status !== ProductStatus.ACTIVE || !product.isActive || !product.isPublished || product.deletedAt !== null) {
             throw new BadRequestException(`El producto "${product.commercialName}" no está disponible para venta.`);
           }
-          
-          const variant = product;
-          if (variant.productId !== product.id) {
-            throw new BadRequestException('La variante no pertenece al producto');
-          }
 
-          const inventory = lockedInventoriesMap.get(itemDto.variantId) || product.inventory;
+          const inventory = await tx
+            .createQueryBuilder(Inventory, 'inventory')
+            .setLock('pessimistic_write')
+            .where('inventory.id = :inventoryId', {
+              inventoryId: variant.inventoryDetail.inventoryId,
+            })
+            .getOne();
           if (!inventory) {
             throw new BadRequestException(`El producto ${product.id} no tiene inventario asignado`);
           }
 
-          // 3. Revalidar el stock disponible autoritativo post-lock: availableStock = physicalStock - reservedStock (Requerimientos 2 & 4)
-          const physicalStock = Number(inventory.stock || 0);
-          const reservedStock = Number(inventory.reserved || 0);
-          const availableStock = physicalStock - reservedStock;
+          const inventoryDetail = await tx
+            .createQueryBuilder(InventoryDetail, 'detail')
+            .setLock('pessimistic_write')
+            .where('detail.id = :detailId', {
+              detailId: variant.inventoryDetailId,
+            })
+            .getOne();
+          if (!inventoryDetail) {
+            throw new BadRequestException({
+              code: 'VARIANT_NOT_FOUND',
+              message: 'La variante seleccionada no tiene inventario disponible',
+            });
+          }
+
+          // Revalidar el stock autoritativo de la talla/color seleccionados.
+          const availableStock = Number(inventoryDetail.stock || 0);
 
           if (availableStock < itemDto.quantity) {
             stockInsufficientDetails.push({
@@ -707,6 +769,7 @@ export class OrdersService {
           loadedItemsData.push({
             product,
             inventory,
+            inventoryDetail,
             itemDto,
             salePrice,
             effectivePrice,
@@ -745,7 +808,7 @@ export class OrdersService {
 
         // 5. Crear ítems de orden
         for (const loaded of loadedItemsData) {
-          const { product, itemDto, salePrice, effectivePrice, subtotal } = loaded;
+          const { product, inventoryDetail, itemDto, salePrice, effectivePrice, subtotal } = loaded;
           
           const orderItem = tx.create(OrderItem, {
             product,
@@ -754,9 +817,9 @@ export class OrdersService {
             salePriceSnapshot: salePrice,
             discountSnapshot: product.discount || 0,
             subtotal,
-            size: itemDto.size || null,
-            color: itemDto.color || null,
-            sku: itemDto.sku || null,
+            size: inventoryDetail.size,
+            color: inventoryDetail.color,
+            sku: inventoryDetail.sku,
           });
           order.items.push(orderItem);
         }
@@ -799,7 +862,7 @@ export class OrdersService {
 
         // I. Aplicar comportamiento de inventario según paymentMethod (Requerimientos 3 y 4)
         for (const loaded of loadedItemsData) {
-          const { product, inventory, itemDto } = loaded;
+          const { product, inventory, inventoryDetail, itemDto } = loaded;
 
           if (paymentMethod === PaymentMethod.PAY_AT_STORE) {
             // PAY_AT_STORE -> Reserva de inventario (incrementa reserved)
@@ -817,6 +880,9 @@ export class OrdersService {
             await tx.save(InventoryReservation, reservation);
           } else {
             // CARD / Pago Aprobado -> Consumo definitivo de inventario
+            inventoryDetail.stock = Number(inventoryDetail.stock) - itemDto.quantity;
+            await tx.save(InventoryDetail, inventoryDetail);
+
             const stockBefore = Number(inventory.stock || 0);
             const newStock = stockBefore - itemDto.quantity;
             inventory.stock = newStock;
@@ -1447,7 +1513,7 @@ export class OrdersService {
         delete (delivery as any).branchId;
       }
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { validateDepartmentDistrict } = require('../../../common/utils/address.util');
+      const { validateDepartmentDistrict } = require('../../common/utils/address.util');
       if (!validateDepartmentDistrict(departmentId, districtId)) {
         throw new BadRequestException({
           message: 'Departamento y distrito no coinciden o tienen formato inválido',
@@ -1514,8 +1580,18 @@ export class OrdersService {
         });
       } else if (xCartToken) {
         userCart = await cartRepository.findOne({
-          where: { id: xCartToken },
-          relations: ['items', 'items.product', 'items.product.inventory'],
+          where: {
+            guestTokenHash: hashGuestToken(xCartToken.trim()),
+            status: CartStatus.ACTIVE,
+            deletedAt: IsNull(),
+          },
+          relations: [
+            'items',
+            'items.product',
+            'items.product.inventory',
+            'items.variantConfig',
+            'items.variantConfig.inventoryDetail',
+          ],
         });
       }
 
@@ -1536,14 +1612,15 @@ export class OrdersService {
         if (!item.product) {
           throw new BadRequestException('El carrito contiene un producto no válido');
         }
-        const dtoItem = items?.find(di => di.variantId === item.product.id);
+        const dtoItem = items?.find(di => di.variantId === item.variantId);
+        const detail = item.variantConfig?.inventoryDetail;
         const refPrice = dtoItem?.priceAtAdded ? Number(dtoItem.priceAtAdded) : Number(item.unitPrice);
         return {
-          variantId: item.product.id,
+          variantId: item.variantId,
           quantity: item.quantity,
-          size: (item as any).size,
-          color: (item as any).color,
-          sku: (item as any).sku,
+          size: detail?.size,
+          color: detail?.color,
+          sku: detail?.sku,
           referencePrice: refPrice,
         };
       });
@@ -1557,29 +1634,33 @@ export class OrdersService {
     let hasPriceChanged = false;
 
     for (const itemDto of itemsToProcess) {
-      const product = await this.productRepository.findOne({
+      const variant = await this.variantConfigRepository.findOne({
         where: { id: itemDto.variantId },
-        relations: ['inventory'],
+        relations: ['product', 'product.inventory', 'inventoryDetail'],
       });
-      if (!product) {
-        throw new NotFoundException(`Producto con ID ${itemDto.variantId} no encontrado`);
+      if (!variant?.product || !variant.inventoryDetail) {
+        throw new NotFoundException({
+          code: 'VARIANT_NOT_FOUND',
+          message: `Variante con ID ${itemDto.variantId} no encontrada`,
+        });
       }
+      const product = variant.product;
       if (product.status !== ProductStatus.ACTIVE || !product.isActive || !product.isPublished || product.deletedAt !== null) {
         throw new BadRequestException(`El producto "${product.commercialName}" no está disponible para venta.`);
-      }
-
-      const variant = product;
-      if (variant.productId !== product.id) {
-        throw new BadRequestException('La variante no pertenece al producto');
       }
 
       if (!product.inventory) {
         throw new BadRequestException(`El producto ${product.id} no tiene inventario asignado`);
       }
-      if (Number(product.inventory.stock) < itemDto.quantity) {
+      if (Number(variant.inventoryDetail.stock) < itemDto.quantity) {
         throw new BadRequestException({
-          message: `Stock insuficiente para el producto ${product.id}`,
-          code: 'INSUFFICIENT_STOCK',
+          message: 'No existe suficiente stock para la variante seleccionada',
+          code: 'STOCK_INSUFFICIENT',
+          details: {
+            variantId: itemDto.variantId,
+            requestedQuantity: itemDto.quantity,
+            availableStock: Number(variant.inventoryDetail.stock),
+          },
         });
       }
 

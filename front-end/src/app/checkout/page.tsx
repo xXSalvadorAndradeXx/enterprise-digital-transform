@@ -27,6 +27,11 @@ import type { ShippingData } from "@/components/checkout/CheckoutShipping";
 import CheckoutPayment from "@/components/checkout/CheckoutPayment";
 import CheckoutSummary from "@/components/checkout/CheckoutSummary";
 import { readAccessToken } from "@/lib/auth-session";
+import {
+  clearBuyNowSelection,
+  readBuyNowSelection,
+} from "@/lib/buy-now";
+import type { BuyNowSelection } from "@/lib/buy-now";
 
 const STEP_ORDER: CheckoutStep[] = [
   "contact",
@@ -84,6 +89,22 @@ export default function CheckoutPage() {
   const [checkoutError, setCheckoutError] =
     useState<string | null>(null);
 
+  const [buyNowSelection, setBuyNowSelection] =
+    useState<BuyNowSelection | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("source") === "buy-now") {
+      const selection = readBuyNowSelection();
+      setBuyNowSelection(selection);
+      if (!selection) {
+        setCheckoutError(
+          "No encontramos el producto seleccionado. Vuelve al catálogo e intenta nuevamente.",
+        );
+      }
+    }
+  }, []);
+
   /*
    * Una sola Idempotency-Key por intento
    * de checkout.
@@ -93,7 +114,11 @@ export default function CheckoutPage() {
   );
 
   const previewRequest: CheckoutPreviewRequest = {
-    source: "CART",
+    source: buyNowSelection ? "BUY_NOW" : "CART",
+
+    ...(buyNowSelection
+      ? { items: [buyNowSelection.item] }
+      : {}),
 
     contact,
 
@@ -114,11 +139,20 @@ export default function CheckoutPage() {
     paymentMethod: "CARD",
   };
 
+  const buyNowSubtotal = buyNowSelection
+    ? buyNowSelection.originalUnitPrice * buyNowSelection.item.quantity
+    : 0;
+  const buyNowTotal = buyNowSelection
+    ? buyNowSelection.unitPrice * buyNowSelection.item.quantity
+    : 0;
   const cartSummary: CheckoutPreviewResponse = {
-    subtotal: subtotal.toFixed(2),
-    discountTotal: discountTotal.toFixed(2),
+    subtotal: (buyNowSelection ? buyNowSubtotal : subtotal).toFixed(2),
+    discountTotal: (buyNowSelection
+      ? Math.max(0, buyNowSubtotal - buyNowTotal)
+      : discountTotal
+    ).toFixed(2),
     shippingTotal: "0.00",
-    total: total.toFixed(2),
+    total: (buyNowSelection ? buyNowTotal : total).toFixed(2),
     freeShippingApplied: false,
   };
 
@@ -150,7 +184,7 @@ export default function CheckoutPage() {
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [contact, deliveryType, shipping]);
+  }, [buyNowSelection, contact, deliveryType, shipping]);
 
   const handleFinalCheckout = async (
     payment: PaymentData,
@@ -162,15 +196,16 @@ export default function CheckoutPage() {
 
     try {
       const isAuthenticated = Boolean(readAccessToken());
-      const checkoutRequest: CheckoutRequest = {
-        source: "CART",
-
-        customerType: isAuthenticated ? "REGISTERED" : "GUEST",
-
+      const customerType = isAuthenticated
+        ? ("REGISTERED" as const)
+        : ("GUEST" as const);
+      const paymentMethod = payment.method === "PAY_AT_STORE"
+        ? ("PAY_AT_STORE" as const)
+        : ("CARD" as const);
+      const checkoutData = {
+        customerType,
         contact,
-
         deliveryType,
-
         delivery:
           deliveryType === "HOME_DELIVERY"
             ? {
@@ -182,14 +217,8 @@ export default function CheckoutPage() {
             : {
                 branchId: shipping.branchId,
               },
-
-        paymentMethod:
-          payment.method === "PAY_AT_STORE"
-            ? "PAY_AT_STORE"
-            : "CARD",
-
+        paymentMethod,
         saveAddress: shipping.saveInfo,
-
         ...(payment.method === "CARD" &&
         payment.card
           ? {
@@ -197,6 +226,16 @@ export default function CheckoutPage() {
             }
           : {}),
       };
+      const checkoutRequest: CheckoutRequest = buyNowSelection
+        ? {
+            ...checkoutData,
+            source: "BUY_NOW",
+            items: [buyNowSelection.item],
+          }
+        : {
+            ...checkoutData,
+            source: "CART",
+          };
 
       const response = await createCheckout(
         checkoutRequest,
@@ -218,7 +257,11 @@ export default function CheckoutPage() {
        * La orden fue creada correctamente.
        * Ahora se limpia el carrito.
        */
-      await clearCart();
+      if (buyNowSelection) {
+        clearBuyNowSelection();
+      } else {
+        await clearCart();
+      }
 
       /*
        * Ir a la pantalla de confirmación.

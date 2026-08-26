@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, Store, Truck } from "lucide-react";
+import { Building2, MapPin, Phone, Store, Truck } from "lucide-react";
 import {
   getDepartments,
   getDistricts,
   getPickupBranches,
+  type CheckoutBranchOption,
   type CheckoutCatalogOption,
 } from "@/services/checkout/checkout-catalog.service";
 
@@ -48,7 +49,7 @@ export default function CheckoutShipping({
   const [branchId, setBranchId] = useState("");
   const [departments, setDepartments] = useState<CheckoutCatalogOption[]>([]);
   const [districts, setDistricts] = useState<CheckoutCatalogOption[]>([]);
-  const [branches, setBranches] = useState<CheckoutCatalogOption[]>([]);
+  const [branches, setBranches] = useState<CheckoutBranchOption[]>([]);
   const [catalogError, setCatalogError] = useState("");
 
   useEffect(() => {
@@ -167,6 +168,10 @@ export default function CheckoutShipping({
     // Al cambiar departamento se limpia el distrito.
     setDistrictId("");
   };
+
+  const selectedBranch = branches.find(
+    (branch) => branch.id === branchId,
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -397,6 +402,65 @@ export default function CheckoutShipping({
               )}
             </select>
           </div>
+
+          {selectedBranch && (
+            <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-sm text-slate-700">
+              <div className="flex items-start gap-3">
+                <Store className="mt-0.5 h-5 w-5 shrink-0 text-[#1B21D1]" />
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-950">
+                    {selectedBranch.name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Código: {selectedBranch.code ?? "No disponible"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="flex items-start gap-2">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#1B21D1]" />
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-slate-500">
+                      Dirección
+                    </p>
+                    <p className="mt-0.5">
+                      {selectedBranch.address ?? "Dirección no disponible"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[#1B21D1]" />
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-slate-500">
+                      Teléfono
+                    </p>
+                    <p className="mt-0.5">
+                      {selectedBranch.phone ?? "No disponible"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2 sm:col-span-2">
+                  <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-[#1B21D1]" />
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-slate-500">
+                      Ubicación
+                    </p>
+                    <p className="mt-0.5">
+                      {[
+                        selectedBranch.district?.name,
+                        selectedBranch.department?.name,
+                      ]
+                        .filter(Boolean)
+                        .join(", ") || "Ubicación no disponible"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

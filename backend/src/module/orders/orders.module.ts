@@ -15,6 +15,7 @@ import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
 import { Inventory } from '../inventory/entities/inventory.entity';
 import { InventoryReservation } from '../inventory/entities/inventory-reservation.entity';
 import { InventoryMovement } from '../inventory/entities/inventory-movement.entity';
+import { ProductVariantConfig } from '../products/entities/product-variant-config.entity';
 
 import { AdminOrdersController } from './admin-orders.controller';
 
@@ -33,6 +34,7 @@ import { AdminOrdersController } from './admin-orders.controller';
       Inventory,
       InventoryReservation,
       InventoryMovement,
+      ProductVariantConfig,
     ]),
   ],
   controllers: [OrdersController, EcommerceCheckoutController, AdminOrdersController],

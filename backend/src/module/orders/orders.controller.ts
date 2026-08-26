@@ -22,6 +22,11 @@ export class OrdersController {
     required: true,
     description: 'UUID v4 único para evitar duplicación de transacciones en escenarios de reintento o doble clic.',
   })
+  @ApiHeader({
+    name: 'X-Cart-Token',
+    required: false,
+    description: 'Token del carrito para completar el checkout como invitado',
+  })
   @ApiResponse({
     status: 201,
     description: 'Orden y pago creados exitosamente',
@@ -38,6 +43,7 @@ export class OrdersController {
     @Body() checkoutDto: CheckoutDto,
     @Req() req: any,
     @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('x-cart-token') xCartToken?: string,
   ) {
     if (!idempotencyKey) {
       throw new BadRequestException({
@@ -55,7 +61,12 @@ export class OrdersController {
 
     // Si hay un usuario autenticado en la request (ej. por JwtAuthGuard), pasamos su ID
     const userId = req.user?.id;
-    return this.ordersService.checkout(checkoutDto, userId, idempotencyKey);
+    return this.ordersService.checkout(
+      checkoutDto,
+      userId,
+      idempotencyKey,
+      xCartToken,
+    );
   }
 
   @Post()

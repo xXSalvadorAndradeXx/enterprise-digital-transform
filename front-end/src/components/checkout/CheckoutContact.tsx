@@ -34,9 +34,9 @@ function validate(data: ContactData): ContactErrors {
     errors.email = "Ingresa un correo electrónico válido";
   }
 
-  if (data.dui.trim().length < 9) {
+  if (!/^\d{9}$/.test(data.dui)) {
     errors.dui =
-      "Ingresa un número de identificación válido";
+      "Ingresa los 9 dígitos de tu DUI";
   }
 
   /*
@@ -123,6 +123,12 @@ export default function CheckoutContact({ onDataChange }: CheckoutContactProps) 
         .slice(0, 8);
     }
 
+    if (field === "dui") {
+      value = value
+        .replace(/\D/g, "")
+        .slice(0, 9);
+    }
+
     setData((prev) => ({
       ...prev,
       [field]: value,
@@ -197,6 +203,8 @@ export default function CheckoutContact({ onDataChange }: CheckoutContactProps) 
 
       <TextField
         label="Ingresa un número de identificación"
+        inputMode="numeric"
+        maxLength={9}
         value={data.dui}
         error={
           isFieldInvalid("dui")
@@ -236,6 +244,8 @@ function TextField({
   value,
   error,
   type = "text",
+  inputMode,
+  maxLength,
   required,
   onChange,
   onBlur,
@@ -244,6 +254,8 @@ function TextField({
   value: string;
   error?: string;
   type?: string;
+  inputMode?: "numeric";
+  maxLength?: number;
   required?: boolean;
   onChange: (value: string) => void;
   onBlur?: () => void;
@@ -252,6 +264,8 @@ function TextField({
     <div>
       <input
         type={type}
+        inputMode={inputMode}
+        maxLength={maxLength}
         value={value}
         placeholder={label}
         onChange={(e) =>

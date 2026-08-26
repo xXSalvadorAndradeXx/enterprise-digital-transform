@@ -24,6 +24,7 @@ export type PaymentStatus =
 export interface CheckoutItem {
   variantId: string;
   quantity: number;
+  priceAtAdded?: string;
 }
 
 export interface HomeDelivery {
