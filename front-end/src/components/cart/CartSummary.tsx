@@ -23,6 +23,11 @@ export function CartSummary({
     router.push("/productos");
   };
 
+  const handleCheckout = () => {
+    if (disabled || totalItems === 0) return;
+    router.push("/checkout");
+  };
+
   return (
     <aside className="w-full rounded-lg bg-white p-7 shadow-[0_4px_18px_rgba(15,23,42,0.20)]">
       <h2 className="text-center text-xl font-semibold text-[#111827]">
@@ -82,6 +87,7 @@ export function CartSummary({
       <div className="mt-9">
         <button
           type="button"
+          onClick={handleCheckout}
           disabled={disabled || totalItems === 0}
           aria-disabled={disabled || totalItems === 0}
           className="

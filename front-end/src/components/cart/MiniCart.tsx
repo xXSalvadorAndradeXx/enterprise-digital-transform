@@ -166,6 +166,12 @@ export function MiniCart({
     router.push("/carrito");
   };
 
+  const handleCheckout = () => {
+    if (items.length === 0) return;
+    onClose();
+    router.push("/checkout");
+  };
+
   const handleRemove = async (
     itemId: string,
   ) => {
@@ -363,6 +369,7 @@ export function MiniCart({
             {/* Comprar pedido */}
             <button
               type="button"
+              onClick={handleCheckout}
               disabled={
                 items.length === 0
               }

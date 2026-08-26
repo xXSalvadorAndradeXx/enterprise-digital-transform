@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  previewCheckout,
+  getCheckoutPreview,
   createCheckout,
   CheckoutError,
 } from "@/services/checkout/checkout.service";
@@ -100,7 +100,7 @@ export default function CheckoutPage() {
     const loadPreview = async () => {
       try {
         const response =
-          await previewCheckout(previewRequest);
+          await getCheckoutPreview(previewRequest);
 
         setPreview(response);
       } catch (error) {
@@ -212,7 +212,7 @@ export default function CheckoutPage() {
 
         try {
           const updatedPreview =
-            await previewCheckout(
+            await getCheckoutPreview(
               previewRequest,
             );
 
