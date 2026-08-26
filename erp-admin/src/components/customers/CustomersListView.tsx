@@ -232,8 +232,8 @@ export function CustomersListView({
     canReadCustomers,
     customerPermissionError,
   } = useCustomerReadPermission();
-  const hasMountedSearchEffect =
-    useRef(false);
+  const lastAppliedSearchRef =
+    useRef(initialSearch.trim());
   const latestRequestId =
     useRef(0);
   const [
@@ -315,19 +315,25 @@ export function CustomersListView({
     });
 
   useEffect(() => {
+    const normalizedSearch =
+      search.trim();
+
     if (
-      !hasMountedSearchEffect.current
+      normalizedSearch ===
+      lastAppliedSearchRef.current
     ) {
-      hasMountedSearchEffect.current =
-        true;
       return;
     }
 
     const timeoutId =
       window.setTimeout(() => {
+        lastAppliedSearchRef.current =
+          normalizedSearch;
+
         setDebouncedSearch(
-          search.trim(),
+          normalizedSearch,
         );
+
         setPage(
           1,
         );
