@@ -262,6 +262,7 @@ export function MiniCart({
                         className="h-full w-full object-contain"
                         width={110}
                         height={100}
+                        unoptimized
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center">

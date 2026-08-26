@@ -6,6 +6,7 @@ import type {
 } from "@/types/proveedor/proveedor.types";
 
 import { isRecord, requestProveedores } from "./proveedor-api";
+import { unwrapApiSuccess } from "@/lib/api-response";
 
 export interface GetProveedoresParams {
   search: string;
@@ -24,10 +25,11 @@ export async function getProveedores({
     limit: String(limit),
   });
 
-  const { body } = await requestProveedores(
+  const { body: rawBody } = await requestProveedores(
     `/api/proveedores?${query.toString()}`,
     { method: "GET" },
   );
+  const body = unwrapApiSuccess<unknown>(rawBody);
 
   if (!isBackendSuppliersResponse(body)) {
     throw new Error(

@@ -1,3 +1,5 @@
+import { unwrapApiSuccess } from "@/lib/api-response";
+
 export interface UnlockedUserRole {
   id: string;
   name: string;
@@ -79,14 +81,18 @@ export async function unlockUser(
     );
   }
 
+  const normalizedBody = unwrapApiSuccess<UnlockUserResponse | null>(
+    responseBody,
+  );
+
   if (
-    !responseBody ||
-    !("data" in responseBody)
+    !normalizedBody ||
+    !("data" in normalizedBody)
   ) {
     throw new Error(
       "El servidor devolvió una respuesta inválida.",
     );
   }
 
-  return responseBody as UnlockUserResponse;
+  return normalizedBody;
 }

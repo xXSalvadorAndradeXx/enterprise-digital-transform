@@ -1,3 +1,5 @@
+import { unwrapApiSuccess } from "@/lib/api-response";
+
 export interface CreateUserPayload {
   firstName: string;
   lastName: string;
@@ -80,6 +82,8 @@ export async function createUser(
       getErrorMessage(responseBody as ApiErrorResponse | null),
     );
   }
+
+  responseBody = unwrapApiSuccess<CreateUserResponse | null>(responseBody);
 
   if (
     !responseBody ||

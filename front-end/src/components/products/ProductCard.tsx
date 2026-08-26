@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Heart, ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Product, ProductImage } from "@/types/products/product.types";
+import { useCart } from "@/hooks/cart/useCart";
+import type { Product, ProductImage, ProductVariant } from "@/types/products/product.types";
 
 type ProductCardProps = {
   product: Product;
@@ -30,8 +31,11 @@ function formatProductPrice(price: Product["precio"]) {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
+  const {addToCart}=useCart();
   const [failedImageUrl, setFailedImageUrl] = useState("");
   const [favorite,setFavorite] = useState(false);
+  const [isAdding,setIsAdding]=useState(false);
+  const [cartError,setCartError]=useState("");
   const backendProduct = product as Product & {
     inventory?: {
       productName?: string;
@@ -40,11 +44,17 @@ export default function ProductCard({ product }: ProductCardProps) {
       totalStock?: number;
       category?: { id: number; name?: string; nombre?: string } | null;
     };
-    images?: Array<ProductImage & { imageUrl?: string }>;
+    images?: Array<string | (ProductImage & { imageUrl?: string })>;
   };
   const name = product.commercialName ?? product.nombre ?? backendProduct.inventory?.productName ?? "Producto";
-  const firstBackendImage = backendProduct.images?.[0] as { url?: string; imageUrl?: string } | undefined;
-  const imageUrl = (product.primaryImage?.url ?? firstBackendImage?.url ?? firstBackendImage?.imageUrl ?? product.imagenUrl ?? "").trim();
+  const primaryImageUrl = typeof product.primaryImage === "string"
+    ? product.primaryImage
+    : product.primaryImage?.url;
+  const firstBackendImage = backendProduct.images?.[0];
+  const firstBackendImageUrl = typeof firstBackendImage === "string"
+    ? firstBackendImage
+    : firstBackendImage?.url ?? firstBackendImage?.imageUrl;
+  const imageUrl = (primaryImageUrl ?? firstBackendImageUrl ?? product.imagenUrl ?? "").trim();
   const stock = Number(product.stockTotal ?? product.stock ?? backendProduct.inventory?.totalStock ?? backendProduct.inventory?.stock ?? 0);
   const currentPrice = product.effectivePrice ?? product.precio;
   const originalPrice = product.salePrice;
@@ -56,12 +66,17 @@ export default function ProductCard({ product }: ProductCardProps) {
       : 0;
   const hasActiveDiscount = discountPercentage > 0 && Number(currentPrice) < Number(originalPrice ?? currentPrice);
   const brand = product.brand ?? backendProduct.inventory?.brand ?? "Woden";
-  const isAvailable = stock > 0;
+  const isAvailable = product.availability
+    ? product.availability !== "OUT_OF_STOCK"
+    : stock > 0;
   const shouldShowImage = imageUrl.length > 0 && failedImageUrl !== imageUrl;
   const detailHref = `/producto/${product.id}`;
+  const rawVariants=(product.variants??[]) as unknown as Array<{id?:string;sku?:string;size?:string;color?:string|{name?:string;hex?:string};stock?:number|string;available?:boolean;stockStatus?:string}>;
+  const firstAvailableVariant:ProductVariant|undefined=rawVariants.flatMap((variant,index)=>{const rawColor=variant.color;const hex=typeof rawColor==="string"?rawColor:String(rawColor?.hex??"");const variantStock=Number(variant.stock??0);if(!variant.id||!variant.size||!hex||variantStock<=0||variant.stockStatus==="OUT_OF_STOCK"||variant.available===false)return[];return[{id:String(variant.id??index),sku:String(variant.sku??variant.id??index),size:String(variant.size),color:{name:typeof rawColor==="string"?rawColor:String(rawColor?.name??hex),hex},stock:variantStock,available:true}]}).find(()=>true);
 
   useEffect(()=>{const timer=window.setTimeout(()=>{try{const values=JSON.parse(localStorage.getItem("woden-wishlist")??"[]") as Array<string|number>;setFavorite(values.map(String).includes(String(product.id)))}catch{}},0);return()=>window.clearTimeout(timer)},[product.id]);
   const toggleFavorite=()=>{const next=!favorite;setFavorite(next);try{const values=JSON.parse(localStorage.getItem("woden-wishlist")??"[]") as Array<string|number>;const ids=new Set(values.map(String));if(next){ids.add(String(product.id))}else{ids.delete(String(product.id))}localStorage.setItem("woden-wishlist",JSON.stringify([...ids]))}catch{}};
+  const handleQuickAdd=async()=>{if(!firstAvailableVariant){router.push(detailHref);return}setCartError("");setIsAdding(true);try{await addToCart(product,firstAvailableVariant,1)}catch(error){setCartError(error instanceof Error?error.message:"No se pudo agregar el producto al carrito.")}finally{setIsAdding(false)}};
 
   return (
     <article
@@ -127,7 +142,8 @@ export default function ProductCard({ product }: ProductCardProps) {
               <span className="text-green-600">●</span> {stock} unidades disponibles
             </p>
           </div>
-          <div className="grid grid-cols-[1fr_42px] gap-2"><Link href={detailHref} className={`inline-flex h-10 items-center justify-center rounded-lg bg-[#1822d9] px-3 text-sm font-semibold text-white ${!isAvailable?"pointer-events-none opacity-50":""}`}>Comprar ahora</Link><Link href={detailHref} aria-label={`Seleccionar ${name}`} className="flex h-10 items-center justify-center rounded-lg bg-[#dbe6ff] text-[#1822d9]"><ShoppingCart className="h-4 w-4"/></Link></div>
+          <div className="grid grid-cols-[1fr_42px] gap-2"><Link href={detailHref} className={`inline-flex h-10 items-center justify-center rounded-lg bg-[#1822d9] px-3 text-sm font-semibold text-white ${!isAvailable?"pointer-events-none opacity-50":""}`}>Comprar ahora</Link><button type="button" onClick={()=>void handleQuickAdd()} disabled={!isAvailable||isAdding} aria-label={`Agregar ${name} al carrito`} className="flex h-10 items-center justify-center rounded-lg bg-[#dbe6ff] text-[#1822d9] disabled:cursor-not-allowed disabled:opacity-50"><ShoppingCart className="h-4 w-4"/></button></div>
+          {cartError&&<p role="alert" className="text-xs text-red-600">{cartError}</p>}
         </div>
       </div>
     </article>

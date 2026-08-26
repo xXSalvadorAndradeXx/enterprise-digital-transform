@@ -231,7 +231,7 @@ export class CartService {
     // 1. Validar producto publicable
     const product = await this.productRepository.findOne({
       where: { id: dto.productId, deletedAt: IsNull() },
-      relations: ['inventory'],
+      relations: ['inventory', 'inventory.details', 'variantConfigs', 'variantConfigs.inventoryDetail'],
     });
 
     if (!product || !ProductSpecification.isProductPublishableAndSellable(product)) {
@@ -493,7 +493,7 @@ export class CartService {
         // Validar producto publicable
         const product = await productRepo.findOne({
           where: { id: guestItem.productId, deletedAt: IsNull() },
-          relations: ['inventory'],
+          relations: ['inventory', 'inventory.details', 'variantConfigs', 'variantConfigs.inventoryDetail'],
         });
 
         if (!product || !ProductSpecification.isProductPublishableAndSellable(product)) {

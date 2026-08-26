@@ -1,7 +1,8 @@
 export interface ApiCartVariant {
   size: string;
-  colorName: string;
-  colorHex: string;
+  color?: string;
+  colorName?: string;
+  colorHex?: string;
 }
 
 export interface ApiCartItem {
@@ -32,6 +33,7 @@ export interface ApiCart {
 }
 
 export interface AddCartItemRequest {
+  productId: string;
   variantId: string;
   quantity: number;
 }

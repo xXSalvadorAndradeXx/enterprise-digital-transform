@@ -94,6 +94,7 @@ export default function PublicarProductoPage() {
       const {
         values,
         files,
+        variantConfigs,
       } = submission;
 
       const imageUrls =
@@ -121,6 +122,7 @@ export default function PublicarProductoPage() {
           values,
           {
             imageUrls,
+            variantConfigs,
           },
         );
 
@@ -216,12 +218,15 @@ export default function PublicarProductoPage() {
         ProductFormSchema,
       files:
         File[],
+      variantConfigs:
+        PendingProductSubmission["variantConfigs"],
     ): Promise<void> => {
       const submission:
         PendingProductSubmission =
         {
           values,
           files,
+          variantConfigs,
         };
 
       /*

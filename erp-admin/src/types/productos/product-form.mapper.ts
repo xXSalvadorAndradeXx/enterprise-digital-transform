@@ -7,8 +7,13 @@ import type {
   ProductFormSchema,
 } from "./schemas";
 
+import type {
+  ProductVariantConfig,
+} from "./product-variant.types";
+
 interface MapProductFormOptions {
   imageUrls: string[];
+  variantConfigs: ProductVariantConfig[];
 }
 
 export function mapProductFormToCreateRequest(
@@ -51,6 +56,9 @@ export function mapProductFormToCreateRequest(
     status:
       values.status,
 
+    isPublished:
+      values.status === "ACTIVE",
+
     tags:
       values.tags.map(
         (tag) =>
@@ -59,6 +67,9 @@ export function mapProductFormToCreateRequest(
 
     imageUrls:
       options.imageUrls,
+
+    variantConfigs:
+      options.variantConfigs,
   };
 }
 
@@ -104,5 +115,8 @@ export function mapProductFormToUpdateRequest(
 
     imageUrls:
       options.imageUrls,
+
+    variantConfigs:
+      options.variantConfigs,
   };
 }

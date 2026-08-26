@@ -152,8 +152,15 @@ function getCartErrorCode(
     return null;
   }
 
-  return typeof response.code === "string"
-    ? response.code
+  if (typeof response.code === "string") {
+    return response.code;
+  }
+
+  const nestedError = response.error;
+
+  return isRecord(nestedError) &&
+    typeof nestedError.code === "string"
+    ? nestedError.code
     : null;
 }
 
@@ -171,8 +178,14 @@ function apiCartItemToCartItem(
       item.imageUrl?.trim() || null,
 
     talla: item.variant.size,
-    color: item.variant.colorName,
-    colorHex: item.variant.colorHex,
+    color:
+      item.variant.colorName ??
+      item.variant.color ??
+      "",
+    colorHex:
+      item.variant.colorHex ??
+      item.variant.color ??
+      "#E5E7EB",
 
     precio: normalizePrice(
       item.unitPrice,
@@ -904,6 +917,9 @@ export function CartProvider({
 
           () =>
             addCartItem({
+              productId:
+                String(product.id),
+
               variantId:
                 variant.id,
 

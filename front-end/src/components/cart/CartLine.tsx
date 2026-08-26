@@ -63,6 +63,7 @@ export function CartLine({
                 className="h-full w-full object-contain"
                 width={95}
                 height={95}
+                unoptimized
               />
             ) : (
               <ShoppingCart
@@ -187,6 +188,7 @@ export function CartLine({
                 className="h-full w-full object-contain"
                 width={90}
                 height={80}
+                unoptimized
               />
             ) : (
               <ShoppingCart

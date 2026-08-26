@@ -52,6 +52,10 @@ import type {
   InventoryProductView,
 } from "@/types/productos/product-form.types";
 
+import type {
+  ProductVariantConfig,
+} from "@/types/productos/product-variant.types";
+
 interface EditarProductoPageProps {
   params: Promise<{
     id: string;
@@ -61,6 +65,7 @@ interface EditarProductoPageProps {
 interface PendingSubmission {
   values: ProductFormSchema;
   files: File[];
+  variantConfigs: ProductVariantConfig[];
 }
 
 interface ResultModalState {
@@ -340,6 +345,7 @@ const defaultValues =
       const {
         values,
         files,
+        variantConfigs,
       } = submission;
 
       /*
@@ -381,6 +387,7 @@ const defaultValues =
           {
             imageUrls:
               finalImageUrls,
+            variantConfigs,
           },
         );
 
@@ -467,11 +474,14 @@ const defaultValues =
 
       files:
         File[],
+      variantConfigs:
+        ProductVariantConfig[],
     ): Promise<void> => {
       const submission:
         PendingSubmission = {
           values,
           files,
+          variantConfigs,
         };
 
       setLastSubmission(

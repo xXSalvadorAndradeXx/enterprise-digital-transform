@@ -18,6 +18,7 @@ import {
 import {
   normalizeProductHttpError,
 } from "./product-errors";
+import { unwrapApiSuccess } from "@/lib/api-response";
 
 const PRODUCTS_API_URL =
   "/api/products";
@@ -102,8 +103,9 @@ export async function listProducts(
     );
   }
 
-  const body =
-    await response.json() as ProductListResponse;
+  const body = unwrapApiSuccess<ProductListResponse>(
+    await response.json(),
+  );
 
   return {
     ...body,
@@ -143,8 +145,9 @@ export async function getProductById(
     );
   }
 
-  const body =
-    await response.json() as ProductDetailResponse;
+  const body = unwrapApiSuccess<ProductDetailResponse>(
+    await response.json(),
+  );
 
   return {
     ...body,
@@ -184,8 +187,9 @@ export async function createProduct(
     );
   }
 
-  const body =
-    await response.json() as CreateProductResponse;
+  const body = unwrapApiSuccess<CreateProductResponse>(
+    await response.json(),
+  );
 
   return {
     ...body,
@@ -227,8 +231,9 @@ export async function updateProduct(
     );
   }
 
-  const body =
-    await response.json() as UpdateProductResponse;
+  const body = unwrapApiSuccess<UpdateProductResponse>(
+    await response.json(),
+  );
 
   return {
     ...body,
@@ -270,8 +275,9 @@ export async function updateProductStatus(
     );
   }
 
-  const body =
-    await response.json() as UpdateProductStatusResponse;
+  const body = unwrapApiSuccess<UpdateProductStatusResponse>(
+    await response.json(),
+  );
 
   return {
     ...body,

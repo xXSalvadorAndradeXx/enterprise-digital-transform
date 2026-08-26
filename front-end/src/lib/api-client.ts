@@ -37,8 +37,7 @@ function getErrorMessage(
 ) {
   if (
     typeof responseData === "object" &&
-    responseData !== null &&
-    "message" in responseData
+    responseData !== null
   ) {
     const message = (
       responseData as {
@@ -52,6 +51,29 @@ function getErrorMessage(
 
     if (typeof message === "string") {
       return message;
+    }
+
+    const nestedError = (
+      responseData as {
+        error?: unknown;
+      }
+    ).error;
+
+    if (
+      typeof nestedError === "object" &&
+      nestedError !== null &&
+      "message" in nestedError &&
+      typeof (
+        nestedError as {
+          message?: unknown;
+        }
+      ).message === "string"
+    ) {
+      return (
+        nestedError as {
+          message: string;
+        }
+      ).message;
     }
   }
 

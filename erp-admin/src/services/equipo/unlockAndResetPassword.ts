@@ -1,3 +1,5 @@
+import { unwrapApiSuccess } from "@/lib/api-response";
+
 export interface UnlockAndResetUserRole {
   id: string;
   name: string;
@@ -82,15 +84,19 @@ export async function unlockAndResetPassword(
     );
   }
 
+  const normalizedBody = unwrapApiSuccess<
+    UnlockAndResetPasswordResponse | null
+  >(responseBody);
+
   if (
-    !responseBody ||
-    !("data" in responseBody) ||
-    !("temporaryPassword" in responseBody)
+    !normalizedBody ||
+    !("data" in normalizedBody) ||
+    !("temporaryPassword" in normalizedBody)
   ) {
     throw new Error(
       "El servidor devolvió una respuesta inválida.",
     );
   }
 
-  return responseBody as UnlockAndResetPasswordResponse;
+  return normalizedBody;
 }
