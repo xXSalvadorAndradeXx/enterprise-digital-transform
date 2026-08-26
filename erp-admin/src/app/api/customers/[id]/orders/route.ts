@@ -3,14 +3,15 @@ import type {
 } from "next/server";
 
 import {
+  fetchBackendWithAuth,
   forwardBackendResponse,
-  getBackendAuthHeaders,
   getBackendUrl,
   unauthorizedResponse,
 } from "@/lib/backend-proxy";
 
 import {
   getAuthToken,
+  refreshAuthToken,
 } from "@/lib/session";
 
 interface RouteContext {
@@ -27,7 +28,12 @@ export async function GET(
     await getAuthToken();
 
   if (!token) {
-    return unauthorizedResponse();
+    const refreshed =
+      await refreshAuthToken();
+
+    if (!refreshed) {
+      return unauthorizedResponse();
+    }
   }
 
   const {
@@ -53,7 +59,7 @@ export async function GET(
 
   try {
     const response =
-      await fetch(
+      await fetchBackendWithAuth(
         `${getBackendUrl(
           `/admin/customers/${encodeURIComponent(
             id,
@@ -62,20 +68,19 @@ export async function GET(
         {
           method:
             "GET",
-          headers:
-            await getBackendAuthHeaders({
-              contentType:
-                null,
-            }),
           cache:
             "no-store",
+        },
+        {
+          contentType:
+            null,
         },
       );
 
     return forwardBackendResponse(
       response,
     );
-  } catch (caughtError) {
+  } catch {
     return Response.json(
       {
         statusCode:
@@ -83,9 +88,7 @@ export async function GET(
         error:
           "Internal Server Error",
         message:
-          caughtError instanceof Error
-            ? caughtError.message
-            : "No se pudo consultar el historial de pedidos del cliente.",
+          "No se pudo consultar el historial de pedidos del cliente.",
       },
       {
         status:

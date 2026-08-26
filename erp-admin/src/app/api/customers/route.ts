@@ -3,14 +3,15 @@ import type {
 } from "next/server";
 
 import {
+  fetchBackendWithAuth,
   forwardBackendResponse,
-  getBackendAuthHeaders,
   getBackendUrl,
   unauthorizedResponse,
 } from "@/lib/backend-proxy";
 
 import {
   getAuthToken,
+  refreshAuthToken,
 } from "@/lib/session";
 
 export async function GET(
@@ -20,41 +21,43 @@ export async function GET(
     await getAuthToken();
 
   if (!token) {
-    return unauthorizedResponse();
+    const refreshed =
+      await refreshAuthToken();
+
+    if (!refreshed) {
+      return unauthorizedResponse();
+    }
   }
 
   try {
     const response =
-      await fetch(
+      await fetchBackendWithAuth(
         `${getBackendUrl(
           "/admin/customers",
         )}${request.nextUrl.search}`,
         {
           method:
             "GET",
-          headers:
-            await getBackendAuthHeaders({
-              contentType:
-                null,
-            }),
           cache:
             "no-store",
+        },
+        {
+          contentType:
+            null,
         },
       );
 
     return forwardBackendResponse(
       response,
     );
-  } catch (caughtError) {
+  } catch {
     return Response.json(
       {
         statusCode: 500,
         error:
           "Internal Server Error",
         message:
-          caughtError instanceof Error
-            ? caughtError.message
-            : "No se pudo consultar el listado de clientes.",
+          "No se pudo consultar el listado de clientes.",
       },
       {
         status:

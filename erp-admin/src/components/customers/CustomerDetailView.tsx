@@ -17,6 +17,10 @@ import {
   customersService,
 } from "@/services/customers/customers.service";
 
+import {
+  useCustomerReadPermission,
+} from "@/hooks/customers/useCustomerReadPermission";
+
 import type {
   AdminCustomerAddress,
   AdminCustomerDetail,
@@ -34,6 +38,11 @@ interface CustomerDetailViewProps {
   customerId: string;
   returnHref: string;
   initialOrdersPage: number;
+}
+
+interface CustomerDetailStateProps {
+  message: string;
+  tone?: "neutral" | "danger";
 }
 
 interface ReadOnlyFieldProps {
@@ -192,10 +201,12 @@ function CustomerDetailContent({
   customer,
   returnHref,
   initialOrdersPage,
+  canReadCustomers,
 }: {
   customer: AdminCustomerDetail;
   returnHref: string;
   initialOrdersPage: number;
+  canReadCustomers: boolean;
 }) {
   return (
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
@@ -268,6 +279,9 @@ function CustomerDetailContent({
         initialPage={
           initialOrdersPage
         }
+        canReadCustomers={
+          canReadCustomers
+        }
         returnHref={
           returnHref
         }
@@ -276,11 +290,42 @@ function CustomerDetailContent({
   );
 }
 
+function CustomerDetailState({
+  message,
+  tone = "neutral",
+}: CustomerDetailStateProps) {
+  const className =
+    tone === "danger"
+      ? "rounded-xl border border-red-200 bg-red-50 p-6"
+      : "rounded-xl border border-gray-200 bg-white p-6";
+
+  const textClassName =
+    tone === "danger"
+      ? "text-sm text-red-700"
+      : "text-sm text-gray-500";
+
+  return (
+    <section className={className}>
+      <p
+        role={tone === "danger" ? "alert" : "status"}
+        className={textClassName}
+      >
+        {message}
+      </p>
+    </section>
+  );
+}
+
 export function CustomerDetailView({
   customerId,
   returnHref,
   initialOrdersPage,
 }: CustomerDetailViewProps) {
+  const {
+    isCheckingCustomerPermission,
+    canReadCustomers,
+    customerPermissionError,
+  } = useCustomerReadPermission();
   const [
     customer,
     setCustomer,
@@ -302,6 +347,38 @@ export function CustomerDetailView({
   ] = useState(false);
 
   useEffect(() => {
+    if (isCheckingCustomerPermission) {
+      setCustomer(
+        null,
+      );
+      setIsLoading(
+        true,
+      );
+      setError(
+        "",
+      );
+      setIsNotFound(
+        false,
+      );
+      return;
+    }
+
+    if (!canReadCustomers) {
+      setCustomer(
+        null,
+      );
+      setIsLoading(
+        false,
+      );
+      setError(
+        "",
+      );
+      setIsNotFound(
+        false,
+      );
+      return;
+    }
+
     const controller =
       new AbortController();
 
@@ -369,6 +446,8 @@ export function CustomerDetailView({
     };
   }, [
     customerId,
+    isCheckingCustomerPermission,
+    canReadCustomers,
   ]);
 
   return (
@@ -418,27 +497,23 @@ export function CustomerDetailView({
         </Link>
       </header>
 
-      {isLoading ? (
-        <section className="rounded-xl border border-gray-200 bg-white p-6">
-          <p className="text-sm text-gray-500">
-            Cargando cliente...
-          </p>
-        </section>
+      {isCheckingCustomerPermission || isLoading ? (
+        <CustomerDetailState message="Verificando permisos administrativos..." />
+      ) : !canReadCustomers ? (
+        <CustomerDetailState
+          message={
+            customerPermissionError ||
+            "No tienes permiso para consultar clientes."
+          }
+          tone="danger"
+        />
       ) : isNotFound ? (
-        <section className="rounded-xl border border-gray-200 bg-white p-6">
-          <p className="text-sm font-medium text-gray-950">
-            Cliente no encontrado.
-          </p>
-        </section>
+        <CustomerDetailState message="Cliente no encontrado." />
       ) : error ? (
-        <section className="rounded-xl border border-red-200 bg-red-50 p-6">
-          <p
-            role="alert"
-            className="text-sm text-red-700"
-          >
-            {error}
-          </p>
-        </section>
+        <CustomerDetailState
+          message={error}
+          tone="danger"
+        />
       ) : customer ? (
         <CustomerDetailContent
           customer={
@@ -449,6 +524,9 @@ export function CustomerDetailView({
           }
           initialOrdersPage={
             initialOrdersPage
+          }
+          canReadCustomers={
+            canReadCustomers
           }
         />
       ) : null}

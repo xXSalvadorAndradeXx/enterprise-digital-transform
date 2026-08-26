@@ -23,6 +23,10 @@ import {
 } from "@/services/customers/customers.service";
 
 import {
+  useCustomerReadPermission,
+} from "@/hooks/customers/useCustomerReadPermission";
+
+import {
   CustomersTable,
 } from "./CustomersTable";
 
@@ -43,6 +47,12 @@ import type {
 import type {
   PageMeta,
 } from "@/types/api-contract.types";
+
+interface CustomersAccessStateProps {
+  title: string;
+  message: string;
+  tone?: "neutral" | "danger";
+}
 
 const PAGE_SIZE = 5;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -175,6 +185,38 @@ function isAdminCustomerSortBy(
   );
 }
 
+function CustomersAccessState({
+  title,
+  message,
+  tone = "neutral",
+}: CustomersAccessStateProps) {
+  const className =
+    tone === "danger"
+      ? "rounded-xl border border-red-200 bg-red-50 p-6"
+      : "rounded-xl border border-gray-200 bg-white p-6";
+
+  const textClassName =
+    tone === "danger"
+      ? "text-sm text-red-700"
+      : "text-sm text-gray-500";
+
+  return (
+    <div className="mx-auto w-full max-w-6xl min-w-0">
+      <section className={className}>
+        <h1 className="font-[var(--font-title)] text-2xl font-bold text-gray-950">
+          {title}
+        </h1>
+        <p
+          role={tone === "danger" ? "alert" : "status"}
+          className={`mt-3 ${textClassName}`}
+        >
+          {message}
+        </p>
+      </section>
+    </div>
+  );
+}
+
 export function CustomersListView({
   initialSearch = "",
   initialLastOrderFrom = "",
@@ -185,6 +227,11 @@ export function CustomersListView({
 }: CustomersListViewProps) {
   const router =
     useRouter();
+  const {
+    isCheckingCustomerPermission,
+    canReadCustomers,
+    customerPermissionError,
+  } = useCustomerReadPermission();
   const hasMountedSearchEffect =
     useRef(false);
   const latestRequestId =
@@ -315,6 +362,40 @@ export function CustomersListView({
     latestRequestId.current =
       requestId;
 
+    if (isCheckingCustomerPermission) {
+      setIsLoading(
+        true,
+      );
+      setError(
+        "",
+      );
+      setCustomers(
+        [],
+      );
+      setMeta({
+        ...EMPTY_META,
+        page,
+      });
+      return;
+    }
+
+    if (!canReadCustomers) {
+      setIsLoading(
+        false,
+      );
+      setError(
+        "",
+      );
+      setCustomers(
+        [],
+      );
+      setMeta({
+        ...EMPTY_META,
+        page,
+      });
+      return;
+    }
+
     if (dateRangeError) {
       setIsLoading(
         false,
@@ -430,6 +511,8 @@ export function CustomersListView({
     sortBy,
     order,
     dateRangeError,
+    isCheckingCustomerPermission,
+    canReadCustomers,
   ]);
 
   const showPagination =
@@ -512,6 +595,28 @@ export function CustomersListView({
       customer.id,
       currentListHref,
     );
+
+  if (isCheckingCustomerPermission) {
+    return (
+      <CustomersAccessState
+        title="Tabla de clientes"
+        message="Verificando permisos administrativos..."
+      />
+    );
+  }
+
+  if (!canReadCustomers) {
+    return (
+      <CustomersAccessState
+        title="Acceso denegado"
+        message={
+          customerPermissionError ||
+          "No tienes permiso para consultar clientes."
+        }
+        tone="danger"
+      />
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl min-w-0">

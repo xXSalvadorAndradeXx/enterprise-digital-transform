@@ -205,37 +205,50 @@ function normalizeBackendLoginResponse(
   body: unknown,
 ): {
   accessToken: string;
+  refreshToken: string;
   session: PublicAuthSession;
 } | null {
   if (!isRecord(body)) {
     return null;
   }
 
+  const payload =
+    body.success === true && isRecord(body.data)
+      ? body.data
+      : body;
+
   /*
    * Se aceptan ambos nombres mientras se estabiliza
    * el contrato del backend.
    */
   const accessToken =
-    typeof body.accessToken === "string"
-      ? body.accessToken
-      : typeof body.access_token === "string"
-        ? body.access_token
+    typeof payload.accessToken === "string"
+      ? payload.accessToken
+      : typeof payload.access_token === "string"
+        ? payload.access_token
+        : null;
+  const refreshToken =
+    typeof payload.refreshToken === "string"
+      ? payload.refreshToken
+      : typeof payload.refresh_token === "string"
+        ? payload.refresh_token
         : null;
 
-  const user = normalizeAuthUser(body.user);
+  const user = normalizeAuthUser(payload.user);
 
   const mustChangePassword =
-    typeof body.mustChangePassword === "boolean"
-      ? body.mustChangePassword
-      : typeof body.must_change_password === "boolean"
-        ? body.must_change_password
-        : isRecord(body.user) &&
-            typeof body.user.mustChangePassword === "boolean"
-          ? body.user.mustChangePassword
+    typeof payload.mustChangePassword === "boolean"
+      ? payload.mustChangePassword
+      : typeof payload.must_change_password === "boolean"
+        ? payload.must_change_password
+        : isRecord(payload.user) &&
+            typeof payload.user.mustChangePassword === "boolean"
+          ? payload.user.mustChangePassword
           : null;
 
   if (
     !accessToken ||
+    !refreshToken ||
     !user ||
     mustChangePassword === null
   ) {
@@ -244,6 +257,7 @@ function normalizeBackendLoginResponse(
 
   return {
     accessToken,
+    refreshToken,
     session: {
       user,
       isAuthenticated: true,
@@ -395,12 +409,13 @@ export async function POST(request: NextRequest) {
     }
 
     /*
-     * Guarda el access token en la cookie HttpOnly.
-     * El token no queda expuesto a JavaScript del navegador.
+     * Guarda access y refresh en cookies HttpOnly.
+     * Los tokens no quedan expuestos a JavaScript del navegador.
      */
     await setAuthToken(
       normalizedResponse.accessToken,
       normalizedResponse.session.mustChangePassword,
+      normalizedResponse.refreshToken,
     );
 
     /*

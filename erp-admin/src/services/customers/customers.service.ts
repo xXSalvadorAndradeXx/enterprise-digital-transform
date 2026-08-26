@@ -31,9 +31,19 @@ export type GetCustomersQuery =
 export type GetCustomerOrdersPagination =
   AdminCustomerOrdersQuery;
 
+export type CustomersServiceErrorKind =
+  | "unauthorized"
+  | "forbidden"
+  | "notFound"
+  | "serverError"
+  | "network"
+  | "invalidResponse"
+  | "unknown";
+
 export class CustomersServiceRequestError extends Error {
   constructor(
     public readonly status: number,
+    public readonly kind: CustomersServiceErrorKind,
     message: string,
   ) {
     super(message);
@@ -44,6 +54,8 @@ export class CustomersServiceRequestError extends Error {
 
 const CUSTOMERS_API_URL =
   "/api/customers";
+const CUSTOMER_SESSION_RECOVERY_URL =
+  "/api/auth/session";
 
 function isRecord(
   value: unknown,
@@ -101,6 +113,64 @@ function getResponseMessage(
   return fallback;
 }
 
+function getErrorKind(
+  status: number,
+): CustomersServiceErrorKind {
+  if (status === 401) {
+    return "unauthorized";
+  }
+
+  if (status === 403) {
+    return "forbidden";
+  }
+
+  if (status === 404) {
+    return "notFound";
+  }
+
+  if (status >= 500) {
+    return "serverError";
+  }
+
+  if (status === 0) {
+    return "network";
+  }
+
+  return "unknown";
+}
+
+function getSafeErrorMessage(
+  status: number,
+  body: unknown,
+  fallback: string,
+): string {
+  const kind =
+    getErrorKind(
+      status,
+    );
+
+  if (kind === "unauthorized") {
+    return "No existe una sesion administrativa activa.";
+  }
+
+  if (kind === "forbidden") {
+    return "Acceso denegado.";
+  }
+
+  if (kind === "notFound") {
+    return "Cliente no encontrado.";
+  }
+
+  if (kind === "serverError") {
+    return fallback;
+  }
+
+  return getResponseMessage(
+    body,
+    fallback,
+  );
+}
+
 async function readJsonResponse(
   response: Response,
 ): Promise<unknown> {
@@ -109,6 +179,102 @@ async function readJsonResponse(
   } catch {
     return null;
   }
+}
+
+function isAbortError(
+  error: unknown,
+): boolean {
+  return (
+    error instanceof DOMException &&
+    error.name === "AbortError"
+  );
+}
+
+async function recoverSessionOnce(
+  signal?: AbortSignal,
+): Promise<boolean> {
+  try {
+    const response =
+      await fetch(
+        CUSTOMER_SESSION_RECOVERY_URL,
+        {
+          method:
+            "GET",
+          credentials:
+            "same-origin",
+          cache:
+            "no-store",
+          signal,
+        },
+      );
+
+    return response.ok;
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+
+    return false;
+  }
+}
+
+async function fetchCustomerApi(
+  input: string,
+  options: CustomersServiceOptions,
+  hasRecoveredSession = false,
+): Promise<Response> {
+  let response: Response;
+
+  try {
+    response =
+      await fetch(
+        input,
+        {
+          method:
+            "GET",
+          credentials:
+            "same-origin",
+          headers: {
+            Accept:
+              "application/json",
+          },
+          cache:
+            "no-store",
+          signal:
+            options.signal,
+        },
+      );
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+
+    throw new CustomersServiceRequestError(
+      0,
+      "network",
+      "No fue posible conectar con el servicio de clientes.",
+    );
+  }
+
+  if (
+    response.status === 401 &&
+    !hasRecoveredSession
+  ) {
+    const recoveredSession =
+      await recoverSessionOnce(
+        options.signal,
+      );
+
+    if (recoveredSession) {
+      return fetchCustomerApi(
+        input,
+        options,
+        true,
+      );
+    }
+  }
+
+  return response;
 }
 
 function setOptionalQueryParam(
@@ -221,22 +387,9 @@ async function requestCustomerData<T>(
   options: CustomersServiceOptions = {},
 ): Promise<T> {
   const response =
-    await fetch(
+    await fetchCustomerApi(
       input,
-      {
-        method:
-          "GET",
-        credentials:
-          "same-origin",
-        headers: {
-          Accept:
-            "application/json",
-        },
-        cache:
-          "no-store",
-        signal:
-          options.signal,
-      },
+      options,
     );
 
   const responseBody =
@@ -245,9 +398,16 @@ async function requestCustomerData<T>(
     );
 
   if (!response.ok) {
+    const kind =
+      getErrorKind(
+        response.status,
+      );
+
     throw new CustomersServiceRequestError(
       response.status,
-      getResponseMessage(
+      kind,
+      getSafeErrorMessage(
+        response.status,
         responseBody,
         fallbackErrorMessage,
       ),
@@ -262,6 +422,7 @@ async function requestCustomerData<T>(
   if (!parsedResponse.success) {
     throw new CustomersServiceRequestError(
       500,
+      "invalidResponse",
       invalidResponseMessage,
     );
   }

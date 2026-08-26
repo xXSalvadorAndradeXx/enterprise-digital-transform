@@ -86,6 +86,7 @@ const ORDER_STATUS_CLASSES: Record<
 
 interface CustomerOrderHistoryProps {
   customerId: string;
+  canReadCustomers: boolean;
   initialPage: number;
   returnHref: string;
 }
@@ -155,6 +156,7 @@ function CustomerOrderStatusBadge({
 
 export function CustomerOrderHistory({
   customerId,
+  canReadCustomers,
   initialPage,
   returnHref,
 }: CustomerOrderHistoryProps) {
@@ -209,6 +211,23 @@ export function CustomerOrderHistory({
   ]);
 
   useEffect(() => {
+    if (!canReadCustomers) {
+      setOrders(
+        [],
+      );
+      setMeta({
+        ...EMPTY_ORDERS_META,
+        page,
+      });
+      setError(
+        "Acceso denegado.",
+      );
+      setIsLoading(
+        false,
+      );
+      return;
+    }
+
     const controller =
       new AbortController();
 
@@ -282,6 +301,7 @@ export function CustomerOrderHistory({
     };
   }, [
     customerId,
+    canReadCustomers,
     page,
   ]);
 

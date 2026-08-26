@@ -6,7 +6,9 @@ import {
 } from "@/lib/session";
 
 export async function GET() {
-  const session = await getAuthSession();
+  const session = await getAuthSession({
+    refreshOnUnauthorized: true,
+  });
 
   if (!session) {
     await deleteAuthToken();
