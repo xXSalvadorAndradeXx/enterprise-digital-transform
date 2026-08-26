@@ -15,9 +15,7 @@ import type {
 
 interface CheckoutPreviewProps {
   preview: CheckoutPreviewData | null;
-
   isLoading: boolean;
-
   error: CheckoutPreviewError | null;
 
   onRetry: () => Promise<
@@ -58,6 +56,79 @@ function getErrorTitle(
   }
 }
 
+function PreviewTotals({
+  preview,
+}: {
+  preview: CheckoutPreviewData;
+}) {
+  return (
+    <div className="mt-8 space-y-5">
+      {/* Subtotal */}
+      <div className="flex items-center justify-between">
+        <span className="text-base font-medium text-[#4b4b4b]">
+          Subtotal:
+        </span>
+
+        <span className="text-base font-medium text-[#111827]">
+          {formatMoney(
+            preview.subtotal,
+          )}
+        </span>
+      </div>
+
+      {/* Descuento */}
+      <div className="flex items-center justify-between">
+        <span className="text-base font-medium text-[#4b4b4b]">
+          Descuento:
+        </span>
+
+        <span className="text-base font-medium text-[#111827]">
+          -
+          {formatMoney(
+            preview.discountTotal,
+          )}
+        </span>
+      </div>
+
+      {/* Envío */}
+      <div className="flex items-center justify-between">
+        <span className="text-base font-medium text-[#4b4b4b]">
+          Envío:
+        </span>
+
+        <span className="text-base font-medium text-[#111827]">
+          {formatMoney(
+            preview.shippingTotal,
+          )}
+        </span>
+      </div>
+
+      {/* Envío gratis */}
+      {preview.freeShippingApplied && (
+        <p className="text-right text-xs font-medium text-[#15803d]">
+          Envío gratis aplicado
+        </p>
+      )}
+
+      {/* Separador */}
+      <div className="border-t border-black" />
+
+      {/* Total */}
+      <div className="flex items-center justify-between pt-1">
+        <span className="text-lg font-semibold text-[#111827]">
+          Total
+        </span>
+
+        <span className="text-lg font-semibold text-[#111827]">
+          {formatMoney(
+            preview.total,
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function CheckoutPreview({
   preview,
   isLoading,
@@ -83,6 +154,72 @@ export function CheckoutPreview({
     );
   }
 
+  /*
+   * PRICE_CHANGED puede incluir un nuevo preview
+   * recalculado por Backend.
+   *
+   * Mostramos el aviso y los nuevos valores para que
+   * el usuario pueda revisarlos antes de continuar.
+   */
+  if (
+    error?.type === "PRICE_CHANGED" &&
+    preview
+  ) {
+    return (
+      <aside
+        role="alert"
+        className="w-full rounded-lg bg-white p-7 shadow-[0_4px_18px_rgba(15,23,42,0.20)]"
+      >
+        <div className="flex items-start gap-3 rounded-md border border-[#fecaca] bg-[#fef2f2] p-4">
+          <AlertTriangle
+            className="mt-0.5 h-5 w-5 shrink-0 text-[#ef4444]"
+            aria-hidden="true"
+          />
+
+          <div>
+            <h2 className="text-sm font-semibold text-[#111827]">
+              El precio cambió
+            </h2>
+
+            <p className="mt-1 text-sm font-medium leading-5 text-[#4b5563]">
+              {error.message}
+            </p>
+
+            <p className="mt-1 text-xs font-medium text-[#6b7280]">
+              Revisa los valores actualizados antes de continuar.
+            </p>
+          </div>
+        </div>
+
+        <h3 className="mt-6 text-center text-xl font-semibold text-[#111827]">
+          Resumen actualizado
+        </h3>
+
+        <PreviewTotals
+          preview={preview}
+        />
+
+        <button
+          type="button"
+          onClick={() =>
+            void onRetry()
+          }
+          className="mx-auto mt-7 flex h-11 items-center justify-center gap-2 rounded-sm bg-[#2222e7] px-6 text-sm font-semibold text-white transition hover:bg-[#1919c7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2222e7]"
+        >
+          <RefreshCcw
+            className="h-4 w-4"
+            aria-hidden="true"
+          />
+
+          Reintentar
+        </button>
+      </aside>
+    );
+  }
+
+  /*
+   * Otros conflictos.
+   */
   if (error) {
     return (
       <aside
@@ -106,20 +243,9 @@ export function CheckoutPreview({
           </p>
 
           {error.type ===
-            "PRICE_CHANGED" && (
-            <p className="mt-3 max-w-[300px] text-xs font-medium leading-5 text-[#6b7280]">
-              Revisa los valores
-              actualizados antes de
-              confirmar tu compra.
-            </p>
-          )}
-
-          {error.type ===
             "STOCK_INSUFFICIENT" && (
             <p className="mt-3 max-w-[300px] text-xs font-medium leading-5 text-[#6b7280]">
-              Ajusta las cantidades
-              según el stock disponible
-              y vuelve a intentarlo.
+              Ajusta las cantidades según el stock disponible y vuelve a intentarlo.
             </p>
           )}
 
@@ -142,6 +268,9 @@ export function CheckoutPreview({
     );
   }
 
+  /*
+   * Aún no se ha solicitado preview.
+   */
   if (!preview) {
     return (
       <aside className="w-full rounded-lg bg-white p-7 shadow-[0_4px_18px_rgba(15,23,42,0.20)]">
@@ -151,85 +280,25 @@ export function CheckoutPreview({
 
         <div className="flex min-h-[220px] items-center justify-center text-center">
           <p className="max-w-[300px] text-sm font-medium leading-6 text-[#4b5563]">
-            Completa la información
-            necesaria para actualizar
-            el resumen del pedido.
+            Completa la información necesaria para actualizar el resumen del pedido.
           </p>
         </div>
       </aside>
     );
   }
 
+  /*
+   * Preview exitoso.
+   */
   return (
     <aside className="w-full rounded-lg bg-white p-7 shadow-[0_4px_18px_rgba(15,23,42,0.20)]">
       <h2 className="text-center text-xl font-semibold text-[#111827]">
         Resumen del pedido
       </h2>
 
-      <div className="mt-8 space-y-5">
-        {/* Subtotal */}
-        <div className="flex items-center justify-between">
-          <span className="text-base font-medium text-[#4b4b4b]">
-            Subtotal:
-          </span>
-
-          <span className="text-base font-medium text-[#111827]">
-            {formatMoney(
-              preview.subtotal,
-            )}
-          </span>
-        </div>
-
-        {/* Descuento */}
-        <div className="flex items-center justify-between">
-          <span className="text-base font-medium text-[#4b4b4b]">
-            Descuento:
-          </span>
-
-          <span className="text-base font-medium text-[#111827]">
-            -
-            {formatMoney(
-              preview.discountTotal,
-            )}
-          </span>
-        </div>
-
-        {/* Envío */}
-        <div className="flex items-center justify-between">
-          <span className="text-base font-medium text-[#4b4b4b]">
-            Envío:
-          </span>
-
-          <span className="text-base font-medium text-[#111827]">
-            {formatMoney(
-              preview.shippingTotal,
-            )}
-          </span>
-        </div>
-
-        {/* Envío gratis */}
-        {preview.freeShippingApplied && (
-          <p className="text-right text-xs font-medium text-[#15803d]">
-            Envío gratis aplicado
-          </p>
-        )}
-
-        {/* Separador */}
-        <div className="border-t border-black" />
-
-        {/* Total */}
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-lg font-semibold text-[#111827]">
-            Total
-          </span>
-
-          <span className="text-lg font-semibold text-[#111827]">
-            {formatMoney(
-              preview.total,
-            )}
-          </span>
-        </div>
-      </div>
+      <PreviewTotals
+        preview={preview}
+      />
     </aside>
   );
 }

@@ -57,10 +57,6 @@ function extractCheckoutError(
     return null;
   }
 
-  /*
-   * ApiRequestError guarda la respuesta del Backend
-   * dentro de la propiedad "response".
-   */
   const response = error.response;
 
   if (!isRecord(response)) {
@@ -85,8 +81,7 @@ function extractCheckoutError(
     success: false,
 
     statusCode:
-      typeof response.statusCode ===
-      "number"
+      typeof response.statusCode === "number"
         ? response.statusCode
         : 0,
 
@@ -105,8 +100,7 @@ function extractCheckoutError(
         : undefined,
 
     timestamp:
-      typeof response.timestamp ===
-      "string"
+      typeof response.timestamp === "string"
         ? response.timestamp
         : "",
 
@@ -115,6 +109,63 @@ function extractCheckoutError(
         ? response.path
         : "",
   };
+}
+
+function isCheckoutPreviewData(
+  value: unknown,
+): value is CheckoutPreviewData {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.subtotal === "string" &&
+    typeof value.discountTotal === "string" &&
+    typeof value.shippingTotal === "string" &&
+    typeof value.total === "string" &&
+    typeof value.freeShippingApplied === "boolean"
+  );
+}
+
+function getRecalculatedPreview(
+  details?: Record<string, unknown>,
+): CheckoutPreviewData | null {
+  if (!details) {
+    return null;
+  }
+
+  /*
+   * Permite ambas formas mientras Backend
+   * mantenga los valores recalculados en details:
+   *
+   * details: {
+   *   subtotal,
+   *   discountTotal,
+   *   shippingTotal,
+   *   total,
+   *   freeShippingApplied
+   * }
+   *
+   * o:
+   *
+   * details: {
+   *   recalculated: { ... }
+   * }
+   */
+  if (isCheckoutPreviewData(details)) {
+    return details;
+  }
+
+  if (
+    "recalculated" in details &&
+    isCheckoutPreviewData(
+      details.recalculated,
+    )
+  ) {
+    return details.recalculated;
+  }
+
+  return null;
 }
 
 function normalizeCheckoutError(
@@ -126,6 +177,7 @@ function normalizeCheckoutError(
   if (!payload) {
     return {
       type: "UNKNOWN",
+
       message:
         error instanceof Error
           ? error.message
@@ -137,9 +189,7 @@ function normalizeCheckoutError(
     case "INVALID_DELIVERY":
       return {
         type: "INVALID_DELIVERY",
-        message:
-          payload.message ||
-          "La información de entrega no es válida.",
+        message: payload.message,
         details: payload.details,
       };
 
@@ -147,44 +197,28 @@ function normalizeCheckoutError(
       return {
         type:
           "INVALID_PAYMENT_COMBINATION",
-
-        message:
-          payload.message ||
-          "El método de pago no es compatible con el tipo de entrega.",
-
+        message: payload.message,
         details: payload.details,
       };
 
     case "PRICE_CHANGED":
       return {
         type: "PRICE_CHANGED",
-
-        message:
-          payload.message ||
-          "El precio o descuento cambió. Revisa los valores actualizados.",
-
+        message: payload.message,
         details: payload.details,
       };
 
     case "STOCK_INSUFFICIENT":
       return {
         type: "STOCK_INSUFFICIENT",
-
-        message:
-          payload.message ||
-          "El stock disponible cambió. Revisa las cantidades del carrito.",
-
+        message: payload.message,
         details: payload.details,
       };
 
     default:
       return {
         type: "UNKNOWN",
-
-        message:
-          payload.message ||
-          "No se pudo obtener la vista previa del pedido.",
-
+        message: payload.message,
         details: payload.details,
       };
   }
@@ -212,10 +246,6 @@ export function useCheckoutPreview(): UseCheckoutPreviewValue {
       null,
     );
 
-  /*
-   * Conservamos el último request enviado
-   * para poder repetirlo de forma segura.
-   */
   const lastRequestRef =
     useRef<CheckoutPreviewRequest | null>(
       null,
@@ -239,24 +269,47 @@ export function useCheckoutPreview(): UseCheckoutPreviewValue {
             );
 
           /*
-           * No recalculamos ninguno de estos valores.
-           * Conservamos exactamente lo recibido
-           * desde Backend.
+           * Los valores se conservan exactamente
+           * como los devuelve Backend.
            */
           setPreview(result);
 
           return result;
         } catch (requestError) {
+          const payload =
+            extractCheckoutError(
+              requestError,
+            );
+
           const normalizedError =
             normalizeCheckoutError(
               requestError,
             );
 
           /*
-           * Un preview anterior deja de ser válido
-           * cuando ocurre un conflicto.
+           * PRICE_CHANGED puede devolver
+           * los valores comerciales recalculados
+           * dentro de details.
            */
-          setPreview(null);
+          if (
+            payload?.code ===
+            "PRICE_CHANGED"
+          ) {
+            const recalculatedPreview =
+              getRecalculatedPreview(
+                payload.details,
+              );
+
+            setPreview(
+              recalculatedPreview,
+            );
+          } else {
+            /*
+             * Para otros conflictos el preview
+             * anterior deja de considerarse válido.
+             */
+            setPreview(null);
+          }
 
           setError(
             normalizedError,
@@ -300,7 +353,6 @@ export function useCheckoutPreview(): UseCheckoutPreviewValue {
     preview,
     isLoading,
     error,
-
     requestPreview,
     retryPreview,
     resetPreview,

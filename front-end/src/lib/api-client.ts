@@ -1,8 +1,16 @@
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL =
+  "http://localhost:3000/api/v1";
 
 type ApiRequestOptions<TBody> = {
-  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  method?:
+    | "GET"
+    | "POST"
+    | "PUT"
+    | "PATCH"
+    | "DELETE";
+
   body?: TBody;
+
   headers?: HeadersInit;
 };
 
@@ -52,7 +60,27 @@ function getErrorMessage(
 
 async function readJsonResponse(
   response: Response,
-) {
+): Promise<unknown> {
+  /*
+   * 204 no contiene body.
+   */
+  if (response.status === 204) {
+    return null;
+  }
+
+  const contentType =
+    response.headers.get(
+      "content-type",
+    );
+
+  if (
+    !contentType?.includes(
+      "application/json",
+    )
+  ) {
+    return null;
+  }
+
   try {
     return await response.json();
   } catch {
@@ -60,7 +88,10 @@ async function readJsonResponse(
   }
 }
 
-async function executeRequest<TResponse, TBody>(
+async function executeRequest<
+  TResponse,
+  TBody,
+>(
   path: string,
   options: ApiRequestOptions<TBody>,
 ): Promise<{
@@ -79,8 +110,16 @@ async function executeRequest<TResponse, TBody>(
       {
         method,
 
+        /*
+         * Necesario para cookies HttpOnly,
+         * principalmente refresh de sesión.
+         */
+        credentials: "include",
+
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type":
+            "application/json",
+
           ...headers,
         },
 
@@ -91,8 +130,10 @@ async function executeRequest<TResponse, TBody>(
       },
     );
 
-    const responseData: unknown =
-      await readJsonResponse(response);
+    const responseData =
+      await readJsonResponse(
+        response,
+      );
 
     if (!response.ok) {
       throw new ApiRequestError(
@@ -100,17 +141,24 @@ async function executeRequest<TResponse, TBody>(
           responseData,
           "No se pudo completar la solicitud.",
         ),
+
         response.status,
+
         responseData,
       );
     }
 
     return {
-      data: responseData as TResponse,
+      data:
+        responseData as TResponse,
+
       response,
     };
   } catch (error) {
-    if (error instanceof ApiRequestError) {
+    if (
+      error instanceof
+      ApiRequestError
+    ) {
       throw error;
     }
 
@@ -123,10 +171,10 @@ async function executeRequest<TResponse, TBody>(
 }
 
 /*
- * Uso normal.
+ * Solicitud estándar.
  *
- * Mantiene el mismo comportamiento que ya tenía
- * apiRequest para no afectar los servicios existentes.
+ * Devuelve únicamente el contenido
+ * normalizado de la respuesta.
  */
 export async function apiRequest<
   TResponse,
@@ -135,17 +183,25 @@ export async function apiRequest<
   path: string,
   options: ApiRequestOptions<TBody> = {},
 ): Promise<TResponse> {
-  const result = await executeRequest<
-    TResponse,
-    TBody
-  >(path, options);
+  const result =
+    await executeRequest<
+      TResponse,
+      TBody
+    >(
+      path,
+      options,
+    );
 
   return result.data;
 }
 
 /*
- * Uso cuando además del JSON necesitamos consultar
- * información de la respuesta HTTP, por ejemplo headers.
+ * Utilizar cuando además del JSON
+ * necesitamos consultar información
+ * HTTP como response headers.
+ *
+ * Ejemplo:
+ * X-Cart-Token.
  */
 export async function apiRequestWithResponse<
   TResponse,
@@ -157,7 +213,10 @@ export async function apiRequestWithResponse<
   data: TResponse;
   response: Response;
 }> {
-  return executeRequest<TResponse, TBody>(
+  return executeRequest<
+    TResponse,
+    TBody
+  >(
     path,
     options,
   );

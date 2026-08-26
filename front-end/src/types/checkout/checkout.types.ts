@@ -25,12 +25,32 @@ export type CheckoutDelivery =
   | HomeDeliveryData
   | StorePickupData;
 
-export interface CheckoutPreviewRequest {
-  source: CheckoutSource;
+export interface CheckoutPreviewItem {
+  variantId: string;
+  quantity: number;
+}
+
+interface CheckoutPreviewBase {
   deliveryType: DeliveryType;
   delivery: CheckoutDelivery;
   paymentMethod: PaymentMethod;
 }
+
+export interface CartCheckoutPreviewRequest
+  extends CheckoutPreviewBase {
+  source: "CART";
+  items?: never;
+}
+
+export interface BuyNowCheckoutPreviewRequest
+  extends CheckoutPreviewBase {
+  source: "BUY_NOW";
+  items: CheckoutPreviewItem[];
+}
+
+export type CheckoutPreviewRequest =
+  | CartCheckoutPreviewRequest
+  | BuyNowCheckoutPreviewRequest;
 
 export interface CheckoutPreviewData {
   subtotal: string;
