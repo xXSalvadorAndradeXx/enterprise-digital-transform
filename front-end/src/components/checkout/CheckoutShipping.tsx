@@ -2,12 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { MapPin, Store, Truck } from "lucide-react";
+import {
+  getDepartments,
+  getDistricts,
+  getPickupBranches,
+  type CheckoutCatalogOption,
+} from "@/services/checkout/checkout-catalog.service";
 
 type DeliveryType = "HOME_DELIVERY" | "STORE_PICKUP";
 
 interface CheckoutShippingProps {
   deliveryType: DeliveryType;
   onDeliveryTypeChange: (value: DeliveryType) => void;
+  onDataChange?: (data: ShippingData) => void;
+}
+
+export interface ShippingData {
+  departmentId: string;
+  districtId: string;
+  addressLine: string;
+  city: string;
+  branchId: string;
+  saveInfo: boolean;
 }
 
 interface SavedShippingInfo {
@@ -19,56 +35,58 @@ interface SavedShippingInfo {
 
 const STORAGE_KEY = "woden_checkout_shipping";
 
-const MOCK_DEPARTMENTS = [
-  {
-    id: "dep-1",
-    name: "San Salvador",
-  },
-  {
-    id: "dep-2",
-    name: "La Libertad",
-  },
-  {
-    id: "dep-3",
-    name: "Santa Ana",
-  },
-];
-
-const MOCK_DISTRICTS = [
-  {
-    id: "district-1",
-    name: "San Salvador",
-  },
-  {
-    id: "district-2",
-    name: "Mejicanos",
-  },
-  {
-    id: "district-3",
-    name: "Santa Tecla",
-  },
-];
-
-const MOCK_BRANCHES = [
-  {
-    id: "branch-1",
-    name: "Woden Metrocentro",
-  },
-  {
-    id: "branch-2",
-    name: "Woden Multiplaza",
-  },
-];
-
 export default function CheckoutShipping({
   deliveryType,
   onDeliveryTypeChange,
+  onDataChange,
 }: CheckoutShippingProps) {
   const [departmentId, setDepartmentId] = useState("");
   const [districtId, setDistrictId] = useState("");
   const [addressLine, setAddressLine] = useState("");
   const [city, setCity] = useState("");
   const [saveInfo, setSaveInfo] = useState(false);
+  const [branchId, setBranchId] = useState("");
+  const [departments, setDepartments] = useState<CheckoutCatalogOption[]>([]);
+  const [districts, setDistricts] = useState<CheckoutCatalogOption[]>([]);
+  const [branches, setBranches] = useState<CheckoutCatalogOption[]>([]);
+  const [catalogError, setCatalogError] = useState("");
+
+  useEffect(() => {
+    void Promise.all([getDepartments(), getPickupBranches()]).then(
+      ([departmentOptions, branchOptions]) => {
+        setDepartments(departmentOptions);
+        setBranches(branchOptions);
+        setCatalogError("");
+      },
+      () => setCatalogError("No se pudieron cargar las opciones de entrega."),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!departmentId) {
+      setDistricts([]);
+      return;
+    }
+
+    void getDistricts(departmentId).then(
+      (options) => {
+        setDistricts(options);
+        setCatalogError("");
+      },
+      () => setCatalogError("No se pudieron cargar los distritos."),
+    );
+  }, [departmentId]);
+
+  useEffect(() => {
+    onDataChange?.({
+      departmentId,
+      districtId,
+      addressLine,
+      city,
+      branchId,
+      saveInfo,
+    });
+  }, [addressLine, branchId, city, departmentId, districtId, onDataChange, saveInfo]);
 
   /*
    * Cargar información previamente guardada
@@ -152,6 +170,9 @@ export default function CheckoutShipping({
 
   return (
     <div className="flex flex-col gap-5">
+      {catalogError && (
+        <p role="alert" className="text-sm text-red-600">{catalogError}</p>
+      )}
       {/* OPCIONES DE ENTREGA */}
 
       <div className="grid grid-cols-2 gap-3">
@@ -218,7 +239,7 @@ export default function CheckoutShipping({
                   Selecciona un departamento
                 </option>
 
-                {MOCK_DEPARTMENTS.map(
+                {departments.map(
                   (department) => (
                     <option
                       key={department.id}
@@ -254,7 +275,7 @@ export default function CheckoutShipping({
                   Selecciona un distrito
                 </option>
 
-                {MOCK_DISTRICTS.map(
+                {districts.map(
                   (district) => (
                     <option
                       key={district.id}
@@ -356,14 +377,15 @@ export default function CheckoutShipping({
             <select
               id="branchId"
               name="branchId"
-              defaultValue=""
+              value={branchId}
+              onChange={(event) => setBranchId(event.target.value)}
               className="w-full appearance-none rounded-md border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-700 outline-none focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
             >
               <option value="">
                 Selecciona una sucursal
               </option>
 
-              {MOCK_BRANCHES.map(
+              {branches.map(
                 (branch) => (
                   <option
                     key={branch.id}

@@ -49,11 +49,13 @@ export interface CheckoutCard {
   holderName: string;
   expiration: string;
   cvv: string;
+  brand?: "VISA" | "MASTERCARD" | null;
 }
 
 export interface CheckoutPreviewRequest {
   source: CheckoutSource;
   items?: CheckoutItem[];
+  contact: CheckoutContact;
   deliveryType: DeliveryType;
   delivery: HomeDelivery | StorePickup;
   paymentMethod: PaymentMethod;

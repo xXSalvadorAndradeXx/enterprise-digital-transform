@@ -1,7 +1,7 @@
 "use client";
 
 import { useCart } from "@/hooks/cart/useCart";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -14,7 +14,6 @@ import type {
   CheckoutRequest,
   CheckoutPreviewRequest,
   CheckoutPreviewResponse,
-  Order,
 } from "@/types/checkout/checkout.types";
 
 import type { PaymentData } from "@/components/checkout/CheckoutPayment";
@@ -22,9 +21,12 @@ import type { PaymentData } from "@/components/checkout/CheckoutPayment";
 import AccordionStep from "@/components/checkout/AccordionStep";
 import type { CheckoutStep } from "@/components/checkout/CheckoutSteps";
 import CheckoutContact from "@/components/checkout/CheckoutContact";
+import type { ContactData } from "@/components/checkout/CheckoutContact";
 import CheckoutShipping from "@/components/checkout/CheckoutShipping";
+import type { ShippingData } from "@/components/checkout/CheckoutShipping";
 import CheckoutPayment from "@/components/checkout/CheckoutPayment";
 import CheckoutSummary from "@/components/checkout/CheckoutSummary";
+import { readAccessToken } from "@/lib/auth-session";
 
 const STEP_ORDER: CheckoutStep[] = [
   "contact",
@@ -57,21 +59,30 @@ export default function CheckoutPage() {
     "HOME_DELIVERY" | "STORE_PICKUP"
   >("HOME_DELIVERY");
 
+  const [contact, setContact] = useState<ContactData>({
+    fullName: "",
+    email: "",
+    dui: "",
+    phone: "",
+  });
+
+  const [shipping, setShipping] = useState<ShippingData>({
+    departmentId: "",
+    districtId: "",
+    addressLine: "",
+    city: "",
+    branchId: "",
+    saveInfo: false,
+  });
+
   const [completedSteps, setCompletedSteps] =
     useState<Set<CheckoutStep>>(new Set());
 
   const [isSubmitting, setIsSubmitting] =
     useState(false);
 
-  const [createdOrder, setCreatedOrder] =
-    useState<Order | null>(null);
-
   const [checkoutError, setCheckoutError] =
     useState<string | null>(null);
-    // SOLO PARA PRUEBAS DE LA TASK 907.
-// Cambiar a "STOCK_INSUFFICIENT" para probar stock.
-// Cambiar a undefined para volver al checkout normal.
-  const MOCK_CHECKOUT_ERROR: string | undefined = undefined;
 
   /*
    * Una sola Idempotency-Key por intento
@@ -84,18 +95,20 @@ export default function CheckoutPage() {
   const previewRequest: CheckoutPreviewRequest = {
     source: "CART",
 
+    contact,
+
     deliveryType,
 
     delivery:
       deliveryType === "HOME_DELIVERY"
         ? {
-            departmentId: "",
-            districtId: "",
-            city: "",
-            addressLine: "",
+            departmentId: shipping.departmentId,
+            districtId: shipping.districtId,
+            city: shipping.city,
+            addressLine: shipping.addressLine,
           }
         : {
-            branchId: "",
+            branchId: shipping.branchId,
           },
 
     paymentMethod: "CARD",
@@ -109,6 +122,36 @@ export default function CheckoutPage() {
     freeShippingApplied: false,
   };
 
+  useEffect(() => {
+    const validContact = Boolean(
+      contact.fullName.trim() &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim()) &&
+      /^\d{8}$/.test(contact.phone),
+    );
+    const validDelivery = deliveryType === "HOME_DELIVERY"
+      ? Boolean(shipping.departmentId && shipping.districtId && shipping.city.trim() && shipping.addressLine.trim())
+      : Boolean(shipping.branchId);
+
+    if (!validContact || !validDelivery) {
+      setPreview(null);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void getCheckoutPreview(previewRequest).then(
+        (response) => {
+          setPreview(response);
+          setCheckoutError(null);
+        },
+        (error: unknown) => {
+          setCheckoutError(error instanceof Error ? error.message : "No se pudo actualizar el resumen del pedido.");
+        },
+      );
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [contact, deliveryType, shipping]);
+
   const handleFinalCheckout = async (
     payment: PaymentData,
   ) => {
@@ -118,30 +161,26 @@ export default function CheckoutPage() {
     setCheckoutError(null);
 
     try {
+      const isAuthenticated = Boolean(readAccessToken());
       const checkoutRequest: CheckoutRequest = {
         source: "CART",
 
-        customerType: "GUEST",
+        customerType: isAuthenticated ? "REGISTERED" : "GUEST",
 
-        contact: {
-          fullName: "",
-          email: "",
-          dui: "",
-          phone: "",
-        },
+        contact,
 
         deliveryType,
 
         delivery:
           deliveryType === "HOME_DELIVERY"
             ? {
-                departmentId: "",
-                districtId: "",
-                city: "",
-                addressLine: "",
+                departmentId: shipping.departmentId,
+                districtId: shipping.districtId,
+                city: shipping.city,
+                addressLine: shipping.addressLine,
               }
             : {
-                branchId: "",
+                branchId: shipping.branchId,
               },
 
         paymentMethod:
@@ -149,7 +188,7 @@ export default function CheckoutPage() {
             ? "PAY_AT_STORE"
             : "CARD",
 
-        saveAddress: false,
+        saveAddress: shipping.saveInfo,
 
         ...(payment.method === "CARD" &&
         payment.card
@@ -160,12 +199,9 @@ export default function CheckoutPage() {
       };
 
       const response = await createCheckout(
-  checkoutRequest,
-  idempotencyKey,
-  MOCK_CHECKOUT_ERROR,
-);
-
-      setCreatedOrder(response);
+        checkoutRequest,
+        idempotencyKey,
+      );
 
       /*
        * Guardar el token del invitado temporalmente.
@@ -191,7 +227,7 @@ export default function CheckoutPage() {
       router.push(
         `/checkout/confirmacion?orderNumber=${encodeURIComponent(
           response.orderNumber,
-        )}&customerType=GUEST`,
+        )}&customerType=${isAuthenticated ? "AUTHENTICATED" : "GUEST"}`,
       );
     } catch (error) {
       /*
@@ -319,7 +355,7 @@ export default function CheckoutPage() {
                   }
                 >
                   {step === "contact" && (
-                    <CheckoutContact />
+                    <CheckoutContact onDataChange={setContact} />
                   )}
 
                   {step === "shipping" && (
@@ -330,6 +366,7 @@ export default function CheckoutPage() {
                       onDeliveryTypeChange={
                         setDeliveryType
                       }
+                      onDataChange={setShipping}
                     />
                   )}
 

@@ -2,15 +2,12 @@ import type {
   CheckoutPreviewData,
   CheckoutPreviewApiResponse,
   CheckoutPreviewRequest,
-  CheckoutPreviewResponse,
   CheckoutRequest,
   Order,
 } from "@/types/checkout/checkout.types";
-import { apiRequest } from "@/lib/api-client";
+import { ApiRequestError, apiRequest } from "@/lib/api-client";
 import { readAccessToken } from "@/lib/auth-session";
 import { readCartToken } from "@/lib/cart-token";
-
-const API_BASE_URL = "/api/v1/ecommerce";
 
 function getCheckoutHeaders(): Record<string, string> {
   const accessToken = readAccessToken();
@@ -20,16 +17,40 @@ function getCheckoutHeaders(): Record<string, string> {
   return cartToken ? { "X-Cart-Token": cartToken } : {};
 }
 
+function mapDelivery(data: CheckoutPreviewRequest | CheckoutRequest) {
+  return {
+    deliveryType: data.deliveryType,
+    ...data.delivery,
+  };
+}
+
+function getErrorCode(response: unknown): string | undefined {
+  if (!response || typeof response !== "object") return undefined;
+  const record = response as { code?: unknown; error?: unknown };
+  if (typeof record.code === "string") return record.code;
+  if (record.error && typeof record.error === "object" && "code" in record.error) {
+    const code = (record.error as { code?: unknown }).code;
+    return typeof code === "string" ? code : undefined;
+  }
+  return undefined;
+}
+
 export async function getCheckoutPreview(
   data: CheckoutPreviewRequest,
 ): Promise<CheckoutPreviewData> {
   const response = await apiRequest<
     CheckoutPreviewApiResponse,
-    CheckoutPreviewRequest
+    unknown
   >("/ecommerce/checkout/preview", {
     method: "POST",
     headers: getCheckoutHeaders(),
-    body: data,
+    body: {
+      source: data.source,
+      ...(data.items ? { items: data.items } : {}),
+      contact: data.contact,
+      delivery: mapDelivery(data),
+      paymentMethod: data.paymentMethod,
+    },
   });
 
   return response.data;
@@ -51,77 +72,50 @@ export class CheckoutError extends Error {
   }
 }
 
-export async function previewCheckout(
-  data: CheckoutPreviewRequest,
-): Promise<CheckoutPreviewResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}/checkout/preview`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    },
-  );
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-
-    console.error("CHECKOUT PREVIEW ERROR", {
-      status: response.status,
-      statusText: response.statusText,
-      body: errorBody,
-    });
-
-    throw new CheckoutError(
-      `No se pudo obtener la vista previa del checkout (${response.status})`,
-      response.status,
-    );
-  }
-
-  return response.json();
-}
-
 export async function createCheckout(
   data: CheckoutRequest,
   idempotencyKey: string,
-  mockError?: string,
 ): Promise<Order> {
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    "Idempotency-Key": idempotencyKey,
+  const digits = data.card?.number.replace(/\D/g, "") ?? "";
+  const payload = {
+    source: data.source,
+    ...(data.source === "BUY_NOW" ? { items: data.items } : {}),
+    contact: data.contact,
+    delivery: {
+      ...mapDelivery(data),
+      ...(data.saveAddress ? { isDefault: true } : {}),
+    },
+    paymentMethod: data.paymentMethod,
+    ...(data.paymentMethod === "CARD"
+      ? {
+          card: {
+            cardLastFour: digits.slice(-4),
+            cardBrand: data.card?.brand ?? "UNKNOWN",
+            cardToken: `tok_web_${crypto.randomUUID()}`,
+            simulateSuccess: true,
+          },
+        }
+      : {}),
   };
 
-  /*
-   * Solo para pruebas con MSW.
-   * Se elimina después de validar la TASK 907.
-   */
-  if (mockError) {
-    headers["X-Mock-Error"] = mockError;
-  }
-
-  const response = await fetch(
-    `${API_BASE_URL}/checkout`,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify(data),
-    },
-  );
-
-  if (!response.ok) {
-    const errorBody = await response
-      .json()
-      .catch(() => null);
-
-    throw new CheckoutError(
-      errorBody?.detail ??
-        "No se pudo completar el checkout",
-      response.status,
-      errorBody?.code,
+  try {
+    const response = await apiRequest<{ success: true; data: Order }, unknown>(
+      "/orders/checkout",
+      {
+        method: "POST",
+        headers: {
+          ...getCheckoutHeaders(),
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: payload,
+      },
     );
-  }
 
-  return response.json();
+    return response.data;
+  } catch (error) {
+    if (error instanceof ApiRequestError) {
+      throw new CheckoutError(error.message, error.status, getErrorCode(error.response));
+    }
+    throw error;
+  }
 }

@@ -6,9 +6,6 @@ import {
   cartHandlers,
 } from "./cart.handlers";
 
-import {
-  checkoutHandlers,
-} from "./checkout.handlers";
 
 /**
  * Handlers temporales utilizados para
@@ -17,5 +14,4 @@ import {
  */
 export const handlers: RequestHandler[] = [
   ...cartHandlers,
-  ...checkoutHandlers,
 ];

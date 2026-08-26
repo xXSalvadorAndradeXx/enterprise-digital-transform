@@ -6,7 +6,7 @@ import {
   readSessionUser,
 } from "@/lib/auth-session";
 
-interface ContactData {
+export interface ContactData {
   fullName: string;
   email: string;
   dui: string;
@@ -14,6 +14,10 @@ interface ContactData {
 }
 
 type ContactErrors = Partial<Record<keyof ContactData, string>>;
+
+interface CheckoutContactProps {
+  onDataChange?: (data: ContactData) => void;
+}
 
 function validate(data: ContactData): ContactErrors {
   const errors: ContactErrors = {};
@@ -50,7 +54,7 @@ function validate(data: ContactData): ContactErrors {
   return errors;
 }
 
-export default function CheckoutContact() {
+export default function CheckoutContact({ onDataChange }: CheckoutContactProps) {
   const [data, setData] = useState<ContactData>({
     fullName: "",
     email: "",
@@ -65,6 +69,10 @@ export default function CheckoutContact() {
   const [loadingUser, setLoadingUser] = useState(true);
 
   const errors = validate(data);
+
+  useEffect(() => {
+    onDataChange?.(data);
+  }, [data, onDataChange]);
 
   useEffect(() => {
     if (!readAccessToken()) {
