@@ -29,6 +29,10 @@ import type {
   ProductFormMode,
 } from "@/types/productos/product-form.types";
 
+import type {
+  ProductVariantConfig,
+} from "@/types/productos/product-variant.types";
+
 import {
   MAX_PRODUCT_IMAGES,
   validateProductImage,
@@ -57,6 +61,7 @@ interface ProductFormProps {
   onSubmit: (
     values: ProductFormSchema,
     files: File[],
+    variantConfigs: ProductVariantConfig[],
   ) => Promise<void> | void;
 
   /**
@@ -472,6 +477,14 @@ export function ProductForm({
       await onSubmit(
         values,
         files,
+        currentInventory?.variants.map(
+          (variant) => ({
+            inventoryDetailId:
+              variant.inventoryDetailId,
+            minStock:
+              variant.minStock,
+          }),
+        ) ?? [],
       );
     };
 

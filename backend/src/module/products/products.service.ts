@@ -19,13 +19,25 @@ import { Inventory } from '../inventory/entities/inventory.entity';
 import { InventoryDetail } from '../inventory/entities/inventory-detail.entity';
 import { InventoryStatus } from '../inventory/enums/inventory-status.enum';
 import { ProductStatus } from './enums/product-status.enum';
+import { ProductGender } from '../purchases/enums/product-gender.enum';
 import { PRODUCT_STATUS_TRANSITIONS } from './constants/product-status-transitions.constant';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
+import {
+  PublicProductFilterDto,
+  PublicAvailability,
+  PublicGender,
+} from './dto/public-product-filter.dto';
+import { RelatedProductsQueryDto } from './dto/related-products-query.dto';
 import { ProductResponseDto } from './dto/product-response.dto';
+import {
+  PublicProductResponseDto,
+  PublicProductDetailResponseDto,
+} from './dto/public-product-response.dto';
 import { UploadImageResponseDto } from './dto/upload-image-response.dto';
+import { ProductSpecification } from './helpers/product-specification.helper';
 import {
   PaginatedResponseDto,
   createPaginatedResponse,
@@ -161,6 +173,7 @@ export class ProductsService {
       discountStartsAt,
       discountEndsAt,
       status,
+      isPublished = false,
       imageUrls = [],
       tags = [],
       variantConfigs = [],
@@ -169,6 +182,15 @@ export class ProductsService {
     const safeImageUrls = imageUrls || [];
     const safeTags = tags || [];
     const safeVariantConfigs = variantConfigs || [];
+    if (safeVariantConfigs.length > 0) {
+      const detailIds = safeVariantConfigs.map((vc) => vc.inventoryDetailId);
+      const uniqueIds = new Set(detailIds);
+      if (detailIds.length !== uniqueIds.size) {
+        throw new UnprocessableEntityException(
+          'No se permiten configuraciones de variante duplicadas',
+        );
+      }
+    }
     const actorId = user?.id ?? user?.userId ?? null;
 
     // Regla RN-P-003: Advertencia mediante Logger.warn cuando salePrice === 0
@@ -205,6 +227,7 @@ export class ProductsService {
     await queryRunner.startTransaction();
 
     try {
+      let finalVariantConfigs = [...safeVariantConfigs];
       // 1. Validación de Inventario
       if (inventoryId) {
         const inventory = await queryRunner.manager.findOne(Inventory, {
@@ -251,17 +274,28 @@ export class ProductsService {
             'El inventario seleccionado ya se encuentra asociado a un producto activo',
           );
         }
+
+        // Si finalVariantConfigs está vacío, autogeneramos para todos los detalles del inventario
+        if (finalVariantConfigs.length === 0) {
+          const details = await queryRunner.manager.find(InventoryDetail, {
+            where: { inventoryId },
+          });
+          finalVariantConfigs = details.map((d) => ({
+            inventoryDetailId: d.id,
+            minStock: d.minStock ?? 0,
+          }));
+        }
       }
 
       // Validación de variantes
-      if (safeVariantConfigs.length > 0) {
+      if (finalVariantConfigs.length > 0) {
         if (!inventoryId) {
           throw new UnprocessableEntityException(
             'Debe asociar un inventario para configurar variantes',
           );
         }
 
-        for (const vc of safeVariantConfigs) {
+        for (const vc of finalVariantConfigs) {
           const detail = await queryRunner.manager.findOne(InventoryDetail, {
             where: { id: vc.inventoryDetailId, inventoryId },
           });
@@ -286,6 +320,8 @@ export class ProductsService {
         discountStartsAt: discountStartsAt ? new Date(discountStartsAt) : null,
         discountEndsAt: discountEndsAt ? new Date(discountEndsAt) : null,
         status: status ?? ProductStatus.DRAFT,
+        isPublished,
+        publishedAt: isPublished ? new Date() : null,
         createdById: actorId,
         updatedById: actorId,
       });
@@ -319,8 +355,8 @@ export class ProductsService {
       }
 
       // Step 4: INSERT product_variant_config & Step 5: UPDATE inventory_details
-      if (safeVariantConfigs.length > 0) {
-        const variantEntities = safeVariantConfigs.map((vc) =>
+      if (finalVariantConfigs.length > 0) {
+        const variantEntities = finalVariantConfigs.map((vc) =>
           queryRunner.manager.create(ProductVariantConfig, {
             productId: savedProduct.id,
             inventoryDetailId: vc.inventoryDetailId,
@@ -329,7 +365,7 @@ export class ProductsService {
         );
         await queryRunner.manager.save(ProductVariantConfig, variantEntities);
 
-        for (const vc of safeVariantConfigs) {
+        for (const vc of finalVariantConfigs) {
           await queryRunner.manager.update(
             InventoryDetail,
             { id: vc.inventoryDetailId },
@@ -429,16 +465,38 @@ export class ProductsService {
       }
     }
 
+    let finalVariantConfigs: any[] | undefined = undefined;
     if (updateProductDto.variantConfigs !== undefined) {
       const safeVariantConfigs = updateProductDto.variantConfigs || [];
-      if (safeVariantConfigs.length > 0) {
+      const detailIds = safeVariantConfigs.map((vc) => vc.inventoryDetailId);
+      const uniqueIds = new Set(detailIds);
+      if (detailIds.length !== uniqueIds.size) {
+        throw new UnprocessableEntityException(
+          'No se permiten configuraciones de variante duplicadas',
+        );
+      }
+
+      finalVariantConfigs = [...safeVariantConfigs];
+      if (finalVariantConfigs.length === 0 && product.inventoryId) {
+        const details = await this.dataSource
+          .getRepository(InventoryDetail)
+          .find({
+            where: { inventoryId: product.inventoryId },
+          });
+        finalVariantConfigs = details.map((d) => ({
+          inventoryDetailId: d.id,
+          minStock: d.minStock ?? 0,
+        }));
+      }
+
+      if (finalVariantConfigs.length > 0) {
         if (!product.inventoryId) {
           throw new UnprocessableEntityException(
             'El producto no tiene un inventario asociado para configurar variantes',
           );
         }
 
-        for (const vc of safeVariantConfigs) {
+        for (const vc of finalVariantConfigs) {
           const detail = await this.dataSource
             .getRepository(InventoryDetail)
             .findOne({
@@ -531,14 +589,13 @@ export class ProductsService {
       }
 
       // Paso 4 — Actualizar variantes (si variantConfigs viene en DTO)
-      if (updateProductDto.variantConfigs !== undefined) {
+      if (finalVariantConfigs !== undefined) {
         await queryRunner.manager.delete(ProductVariantConfig, {
           productId: id,
         });
-        const safeVariantConfigs = updateProductDto.variantConfigs || [];
 
-        if (safeVariantConfigs.length > 0) {
-          const variantEntities = safeVariantConfigs.map((vc) =>
+        if (finalVariantConfigs.length > 0) {
+          const variantEntities = finalVariantConfigs.map((vc) =>
             queryRunner.manager.create(ProductVariantConfig, {
               productId: id,
               inventoryDetailId: vc.inventoryDetailId,
@@ -548,7 +605,7 @@ export class ProductsService {
           await queryRunner.manager.save(ProductVariantConfig, variantEntities);
 
           // Paso 5 — Actualizar min_stock en inventory_details
-          for (const vc of safeVariantConfigs) {
+          for (const vc of finalVariantConfigs) {
             await queryRunner.manager.update(
               InventoryDetail,
               { id: vc.inventoryDetailId },
@@ -876,5 +933,297 @@ export class ProductsService {
         updatedById: actorId,
       },
     );
+  }
+
+  async findEcommerceProducts(
+    filterDto: PublicProductFilterDto,
+  ): Promise<PaginatedResponseDto<PublicProductResponseDto>> {
+    const {
+      limit = 10,
+      page = 1,
+      search,
+      categoryId,
+      brand,
+      gender,
+      size,
+      minPrice,
+      maxPrice,
+      availability,
+      hasDiscount,
+      sortBy = 'createdAt',
+      order = SortOrder.DESC,
+    } = filterDto;
+
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const safePage = Math.max(Number(page) || 1, 1);
+    const skip = (safePage - 1) * safeLimit;
+
+    const query = this.productRepository
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.inventory', 'inventory')
+      .leftJoinAndSelect('inventory.category', 'category')
+      .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoinAndSelect('inventory.details', 'inventory_details')
+      .leftJoinAndSelect('p.images', 'product_images')
+      .leftJoinAndSelect('p.tags', 'product_tags')
+      .leftJoinAndSelect('p.variantConfigs', 'product_variant_config')
+      .leftJoinAndSelect(
+        'product_variant_config.inventoryDetail',
+        'inventoryDetail',
+      )
+      .where('p.deleted_at IS NULL')
+      .andWhere('p.status = :activeStatus', {
+        activeStatus: ProductStatus.ACTIVE,
+      })
+      .andWhere('p.is_published = :isPublished', { isPublished: true })
+      .andWhere(
+        '(inventory.status IS NULL OR inventory.status != :outOfStock)',
+        {
+          outOfStock: InventoryStatus.OUT_OF_STOCK,
+        },
+      );
+
+    if (search) {
+      query.andWhere('(p.commercial_name ILIKE :q OR p.description ILIKE :q)', {
+        q: `%${search}%`,
+      });
+    }
+
+    if (categoryId !== undefined) {
+      query.andWhere('inventory.category_id = :categoryId', { categoryId });
+    }
+
+    if (brand) {
+      query.andWhere('inventory.brand ILIKE :brand', { brand: `%${brand}%` });
+    }
+
+    if (gender) {
+      let dbGender: ProductGender | string | null = null;
+      if (gender === PublicGender.MEN) dbGender = ProductGender.MALE;
+      else if (gender === PublicGender.WOMEN) dbGender = ProductGender.FEMALE;
+      else if (gender === PublicGender.UNISEX) dbGender = ProductGender.UNISEX;
+
+      if (dbGender) {
+        query.andWhere('inventory.gender = :gender', { gender: dbGender });
+      }
+    }
+
+    if (size) {
+      query.andWhere(
+        `EXISTS (
+          SELECT 1
+          FROM inventory_details idt
+          WHERE idt.inventory_id = p.inventory_id
+            AND UPPER(TRIM(idt.size)) = UPPER(TRIM(:size))
+            AND idt.stock > 0
+        )`,
+        { size },
+      );
+    }
+
+    if (availability === PublicAvailability.LOW_STOCK) {
+      query.andWhere(
+        'inventory.stock > 0 AND inventory.stock <= inventory.min_stock',
+      );
+    } else if (availability === PublicAvailability.IN_STOCK) {
+      query.andWhere('inventory.stock > inventory.min_stock');
+    }
+
+    const activeDiscountCondition =
+      '(p.discount IS NOT NULL AND p.discount > 0 AND (p.discount_starts_at IS NULL OR p.discount_starts_at <= NOW()) AND (p.discount_ends_at IS NULL OR p.discount_ends_at >= NOW()))';
+
+    if (hasDiscount === true) {
+      query.andWhere(activeDiscountCondition);
+    } else if (hasDiscount === false) {
+      query.andWhere(`NOT (${activeDiscountCondition})`);
+    }
+
+    const effectivePriceExpression = `(
+      CASE
+        WHEN p.discount IS NOT NULL AND p.discount > 0
+         AND (p.discount_starts_at IS NULL OR p.discount_starts_at <= NOW())
+         AND (p.discount_ends_at IS NULL OR p.discount_ends_at >= NOW())
+        THEN ROUND(p.sale_price * (1 - p.discount / 100.0), 2)
+        ELSE p.sale_price
+      END
+    )`;
+
+    if (minPrice !== undefined) {
+      query.andWhere(`${effectivePriceExpression} >= :minPrice`, { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      query.andWhere(`${effectivePriceExpression} <= :maxPrice`, { maxPrice });
+    }
+
+    const sortFieldMap: Record<string, string> = {
+      createdAt: 'p.createdAt',
+      salePrice: 'p.salePrice',
+      commercialName: 'p.commercialName',
+    };
+
+    const sortColumn = sortFieldMap[sortBy] ?? 'p.createdAt';
+    const sortDirection = order === SortOrder.ASC ? 'ASC' : 'DESC';
+
+    query.orderBy(sortColumn, sortDirection);
+    query.addOrderBy('p.id', 'ASC');
+    query.skip(skip).take(safeLimit);
+
+    const [products, total] = await query.getManyAndCount();
+    const data = products
+      .filter((p) => ProductSpecification.isProductPublishableAndSellable(p))
+      .map((p) => {
+        const effPrice = ProductSpecification.calculateEffectivePrice(
+          p.salePrice,
+          p.discount,
+          p.discountStartsAt,
+          p.discountEndsAt,
+        );
+        const inStock = p.inventory
+          ? p.inventory.status !== InventoryStatus.OUT_OF_STOCK
+          : true;
+        return PublicProductResponseDto.fromEntity(p, effPrice, inStock);
+      });
+
+    return createPaginatedResponse(data, total, safePage, safeLimit);
+  }
+
+  async findEcommerceProductById(
+    id: string,
+  ): Promise<PublicProductDetailResponseDto> {
+    const product = await this.productRepository.findOne({
+      where: { id, deletedAt: IsNull() },
+      relations: [
+        'inventory',
+        'inventory.category',
+        'inventory.details',
+        'images',
+        'tags',
+        'variantConfigs',
+        'variantConfigs.inventoryDetail',
+      ],
+    });
+
+    if (!product) {
+      throw new NotFoundException({
+        code: 'PRODUCT_NOT_FOUND',
+        message: `El producto con ID ${id} no fue encontrado`,
+      });
+    }
+
+    if (!product.isPublished || product.status !== ProductStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'PRODUCT_NOT_PUBLISHED',
+        message: 'El producto no se encuentra disponible públicamente',
+      });
+    }
+
+    const effPrice = ProductSpecification.calculateEffectivePrice(
+      product.salePrice,
+      product.discount,
+      product.discountStartsAt,
+      product.discountEndsAt,
+    );
+    const inStock = product.inventory
+      ? product.inventory.status !== InventoryStatus.OUT_OF_STOCK
+      : true;
+
+    return PublicProductDetailResponseDto.fromEntity(
+      product,
+      effPrice,
+      inStock,
+    );
+  }
+
+  async findRelatedProducts(
+    id: string,
+    queryDto?: RelatedProductsQueryDto,
+  ): Promise<PublicProductResponseDto[]> {
+    const limit = Math.min(Math.max(Number(queryDto?.limit) || 4, 1), 20);
+
+    const baseProduct = await this.productRepository.findOne({
+      where: { id, deletedAt: IsNull() },
+      relations: ['inventory'],
+    });
+
+    if (!baseProduct) {
+      throw new NotFoundException({
+        code: 'PRODUCT_NOT_FOUND',
+        message: `El producto base con ID ${id} no fue encontrado`,
+      });
+    }
+
+    const categoryId = baseProduct.inventory?.categoryId;
+    const gender = baseProduct.inventory?.gender;
+
+    if (!categoryId && !gender) {
+      return [];
+    }
+
+    const query = this.productRepository
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.inventory', 'inventory')
+      .leftJoinAndSelect('inventory.category', 'category')
+      .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoinAndSelect('inventory.details', 'inventory_details')
+      .leftJoinAndSelect('p.images', 'product_images')
+      .leftJoinAndSelect('p.tags', 'product_tags')
+      .leftJoinAndSelect('p.variantConfigs', 'product_variant_config')
+      .leftJoinAndSelect(
+        'product_variant_config.inventoryDetail',
+        'inventoryDetail',
+      )
+      .where('p.id != :currentProductId', { currentProductId: id })
+      .andWhere('p.deleted_at IS NULL')
+      .andWhere('p.status = :activeStatus', {
+        activeStatus: ProductStatus.ACTIVE,
+      })
+      .andWhere('p.is_published = :isPublished', { isPublished: true })
+      .andWhere(
+        '(inventory.status IS NULL OR inventory.status != :outOfStock)',
+        {
+          outOfStock: InventoryStatus.OUT_OF_STOCK,
+        },
+      );
+
+    if (categoryId && gender) {
+      query.andWhere(
+        '(inventory.category_id = :categoryId OR inventory.gender = :gender)',
+        { categoryId, gender },
+      );
+      query.orderBy(
+        `CASE
+          WHEN inventory.category_id = :categoryId THEN 1
+          WHEN inventory.gender = :gender THEN 2
+          ELSE 3
+        END`,
+        'ASC',
+      );
+    } else if (categoryId) {
+      query.andWhere('inventory.category_id = :categoryId', { categoryId });
+    } else if (gender) {
+      query.andWhere('inventory.gender = :gender', { gender });
+    }
+
+    query.addOrderBy('p.createdAt', 'DESC');
+    query.addOrderBy('p.id', 'ASC');
+    query.take(limit);
+
+    const products = await query.getMany();
+
+    return products
+      .filter((p) => ProductSpecification.isProductPublishableAndSellable(p))
+      .map((p) => {
+        const effPrice = ProductSpecification.calculateEffectivePrice(
+          p.salePrice,
+          p.discount,
+          p.discountStartsAt,
+          p.discountEndsAt,
+        );
+        const inStock = p.inventory
+          ? p.inventory.status !== InventoryStatus.OUT_OF_STOCK
+          : true;
+        return PublicProductResponseDto.fromEntity(p, effPrice, inStock);
+      });
   }
 }

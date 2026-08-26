@@ -5,6 +5,7 @@ import type {
 import {
   normalizeProductHttpError,
 } from "./product-errors";
+import { unwrapApiSuccess } from "@/lib/api-response";
 
 const PRODUCT_UPLOAD_API_URL =
   "/api/products/upload-image";
@@ -51,5 +52,7 @@ export async function uploadProductImage(
     );
   }
 
-  return response.json() as Promise<ProductImageUploadResponse>;
+  const responseBody: unknown = await response.json();
+
+  return unwrapApiSuccess<ProductImageUploadResponse>(responseBody);
 }

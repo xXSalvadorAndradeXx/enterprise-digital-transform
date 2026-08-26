@@ -14,8 +14,11 @@ import { validate } from './env.validation';
 import { SuppliersModule } from '../src/module/suppliers/suppliers.module';
 import { InventoryModule } from '../src/module/inventory/inventory.module';
 import { PurchasesModule } from '../src/module/purchases/purchases.module';
-
-
+import { BranchesModule } from '../src/module/branches/branches.module';
+import { OrdersModule } from '../src/module/orders/orders.module';
+import { PaymentsModule } from '../src/module/payments/payments.module';
+import { LocationsModule } from '../src/module/locations/locations.module';
+import { CustomersModule } from '../src/module/customers/customers.module';
 
 @Module({
   imports: [
@@ -36,7 +39,7 @@ import { PurchasesModule } from '../src/module/purchases/purchases.module';
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
         autoLoadEntities: true, // Carga automáticamente las entidades de tus módulos
-        synchronize: true,      // Sincroniza las tablas con tus entidades (solo para desarrollo)
+        synchronize: false,      // Sincroniza las tablas con tus entidades (solo para desarrollo)
       }),
     }),
 
@@ -51,7 +54,11 @@ import { PurchasesModule } from '../src/module/purchases/purchases.module';
     SuppliersModule,
     InventoryModule,
     PurchasesModule,
-
+    BranchesModule,
+    OrdersModule,
+    PaymentsModule,
+    LocationsModule,
+    CustomersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -3,6 +3,7 @@ import type {
   PurchasesQuery,
   PurchasesTransportResult,
 } from "../types/purchases.types";
+import { unwrapApiSuccess } from "@/lib/api-response";
 
 export interface PurchasesRequestOptions {
   path: string;
@@ -57,6 +58,8 @@ function normalizeMetadata(
 }
 
 function normalizePurchasesResponse(response: unknown): PurchasesTransportResult {
+  response = unwrapApiSuccess<unknown>(response);
+
   if (!isRecord(response) || !Array.isArray(response.data)) {
     throw new Error("La respuesta de compras no contiene un arreglo data válido.");
   }

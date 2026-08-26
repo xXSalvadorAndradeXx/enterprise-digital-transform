@@ -23,6 +23,7 @@ export interface Product {
   deletedAt?: string | null;
   category: ProductCategory | null;
   commercialName?: string;
+  description?: string;
   brand?: string;
   gender?: ProductGender;
   salePrice?: string;
@@ -30,11 +31,17 @@ export interface Product {
   discount?: ProductDiscount | null;
   stockTotal?: number;
   availability?: ProductAvailability;
-  primaryImage?: ProductImage | null;
-  images?: ProductImage[];
+  primaryImage?: string | ProductImage | null;
+  images?: Array<string | ProductImage>;
   variants?: ProductVariant[];
   tags?: string[];
 }
 
-export interface ProductsResponse { data: Product[]; total: number; page: number; limit: number; }
+export interface ProductsResponse {
+  data: Product[];
+  meta?: { total: number; page: number; limit: number; totalPages?: number };
+  total?: number;
+  page?: number;
+  limit?: number;
+}
 export interface ProductDetailResponse { data: Product; }

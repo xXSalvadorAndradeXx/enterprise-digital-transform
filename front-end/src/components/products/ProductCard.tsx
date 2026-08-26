@@ -40,11 +40,17 @@ export default function ProductCard({ product }: ProductCardProps) {
       totalStock?: number;
       category?: { id: number; name?: string; nombre?: string } | null;
     };
-    images?: Array<ProductImage & { imageUrl?: string }>;
+    images?: Array<string | (ProductImage & { imageUrl?: string })>;
   };
   const name = product.commercialName ?? product.nombre ?? backendProduct.inventory?.productName ?? "Producto";
-  const firstBackendImage = backendProduct.images?.[0] as { url?: string; imageUrl?: string } | undefined;
-  const imageUrl = (product.primaryImage?.url ?? firstBackendImage?.url ?? firstBackendImage?.imageUrl ?? product.imagenUrl ?? "").trim();
+  const primaryImageUrl = typeof product.primaryImage === "string"
+    ? product.primaryImage
+    : product.primaryImage?.url;
+  const firstBackendImage = backendProduct.images?.[0];
+  const firstBackendImageUrl = typeof firstBackendImage === "string"
+    ? firstBackendImage
+    : firstBackendImage?.url ?? firstBackendImage?.imageUrl;
+  const imageUrl = (primaryImageUrl ?? firstBackendImageUrl ?? product.imagenUrl ?? "").trim();
   const stock = Number(product.stockTotal ?? product.stock ?? backendProduct.inventory?.totalStock ?? backendProduct.inventory?.stock ?? 0);
   const currentPrice = product.effectivePrice ?? product.precio;
   const originalPrice = product.salePrice;
@@ -56,7 +62,9 @@ export default function ProductCard({ product }: ProductCardProps) {
       : 0;
   const hasActiveDiscount = discountPercentage > 0 && Number(currentPrice) < Number(originalPrice ?? currentPrice);
   const brand = product.brand ?? backendProduct.inventory?.brand ?? "Woden";
-  const isAvailable = stock > 0;
+  const isAvailable = product.availability
+    ? product.availability !== "OUT_OF_STOCK"
+    : stock > 0;
   const shouldShowImage = imageUrl.length > 0 && failedImageUrl !== imageUrl;
   const detailHref = `/producto/${product.id}`;
 

@@ -22,7 +22,7 @@ export interface PurchaseResponse {
   purchaseDate: string;
   totalAmount: number;
   totalQuantity: number;
-  invoiceUrl: string;
+  invoiceUrl: string | null;
   status: "COMPLETED";
   supplier: { id: string; name: string };
   items: PurchaseVariantResponse[];

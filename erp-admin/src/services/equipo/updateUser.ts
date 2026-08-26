@@ -1,3 +1,5 @@
+import { unwrapApiSuccess } from "@/lib/api-response";
+
 export interface UpdateUserPayload {
   firstName?: string;
   lastName?: string;
@@ -92,6 +94,8 @@ export async function updateUser(
       ),
     );
   }
+
+  responseBody = unwrapApiSuccess<UpdateUserResponse | null>(responseBody);
 
   if (
     !responseBody ||

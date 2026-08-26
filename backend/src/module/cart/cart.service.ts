@@ -1,10 +1,24 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull, DataSource } from 'typeorm';
 import { Cart } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
 import { Product } from '../products/entities/product.entity';
+import { ProductVariantConfig } from '../products/entities/product-variant-config.entity';
+import { CartStatus } from './enums/cart-status.enum';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
+import { ProductSpecification } from '../products/helpers/product-specification.helper';
+import { CartResponseDto } from './dto/cart-response.dto';
+import { generateGuestToken, hashGuestToken } from '../../common/utils/security.util';
+
+export interface ResolvedCartResult {
+  cart: Cart;
+  createdGuestToken: string | null;
+}
 
 @Injectable()
 export class CartService {
@@ -15,98 +29,540 @@ export class CartService {
     private readonly cartItemRepository: Repository<CartItem>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(ProductVariantConfig)
+    private readonly variantConfigRepository: Repository<ProductVariantConfig>,
+    private readonly dataSource: DataSource,
   ) {}
 
-  async findUserCart(userId: string) {
-    const cart = await this.cartRepository.findOne({
-      where: { user: { id: userId } },
-      relations: ['items', 'items.product'],
+  /**
+   * Valida la restricción XOR del propietario del carrito a nivel de aplicación.
+   */
+  private validateCartOwner(customerId?: string | null, guestTokenHash?: string | null): void {
+    const hasCustomer = !!customerId;
+    const hasGuest = !!guestTokenHash;
+    if ((hasCustomer && hasGuest) || (!hasCustomer && !hasGuest)) {
+      throw new BadRequestException({
+        code: 'INVALID_CART_OWNER',
+        message:
+          'Un carrito debe pertenecer exclusivamente a un cliente autenticado o a un token de invitado, pero nunca a ambos ni a ninguno.',
+      });
+    }
+  }
+
+  /**
+   * Resuelve el carrito dando prioridad a la identidad JWT (customerId) o al header X-Cart-Token (guestTokenHash).
+   */
+  async resolveCart(
+    userId?: string | null,
+    xCartToken?: string | null,
+    isCreateOnPost = false,
+  ): Promise<ResolvedCartResult> {
+    // 1. Prioridad: JWT Autenticado (customerId)
+    if (userId) {
+      let cart = await this.cartRepository.findOne({
+        where: { customerId: userId, status: CartStatus.ACTIVE, deletedAt: IsNull() },
+        relations: [
+          'items',
+          'items.product',
+          'items.product.images',
+          'items.variantConfig',
+          'items.variantConfig.inventoryDetail',
+        ],
+      });
+
+      if (!cart) {
+        if (isCreateOnPost) {
+          this.validateCartOwner(userId, null);
+          cart = this.cartRepository.create({
+            customerId: userId,
+            guestTokenHash: null,
+            status: CartStatus.ACTIVE,
+          });
+          cart = await this.cartRepository.save(cart);
+          cart.items = [];
+        } else {
+          throw new NotFoundException({
+            code: 'CART_NOT_FOUND',
+            message: 'El carrito solicitado no existe o no se encuentra activo',
+          });
+        }
+      }
+
+      return { cart, createdGuestToken: null };
+    }
+
+    // 2. Visitante con X-Cart-Token
+    if (xCartToken && xCartToken.trim().length > 0) {
+      const guestTokenHash = hashGuestToken(xCartToken.trim());
+      const cart = await this.cartRepository.findOne({
+        where: { guestTokenHash, deletedAt: IsNull() },
+        relations: [
+          'items',
+          'items.product',
+          'items.product.images',
+          'items.variantConfig',
+          'items.variantConfig.inventoryDetail',
+        ],
+      });
+
+      if (!cart || cart.status !== CartStatus.ACTIVE) {
+        throw new BadRequestException({
+          code: 'CART_TOKEN_INVALID',
+          message: 'El token del carrito no es válido',
+        });
+      }
+
+      // Verificación de expiración (expiresAt)
+      if (cart.expiresAt && cart.expiresAt.getTime() < Date.now()) {
+        cart.status = CartStatus.ABANDONED;
+        await this.cartRepository.save(cart);
+        throw new BadRequestException({
+          code: 'CART_TOKEN_INVALID',
+          message: 'El token del carrito no es válido',
+        });
+      }
+
+      return { cart, createdGuestToken: null };
+    }
+
+    // 3. Visitante sin X-Cart-Token
+    if (isCreateOnPost) {
+      const plainToken = generateGuestToken();
+      const guestTokenHash = hashGuestToken(plainToken);
+      const ttlHours = Number(process.env.GUEST_CART_TTL_HOURS) || 168; // 7 días por defecto
+      const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000);
+
+      this.validateCartOwner(null, guestTokenHash);
+      let cart = this.cartRepository.create({
+        customerId: null,
+        guestTokenHash,
+        status: CartStatus.ACTIVE,
+        expiresAt,
+      });
+
+      cart = await this.cartRepository.save(cart);
+      cart.items = [];
+
+      return { cart, createdGuestToken: plainToken };
+    }
+
+    // Sin JWT ni X-Cart-Token en operaciones de lectura/modificación
+    throw new BadRequestException({
+      code: 'CART_TOKEN_INVALID',
+      message: 'El token del carrito no es válido',
+    });
+  }
+
+  /**
+   * Obtiene o crea un carrito activo para un cliente registrado.
+   */
+  async findOrCreateCartForUser(userId: string): Promise<Cart> {
+    const { cart } = await this.resolveCart(userId, null, true);
+    return cart;
+  }
+
+  /**
+   * Obtiene o crea un carrito activo para un visitante.
+   */
+  async findOrCreateCartForGuest(guestTokenHash: string): Promise<Cart> {
+    let cart = await this.cartRepository.findOne({
+      where: { guestTokenHash, status: CartStatus.ACTIVE, deletedAt: IsNull() },
+      relations: [
+        'items',
+        'items.product',
+        'items.product.images',
+        'items.variantConfig',
+        'items.variantConfig.inventoryDetail',
+      ],
     });
 
     if (!cart) {
-      throw new NotFoundException('Carrito no encontrado para este usuario');
+      this.validateCartOwner(null, guestTokenHash);
+      cart = this.cartRepository.create({
+        customerId: null,
+        guestTokenHash,
+        status: CartStatus.ACTIVE,
+      });
+      cart = await this.cartRepository.save(cart);
+      cart.items = [];
     }
-
-    cart.total = cart.items?.reduce((acc, item) => acc + Number(item.subtotal), 0) || 0;
 
     return cart;
   }
 
-  async addItemToCart(userId: string, dto: AddCartItemDto) {
-    const cart = await this.findUserCart(userId);
-    
-    const product = await this.productRepository.findOne({ where: { id: dto.productId } });
-    if (!product) {
-      throw new NotFoundException(`El producto con ID ${dto.productId} no existe`);
+  /**
+   * Busca un carrito activo por su ID y valida su estado.
+   */
+  async findActiveCartById(cartId: string): Promise<Cart> {
+    const cart = await this.cartRepository.findOne({
+      where: { id: cartId, deletedAt: IsNull() },
+      relations: [
+        'items',
+        'items.product',
+        'items.product.images',
+        'items.variantConfig',
+        'items.variantConfig.inventoryDetail',
+      ],
+    });
+
+    if (!cart) {
+      throw new NotFoundException({
+        code: 'CART_NOT_FOUND',
+        message: `El carrito con ID ${cartId} no existe`,
+      });
     }
 
-    const existingItem = cart.items?.find(item => item.product.id === dto.productId);
+    return cart;
+  }
 
+  /**
+   * Agrega un ítem al carrito resuelto o acumula su cantidad si la variante ya existe.
+   */
+  async addItemToCart(cartId: string, dto: AddCartItemDto): Promise<CartResponseDto> {
+    const cart = await this.findActiveCartById(cartId);
+
+    if (cart.status !== CartStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'CART_NOT_ACTIVE',
+        message: 'No es posible modificar un carrito que no se encuentra activo',
+      });
+    }
+
+    // 1. Validar producto publicable
+    const product = await this.productRepository.findOne({
+      where: { id: dto.productId, deletedAt: IsNull() },
+      relations: ['inventory', 'inventory.details', 'variantConfigs', 'variantConfigs.inventoryDetail'],
+    });
+
+    if (!product || !ProductSpecification.isProductPublishableAndSellable(product)) {
+      throw new BadRequestException({
+        code: 'PRODUCT_NOT_PUBLISHED',
+        message: 'El producto no se encuentra disponible para compra',
+        details: {
+          productId: dto.productId,
+        },
+      });
+    }
+
+    // 2. Validar variante exista y pertenezca al producto
+    const variantConfig = await this.variantConfigRepository.findOne({
+      where: { id: dto.variantId, productId: dto.productId },
+      relations: ['inventoryDetail'],
+    });
+
+    if (!variantConfig || variantConfig.productId !== dto.productId) {
+      throw new BadRequestException({
+        code: 'VARIANT_NOT_FOUND',
+        message: 'La variante seleccionada no existe o no está disponible',
+        details: {
+          variantId: dto.variantId,
+        },
+      });
+    }
+
+    // 3. Buscar si la variante ya existe en el carrito para calcular la cantidad final acumulada
+    const existingItem = await this.cartItemRepository.findOne({
+      where: { cartId: cart.id, variantId: dto.variantId },
+    });
+
+    const existingQuantity = existingItem ? existingItem.quantity : 0;
+    const finalRequestedQuantity = existingQuantity + dto.quantity;
+
+    // 4. Validar cantidad final acumulada contra stock disponible de la variante
+    const availableStock = variantConfig.inventoryDetail
+      ? Number(variantConfig.inventoryDetail.stock)
+      : 0;
+
+    if (finalRequestedQuantity > availableStock) {
+      throw new BadRequestException({
+        code: 'STOCK_INSUFFICIENT',
+        message: 'No existe suficiente stock para la cantidad solicitada',
+        details: {
+          variantId: dto.variantId,
+          requestedQuantity: finalRequestedQuantity,
+          availableStock,
+        },
+      });
+    }
+
+    // 5. Insertar o acumular la línea en el carrito
     if (existingItem) {
-      const newQuantity = existingItem.quantity + dto.quantity;
-      existingItem.quantity = newQuantity;
-      existingItem.subtotal = newQuantity * existingItem.unitPrice;
+      existingItem.quantity = finalRequestedQuantity;
       await this.cartItemRepository.save(existingItem);
     } else {
       const newItem = this.cartItemRepository.create({
-        cart: { id: cart.id },
-        product: { id: product.id },
+        cartId: cart.id,
+        productId: dto.productId,
+        variantId: dto.variantId,
         quantity: dto.quantity,
-        unitPrice: Number(product.salePrice),
-        subtotal: dto.quantity * Number(product.salePrice),
       });
       await this.cartItemRepository.save(newItem);
     }
 
-    // Retornamos el carrito actualizado
-    return this.findUserCart(userId);
+    const updatedCart = await this.findActiveCartById(cart.id);
+    return CartResponseDto.fromEntity(updatedCart);
   }
 
-  async updateItemQuantity(userId: string, itemId: number, quantity: number) {
+  /**
+   * Actualiza la cantidad de un ítem existente en el carrito.
+   */
+  async updateItemQuantity(
+    cartId: string,
+    itemId: string,
+    quantity: number,
+  ): Promise<CartResponseDto> {
+    if (quantity <= 0) {
+      throw new BadRequestException({
+        code: 'INVALID_QUANTITY',
+        message: 'La cantidad debe ser mayor que cero. Para eliminar, use la operación de eliminación explícita.',
+      });
+    }
+
+    const cart = await this.findActiveCartById(cartId);
+
+    if (cart.status !== CartStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'CART_NOT_ACTIVE',
+        message: 'No es posible modificar un carrito que no se encuentra activo',
+      });
+    }
+
     const cartItem = await this.cartItemRepository.findOne({
-      where: { id: itemId },
-      relations: ['cart', 'cart.user', 'product'],
+      where: { id: itemId, cartId: cart.id },
     });
 
     if (!cartItem) {
-      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
+      throw new NotFoundException({
+        code: 'CART_ITEM_NOT_FOUND',
+        message: 'El producto solicitado no existe en el carrito',
+      });
     }
 
-    if (cartItem.cart.user.id !== userId) {
-      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
+    // Validar stock disponible de la variante antes de actualizar la cantidad
+    const variantConfig = await this.variantConfigRepository.findOne({
+      where: { id: cartItem.variantId },
+      relations: ['inventoryDetail'],
+    });
+
+    const availableStock = variantConfig?.inventoryDetail
+      ? Number(variantConfig.inventoryDetail.stock)
+      : 0;
+
+    if (quantity > availableStock) {
+      throw new BadRequestException({
+        code: 'STOCK_INSUFFICIENT',
+        message: 'No existe suficiente stock para la cantidad solicitada',
+        details: {
+          variantId: cartItem.variantId,
+          requestedQuantity: quantity,
+          availableStock,
+        },
+      });
     }
 
     cartItem.quantity = quantity;
-    cartItem.subtotal = quantity * cartItem.unitPrice;
     await this.cartItemRepository.save(cartItem);
 
-    return this.findUserCart(userId);
+    const updatedCart = await this.findActiveCartById(cart.id);
+    return CartResponseDto.fromEntity(updatedCart);
   }
 
-  async removeItem(userId: string, itemId: number) {
+  /**
+   * Elimina un ítem explícitamente del carrito.
+   */
+  async removeItem(cartId: string, itemId: string): Promise<CartResponseDto> {
+    const cart = await this.findActiveCartById(cartId);
+
+    if (cart.status !== CartStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'CART_NOT_ACTIVE',
+        message: 'No es posible modificar un carrito que no se encuentra activo',
+      });
+    }
+
     const cartItem = await this.cartItemRepository.findOne({
-      where: { id: itemId },
-      relations: ['cart', 'cart.user'],
+      where: { id: itemId, cartId: cart.id },
     });
 
     if (!cartItem) {
-      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
-    }
-
-    if (cartItem.cart.user.id !== userId) {
-      throw new NotFoundException(`El ítem con ID ${itemId} no se encuentra en el carrito`);
+      throw new NotFoundException({
+        code: 'CART_ITEM_NOT_FOUND',
+        message: 'El producto solicitado no existe en el carrito',
+      });
     }
 
     await this.cartItemRepository.remove(cartItem);
 
-    return this.findUserCart(userId);
+    const updatedCart = await this.findActiveCartById(cart.id);
+    return CartResponseDto.fromEntity(updatedCart);
   }
 
-  async clearCart(userId: string) {
-    const cart = await this.findUserCart(userId);
+  /**
+   * Vacía todos los ítems de un carrito activo.
+   */
+  async clearCart(cartId: string): Promise<CartResponseDto> {
+    const cart = await this.findActiveCartById(cartId);
 
-    await this.cartItemRepository.delete({ cart: { id: cart.id } });
+    if (cart.status !== CartStatus.ACTIVE) {
+      throw new BadRequestException({
+        code: 'CART_NOT_ACTIVE',
+        message: 'No es posible modificar un carrito que no se encuentra activo',
+      });
+    }
 
-    return this.findUserCart(userId);
+    await this.cartItemRepository.delete({ cartId: cart.id });
+
+    const updatedCart = await this.findActiveCartById(cart.id);
+    return CartResponseDto.fromEntity(updatedCart);
+  }
+
+  /**
+   * Fusiona transaccionalmente los ítems de un carrito invitado hacia el carrito activo del cliente autenticado.
+   */
+  async mergeGuestCartIntoUserCart(
+    userId: string,
+    xCartToken?: string,
+  ): Promise<CartResponseDto> {
+    if (!xCartToken || xCartToken.trim().length === 0) {
+      throw new BadRequestException({
+        code: 'CART_TOKEN_INVALID',
+        message: 'Se requiere el header X-Cart-Token para realizar la fusión del carrito',
+      });
+    }
+
+    const guestTokenHash = hashGuestToken(xCartToken.trim());
+
+    return await this.dataSource.transaction(async (manager) => {
+      const cartRepo = manager.getRepository(Cart);
+      const cartItemRepo = manager.getRepository(CartItem);
+      const productRepo = manager.getRepository(Product);
+      const variantRepo = manager.getRepository(ProductVariantConfig);
+
+      // 1. Resolver y validar carrito de invitado
+      const guestCart = await cartRepo.findOne({
+        where: { guestTokenHash, deletedAt: IsNull() },
+        relations: ['items'],
+      });
+
+      if (!guestCart || guestCart.status !== CartStatus.ACTIVE) {
+        throw new BadRequestException({
+          code: 'CART_TOKEN_INVALID',
+          message: 'El token del carrito no es válido',
+        });
+      }
+
+      if (guestCart.expiresAt && guestCart.expiresAt.getTime() < Date.now()) {
+        guestCart.status = CartStatus.ABANDONED;
+        await cartRepo.save(guestCart);
+        throw new BadRequestException({
+          code: 'CART_TOKEN_INVALID',
+          message: 'El token del carrito no es válido',
+        });
+      }
+
+      // 2. Resolver o crear carrito activo para el cliente autenticado
+      let userCart = await cartRepo.findOne({
+        where: { customerId: userId, status: CartStatus.ACTIVE, deletedAt: IsNull() },
+        relations: ['items'],
+      });
+
+      if (!userCart) {
+        this.validateCartOwner(userId, null);
+        userCart = cartRepo.create({
+          customerId: userId,
+          guestTokenHash: null,
+          status: CartStatus.ACTIVE,
+        });
+        userCart = await cartRepo.save(userCart);
+        userCart.items = [];
+      }
+
+      const guestItems = guestCart.items || [];
+      const userItems = userCart.items || [];
+
+      // Si el carrito invitado no contiene ítems, marcarlo ABANDONED de inmediato
+      if (guestItems.length === 0) {
+        guestCart.status = CartStatus.ABANDONED;
+        await cartRepo.save(guestCart);
+        const updatedUserCart = await this.findActiveCartById(userCart.id);
+        return CartResponseDto.fromEntity(updatedUserCart);
+      }
+
+      // 3. Validar y fusionar cada ítem del carrito invitado
+      for (const guestItem of guestItems) {
+        // Validar producto publicable
+        const product = await productRepo.findOne({
+          where: { id: guestItem.productId, deletedAt: IsNull() },
+          relations: ['inventory', 'inventory.details', 'variantConfigs', 'variantConfigs.inventoryDetail'],
+        });
+
+        if (!product || !ProductSpecification.isProductPublishableAndSellable(product)) {
+          throw new BadRequestException({
+            code: 'PRODUCT_NOT_PUBLISHED',
+            message: 'El producto no se encuentra disponible para compra',
+            details: { productId: guestItem.productId },
+          });
+        }
+
+        // Validar variante exista y pertenezca al producto
+        const variantConfig = await variantRepo.findOne({
+          where: { id: guestItem.variantId, productId: guestItem.productId },
+          relations: ['inventoryDetail'],
+        });
+
+        if (!variantConfig || variantConfig.productId !== guestItem.productId) {
+          throw new BadRequestException({
+            code: 'VARIANT_NOT_FOUND',
+            message: 'La variante seleccionada no existe o no está disponible',
+            details: { variantId: guestItem.variantId },
+          });
+        }
+
+        // Buscar si la variante ya existe en el carrito del cliente
+        const existingUserItem = userItems.find((ui) => ui.variantId === guestItem.variantId);
+        const existingQty = existingUserItem ? existingUserItem.quantity : 0;
+        const combinedQty = existingQty + guestItem.quantity;
+
+        // Validar cantidad combinada contra el stock disponible
+        const availableStock = variantConfig.inventoryDetail
+          ? Number(variantConfig.inventoryDetail.stock)
+          : 0;
+
+        if (combinedQty > availableStock) {
+          throw new BadRequestException({
+            code: 'STOCK_INSUFFICIENT',
+            message: 'La cantidad combinada supera el stock disponible',
+            details: {
+              variantId: guestItem.variantId,
+              requestedQuantity: combinedQty,
+              availableStock,
+            },
+          });
+        }
+
+        // Transferir o acumular la cantidad en el carrito del usuario
+        if (existingUserItem) {
+          existingUserItem.quantity = combinedQty;
+          await cartItemRepo.save(existingUserItem);
+        } else {
+          const newItem = cartItemRepo.create({
+            cartId: userCart.id,
+            productId: guestItem.productId,
+            variantId: guestItem.variantId,
+            quantity: guestItem.quantity,
+          });
+          await cartItemRepo.save(newItem);
+        }
+      }
+
+      // 4. Vaciar ítems del carrito invitado y actualizar su estado a ABANDONED
+      await cartItemRepo.delete({ cartId: guestCart.id });
+      guestCart.status = CartStatus.ABANDONED;
+      await cartRepo.save(guestCart);
+
+      // 5. Retornar carrito autenticado actualizado y recalculado
+      const updatedUserCart = await this.findActiveCartById(userCart.id);
+      return CartResponseDto.fromEntity(updatedUserCart);
+    });
   }
 }

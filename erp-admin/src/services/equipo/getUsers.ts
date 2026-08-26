@@ -1,3 +1,5 @@
+import { unwrapApiSuccess } from "@/lib/api-response";
+
 export interface GetUsersParams {
   page?: number;
   limit?: number;
@@ -72,7 +74,7 @@ export async function getUsers({
         );
       }
 
-      return responseBody as UsersResponse;
+      return unwrapApiSuccess<UsersResponse>(responseBody);
 }
 
 export class UsersRequestError extends Error {

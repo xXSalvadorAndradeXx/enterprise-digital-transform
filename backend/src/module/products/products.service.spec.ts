@@ -17,6 +17,10 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { ProductFilterDto, SortOrder } from './dto/product-filter.dto';
+import {
+  PublicProductResponseDto,
+  PublicProductDetailResponseDto,
+} from './dto/public-product-response.dto';
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -868,6 +872,77 @@ describe('ProductsService', () => {
       await service.remove('prod-uuid-1');
 
       expect(productRepositoryMock.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Fallback de variantes en DTOs públicos cuando variantConfigs está vacío', () => {
+    it('debe construir variantes desde inventory.details si variantConfigs está vacío en PublicProductResponseDto', () => {
+      const productWithoutConfigs: Product = {
+        ...mockProduct,
+        variantConfigs: [],
+        inventory: {
+          ...mockInventory,
+          details: [
+            {
+              id: 'inv-detail-uuid-1',
+              sku: 'SKU-FALLBACK',
+              size: 'XL',
+              color: '#000000',
+              stock: 10,
+              unitCost: 10,
+              minStock: 5,
+              inventory: null as any,
+              inventoryId: 'inv-uuid-1',
+              purchaseItem: null,
+              purchaseItemId: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+        },
+      };
+
+      const dto = PublicProductResponseDto.fromEntity(productWithoutConfigs, 200.0, true);
+      expect(dto.variants).toHaveLength(1);
+      expect(dto.variants[0].sku).toBe('SKU-FALLBACK');
+      expect(dto.variants[0].size).toBe('XL');
+      expect(dto.variants[0].stock).toBe(10);
+      expect(dto.availableSizes).toContain('XL');
+    });
+
+    it('debe construir variantes desde inventory.details si variantConfigs está vacío en PublicProductDetailResponseDto', () => {
+      const productWithoutConfigs: Product = {
+        ...mockProduct,
+        variantConfigs: [],
+        inventory: {
+          ...mockInventory,
+          details: [
+            {
+              id: 'inv-detail-uuid-1',
+              sku: 'SKU-FALLBACK-DETAIL',
+              size: 'L',
+              color: '#FFFFFF',
+              stock: 15,
+              unitCost: 10,
+              minStock: 5,
+              inventory: null as any,
+              inventoryId: 'inv-uuid-1',
+              purchaseItem: null,
+              purchaseItemId: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+        },
+      };
+
+      const dto = PublicProductDetailResponseDto.fromEntity(productWithoutConfigs, 200.0, true);
+      expect(dto.variants).toHaveLength(1);
+      expect(dto.variants[0].id).toBe('inv-detail-uuid-1');
+      expect(dto.variants[0].sku).toBe('SKU-FALLBACK-DETAIL');
+      expect(dto.variants[0].size).toBe('L');
+      expect(dto.variants[0].stock).toBe(15);
+      expect(dto.variants[0].available).toBe(true);
     });
   });
 });

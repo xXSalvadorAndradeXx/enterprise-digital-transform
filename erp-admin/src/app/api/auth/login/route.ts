@@ -22,6 +22,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function unwrapApiSuccess(body: unknown): unknown {
+  if (
+    isRecord(body) &&
+    body.success === true &&
+    "data" in body
+  ) {
+    return body.data;
+  }
+
+  return body;
+}
+
 function getBackendApiUrl(): string | null {
   return process.env.BACKEND_API_URL?.replace(/\/+$/, "") ?? null;
 }
@@ -84,15 +96,19 @@ function getBackendMessages(body: unknown): string[] {
     return [];
   }
 
-  if (Array.isArray(body.message)) {
-    return body.message.filter(
+  const messageContainer = isRecord(body.error)
+    ? body.error
+    : body;
+
+  if (Array.isArray(messageContainer.message)) {
+    return messageContainer.message.filter(
       (message): message is string =>
         typeof message === "string",
     );
   }
 
-  if (typeof body.message === "string") {
-    return [body.message];
+  if (typeof messageContainer.message === "string") {
+    return [messageContainer.message];
   }
 
   return [];
@@ -207,7 +223,9 @@ function normalizeBackendLoginResponse(
   accessToken: string;
   session: PublicAuthSession;
 } | null {
-  if (!isRecord(body)) {
+  const responseData = unwrapApiSuccess(body);
+
+  if (!isRecord(responseData)) {
     return null;
   }
 
@@ -216,22 +234,22 @@ function normalizeBackendLoginResponse(
    * el contrato del backend.
    */
   const accessToken =
-    typeof body.accessToken === "string"
-      ? body.accessToken
-      : typeof body.access_token === "string"
-        ? body.access_token
+    typeof responseData.accessToken === "string"
+      ? responseData.accessToken
+      : typeof responseData.access_token === "string"
+        ? responseData.access_token
         : null;
 
-  const user = normalizeAuthUser(body.user);
+  const user = normalizeAuthUser(responseData.user);
 
   const mustChangePassword =
-    typeof body.mustChangePassword === "boolean"
-      ? body.mustChangePassword
-      : typeof body.must_change_password === "boolean"
-        ? body.must_change_password
-        : isRecord(body.user) &&
-            typeof body.user.mustChangePassword === "boolean"
-          ? body.user.mustChangePassword
+    typeof responseData.mustChangePassword === "boolean"
+      ? responseData.mustChangePassword
+      : typeof responseData.must_change_password === "boolean"
+        ? responseData.must_change_password
+        : isRecord(responseData.user) &&
+            typeof responseData.user.mustChangePassword === "boolean"
+          ? responseData.user.mustChangePassword
           : null;
 
   if (
