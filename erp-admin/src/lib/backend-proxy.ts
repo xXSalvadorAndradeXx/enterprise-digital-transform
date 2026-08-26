@@ -1,5 +1,7 @@
 import {
+  deleteAuthToken,
   getAuthToken,
+  refreshAuthToken,
 } from "@/lib/session";
 
 function getBackendApiUrl(): string {
@@ -46,6 +48,85 @@ export async function getBackendAuthHeaders(
   }
 
   return headers;
+}
+
+async function fetchBackendWithAuthOnce(
+  input: string,
+  init: RequestInit = {},
+  options?: {
+    contentType?: string | null;
+  },
+): Promise<Response> {
+  const headers =
+    await getBackendAuthHeaders(
+      options,
+    );
+
+  if (init.headers) {
+    new Headers(init.headers).forEach(
+      (value, key) => {
+        headers.set(
+          key,
+          value,
+        );
+      },
+    );
+  }
+
+  return fetch(
+    input,
+    {
+      ...init,
+      headers,
+    },
+  );
+}
+
+export async function fetchBackendWithAuth(
+  input: string,
+  init: RequestInit = {},
+  options?: {
+    contentType?: string | null;
+  },
+): Promise<Response> {
+  const response =
+    await fetchBackendWithAuthOnce(
+      input,
+      init,
+      options,
+    );
+
+  if (response.status === 401) {
+    const refreshed =
+      await refreshAuthToken();
+
+    if (!refreshed) {
+      return response;
+    }
+
+    const retriedResponse =
+      await fetchBackendWithAuthOnce(
+        input,
+        init,
+        options,
+      );
+
+    if (retriedResponse.status === 401) {
+      await deleteAuthToken();
+    }
+
+    return retriedResponse;
+  }
+
+  if (response.status === 500) {
+    return fetchBackendWithAuthOnce(
+      input,
+      init,
+      options,
+    );
+  }
+
+  return response;
 }
 
 export function getBackendUrl(

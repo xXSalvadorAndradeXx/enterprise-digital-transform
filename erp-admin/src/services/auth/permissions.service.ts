@@ -1,64 +1,91 @@
 import type {
-PermissionCode,
-UserPermissions,
+  PermissionCode,
+  UserPermissions,
 } from "@/types/auth/permissions.types";
 
 const ADMIN_PERMISSIONS: PermissionCode[] = [
-"dashboard:read",
-"products:read",
-"orders:read",
-"pos:access",
-"inventory:read",
-"customers:read",
-"users:read",
-"suppliers:read",
-"purchases:read",
-"content:read",
+  "dashboard:read",
+  "products:read",
+  "orders:read",
+  "pos:access",
+  "inventory:read",
+  "customers:read",
+  "users:read",
+  "suppliers:read",
+  "purchases:read",
+  "content:read",
 ];
 
 const EMPLOYEE_PERMISSIONS: PermissionCode[] = [
-"orders:read",
-"pos:access",
-"inventory:read",
-"customers:read",
+  "orders:read",
+  "pos:access",
+  "inventory:read",
+  "customers:read",
 ];
+
+const KNOWN_PERMISSION_CODES =
+  new Set<PermissionCode>([
+    ...ADMIN_PERMISSIONS,
+  ]);
+
+function isPermissionCode(
+  value: string,
+): value is PermissionCode {
+  return KNOWN_PERMISSION_CODES.has(
+    value as PermissionCode,
+  );
+}
+
+function normalizePermissionCodes(
+  permissions: readonly string[],
+): PermissionCode[] {
+  return Array.from(
+    new Set(
+      permissions.filter(
+        isPermissionCode,
+      ),
+    ),
+  );
+}
 
 /**
  * Obtiene los permisos efectivos del usuario.
  *
- * IMPLEMENTACIÓN TEMPORAL:
- * Backend todavía no devuelve correctamente los permisos desde auth/me.
- * Por ahora, los permisos se calculan usando el rol de la sesión.
- *
- * MIGRACIÓN FUTURA:
- * Cuando backend complete GET /auth/me o GET /auth/permissions,
- * solamente se reemplazará el contenido de esta función por un fetch.
+ * Si la sesion ya contiene permisos reales del Backend, se usan esos permisos.
+ * El fallback por rol se mantiene para sesiones publicas creadas antes de que
+ * el perfil del Backend devuelva permissions.
  */
 export async function getUserPermissions(
-role: string,
+  role: string,
+  grantedPermissions?: readonly string[],
 ): Promise<UserPermissions> {
-const normalizedRole = role.trim().toUpperCase();
+  if (grantedPermissions) {
+    return {
+      permissions:
+        normalizePermissionCodes(
+          grantedPermissions,
+        ),
+    };
+  }
 
-if (
-normalizedRole === "ADMIN" ||
-normalizedRole === "SUPERADMIN"
-) {
-return {
-    permissions: ADMIN_PERMISSIONS,
-};
-}
+  const normalizedRole = role.trim().toUpperCase();
 
-if (normalizedRole === "EMPLEADO") {
-return {
-    permissions: EMPLOYEE_PERMISSIONS,
-};
-}
+  if (
+    normalizedRole === "ADMIN" ||
+    normalizedRole === "SUPERADMIN"
+  ) {
+    return {
+      permissions: ADMIN_PERMISSIONS,
+    };
+  }
 
-/*
-* Comportamiento seguro:
-* un rol desconocido no recibe acceso a ningún módulo.
-*/
-return {
-permissions: [],
-};
+  if (normalizedRole === "EMPLEADO") {
+    return {
+      permissions: EMPLOYEE_PERMISSIONS,
+    };
+  }
+
+  return {
+    permissions: [],
+  };
 }

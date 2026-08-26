@@ -1,5 +1,9 @@
 import type { RequestHandler } from "msw";
 
+import {
+  customersHandlers,
+} from "./customers.handlers";
+
 /**
  * Registro central de handlers de MSW.
  *
@@ -15,4 +19,6 @@ import type { RequestHandler } from "msw";
  * Los handlers se incorporarán aquí cuando exista un contrato de API
  * acordado para el módulo correspondiente.
  */
-export const handlers: RequestHandler[] = [];
+export const handlers: RequestHandler[] = [
+  ...customersHandlers,
+];

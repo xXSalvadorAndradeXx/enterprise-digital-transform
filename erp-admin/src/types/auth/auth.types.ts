@@ -8,6 +8,7 @@ export interface AuthUser {
   nombre?: string;
   email: string;
   rol: string;
+  permissions?: string[];
 }
 
 export interface PublicAuthSession {

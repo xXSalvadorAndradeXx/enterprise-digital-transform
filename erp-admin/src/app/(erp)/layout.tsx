@@ -140,7 +140,10 @@ const loadPermissions = async (): Promise<void> => {
   setPermissionsError(null);
 
   try {
-    const result = await getUserPermissions(user.rol);
+    const result = await getUserPermissions(
+      user.rol,
+      user.permissions,
+    );
 
     if (isCancelled) {
       return;
@@ -265,6 +268,20 @@ useEffect(() => {
     return <ERPLayoutLoading />;
   }
 
+  if (permissionsError) {
+    return (
+      <ERPAccessUnavailable
+        message={permissionsError}
+        onLogout={() => {
+          void clearSession().then(() => {
+            router.replace("/login");
+            router.refresh();
+          });
+        }}
+      />
+    );
+  }
+
   /**
    * Evita mostrar durante un instante una página
    * para la cual el usuario no tiene permiso.
@@ -272,20 +289,6 @@ useEffect(() => {
   if (!hasRoutePermission) {
     return <ERPLayoutLoading />;
   }
-
-  if (permissionsError) {
-  return (
-    <ERPAccessUnavailable
-      message={permissionsError}
-      onLogout={() => {
-        void clearSession().then(() => {
-          router.replace("/login");
-          router.refresh();
-        });
-      }}
-    />
-  );
-}
 
   return (
     <div className="flex min-h-screen min-w-0 bg-white">
