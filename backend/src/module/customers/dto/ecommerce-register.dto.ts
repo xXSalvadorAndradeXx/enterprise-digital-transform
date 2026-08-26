@@ -69,9 +69,9 @@ export class EcommerceRegisterDto {
   email!: string;
 
   @ApiProperty({
-    description: 'Contraseña del cliente para inicio de sesión (mínimo 12 caracteres, mayúscula, minúscula, número y símbolo)',
+    description: 'Contraseña del cliente para inicio de sesión (mínimo 8 caracteres, mayúscula, minúscula, número y símbolo)',
     example: 'SeguraPassword123!',
-    minLength: 12,
+    minLength: 8,
     maxLength: 100,
   })
   @IsString({ message: 'La contraseña debe ser una cadena de texto' })
