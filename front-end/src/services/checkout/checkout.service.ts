@@ -1,11 +1,39 @@
 import type {
+  CheckoutPreviewData,
+  CheckoutPreviewApiResponse,
   CheckoutPreviewRequest,
   CheckoutPreviewResponse,
   CheckoutRequest,
   Order,
 } from "@/types/checkout/checkout.types";
+import { apiRequest } from "@/lib/api-client";
+import { readAccessToken } from "@/lib/auth-session";
+import { readCartToken } from "@/lib/cart-token";
 
 const API_BASE_URL = "/api/v1/ecommerce";
+
+function getCheckoutHeaders(): Record<string, string> {
+  const accessToken = readAccessToken();
+  if (accessToken) return { Authorization: `Bearer ${accessToken}` };
+
+  const cartToken = readCartToken();
+  return cartToken ? { "X-Cart-Token": cartToken } : {};
+}
+
+export async function getCheckoutPreview(
+  data: CheckoutPreviewRequest,
+): Promise<CheckoutPreviewData> {
+  const response = await apiRequest<
+    CheckoutPreviewApiResponse,
+    CheckoutPreviewRequest
+  >("/checkout/preview", {
+    method: "POST",
+    headers: getCheckoutHeaders(),
+    body: data,
+  });
+
+  return response.data;
+}
 
 export class CheckoutError extends Error {
   status: number;

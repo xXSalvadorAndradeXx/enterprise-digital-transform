@@ -53,6 +53,7 @@ export interface CheckoutCard {
 
 export interface CheckoutPreviewRequest {
   source: CheckoutSource;
+  items?: CheckoutItem[];
   deliveryType: DeliveryType;
   delivery: HomeDelivery | StorePickup;
   paymentMethod: PaymentMethod;
@@ -104,4 +105,37 @@ export interface Order {
   shippingTotal: string;
   total: string;
   guestOrderAccessToken: string | null;
+}
+
+// Alias utilizado por la vista previa existente del carrito.
+export type CheckoutPreviewData = CheckoutPreviewResponse;
+export type HomeDeliveryData = HomeDelivery;
+export type StorePickupData = StorePickup;
+export type CheckoutDelivery = HomeDelivery | StorePickup;
+
+export type CheckoutErrorCode =
+  | "INVALID_DELIVERY"
+  | "INVALID_PAYMENT_COMBINATION"
+  | "INVALID_CHECKOUT_SOURCE"
+  | "STOCK_INSUFFICIENT"
+  | "PRICE_CHANGED"
+  | "CHECKOUT_ALREADY_PROCESSING"
+  | "IDEMPOTENCY_KEY_REUSED";
+
+export interface CheckoutErrorResponse {
+  success: false;
+  statusCode: number;
+  code: CheckoutErrorCode | string;
+  message: string;
+  error: string;
+  details?: Record<string, unknown>;
+  timestamp: string;
+  path: string;
+}
+
+export interface CheckoutPreviewApiResponse {
+  success: true;
+  message: string;
+  data: CheckoutPreviewData;
+  timestamp: string;
 }

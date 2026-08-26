@@ -66,7 +66,7 @@ export default function CheckoutPage() {
     // SOLO PARA PRUEBAS DE LA TASK 907.
 // Cambiar a "STOCK_INSUFFICIENT" para probar stock.
 // Cambiar a undefined para volver al checkout normal.
-  const MOCK_CHECKOUT_ERROR = "STOCK_INSUFFICIENT";
+  const MOCK_CHECKOUT_ERROR: string | undefined = undefined;
 
   /*
    * Una sola Idempotency-Key por intento
