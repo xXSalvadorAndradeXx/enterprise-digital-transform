@@ -26,7 +26,7 @@ export async function getCheckoutPreview(
   const response = await apiRequest<
     CheckoutPreviewApiResponse,
     CheckoutPreviewRequest
-  >("/checkout/preview", {
+  >("/ecommerce/checkout/preview", {
     method: "POST",
     headers: getCheckoutHeaders(),
     body: data,
