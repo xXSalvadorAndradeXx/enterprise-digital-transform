@@ -61,21 +61,28 @@ export function saveAuthSession(responseData: unknown) {
     return;
   }
 
-  if ("access_token" in responseData) {
-    const accessToken = (responseData as { access_token?: unknown })
-      .access_token;
+  let accessToken: unknown = null;
 
-    if (typeof accessToken === "string") {
-      localStorage.setItem("access_token", accessToken);
-    }
+  if ("accessToken" in responseData) {
+    accessToken = (responseData as { accessToken?: unknown }).accessToken;
+  } else if ("access_token" in responseData) {
+    accessToken = (responseData as { access_token?: unknown }).access_token;
   }
 
-  if ("user" in responseData) {
-    const user = (responseData as { user?: unknown }).user;
+  if (typeof accessToken === "string") {
+    localStorage.setItem("access_token", accessToken);
+  }
 
-    if (typeof user === "object" && user !== null) {
-      localStorage.setItem("user", JSON.stringify(user));
-    }
+  let user: unknown = null;
+
+  if ("customer" in responseData) {
+    user = (responseData as { customer?: unknown }).customer;
+  } else if ("user" in responseData) {
+    user = (responseData as { user?: unknown }).user;
+  }
+
+  if (typeof user === "object" && user !== null) {
+    localStorage.setItem("user", JSON.stringify(user));
   }
 
   notifyAuthSessionChanged();

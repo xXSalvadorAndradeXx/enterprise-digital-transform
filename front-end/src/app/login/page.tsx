@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiRequestError } from "@/lib/api-client";
+import { normalizeAuthError } from "@/lib/auth-error";
 import { hasActiveSession, saveAuthSession } from "@/lib/auth-session";
 import { loginSchema } from "@/lib/validations/auth.schemas";
 import { loginUser } from "@/services/auth/auth.service";
@@ -63,23 +63,17 @@ export default function LoginPage() {
     setSubmitError("");
     setSuccessMessage("");
 
-    const loginAttempt = loginUser({
-      email: formData.email,
-      password: formData.password,
-    })
-      .then((responseData) => {
-        saveAuthSession(responseData);
+    const loginAttempt = loginUser(formData)
+      .then(({ data }) => {
+        saveAuthSession(data);
         reset(initialFormData);
         setSuccessMessage("Inicio de sesión exitoso. Preparando tu cuenta...");
         router.push("/cuenta");
       })
       .catch((error: unknown) => {
-        setSubmitError(
-          error instanceof ApiRequestError &&
-            error.message.toLowerCase().includes("credenciales inválidas")
-            ? "Credenciales inválidas o usuario no encontrado."
-            : "No se pudo iniciar sesión. Inténtalo de nuevo.",
-        );
+        const normalizedError = normalizeAuthError(error);
+
+        setSubmitError(normalizedError.message);
       });
 
     pendingLoginRequest.current = loginAttempt;
