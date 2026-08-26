@@ -4,6 +4,7 @@ import type {
   LoginRequest,
   RegisterAddressStep,
   RegisterCredentialsStep,
+  RegisterFormValues,
   RegisterPersonalStep,
   RegisterRequest,
 } from "@/types/auth/auth.types";
@@ -92,29 +93,51 @@ export const registerCredentialsStepSchema = z.strictObject({
   password: registrationPasswordSchema,
 }) satisfies z.ZodType<RegisterCredentialsStep>;
 
+const departmentIdSchema = z
+  .number({ error: "Selecciona un departamento válido." })
+  .int("Selecciona un departamento válido.")
+  .positive("Selecciona un departamento válido.");
+const districtIdSchema = z
+  .number({ error: "Selecciona un distrito válido." })
+  .int("Selecciona un distrito válido.")
+  .positive("Selecciona un distrito válido.");
+const citySchema = z
+  .string()
+  .trim()
+  .min(1, "La ciudad es obligatoria.")
+  .max(120, "La ciudad debe tener como máximo 120 caracteres.");
+const addressLineSchema = z
+  .string()
+  .trim()
+  .min(1, "La dirección es obligatoria.")
+  .max(500, "La dirección debe tener como máximo 500 caracteres.");
+
 export const registerAddressStepSchema = z.strictObject({
-  departmentId: z
-    .string()
-    .min(1, "Selecciona un departamento.")
-    .uuid("Selecciona un departamento válido."),
-  districtId: z
-    .string()
-    .min(1, "Selecciona un distrito.")
-    .uuid("Selecciona un distrito válido."),
-  city: z
-    .string()
-    .trim()
-    .min(1, "La ciudad es obligatoria.")
-    .max(120, "La ciudad debe tener como máximo 120 caracteres."),
-  addressLine: z
-    .string()
-    .trim()
-    .min(1, "La dirección es obligatoria.")
-    .max(500, "La dirección debe tener como máximo 500 caracteres."),
+  departmentId: departmentIdSchema,
+  districtId: districtIdSchema,
+  city: citySchema,
+  addressLine: addressLineSchema,
 }) satisfies z.ZodType<RegisterAddressStep>;
+
+export const registerAddressFormStepSchema = z.strictObject({
+  departmentId: departmentIdSchema
+    .nullable()
+    .refine((value) => value !== null, "Selecciona un departamento."),
+  districtId: districtIdSchema
+    .nullable()
+    .refine((value) => value !== null, "Selecciona un distrito."),
+  city: citySchema,
+  addressLine: addressLineSchema,
+});
 
 export const registerSchema = z.strictObject({
   ...registerPersonalStepSchema.shape,
   ...registerCredentialsStepSchema.shape,
   ...registerAddressStepSchema.shape,
 }) satisfies z.ZodType<RegisterRequest>;
+
+export const registerFormSchema = z.strictObject({
+  ...registerPersonalStepSchema.shape,
+  ...registerCredentialsStepSchema.shape,
+  ...registerAddressFormStepSchema.shape,
+}) satisfies z.ZodType<RegisterFormValues>;

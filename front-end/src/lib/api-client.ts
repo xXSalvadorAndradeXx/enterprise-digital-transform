@@ -4,6 +4,7 @@ type ApiRequestOptions<TBody> = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: TBody;
   headers?: HeadersInit;
+  signal?: AbortSignal;
 };
 
 export class ApiRequestError extends Error {
@@ -22,16 +23,17 @@ function getErrorMessage(responseData: unknown, fallbackMessage: string) {
   if (
     typeof responseData === "object" &&
     responseData !== null &&
-    "message" in responseData
+    "error" in responseData
   ) {
-    const message = (responseData as { message?: unknown }).message;
+    const error = (responseData as { error?: unknown }).error;
 
-    if (Array.isArray(message)) {
-      return message.join(" ");
-    }
-
-    if (typeof message === "string") {
-      return message;
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "message" in error &&
+      typeof (error as { message?: unknown }).message === "string"
+    ) {
+      return (error as { message: string }).message;
     }
   }
 
@@ -50,7 +52,7 @@ export async function apiRequest<TResponse, TBody = undefined>(
   path: string,
   options: ApiRequestOptions<TBody> = {},
 ) {
-  const { method = "GET", body, headers } = options;
+  const { method = "GET", body, headers, signal } = options;
 
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -60,6 +62,7 @@ export async function apiRequest<TResponse, TBody = undefined>(
         ...headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
     });
 
     const responseData: unknown = await readJsonResponse(response);

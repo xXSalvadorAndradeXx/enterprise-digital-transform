@@ -1,44 +1,44 @@
-export interface MockDepartmentOption {
-  id: string;
-  label: string;
-}
-
-export interface MockDistrictOption {
-  id: string;
-  departmentId: string;
-  label: string;
-}
+import type {
+  Department,
+  District,
+} from "@/types/locations/location.types";
 
 export const mockDepartments = [
   {
-    id: "a1111111-1111-4111-8111-111111111111",
-    label: "Usulután",
+    id: 1,
+    name: "Usulután",
+    code: "USU",
   },
   {
-    id: "b2222222-2222-4222-8222-222222222222",
-    label: "San Salvador",
+    id: 2,
+    name: "San Salvador",
+    code: "SS",
   },
-] as const satisfies readonly MockDepartmentOption[];
+] as const satisfies readonly Department[];
 
 export const mockDistricts = [
   {
-    id: "c1111111-1111-4111-8111-111111111111",
-    departmentId: "a1111111-1111-4111-8111-111111111111",
-    label: "Jucuarán",
+    id: 101,
+    departmentId: 1,
+    name: "Jucuarán",
+    code: "JUC",
   },
   {
-    id: "c2222222-2222-4222-8222-222222222222",
-    departmentId: "a1111111-1111-4111-8111-111111111111",
-    label: "Santiago de María",
+    id: 102,
+    departmentId: 1,
+    name: "Santiago de María",
+    code: "SDM",
   },
   {
-    id: "d1111111-1111-4111-8111-111111111111",
-    departmentId: "b2222222-2222-4222-8222-222222222222",
-    label: "San Salvador",
+    id: 201,
+    departmentId: 2,
+    name: "San Salvador",
+    code: "SS-C",
   },
   {
-    id: "d2222222-2222-4222-8222-222222222222",
-    departmentId: "b2222222-2222-4222-8222-222222222222",
-    label: "Soyapango",
+    id: 202,
+    departmentId: 2,
+    name: "Soyapango",
+    code: "SOY",
   },
-] as const satisfies readonly MockDistrictOption[];
+] as const satisfies readonly District[];

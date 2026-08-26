@@ -36,10 +36,6 @@ function getRandomDelay() {
   );
 }
 
-function getRequestPath(request: Request) {
-  return new URL(request.url).pathname;
-}
-
 function getValidationDetails(error: ZodError): Record<string, unknown> {
   const details: Record<string, string[]> = {};
 
@@ -52,22 +48,19 @@ function getValidationDetails(error: ZodError): Record<string, unknown> {
 }
 
 function createErrorResponse(
-  request: Request,
   statusCode: number,
   code: string,
   message: string,
-  error: string,
   details?: Record<string, unknown>,
 ) {
   const body: ApiError = {
     success: false,
-    statusCode,
-    code,
-    message,
-    error,
-    ...(details ? { details } : {}),
+    error: {
+      code,
+      message,
+      ...(details ? { details } : {}),
+    },
     timestamp: new Date().toISOString(),
-    path: getRequestPath(request),
   };
 
   return HttpResponse.json(body, { status: statusCode });
@@ -111,11 +104,9 @@ const loginHandler = http.post(`*${AUTH_API_PATH}/login`, async ({ request }) =>
 
   if (!json.success) {
     return createErrorResponse(
-      request,
       400,
       "VALIDATION_ERROR",
       "El cuerpo de la solicitud no contiene JSON válido.",
-      "Bad Request",
       { body: ["Se esperaba un cuerpo JSON válido."] },
     );
   }
@@ -124,11 +115,9 @@ const loginHandler = http.post(`*${AUTH_API_PATH}/login`, async ({ request }) =>
 
   if (!parsedRequest.success) {
     return createErrorResponse(
-      request,
       400,
       "VALIDATION_ERROR",
       "Los datos de inicio de sesión no son válidos.",
-      "Bad Request",
       getValidationDetails(parsedRequest.error),
     );
   }
@@ -140,17 +129,14 @@ const loginHandler = http.post(`*${AUTH_API_PATH}/login`, async ({ request }) =>
     password !== mockLoginCredentials.password
   ) {
     return createErrorResponse(
-      request,
       401,
       "INVALID_CREDENTIALS",
       "El correo o la contraseña son incorrectos.",
-      "Unauthorized",
     );
   }
 
   const body: ApiSuccess<LoginSuccessData> = {
     success: true,
-    message: "Inicio de sesión mock exitoso.",
     data: {
       customer: {
         id: mockCustomer.id,
@@ -160,7 +146,6 @@ const loginHandler = http.post(`*${AUTH_API_PATH}/login`, async ({ request }) =>
       accessToken: mockAccessToken,
       expiresIn: mockAccessTokenExpiresIn,
     },
-    timestamp: new Date().toISOString(),
   };
 
   return HttpResponse.json(body, { status: 200 });
@@ -175,11 +160,9 @@ const registerHandler = http.post(
 
     if (!json.success) {
       return createErrorResponse(
-        request,
         400,
         "VALIDATION_ERROR",
         "El cuerpo de la solicitud no contiene JSON válido.",
-        "Bad Request",
         { body: ["Se esperaba un cuerpo JSON válido."] },
       );
     }
@@ -188,11 +171,9 @@ const registerHandler = http.post(
 
     if (!parsedRequest.success) {
       return createErrorResponse(
-        request,
         400,
         getRegisterValidationCode(parsedRequest.error),
         "Los datos de registro no son válidos.",
-        "Bad Request",
         getValidationDetails(parsedRequest.error),
       );
     }
@@ -201,33 +182,27 @@ const registerHandler = http.post(
 
     if (registration.email.toLowerCase() === mockDuplicateRegistration.email) {
       return createErrorResponse(
-        request,
         409,
         "EMAIL_ALREADY_EXISTS",
         "El correo electrónico ya está registrado.",
-        "Conflict",
       );
     }
 
     if (registration.dui === mockDuplicateRegistration.dui) {
       return createErrorResponse(
-        request,
         409,
         "DUI_ALREADY_EXISTS",
         "El DUI ya está registrado.",
-        "Conflict",
       );
     }
 
     const body: ApiSuccess<RegisterSuccessData> = {
       success: true,
-      message: "Registro mock completado exitosamente.",
       data: {
         customer: createMockCustomer(registration),
         accessToken: mockAccessToken,
         expiresIn: mockAccessTokenExpiresIn,
       },
-      timestamp: new Date().toISOString(),
     };
 
     return HttpResponse.json(body, { status: 201 });

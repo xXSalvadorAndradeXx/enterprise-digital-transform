@@ -4,14 +4,18 @@ import { AuthBenefitsBar } from "@/components/auth/AuthBenefitsBar";
 import { AuthIllustrationPanel } from "@/components/auth/AuthIllustrationPanel";
 import {
   registrationPasswordRequirements,
-  registerSchema,
+  registerFormSchema,
 } from "@/lib/validations/auth.schemas";
-import { mockDepartments, mockDistricts } from "@/mocks/data";
-import type { RegisterRequest } from "@/types/auth/auth.types";
+import { locationsService } from "@/services/locations/locations.service";
+import type { RegisterFormValues } from "@/types/auth/auth.types";
+import type {
+  Department,
+  District,
+} from "@/types/locations/location.types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Eye, EyeOff, Mail } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
 const registrationSteps = [
   {
@@ -65,20 +69,20 @@ const registrationSteps = [
 ] as const;
 
 const editableSteps = registrationSteps.slice(0, 3);
-const stepFields: Array<Array<keyof RegisterRequest>> = [
+const stepFields: Array<Array<keyof RegisterFormValues>> = [
   ["fullName", "dui", "phone"],
   ["email", "password"],
   ["departmentId", "districtId", "city", "addressLine"],
 ];
 
-const initialFormData: RegisterRequest = {
+const initialFormData: RegisterFormValues = {
   fullName: "",
   dui: "",
   phone: "",
   email: "",
   password: "",
-  departmentId: "",
-  districtId: "",
+  departmentId: null,
+  districtId: null,
   city: "",
   addressLine: "",
 };
@@ -87,6 +91,17 @@ const inputClassName =
   "h-10 w-full rounded-lg border border-transparent bg-[#f7f7f8] px-5 text-sm text-[#4a4a4a] outline-none transition placeholder:text-[#929292] focus:border-[#1c21d1] focus:bg-white focus:ring-2 focus:ring-[#1c21d1]/10 aria-invalid:border-red-600 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/10";
 const navigationButtonClassName =
   "inline-flex h-[21px] items-center justify-center whitespace-nowrap rounded-[2px] border px-0 text-[9px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c21d1] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-100";
+
+type CatalogStatus = "idle" | "loading" | "success" | "error";
+
+interface CatalogState<T> {
+  data: T[];
+  status: CatalogStatus;
+}
+
+interface DistrictCatalogState extends CatalogState<District> {
+  departmentId: number | null;
+}
 
 interface FieldErrorMessageProps {
   id: string;
@@ -105,11 +120,47 @@ function FieldErrorMessage({ id, message }: FieldErrorMessageProps) {
   );
 }
 
+function joinDescriptionIds(
+  ...ids: Array<string | false | null | undefined>
+) {
+  const description = ids
+    .filter((id): id is string => typeof id === "string")
+    .join(" ");
+
+  return description || undefined;
+}
+
+function parseLocationId(value: string) {
+  if (!/^[1-9]\d*$/.test(value)) {
+    return null;
+  }
+
+  const id = Number(value);
+
+  return Number.isSafeInteger(id) ? id : null;
+}
+
 export default function RegistroPage() {
   const [activeStep, setActiveStep] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
+  const [departmentsCatalog, setDepartmentsCatalog] = useState<
+    CatalogState<Department>
+  >({ data: [], status: "loading" });
+  const [districtsCatalog, setDistrictsCatalog] =
+    useState<DistrictCatalogState>({
+      data: [],
+      departmentId: null,
+      status: "idle",
+    });
+  const [departmentsRequestVersion, setDepartmentsRequestVersion] =
+    useState(0);
+  const [districtsRequestVersion, setDistrictsRequestVersion] = useState(0);
   const activeStepTitleRef = useRef<HTMLHeadingElement>(null);
   const previousStepRef = useRef(activeStep);
+  const departmentsStartedVersionRef = useRef<number | null>(null);
+  const departmentsRequestIdRef = useRef(0);
+  const districtsRequestIdRef = useRef(0);
+  const districtAbortControllerRef = useRef<AbortController | null>(null);
   const {
     clearErrors,
     control,
@@ -117,8 +168,8 @@ export default function RegistroPage() {
     setValue,
     trigger,
     formState: { errors },
-  } = useForm<RegisterRequest>({
-    resolver: zodResolver(registerSchema),
+  } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerFormSchema),
     defaultValues: initialFormData,
     mode: "onSubmit",
     reValidateMode: "onChange",
@@ -126,22 +177,65 @@ export default function RegistroPage() {
     shouldUnregister: false,
   });
   const formValues = useWatch({ control });
-  const selectedDepartmentId = formValues.departmentId ?? "";
-  const selectedDistrictId = formValues.districtId ?? "";
+  const selectedDepartmentId = formValues.departmentId ?? null;
+  const selectedDistrictId = formValues.districtId ?? null;
   const passwordValue = formValues.password ?? "";
   const previousDepartmentIdRef = useRef(selectedDepartmentId);
   const lastStepIndex = registrationSteps.length - 1;
   const currentStep = registrationSteps[activeStep];
-  const availableDistricts = mockDistricts.filter(
-    (district) => district.departmentId === selectedDepartmentId,
-  );
+  const isDistrictCatalogCurrent =
+    selectedDepartmentId !== null &&
+    districtsCatalog.departmentId === selectedDepartmentId;
+  const currentDistrictStatus: CatalogStatus = selectedDepartmentId === null
+    ? "idle"
+    : isDistrictCatalogCurrent
+      ? districtsCatalog.status
+      : "loading";
+  const availableDistricts = isDistrictCatalogCurrent
+    ? districtsCatalog.data
+    : [];
   const selectedDepartmentLabel =
-    mockDepartments.find(
+    departmentsCatalog.data.find(
       (department) => department.id === selectedDepartmentId,
-    )?.label ?? "";
+    )?.name ?? "";
   const selectedDistrictLabel =
-    mockDistricts.find((district) => district.id === selectedDistrictId)
-      ?.label ?? "";
+    availableDistricts.find((district) => district.id === selectedDistrictId)
+      ?.name ?? "";
+  const departmentStatusMessage =
+    departmentsCatalog.status === "loading"
+      ? "Cargando departamentos..."
+      : departmentsCatalog.status === "success" &&
+          departmentsCatalog.data.length === 0
+        ? "No hay departamentos disponibles"
+        : null;
+  const districtStatusMessage =
+    currentDistrictStatus === "loading"
+      ? "Cargando distritos..."
+      : currentDistrictStatus === "success" &&
+          availableDistricts.length === 0
+        ? "No hay distritos disponibles"
+        : null;
+  const departmentPlaceholder = departmentStatusMessage ?? "Departamento";
+  const districtPlaceholder = selectedDepartmentId === null
+    ? "Selecciona primero un departamento"
+    : (districtStatusMessage ?? "Distrito");
+  const isDepartmentSelectDisabled =
+    departmentsCatalog.status !== "success" ||
+    departmentsCatalog.data.length === 0;
+  const isDistrictSelectDisabled =
+    selectedDepartmentId === null ||
+    currentDistrictStatus !== "success" ||
+    availableDistricts.length === 0;
+  const departmentDescriptionIds = joinDescriptionIds(
+    Boolean(errors.departmentId) && "departmentId-error",
+    departmentStatusMessage && "department-catalog-status",
+    departmentsCatalog.status === "error" && "department-catalog-error",
+  );
+  const districtDescriptionIds = joinDescriptionIds(
+    Boolean(errors.districtId) && "districtId-error",
+    districtStatusMessage && "district-catalog-status",
+    currentDistrictStatus === "error" && "district-catalog-error",
+  );
   const confirmationRows = [
     ["Nombre completo:", formValues.fullName],
     ["Teléfono:", formValues.phone],
@@ -153,6 +247,65 @@ export default function RegistroPage() {
   ] as const;
 
   useEffect(() => {
+    if (
+      activeStep !== editableSteps.length - 1 ||
+      departmentsStartedVersionRef.current === departmentsRequestVersion
+    ) {
+      return;
+    }
+
+    departmentsStartedVersionRef.current = departmentsRequestVersion;
+    const requestId = ++departmentsRequestIdRef.current;
+    const controller = new AbortController();
+    let requestCompleted = false;
+
+    queueMicrotask(() => {
+      if (
+        controller.signal.aborted ||
+        requestId !== departmentsRequestIdRef.current
+      ) {
+        return;
+      }
+
+      void locationsService
+        .getDepartments(controller.signal)
+        .then((departments) => {
+          if (
+            controller.signal.aborted ||
+            requestId !== departmentsRequestIdRef.current
+          ) {
+            return;
+          }
+
+          requestCompleted = true;
+          setDepartmentsCatalog({ data: departments, status: "success" });
+        })
+        .catch(() => {
+          if (
+            controller.signal.aborted ||
+            requestId !== departmentsRequestIdRef.current
+          ) {
+            return;
+          }
+
+          requestCompleted = true;
+          setDepartmentsCatalog({ data: [], status: "error" });
+        });
+    });
+
+    return () => {
+      controller.abort();
+
+      if (
+        !requestCompleted &&
+        departmentsStartedVersionRef.current === departmentsRequestVersion
+      ) {
+        departmentsStartedVersionRef.current = null;
+      }
+    };
+  }, [activeStep, departmentsRequestVersion]);
+
+  useEffect(() => {
     if (previousStepRef.current === activeStep) {
       return;
     }
@@ -162,14 +315,76 @@ export default function RegistroPage() {
   }, [activeStep]);
 
   useEffect(() => {
-    if (previousDepartmentIdRef.current === selectedDepartmentId) {
+    if (previousDepartmentIdRef.current !== selectedDepartmentId) {
+      previousDepartmentIdRef.current = selectedDepartmentId;
+      setValue("districtId", null, { shouldDirty: true });
+      clearErrors("districtId");
+    }
+
+    districtAbortControllerRef.current?.abort();
+    const requestId = ++districtsRequestIdRef.current;
+
+    if (selectedDepartmentId === null) {
+      districtAbortControllerRef.current = null;
       return;
     }
 
-    previousDepartmentIdRef.current = selectedDepartmentId;
-    setValue("districtId", "", { shouldDirty: true });
-    clearErrors("districtId");
-  }, [clearErrors, selectedDepartmentId, setValue]);
+    const controller = new AbortController();
+    districtAbortControllerRef.current = controller;
+
+    queueMicrotask(() => {
+      if (
+        controller.signal.aborted ||
+        requestId !== districtsRequestIdRef.current
+      ) {
+        return;
+      }
+
+      void locationsService
+        .getDistricts(selectedDepartmentId, controller.signal)
+        .then((districts) => {
+          if (
+            controller.signal.aborted ||
+            requestId !== districtsRequestIdRef.current
+          ) {
+            return;
+          }
+
+          setDistrictsCatalog({
+            data: districts,
+            departmentId: selectedDepartmentId,
+            status: "success",
+          });
+        })
+        .catch(() => {
+          if (
+            controller.signal.aborted ||
+            requestId !== districtsRequestIdRef.current
+          ) {
+            return;
+          }
+
+          setDistrictsCatalog({
+            data: [],
+            departmentId: selectedDepartmentId,
+            status: "error",
+          });
+        });
+    });
+
+    return () => {
+      controller.abort();
+
+      if (districtAbortControllerRef.current === controller) {
+        districtAbortControllerRef.current = null;
+      }
+    };
+  }, [
+    clearErrors,
+    districtsRequestVersion,
+    selectedDepartmentId,
+    setValue,
+  ]);
 
   const goToPreviousStep = () => {
     setActiveStep((currentStepIndex) =>
@@ -477,22 +692,86 @@ export default function RegistroPage() {
                   <label htmlFor="departmentId" className="sr-only">
                     Departamento
                   </label>
-                  <select
-                    id="departmentId"
-                    {...register("departmentId")}
-                    className={`${inputClassName} cursor-pointer`}
-                    aria-invalid={Boolean(errors.departmentId)}
-                    aria-describedby={
-                      errors.departmentId ? "departmentId-error" : undefined
-                    }
-                  >
-                    <option value="">Departamento</option>
-                    {mockDepartments.map((department) => (
-                      <option key={department.id} value={department.id}>
-                        {department.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Controller
+                    name="departmentId"
+                    control={control}
+                    render={({ field }) => (
+                      <select
+                        id="departmentId"
+                        name={field.name}
+                        ref={field.ref}
+                        value={field.value ?? ""}
+                        onBlur={field.onBlur}
+                        onChange={(event) => {
+                          const nextDepartmentId = parseLocationId(
+                            event.target.value,
+                          );
+
+                          if (nextDepartmentId !== selectedDepartmentId) {
+                            districtAbortControllerRef.current?.abort();
+                            previousDepartmentIdRef.current = nextDepartmentId;
+                            setValue("districtId", null, {
+                              shouldDirty: true,
+                            });
+                            clearErrors("districtId");
+                            setDistrictsCatalog({
+                              data: [],
+                              departmentId: nextDepartmentId,
+                              status:
+                                nextDepartmentId === null ? "idle" : "loading",
+                            });
+                          }
+
+                          field.onChange(nextDepartmentId);
+                        }}
+                        disabled={isDepartmentSelectDisabled}
+                        className={`${inputClassName} cursor-pointer disabled:cursor-not-allowed disabled:opacity-60`}
+                        aria-invalid={Boolean(errors.departmentId)}
+                        aria-describedby={departmentDescriptionIds}
+                        aria-busy={departmentsCatalog.status === "loading"}
+                      >
+                        <option value="">{departmentPlaceholder}</option>
+                        {departmentsCatalog.data.map((department) => (
+                          <option key={department.id} value={department.id}>
+                            {department.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  />
+                  {departmentStatusMessage ? (
+                    <p
+                      id="department-catalog-status"
+                      role="status"
+                      className="sr-only"
+                    >
+                      {departmentStatusMessage}
+                    </p>
+                  ) : null}
+                  {departmentsCatalog.status === "error" ? (
+                    <div
+                      id="department-catalog-error"
+                      role="alert"
+                      className="mt-1.5 flex items-center justify-between gap-3 px-1 text-xs text-red-600"
+                    >
+                      <span>No pudimos cargar los departamentos.</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDepartmentsCatalog({
+                            data: [],
+                            status: "loading",
+                          });
+                          setDepartmentsRequestVersion(
+                            (currentVersion) => currentVersion + 1,
+                          );
+                        }}
+                        className="shrink-0 font-semibold text-[#1c21d1] underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c21d1]"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  ) : null}
                   <FieldErrorMessage
                     id="departmentId-error"
                     message={errors.departmentId?.message}
@@ -503,23 +782,68 @@ export default function RegistroPage() {
                   <label htmlFor="districtId" className="sr-only">
                     Distrito
                   </label>
-                  <select
-                    id="districtId"
-                    {...register("districtId")}
-                    disabled={!selectedDepartmentId}
-                    className={`${inputClassName} cursor-pointer disabled:cursor-not-allowed disabled:opacity-60`}
-                    aria-invalid={Boolean(errors.districtId)}
-                    aria-describedby={
-                      errors.districtId ? "districtId-error" : undefined
-                    }
-                  >
-                    <option value="">Distrito</option>
-                    {availableDistricts.map((district) => (
-                      <option key={district.id} value={district.id}>
-                        {district.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Controller
+                    name="districtId"
+                    control={control}
+                    render={({ field }) => (
+                      <select
+                        id="districtId"
+                        name={field.name}
+                        ref={field.ref}
+                        value={field.value ?? ""}
+                        onBlur={field.onBlur}
+                        onChange={(event) =>
+                          field.onChange(parseLocationId(event.target.value))
+                        }
+                        disabled={isDistrictSelectDisabled}
+                        className={`${inputClassName} cursor-pointer disabled:cursor-not-allowed disabled:opacity-60`}
+                        aria-invalid={Boolean(errors.districtId)}
+                        aria-describedby={districtDescriptionIds}
+                        aria-busy={currentDistrictStatus === "loading"}
+                      >
+                        <option value="">{districtPlaceholder}</option>
+                        {availableDistricts.map((district) => (
+                          <option key={district.id} value={district.id}>
+                            {district.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  />
+                  {districtStatusMessage ? (
+                    <p
+                      id="district-catalog-status"
+                      role="status"
+                      className="sr-only"
+                    >
+                      {districtStatusMessage}
+                    </p>
+                  ) : null}
+                  {currentDistrictStatus === "error" ? (
+                    <div
+                      id="district-catalog-error"
+                      role="alert"
+                      className="mt-1.5 flex items-center justify-between gap-3 px-1 text-xs text-red-600"
+                    >
+                      <span>No pudimos cargar los distritos.</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDistrictsCatalog({
+                            data: [],
+                            departmentId: selectedDepartmentId,
+                            status: "loading",
+                          });
+                          setDistrictsRequestVersion(
+                            (currentVersion) => currentVersion + 1,
+                          );
+                        }}
+                        className="shrink-0 font-semibold text-[#1c21d1] underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c21d1]"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  ) : null}
                   <FieldErrorMessage
                     id="districtId-error"
                     message={errors.districtId?.message}

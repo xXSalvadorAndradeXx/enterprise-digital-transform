@@ -16,8 +16,8 @@ export interface RegisterCredentialsStep {
 }
 
 export interface RegisterAddressStep {
-  departmentId: string;
-  districtId: string;
+  departmentId: number;
+  districtId: number;
   city: string;
   addressLine: string;
 }
@@ -25,3 +25,11 @@ export interface RegisterAddressStep {
 export type RegisterRequest = RegisterPersonalStep &
   RegisterCredentialsStep &
   RegisterAddressStep;
+
+export type RegisterFormValues = Omit<
+  RegisterRequest,
+  "departmentId" | "districtId"
+> & {
+  departmentId: number | null;
+  districtId: number | null;
+};

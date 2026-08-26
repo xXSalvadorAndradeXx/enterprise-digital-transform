@@ -1,19 +1,16 @@
 export interface ApiSuccess<T> {
   success: true;
-  message: string;
   data: T;
-  timestamp: string;
 }
 
 export interface ApiError {
   success: false;
-  statusCode: number;
-  code: string;
-  message: string;
-  error: string;
-  details?: Record<string, unknown>;
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
   timestamp: string;
-  path: string;
 }
 
 export interface PageMeta {
