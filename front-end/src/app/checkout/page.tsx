@@ -1,7 +1,7 @@
 "use client";
 
 import { useCart } from "@/hooks/cart/useCart";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -40,7 +40,12 @@ const STEP_TITLES: Record<CheckoutStep, string> = {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { clearCart } = useCart();
+  const {
+    clearCart,
+    subtotal,
+    discountTotal,
+    total,
+  } = useCart();
 
   const [currentStep, setCurrentStep] =
     useState<CheckoutStep | null>("contact");
@@ -96,23 +101,13 @@ export default function CheckoutPage() {
     paymentMethod: "CARD",
   };
 
-  useEffect(() => {
-    const loadPreview = async () => {
-      try {
-        const response =
-          await getCheckoutPreview(previewRequest);
-
-        setPreview(response);
-      } catch (error) {
-        console.error(
-          "Error obteniendo checkout preview:",
-          error,
-        );
-      }
-    };
-
-    loadPreview();
-  }, [deliveryType]);
+  const cartSummary: CheckoutPreviewResponse = {
+    subtotal: subtotal.toFixed(2),
+    discountTotal: discountTotal.toFixed(2),
+    shippingTotal: "0.00",
+    total: total.toFixed(2),
+    freeShippingApplied: false,
+  };
 
   const handleFinalCheckout = async (
     payment: PaymentData,
@@ -354,7 +349,7 @@ export default function CheckoutPage() {
           </section>
 
           <CheckoutSummary
-            preview={preview}
+            preview={preview ?? cartSummary}
             onContinue={() =>
               setCurrentStep("payment")
             }

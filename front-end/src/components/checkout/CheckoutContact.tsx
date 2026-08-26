@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  readAccessToken,
+  readSessionUser,
+} from "@/lib/auth-session";
 
 interface ContactData {
   fullName: string;
@@ -62,47 +66,30 @@ export default function CheckoutContact() {
 
   const errors = validate(data);
 
-  /*
-   * Obtener información del usuario logueado.
-   *
-   * Mientras no exista Backend real, esta petición
-   * será respondida por MSW.
-   */
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const response = await fetch(
-          "/api/v1/ecommerce/auth/me",
-          {
-            method: "GET",
-            credentials: "include",
-          },
-        );
+    if (!readAccessToken()) {
+      setLoadingUser(false);
+      return;
+    }
 
-        if (!response.ok) {
-          // Usuario invitado: formulario vacío.
-          return;
-        }
+    const user = readSessionUser();
 
-        const user = await response.json();
+    if (user) {
+      const sessionUser = user as typeof user & {
+        fullName?: string;
+        dui?: string;
+        phone?: string;
+      };
 
-        setData({
-          fullName: user.fullName ?? "",
-          email: user.email ?? "",
-          dui: user.dui ?? "",
-          phone: user.phone ?? "",
-        });
-      } catch (error) {
-        console.error(
-          "No se pudo obtener el usuario actual:",
-          error,
-        );
-      } finally {
-        setLoadingUser(false);
-      }
-    };
+      setData({
+        fullName: sessionUser.fullName ?? sessionUser.nombre ?? "",
+        email: sessionUser.email ?? "",
+        dui: sessionUser.dui ?? "",
+        phone: sessionUser.phone ?? "",
+      });
+    }
 
-    loadUser();
+    setLoadingUser(false);
   }, []);
 
   const isFieldInvalid = (
