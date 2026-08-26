@@ -272,7 +272,9 @@ function createOptimisticItem(
       product.nombre,
 
     imagenUrl:
-      product.primaryImage?.url ??
+      (typeof product.primaryImage === "string"
+        ? product.primaryImage
+        : product.primaryImage?.url) ??
       product.imagenUrl ??
       null,
 

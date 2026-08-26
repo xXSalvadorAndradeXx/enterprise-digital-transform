@@ -1,7 +1,7 @@
 import ProductCard from "@/components/products/ProductCard";
 import ProductGallery from "@/components/products/ProductGallery";
 import ProductOptions from "@/components/products/ProductOptions";
-import type { Product, ProductDetailResponse, ProductImage, ProductVariant } from "@/types/products/product.types";
+import type { Product, ProductImage, ProductVariant } from "@/types/products/product.types";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -25,10 +25,12 @@ async function getData(id:string):Promise<Result>{
   try{
     const detailResponse=await fetch(`${API}/ecommerce/products/${encodeURIComponent(id)}`,{cache:"no-store"});
     if(detailResponse.status===404)return{status:"not-found"}; if(!detailResponse.ok)return{status:"error"};
-    const rawDetail=(await detailResponse.json()) as ProductDetailResponse|{success?:boolean;data?:ProductDetailResponse};
-    const detail=rawDetail&&typeof rawDetail==="object"&&"success" in rawDetail&&rawDetail.success===true&&rawDetail.data?rawDetail.data:rawDetail;
-    const product=detail.data;
-    if(!product)return{status:"not-found"};
+    const rawDetail=await detailResponse.json() as unknown;
+    let detail:unknown=rawDetail;
+    if(detail&&typeof detail==="object"&&"success" in detail&&(detail as {success?:unknown}).success===true&&"data" in detail){detail=(detail as {data?:unknown}).data}
+    if(detail&&typeof detail==="object"&&!Array.isArray(detail)&&!("id" in detail)&&"data" in detail){detail=(detail as {data?:unknown}).data}
+    if(!detail||typeof detail!=="object"||!("id" in detail))return{status:"not-found"};
+    const product=detail as Product;
     let related:Product[]=[];
     try{
       const relatedResponse=await fetch(`${API}/ecommerce/products/${encodeURIComponent(id)}/related?limit=4`,{cache:"no-store"});

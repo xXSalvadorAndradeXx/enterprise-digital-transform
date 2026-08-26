@@ -30,6 +30,7 @@ export interface UseCartValue {
     quantity: number,
   ) => Promise<void>;
 
+  clearCart: () => Promise<void>;
 
   totalItems: number;
 
@@ -49,6 +50,7 @@ export function useCart(): UseCartValue {
     addItem,
     removeItem,
     updateQuantity,
+    clearCart,
     totalItems,
     subtotal,
     discountTotal,
@@ -64,6 +66,7 @@ export function useCart(): UseCartValue {
       addToCart: addItem,
       removeFromCart: removeItem,
       updateQuantity,
+      clearCart,
       totalItems,
       subtotal,
       discountTotal,
@@ -77,6 +80,7 @@ export function useCart(): UseCartValue {
       addItem,
       removeItem,
       updateQuantity,
+      clearCart,
       totalItems,
       subtotal,
       discountTotal,

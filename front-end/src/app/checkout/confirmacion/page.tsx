@@ -1,11 +1,11 @@
 ﻿"use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Check, Copy, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 
-export default function ConfirmationPage() {
+function ConfirmationContent() {
   const searchParams = useSearchParams();
 
   const orderNumber =
@@ -124,5 +124,19 @@ export default function ConfirmationPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function ConfirmationPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-white">
+          <p className="text-gray-500">Cargando confirmación...</p>
+        </main>
+      }
+    >
+      <ConfirmationContent />
+    </Suspense>
   );
 }
