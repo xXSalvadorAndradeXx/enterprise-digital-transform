@@ -60,6 +60,8 @@ describe('EcommerceProductsController', () => {
     ],
     variants: [
       {
+        id: 'var-cfg-uuid-1',
+        sku: 'SKU-TENIS-NEGRO-42',
         size: 'M',
         color: 'Negro',
         stock: 10,

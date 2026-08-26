@@ -921,6 +921,7 @@ export class ProductsService {
       .leftJoinAndSelect('p.inventory', 'inventory')
       .leftJoinAndSelect('inventory.category', 'category')
       .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoinAndSelect('inventory.details', 'inventory_details')
       .leftJoinAndSelect('p.images', 'product_images')
       .leftJoinAndSelect('p.tags', 'product_tags')
       .leftJoinAndSelect('p.variantConfigs', 'product_variant_config')
@@ -969,9 +970,10 @@ export class ProductsService {
       query.andWhere(
         `EXISTS (
           SELECT 1
-          FROM product_variant_config pvc
-          INNER JOIN inventory_details idt ON idt.id = pvc.inventory_detail_id
-          WHERE pvc.product_id = p.id AND idt.size = :size
+          FROM inventory_details idt
+          WHERE idt.inventory_id = p.inventory_id
+            AND UPPER(TRIM(idt.size)) = UPPER(TRIM(:size))
+            AND idt.stock > 0
         )`,
         { size },
       );
@@ -1052,6 +1054,7 @@ export class ProductsService {
       relations: [
         'inventory',
         'inventory.category',
+        'inventory.details',
         'images',
         'tags',
         'variantConfigs',
@@ -1120,6 +1123,7 @@ export class ProductsService {
       .leftJoinAndSelect('p.inventory', 'inventory')
       .leftJoinAndSelect('inventory.category', 'category')
       .leftJoinAndSelect('inventory.supplier', 'supplier')
+      .leftJoinAndSelect('inventory.details', 'inventory_details')
       .leftJoinAndSelect('p.images', 'product_images')
       .leftJoinAndSelect('p.tags', 'product_tags')
       .leftJoinAndSelect('p.variantConfigs', 'product_variant_config')

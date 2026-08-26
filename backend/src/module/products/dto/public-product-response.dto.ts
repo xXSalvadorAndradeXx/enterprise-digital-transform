@@ -73,6 +73,19 @@ export class PublicProductDetailImageDto {
 }
 
 export class PublicProductDetailVariantDto {
+  @ApiProperty({
+    example: 'var-cfg-uuid-1',
+    description: 'ID de la configuración de variante',
+  })
+  id!: string;
+
+  @ApiPropertyOptional({
+    example: 'SKU-TENIS-NEGRO-42',
+    description: 'SKU único de la variante',
+    nullable: true,
+  })
+  sku!: string | null;
+
   @ApiPropertyOptional({
     example: 'M',
     description: 'Talla o medida de la variante',
@@ -319,28 +332,53 @@ export class PublicProductResponseDto {
 
     const sizesSet = new Set<string>();
 
-    dto.variants = entity.variantConfigs
-      ? entity.variantConfigs.map((vc) => {
-          const detail = vc.inventoryDetail;
-          const stock = detail ? Number(detail.stock) : 0;
-          const minStock = detail ? Number(detail.minStock ?? vc.minStock) : 0;
-          let stockStatus = 'OUT_OF_STOCK';
-          if (stock > 0) {
-            stockStatus = stock <= minStock ? 'LOW_STOCK' : 'IN_STOCK';
-            if (detail?.size) {
-              sizesSet.add(detail.size);
-            }
+    const details = entity.variantConfigs?.length
+      ? entity.variantConfigs.map((vc) => vc.inventoryDetail).filter(Boolean)
+      : entity.inventory?.details ?? [];
+
+    dto.variants = [];
+    if (entity.variantConfigs?.length) {
+      dto.variants = entity.variantConfigs.map((vc) => {
+        const detail = vc.inventoryDetail;
+        const stock = detail ? Number(detail.stock) : 0;
+        const minStock = detail ? Number(detail.minStock ?? vc.minStock) : 0;
+        let stockStatus = 'OUT_OF_STOCK';
+        if (stock > 0) {
+          stockStatus = stock <= minStock ? 'LOW_STOCK' : 'IN_STOCK';
+          if (detail?.size) {
+            sizesSet.add(detail.size);
           }
-          return {
-            id: vc.id,
-            sku: detail?.sku ?? null,
-            size: detail?.size ?? null,
-            color: detail?.color ?? null,
-            stock,
-            stockStatus,
-          };
-        })
-      : [];
+        }
+        return {
+          id: vc.id,
+          sku: detail?.sku ?? null,
+          size: detail?.size ?? null,
+          color: detail?.color ?? null,
+          stock,
+          stockStatus,
+        };
+      });
+    } else {
+      dto.variants = details.map((detail) => {
+        const stock = Number(detail.stock ?? 0);
+        const minStock = Number(detail.minStock ?? 5);
+        let stockStatus = 'OUT_OF_STOCK';
+        if (stock > 0) {
+          stockStatus = stock <= minStock ? 'LOW_STOCK' : 'IN_STOCK';
+          if (detail.size) {
+            sizesSet.add(detail.size);
+          }
+        }
+        return {
+          id: detail.id,
+          sku: detail.sku ?? null,
+          size: detail.size ?? null,
+          color: detail.color ?? null,
+          stock,
+          stockStatus,
+        };
+      });
+    }
 
     dto.availableSizes = Array.from(sizesSet);
 
@@ -499,18 +537,36 @@ export class PublicProductDetailResponseDto {
 
     dto.tags = entity.tags ? entity.tags.map((t) => t.tag) : [];
 
-    dto.variants = entity.variantConfigs
-      ? entity.variantConfigs.map((vc) => {
-          const detail = vc.inventoryDetail;
-          const stock = detail ? Number(detail.stock) : 0;
-          return {
-            size: detail?.size ?? null,
-            color: detail?.color ?? null,
-            stock,
-            available: stock > 0,
-          };
-        })
-      : [];
+    const details = entity.variantConfigs?.length
+      ? entity.variantConfigs.map((vc) => vc.inventoryDetail).filter(Boolean)
+      : entity.inventory?.details ?? [];
+
+    if (entity.variantConfigs?.length) {
+      dto.variants = entity.variantConfigs.map((vc) => {
+        const detail = vc.inventoryDetail;
+        const stock = detail ? Number(detail.stock) : 0;
+        return {
+          id: vc.id,
+          sku: detail?.sku ?? null,
+          size: detail?.size ?? null,
+          color: detail?.color ?? null,
+          stock,
+          available: stock > 0,
+        };
+      });
+    } else {
+      dto.variants = details.map((detail) => {
+        const stock = Number(detail.stock ?? 0);
+        return {
+          id: detail.id,
+          sku: detail.sku ?? null,
+          size: detail.size ?? null,
+          color: detail.color ?? null,
+          stock,
+          available: stock > 0,
+        };
+      });
+    }
 
     return dto;
   }

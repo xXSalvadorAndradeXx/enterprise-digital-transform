@@ -39,7 +39,7 @@ import { CustomersModule } from '../src/module/customers/customers.module';
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
         autoLoadEntities: true, // Carga automáticamente las entidades de tus módulos
-        synchronize: true,      // Sincroniza las tablas con tus entidades (solo para desarrollo)
+        synchronize: false,      // Sincroniza las tablas con tus entidades (solo para desarrollo)
       }),
     }),
 
