@@ -98,6 +98,25 @@ function hasBearerToken(request: Request): boolean {
     .length > 0;
 }
 
+const MOCK_FORBIDDEN_SEARCH = "__msw_403__";
+const MOCK_SERVER_ERROR_SEARCH = "__msw_500__";
+
+function getMockSearchScenario(
+  searchParams: URLSearchParams,
+): "forbidden" | "serverError" | null {
+  const search = searchParams.get("search");
+
+  if (search === MOCK_FORBIDDEN_SEARCH) {
+    return "forbidden";
+  }
+
+  if (search === MOCK_SERVER_ERROR_SEARCH) {
+    return "serverError";
+  }
+
+  return null;
+}
+
 function getCustomerSortValue(
   customer: AdminCustomerListItem,
   sortBy: AdminCustomerSortBy,
@@ -455,6 +474,33 @@ export const customersHandlers = [
 
       const requestUrl =
         new URL(request.url);
+      const mockScenario =
+        getMockSearchScenario(requestUrl.searchParams);
+
+      if (mockScenario === "forbidden") {
+        return HttpResponse.json(
+          buildApiError(
+            "FORBIDDEN",
+            "Acceso denegado.",
+          ),
+          {
+            status: 403,
+          },
+        );
+      }
+
+      if (mockScenario === "serverError") {
+        return HttpResponse.json(
+          buildApiError(
+            "INTERNAL_SERVER_ERROR",
+            "Ocurrió un error interno.",
+          ),
+          {
+            status: 500,
+          },
+        );
+      }
+
       const parsedQuery =
         adminCustomersQuerySchema.safeParse({
           search: getOptionalQueryParam(
