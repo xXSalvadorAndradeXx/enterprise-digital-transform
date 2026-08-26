@@ -157,6 +157,14 @@ export class CustomersService {
     // 3. Hashear la contraseña utilizando HashService
     const hashedPassword = await this.hashService.hashPassword(dto.password);
 
+    const effectiveAddress = dto.address || dto.addressLine;
+    if (!effectiveAddress) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'La dirección detallada (address) es obligatoria',
+      });
+    }
+
     // 4. Ejecutar la creación en una transacción única de base de datos
     return await this.customerRepository.manager.transaction(async (manager) => {
       const customer = manager.create(Customer, {
@@ -176,10 +184,10 @@ export class CustomersService {
       // Crear dirección principal (isDefault = true, label = 'Casa')
       const address = manager.create(CustomerAddress, {
         customerId: savedCustomer.id,
-        departmentId: dto.departmentId,
-        districtId: dto.districtId,
+        departmentId: String(dto.departmentId),
+        districtId: String(dto.districtId),
         city: dto.city || null,
-        addressLine: dto.addressLine,
+        addressLine: effectiveAddress,
         label: 'Casa',
         isDefault: true,
       });
