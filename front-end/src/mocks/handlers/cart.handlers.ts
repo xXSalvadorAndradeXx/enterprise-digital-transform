@@ -226,7 +226,7 @@ export function resetCartMock() {
 const getCartHandler =
   http.get(
     `${API_BASE_URL}/cart`,
-    ({ request }) => {
+    ({  }) => {
       if (
         currentScenario ===
         "UNAUTHORIZED"

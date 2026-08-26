@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import type { CartItem } from "@/contexts/CartContext";
+import Image from "next/image";
 
 interface MiniCartProps {
   isOpen: boolean;
@@ -255,10 +256,12 @@ export function MiniCart({
                   {/* Imagen */}
                   <div className="h-[100px] w-[110px] shrink-0 overflow-hidden bg-[#f7f7f7]">
                     {item.imagenUrl ? (
-                      <img
+                      <Image
                         src={item.imagenUrl}
                         alt={item.nombre}
                         className="h-full w-full object-contain"
+                        width={110}
+                        height={100}
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center">

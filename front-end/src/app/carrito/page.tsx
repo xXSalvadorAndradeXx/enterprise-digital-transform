@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CartLine } from "@/components/cart/CartLine";
 import { CartSummary } from "@/components/cart/CartSummary";
 import { useCart } from "@/hooks/cart/useCart";
+import Image from "next/image";
 
 export default function CartPage() {
   const router = useRouter();
@@ -59,11 +60,13 @@ export default function CartPage() {
       ) : items.length === 0 ? (
         /* Carrito vacío */
         <div className="flex w-full flex-col items-center justify-start pt-8 text-center">
-          <img
+          <Image
             src="/images/cart-empty.svg"
             alt=""
             aria-hidden="true"
             className="mb-5 h-[180px] w-[180px] object-contain"
+            width={180}
+            height={180}
           />
 
           <h2 className="text-4xl font-bold text-black">

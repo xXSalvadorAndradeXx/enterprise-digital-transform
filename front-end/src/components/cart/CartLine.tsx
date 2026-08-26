@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import type { CartItem } from "@/contexts/CartContext";
+import Image from "next/image";
 
 interface CartLineProps {
   item: CartItem;
@@ -56,10 +57,12 @@ export function CartLine({
           {/* Imagen */}
           <div className="flex h-[95px] w-[95px] shrink-0 items-center justify-center overflow-hidden bg-[#f7f7f7]">
             {item.imagenUrl ? (
-              <img
+              <Image
                 src={item.imagenUrl}
                 alt={item.nombre}
                 className="h-full w-full object-contain"
+                width={95}
+                height={95}
               />
             ) : (
               <ShoppingCart
@@ -178,10 +181,12 @@ export function CartLine({
           {/* Imagen */}
           <div className="flex h-[80px] w-[90px] shrink-0 items-center justify-center overflow-hidden bg-[#f7f7f7]">
             {item.imagenUrl ? (
-              <img
+              <Image
                 src={item.imagenUrl}
                 alt={item.nombre}
                 className="h-full w-full object-contain"
+                width={90}
+                height={80}
               />
             ) : (
               <ShoppingCart
