@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/Pagination";
 
 import {
-  getAdminCustomerOrders,
-} from "@/services/customers/getAdminCustomerOrders";
+  customersService,
+} from "@/services/customers/customers.service";
 
 import {
   formatCurrency,
@@ -219,14 +219,17 @@ export function CustomerOrderHistory({
       "",
     );
 
-    void getAdminCustomerOrders(
+    void customersService.getCustomerOrders(
+      customerId,
       {
-        customerId,
         page,
         limit:
           ORDERS_PAGE_SIZE,
       },
-      controller.signal,
+      {
+        signal:
+          controller.signal,
+      },
     )
       .then((response) => {
         setOrders(

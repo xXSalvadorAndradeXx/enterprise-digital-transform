@@ -19,8 +19,8 @@ import {
 } from "@/components/ui/SearchBar";
 
 import {
-  getAdminCustomers,
-} from "@/services/customers/getAdminCustomers";
+  customersService,
+} from "@/services/customers/customers.service";
 
 import {
   CustomersTable,
@@ -342,7 +342,7 @@ export function CustomersListView({
       "",
     );
 
-    void getAdminCustomers(
+    void customersService.getCustomers(
       {
         page,
         limit:
@@ -358,7 +358,10 @@ export function CustomersListView({
             ? order
             : undefined,
       },
-      controller.signal,
+      {
+        signal:
+          controller.signal,
+      },
     )
       .then((response) => {
         if (

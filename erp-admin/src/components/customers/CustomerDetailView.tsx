@@ -13,9 +13,9 @@ import {
 } from "lucide-react";
 
 import {
-  AdminCustomerDetailRequestError,
-  getAdminCustomerById,
-} from "@/services/customers/getAdminCustomerById";
+  CustomersServiceRequestError,
+  customersService,
+} from "@/services/customers/customers.service";
 
 import type {
   AdminCustomerAddress,
@@ -315,9 +315,12 @@ export function CustomerDetailView({
       false,
     );
 
-    void getAdminCustomerById(
+    void customersService.getCustomer(
       customerId,
-      controller.signal,
+      {
+        signal:
+          controller.signal,
+      },
     )
       .then((response) => {
         setCustomer(
@@ -338,7 +341,7 @@ export function CustomerDetailView({
 
         if (
           caughtError instanceof
-            AdminCustomerDetailRequestError &&
+            CustomersServiceRequestError &&
           caughtError.status === 404
         ) {
           setIsNotFound(
