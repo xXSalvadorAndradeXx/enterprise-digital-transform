@@ -163,7 +163,7 @@ function buildProductsUrl(
   filters: ProductFilterValues,
   pagination: ProductPaginationValues,
 ) {
-  const productsUrl = new URL(`${API_BASE_URL}/products`);
+  const productsUrl = new URL(`${API_BASE_URL}/ecommerce/products`);
 
   appendProductQueryParams(productsUrl.searchParams, filters, pagination);
 
@@ -207,7 +207,19 @@ async function getProducts(
       };
     }
 
-    const responseData = (await response.json()) as ProductsResponse | { data?: { items?: Product[]; meta?: { total?: number; page?: number; limit?: number } }; meta?: { total?: number; page?: number; limit?: number } };
+    const rawResponseData = (await response.json()) as
+      | ProductsResponse
+      | {
+          success?: boolean;
+          data?: ProductsResponse;
+        };
+    const responseData = (
+      "success" in rawResponseData &&
+      rawResponseData.success === true &&
+      rawResponseData.data
+        ? rawResponseData.data
+        : rawResponseData
+    ) as ProductsResponse | { data?: { items?: Product[]; meta?: { total?: number; page?: number; limit?: number } }; meta?: { total?: number; page?: number; limit?: number } };
     const payload = responseData.data;
     const products = Array.isArray(payload) ? payload : Array.isArray(payload?.items) ? payload.items : [];
     const rootMeta = "meta" in responseData ? responseData.meta : undefined;
@@ -260,7 +272,17 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
   const resolvedSearchParams = await searchParams;
   const filters = readProductFilters(resolvedSearchParams);
   const pagination = readProductPagination(resolvedSearchParams);
-  const filtersKey = `${filters.search}-${filters.categoryId}-${filters.minPrice}-${filters.maxPrice}`;
+  const filtersKey = [
+    filters.search,
+    filters.categoryId,
+    filters.brand,
+    filters.gender,
+    filters.size,
+    filters.minPrice,
+    filters.maxPrice,
+    filters.availability,
+    filters.hasDiscount,
+  ].join("-");
   const filtersAreActive = hasActiveFilters(filters);
   const [productsResult, categories] = await Promise.all([
     getProducts(filters, pagination),

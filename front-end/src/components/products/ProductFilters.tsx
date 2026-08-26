@@ -31,15 +31,13 @@ export default function ProductFilters({initialFilters}:{categories:ProductCateg
     applyFilters(next);
   };
   const toggleBrand=(brand:string)=>{
-    const values=new Set(filters.brand.split(",").filter(Boolean));
-    if(values.has(brand))values.delete(brand);else values.add(brand);
-    updateFilter("brand",[...values].join(","));
+    updateFilter("brand",filters.brand===brand?"":brand);
   };
 
   const controls=<>
     <p className="text-sm font-medium uppercase">Filtros:</p>
     <fieldset className="mt-3"><legend className="text-base font-medium">Marca</legend><div className="mt-3 space-y-2">{brands.map(brand=><label key={brand} className="flex cursor-pointer items-center gap-3 text-sm"><input type="checkbox" checked={selectedBrands.includes(brand)} onChange={()=>toggleBrand(brand)} className="h-4 w-4 rounded border-[#9ca3af] accent-black"/>{brand}</label>)}</div></fieldset>
-    <fieldset className="mt-9"><legend className="text-base font-medium">Género</legend><div className="mt-4 flex gap-6">{[["MEN","Hombre"],["WOMEN","Mujer"]].map(([value,label])=><button type="button" key={value} aria-pressed={filters.gender===value} onClick={()=>updateFilter("gender",filters.gender===value?"":value)} className="flex items-center gap-2 text-sm"><span className={`h-5 w-5 rounded-full border-2 ${filters.gender===value?"border-black bg-black shadow-[inset_0_0_0_4px_white]":"border-slate-600"}`}/>{label}</button>)}</div></fieldset>
+    <fieldset className="mt-9"><legend className="text-base font-medium">Género</legend><div className="mt-4 flex flex-wrap gap-x-6 gap-y-3">{[["MEN","Hombre"],["WOMEN","Mujer"],["UNISEX","Unisex"]].map(([value,label])=><button type="button" key={value} aria-pressed={filters.gender===value} onClick={()=>updateFilter("gender",filters.gender===value?"":value)} className="flex items-center gap-2 text-sm"><span className={`h-5 w-5 rounded-full border-2 ${filters.gender===value?"border-black bg-black shadow-[inset_0_0_0_4px_white]":"border-slate-600"}`}/>{label}</button>)}</div></fieldset>
     <fieldset className="mt-10"><legend className="text-base font-medium">Talla</legend><div className="mt-3 flex flex-wrap gap-2">{sizes.map(size=><button key={size} type="button" onClick={()=>updateFilter("size",filters.size===size?"":size)} className={`h-10 min-w-10 rounded border px-3 text-xs ${filters.size===size?"border-black bg-black text-white":"border-[#edf0f4] bg-white"}`}>{size}</button>)}</div></fieldset>
     <fieldset className="mt-9"><legend className="text-base font-medium">Precio</legend><div className="mt-4"><input type="range" min="0" max="500" step="5" value={filters.maxPrice||500} onChange={event=>updateFilter("maxPrice",event.target.value==="500"?"":event.target.value)} className="w-full accent-[#4b4b4b]"/><div className="mt-1 flex justify-center"><span className="rounded bg-[#3f3f3f] px-3 py-1 text-xs text-white">${Number(filters.maxPrice||500).toFixed(2)}</span></div></div></fieldset>
   </>;

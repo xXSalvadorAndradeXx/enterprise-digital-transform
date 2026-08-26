@@ -18,6 +18,7 @@ export interface CreateProductRequest {
   discountEndsAt?: string | null;
 
   status?: ProductCreateStatus;
+  isPublished?: boolean;
 
   tags?: string[];
   imageUrls?: string[];
