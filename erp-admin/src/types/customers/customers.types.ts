@@ -1,5 +1,4 @@
 import type {
-  ApiSuccess,
   PaginatedData,
 } from "@/types/api-contract.types";
 
@@ -37,9 +36,32 @@ export interface AdminCustomerListItem {
   id: string;
   fullName: string;
   email: string;
-  lastOrderAt: string;
+  lastOrderAt: string | null;
   totalOrders: number;
   totalSpent: string;
+}
+
+export interface AdminCustomerLocationRef {
+  id: string | number;
+  name: string;
+}
+
+export interface AdminCustomerAddress {
+  id: string;
+  label: string;
+  department: AdminCustomerLocationRef;
+  district: AdminCustomerLocationRef;
+  city: string | null;
+  addressLine: string;
+  isDefault: boolean;
+}
+
+export interface AdminCustomerDetail
+  extends AdminCustomerListItem {
+  dui: string;
+  phone: string;
+  isActive: boolean;
+  addresses: AdminCustomerAddress[];
 }
 
 export interface AdminCustomersQuery {
@@ -53,6 +75,7 @@ export interface AdminCustomersQuery {
 }
 
 export interface AdminCustomerOrderHistoryItem {
+  id: string;
   orderNumber: string;
   createdAt: string;
   total: string;
@@ -68,10 +91,18 @@ export type AdminCustomerListData =
   PaginatedData<AdminCustomerListItem>;
 
 export type AdminCustomerListResponse =
-  ApiSuccess<AdminCustomerListData>;
+  AdminCustomerApiSuccess<AdminCustomerListData>;
+
+export type AdminCustomerDetailResponse =
+  AdminCustomerApiSuccess<AdminCustomerDetail>;
 
 export type AdminCustomerOrdersData =
   PaginatedData<AdminCustomerOrderHistoryItem>;
 
 export type AdminCustomerOrdersResponse =
-  ApiSuccess<AdminCustomerOrdersData>;
+  AdminCustomerApiSuccess<AdminCustomerOrdersData>;
+
+interface AdminCustomerApiSuccess<T> {
+  success: true;
+  data: T;
+}

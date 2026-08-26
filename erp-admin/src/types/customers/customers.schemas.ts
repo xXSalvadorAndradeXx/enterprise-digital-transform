@@ -62,13 +62,51 @@ export const adminCustomerListItemSchema =
     id: z.string().uuid(),
     fullName: z.string(),
     email: z.string().email(),
-    lastOrderAt: isoUtcDateTimeSchema,
+    lastOrderAt:
+      isoUtcDateTimeSchema.nullable(),
     totalOrders: z.number().int().min(0),
     totalSpent: z
       .string()
       .regex(
         DECIMAL_WITH_TWO_PLACES_PATTERN,
         "Debe ser un decimal con dos posiciones.",
+      ),
+  });
+
+export const adminCustomerLocationRefSchema =
+  z.object({
+    id: z.union([
+      z.string(),
+      z.number(),
+    ]),
+    name: z.string(),
+  });
+
+export const adminCustomerAddressSchema =
+  z.object({
+    id: z.string().uuid(),
+    label: z.string(),
+    department:
+      adminCustomerLocationRefSchema,
+    district:
+      adminCustomerLocationRefSchema,
+    city:
+      z.string().nullable(),
+    addressLine: z.string(),
+    isDefault: z.boolean(),
+  });
+
+export const adminCustomerDetailSchema =
+  adminCustomerListItemSchema.extend({
+    dui:
+      z.string(),
+    phone:
+      z.string(),
+    isActive:
+      z.boolean(),
+    addresses:
+      z.array(
+        adminCustomerAddressSchema,
       ),
   });
 
@@ -123,6 +161,7 @@ export const adminCustomerListDataSchema =
 
 export const adminCustomerOrderHistoryItemSchema =
   z.object({
+    id: z.string().uuid(),
     orderNumber: z.string(),
     createdAt: isoUtcDateTimeSchema,
     total: z
@@ -145,15 +184,17 @@ export const adminCustomerOrdersDataSchema =
 export const adminCustomerListResponseSchema =
   z.object({
     success: z.literal(true),
-    message: z.string(),
     data: adminCustomerListDataSchema,
-    timestamp: isoUtcDateTimeSchema,
+  });
+
+export const adminCustomerDetailResponseSchema =
+  z.object({
+    success: z.literal(true),
+    data: adminCustomerDetailSchema,
   });
 
 export const adminCustomerOrdersResponseSchema =
   z.object({
     success: z.literal(true),
-    message: z.string(),
     data: adminCustomerOrdersDataSchema,
-    timestamp: isoUtcDateTimeSchema,
   });

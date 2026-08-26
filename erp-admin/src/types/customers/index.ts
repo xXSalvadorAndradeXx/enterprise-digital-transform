@@ -2,6 +2,9 @@ export type {
   AdminCustomerListData,
   AdminCustomerListItem,
   AdminCustomerListResponse,
+  AdminCustomerAddress,
+  AdminCustomerDetail,
+  AdminCustomerDetailResponse,
   AdminCustomerOrderHistoryItem,
   AdminCustomerOrdersData,
   AdminCustomerOrdersQuery,
@@ -19,6 +22,10 @@ export {
 } from "./customers.types";
 
 export {
+  adminCustomerAddressSchema,
+  adminCustomerDetailResponseSchema,
+  adminCustomerDetailSchema,
+  adminCustomerLocationRefSchema,
   adminCustomerOrderHistoryItemSchema,
   adminCustomerListDataSchema,
   adminCustomerListItemSchema,

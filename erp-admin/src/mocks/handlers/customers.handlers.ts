@@ -17,7 +17,6 @@ import type {
 } from "@/types/customers";
 
 import type {
-  ApiError,
   PageMeta,
 } from "@/types/api-contract.types";
 
@@ -40,6 +39,16 @@ const BACKEND_API_URL =
 const ADMIN_CUSTOMERS_ENDPOINT =
   `${BACKEND_API_URL}/admin/customers`;
 
+interface BackendErrorResponse {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
+  };
+  timestamp: string;
+}
+
 function getPathParam(
   value: string | readonly string[] | undefined,
 ): string {
@@ -60,22 +69,18 @@ function getOptionalQueryParam(
 }
 
 function buildApiError(
-  request: Request,
-  statusCode: number,
   code: string,
   message: string,
-  error: string,
   details?: Record<string, unknown>,
-): ApiError {
+): BackendErrorResponse {
   return {
     success: false,
-    statusCode,
-    code,
-    message,
-    error,
-    ...(details ? { details } : {}),
+    error: {
+      code,
+      message,
+      ...(details ? { details } : {}),
+    },
     timestamp: new Date().toISOString(),
-    path: new URL(request.url).pathname,
   };
 }
 
@@ -96,9 +101,11 @@ function hasBearerToken(request: Request): boolean {
 function getCustomerSortValue(
   customer: AdminCustomerListItem,
   sortBy: AdminCustomerSortBy,
-): string | number {
+): string | number | null {
   if (sortBy === "lastOrderAt") {
-    return Date.parse(customer.lastOrderAt);
+    return customer.lastOrderAt
+      ? Date.parse(customer.lastOrderAt)
+      : null;
   }
 
   if (sortBy === "totalSpent") {
@@ -120,6 +127,19 @@ function compareCustomers(
     getCustomerSortValue(secondCustomer, sortBy);
   const direction =
     order === "DESC" ? -1 : 1;
+
+  if (
+    firstValue === null ||
+    secondValue === null
+  ) {
+    if (firstValue === secondValue) {
+      return 0;
+    }
+
+    return firstValue === null
+      ? direction
+      : -direction;
+  }
 
   if (
     typeof firstValue === "number" &&
@@ -178,6 +198,14 @@ function filterCustomers(
       customer.email
         .toLowerCase()
         .includes(normalizedSearch);
+
+    if (!customer.lastOrderAt) {
+      return (
+        matchesSearch &&
+        fromTimestamp === null &&
+        toTimestamp === null
+      );
+    }
 
     const lastOrderTimestamp =
       Date.parse(customer.lastOrderAt);
@@ -275,11 +303,8 @@ export const customersHandlers = [
       if (!hasBearerToken(request)) {
         return HttpResponse.json(
           buildApiError(
-            request,
-            401,
             "UNAUTHORIZED",
             "Bearer token requerido.",
-            "Unauthorized",
           ),
           {
             status: 401,
@@ -300,11 +325,8 @@ export const customersHandlers = [
       if (!customerExists) {
         return HttpResponse.json(
           buildApiError(
-            request,
-            404,
             "CUSTOMER_NOT_FOUND",
             "Cliente no encontrado.",
-            "Not Found",
           ),
           {
             status: 404,
@@ -329,11 +351,8 @@ export const customersHandlers = [
       if (!parsedQuery.success) {
         return HttpResponse.json(
           buildApiError(
-            request,
-            400,
             "INVALID_CUSTOMER_ORDERS_QUERY",
             "Los parametros de paginacion de pedidos no son validos.",
-            "Bad Request",
             {
               issues:
                 parsedQuery.error.issues.map((issue) => ({
@@ -366,11 +385,7 @@ export const customersHandlers = [
         {
           success:
             true,
-          message:
-            "Customer orders retrieved successfully.",
           data,
-          timestamp:
-            new Date().toISOString(),
         };
 
       return HttpResponse.json(response);
@@ -383,11 +398,8 @@ export const customersHandlers = [
       if (!hasBearerToken(request)) {
         return HttpResponse.json(
           buildApiError(
-            request,
-            401,
             "UNAUTHORIZED",
             "Bearer token requerido.",
-            "Unauthorized",
           ),
           {
             status: 401,
@@ -408,11 +420,8 @@ export const customersHandlers = [
       if (!customer) {
         return HttpResponse.json(
           buildApiError(
-            request,
-            404,
             "CUSTOMER_NOT_FOUND",
             "Cliente no encontrado.",
-            "Not Found",
           ),
           {
             status: 404,
@@ -423,12 +432,8 @@ export const customersHandlers = [
       return HttpResponse.json({
         success:
           true,
-        message:
-          "Customer detail retrieved successfully.",
         data:
           customer,
-        timestamp:
-          new Date().toISOString(),
       });
     },
   ),
@@ -439,11 +444,8 @@ export const customersHandlers = [
       if (!hasBearerToken(request)) {
         return HttpResponse.json(
           buildApiError(
-            request,
-            401,
             "UNAUTHORIZED",
             "Bearer token requerido.",
-            "Unauthorized",
           ),
           {
             status: 401,
@@ -488,11 +490,8 @@ export const customersHandlers = [
       if (!parsedQuery.success) {
         return HttpResponse.json(
           buildApiError(
-            request,
-            400,
             "INVALID_CUSTOMERS_QUERY",
             "Los parametros de busqueda de clientes no son validos.",
-            "Bad Request",
             {
               issues:
                 parsedQuery.error.issues.map((issue) => ({
@@ -551,10 +550,7 @@ export const customersHandlers = [
         );
       const response: AdminCustomerListResponse = {
         success: true,
-        message:
-          "Customers retrieved successfully.",
         data,
-        timestamp: new Date().toISOString(),
       };
 
       return HttpResponse.json(response);

@@ -283,7 +283,7 @@ export function CustomerOrderHistory({
   ]);
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-6 lg:col-span-2">
+    <section className="rounded-xl border border-gray-200 bg-white p-6">
       <h2 className="text-lg font-semibold text-gray-950">
         Historial de pedidos
       </h2>
@@ -347,7 +347,7 @@ export function CustomerOrderHistory({
                 {orders.map((order) => (
                   <tr
                     key={
-                      order.orderNumber
+                      order.id
                     }
                   >
                     <td className="whitespace-nowrap px-4 py-4 text-sm font-semibold text-gray-950">

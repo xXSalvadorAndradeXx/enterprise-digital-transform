@@ -1,55 +1,10 @@
 import {
-  z,
-} from "zod";
-
-import {
-  adminCustomerListItemSchema,
-  isoUtcDateTimeSchema,
+  adminCustomerDetailResponseSchema,
 } from "@/types/customers";
 
-export const provisionalCustomerAddressSchema =
-  z.object({
-    id:
-      z.string(),
-    city:
-      z.string(),
-    addressLine:
-      z.string(),
-    isDefault:
-      z.boolean(),
-  });
-
-export const provisionalAdminCustomerDetailSchema =
-  adminCustomerListItemSchema.extend({
-    phone:
-      z.string(),
-    addresses:
-      z.array(
-        provisionalCustomerAddressSchema,
-      ),
-  });
-
-const provisionalAdminCustomerDetailResponseSchema =
-  z.object({
-    success:
-      z.literal(true),
-    message:
-      z.string(),
-    data:
-      provisionalAdminCustomerDetailSchema,
-    timestamp:
-      isoUtcDateTimeSchema,
-  });
-
-export type ProvisionalAdminCustomerDetail =
-  z.infer<
-    typeof provisionalAdminCustomerDetailSchema
-  >;
-
-export type ProvisionalCustomerAddress =
-  z.infer<
-    typeof provisionalCustomerAddressSchema
-  >;
+import type {
+  AdminCustomerDetail,
+} from "@/types/customers";
 
 export class AdminCustomerDetailRequestError extends Error {
   constructor(
@@ -62,28 +17,55 @@ export class AdminCustomerDetailRequestError extends Error {
   }
 }
 
+function isRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getMessageText(
+  value: unknown,
+): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .filter(
+        (item): item is string =>
+          typeof item === "string",
+      )
+      .join(" ");
+  }
+
+  return "";
+}
+
 function getResponseMessage(
   body: unknown,
 ): string {
-  if (
-    typeof body === "object" &&
-    body !== null &&
-    "message" in body
-  ) {
-    const message =
-      body.message;
+  if (!isRecord(body)) {
+    return "No fue posible consultar el detalle del cliente.";
+  }
 
-    if (typeof message === "string") {
-      return message;
-    }
+  const rootMessage =
+    getMessageText(
+      body.message,
+    );
 
-    if (Array.isArray(message)) {
-      return message
-        .filter(
-          (item): item is string =>
-            typeof item === "string",
-        )
-        .join(" ");
+  if (rootMessage) {
+    return rootMessage;
+  }
+
+  if (isRecord(body.error)) {
+    const errorMessage =
+      getMessageText(
+        body.error.message,
+      );
+
+    if (errorMessage) {
+      return errorMessage;
     }
   }
 
@@ -103,7 +85,7 @@ async function readJsonResponse(
 export async function getAdminCustomerById(
   id: string,
   signal?: AbortSignal,
-): Promise<ProvisionalAdminCustomerDetail> {
+): Promise<AdminCustomerDetail> {
   const response =
     await fetch(
       `/api/customers/${encodeURIComponent(
@@ -139,7 +121,7 @@ export async function getAdminCustomerById(
   }
 
   const parsedResponse =
-    provisionalAdminCustomerDetailResponseSchema.safeParse(
+    adminCustomerDetailResponseSchema.safeParse(
       responseBody,
     );
 

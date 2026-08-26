@@ -15,9 +15,12 @@ import {
 import {
   AdminCustomerDetailRequestError,
   getAdminCustomerById,
-  type ProvisionalAdminCustomerDetail,
-  type ProvisionalCustomerAddress,
 } from "@/services/customers/getAdminCustomerById";
+
+import type {
+  AdminCustomerAddress,
+  AdminCustomerDetail,
+} from "@/types/customers";
 
 import {
   formatCurrency,
@@ -44,12 +47,16 @@ interface CommercialIndicatorProps {
 }
 
 interface CustomerAddressCardProps {
-  address: ProvisionalCustomerAddress;
+  address: AdminCustomerAddress;
 }
 
 function formatLastOrderAt(
-  value: string,
+  value: string | null,
 ): string {
+  if (!value) {
+    return "Sin pedidos";
+  }
+
   return new Intl.DateTimeFormat(
     "es-SV",
     {
@@ -67,6 +74,24 @@ function formatTotalSpent(
   return formatCurrency(
     Number(value),
   );
+}
+
+function getAddressLocation(
+  address: AdminCustomerAddress,
+): string {
+  const parts = [
+    address.city,
+    address.district.name,
+    address.department.name,
+  ].filter(
+    (part): part is string =>
+      typeof part === "string" &&
+      part.trim().length > 0,
+  );
+
+  return parts.length > 0
+    ? parts.join(", ")
+    : "Ubicacion no especificada";
 }
 
 function ReadOnlyField({
@@ -112,7 +137,9 @@ function CustomerAddressCard({
             {address.addressLine}
           </p>
           <p className="mt-2 text-sm text-gray-600">
-            {address.city}
+            {getAddressLocation(
+              address,
+            )}
           </p>
         </div>
 
@@ -129,10 +156,10 @@ function CustomerAddressCard({
 function CustomerAddressesSection({
   addresses,
 }: {
-  addresses: ProvisionalCustomerAddress[];
+  addresses: AdminCustomerAddress[];
 }) {
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-6 lg:col-span-2">
+    <section className="rounded-xl border border-gray-200 bg-white p-6">
       <h2 className="text-lg font-semibold text-gray-950">
         Direcciones
       </h2>
@@ -166,71 +193,73 @@ function CustomerDetailContent({
   returnHref,
   initialOrdersPage,
 }: {
-  customer: ProvisionalAdminCustomerDetail;
+  customer: AdminCustomerDetail;
   returnHref: string;
   initialOrdersPage: number;
 }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
-      <section className="rounded-xl border border-gray-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-gray-950">
-          Informacion del cliente
-        </h2>
+    <div className="grid items-start gap-6 xl:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]">
+      <div className="flex min-w-0 flex-col gap-6">
+        <section className="rounded-xl border border-gray-200 bg-white p-6">
+          <h2 className="text-lg font-semibold text-gray-950">
+            Informacion del cliente
+          </h2>
 
-        <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-          <ReadOnlyField
-            label="Nombre completo"
-            value={
-              customer.fullName
-            }
-          />
-          <ReadOnlyField
-            label="Telefono"
-            value={
-              customer.phone
-            }
-          />
-          <ReadOnlyField
-            label="Correo electronico"
-            value={
-              customer.email
-            }
-          />
-        </dl>
-      </section>
+          <dl className="mt-5 grid gap-4">
+            <ReadOnlyField
+              label="Nombre completo"
+              value={
+                customer.fullName
+              }
+            />
+            <ReadOnlyField
+              label="Telefono"
+              value={
+                customer.phone
+              }
+            />
+            <ReadOnlyField
+              label="Correo electronico"
+              value={
+                customer.email
+              }
+            />
+          </dl>
+        </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-gray-950">
-          Indicadores comerciales
-        </h2>
+        <section className="rounded-xl border border-gray-200 bg-white p-6">
+          <h2 className="text-lg font-semibold text-gray-950">
+            Indicadores comerciales
+          </h2>
 
-        <dl className="mt-5 grid gap-4">
-          <CommercialIndicator
-            label="Ultimo pedido"
-            value={formatLastOrderAt(
-              customer.lastOrderAt,
-            )}
-          />
-          <CommercialIndicator
-            label="Total gastado"
-            value={formatTotalSpent(
-              customer.totalSpent,
-            )}
-          />
-          <CommercialIndicator
-            label="Total pedidos"
-            value={customer.totalOrders.toLocaleString(
-              "es-SV",
-            )}
-          />
-        </dl>
-      </section>
+          <dl className="mt-5 grid gap-4">
+            <CommercialIndicator
+              label="Ultimo pedido"
+              value={formatLastOrderAt(
+                customer.lastOrderAt,
+              )}
+            />
+            <CommercialIndicator
+              label="Total gastado"
+              value={formatTotalSpent(
+                customer.totalSpent,
+              )}
+            />
+            <CommercialIndicator
+              label="Total pedidos"
+              value={customer.totalOrders.toLocaleString(
+                "es-SV",
+              )}
+            />
+          </dl>
+        </section>
 
-      <CustomerAddressesSection
-        addresses={
-          customer.addresses
-        }
-      />
+        <CustomerAddressesSection
+          addresses={
+            customer.addresses
+          }
+        />
+      </div>
 
       <CustomerOrderHistory
         customerId={
@@ -256,7 +285,7 @@ export function CustomerDetailView({
     customer,
     setCustomer,
   ] =
-    useState<ProvisionalAdminCustomerDetail | null>(
+    useState<AdminCustomerDetail | null>(
       null,
     );
   const [
@@ -369,21 +398,21 @@ export function CustomerDetailView({
         </ol>
       </nav>
 
-      <Link
-        href={returnHref}
-        className="mb-6 inline-flex h-10 items-center gap-2 rounded-md border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:border-[#1C21D1] hover:text-[#1C21D1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C21D1]"
-      >
-        <ArrowLeft
-          size={16}
-          aria-hidden="true"
-        />
-        <span>Volver a clientes</span>
-      </Link>
-
-      <header className="mb-6">
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="font-[var(--font-title)] text-[32px] font-bold text-gray-950">
           Detalle del cliente
         </h1>
+
+        <Link
+          href={returnHref}
+          className="inline-flex h-10 items-center gap-2 rounded-md bg-[#1C21D1] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#171BB8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C21D1] focus-visible:ring-offset-2"
+        >
+          <ArrowLeft
+            size={16}
+            aria-hidden="true"
+          />
+          <span>Volver</span>
+        </Link>
       </header>
 
       {isLoading ? (

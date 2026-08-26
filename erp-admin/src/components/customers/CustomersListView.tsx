@@ -31,8 +31,8 @@ import {
 } from "./LastOrderDateFilter";
 
 import {
-  CustomersSortControls,
-} from "./CustomersSortControls";
+  ADMIN_CUSTOMER_SORT_BY_VALUES,
+} from "@/types/customers";
 
 import type {
   AdminCustomerListItem,
@@ -165,6 +165,14 @@ function getDateRangeError(
   }
 
   return "";
+}
+
+function isAdminCustomerSortBy(
+  value: string,
+): value is AdminCustomerSortBy {
+  return ADMIN_CUSTOMER_SORT_BY_VALUES.includes(
+    value as AdminCustomerSortBy,
+  );
 }
 
 export function CustomersListView({
@@ -458,31 +466,39 @@ export function CustomersListView({
     );
   };
 
-  const changeSortBy = (
-    value: AdminCustomerSortBy | "",
+  const changeSort = (
+    key: string,
   ): void => {
-    setSortBy(
-      value,
-    );
+    if (!isAdminCustomerSortBy(key)) {
+      return;
+    }
+
     setPage(
       1,
     );
 
-    if (!value) {
+    if (sortBy !== key) {
+      setSortBy(
+        key,
+      );
       setOrder(
         "ASC",
       );
+      return;
     }
-  };
 
-  const changeOrder = (
-    value: SortOrder,
-  ): void => {
-    setOrder(
-      value,
+    if (order === "ASC") {
+      setOrder(
+        "DESC",
+      );
+      return;
+    }
+
+    setSortBy(
+      "",
     );
-    setPage(
-      1,
+    setOrder(
+      "ASC",
     );
   };
 
@@ -495,13 +511,7 @@ export function CustomersListView({
     );
 
   return (
-    <div className="w-full min-w-0">
-      <header className="mb-6">
-        <h1 className="font-[var(--font-title)] text-[32px] font-bold text-gray-950">
-          Clientes
-        </h1>
-      </header>
-
+    <div className="mx-auto w-full max-w-6xl min-w-0">
       {dateRangeError && (
         <p
           role="alert"
@@ -525,50 +535,41 @@ export function CustomersListView({
       )}
 
       <section className="rounded-xl border border-gray-200 bg-white">
-        <div className="flex flex-wrap items-center gap-4 border-b border-gray-100 px-4 py-6">
-          <SearchBar
-            value={
-              search
-            }
-            onChange={
-              setSearch
-            }
-            placeholder="Buscar por nombre o correo..."
-            className="w-full sm:w-[320px]"
-          />
+        <div className="flex flex-col gap-4 border-b border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <h1 className="font-[var(--font-title)] text-2xl font-bold text-gray-950">
+            Tabla de clientes
+          </h1>
 
-          <LastOrderDateFilter
-            from={
-              lastOrderFrom
-            }
-            to={
-              lastOrderTo
-            }
-            onFromChange={
-              changeLastOrderFrom
-            }
-            onToChange={
-              changeLastOrderTo
-            }
-            onClear={
-              clearLastOrderFilter
-            }
-          />
+          <div className="flex w-full items-center justify-end gap-3 sm:w-auto">
+            <SearchBar
+              value={
+                search
+              }
+              onChange={
+                setSearch
+              }
+              placeholder="Buscar..."
+              className="w-full sm:w-[260px]"
+            />
 
-          <CustomersSortControls
-            sortBy={
-              sortBy
-            }
-            order={
-              order
-            }
-            onSortByChange={
-              changeSortBy
-            }
-            onOrderChange={
-              changeOrder
-            }
-          />
+            <LastOrderDateFilter
+              from={
+                lastOrderFrom
+              }
+              to={
+                lastOrderTo
+              }
+              onFromChange={
+                changeLastOrderFrom
+              }
+              onToChange={
+                changeLastOrderTo
+              }
+              onClear={
+                clearLastOrderFilter
+              }
+            />
+          </div>
         </div>
 
         <CustomersTable
@@ -580,6 +581,15 @@ export function CustomersListView({
           }
           isLoading={
             isLoading
+          }
+          sortBy={
+            sortBy
+          }
+          order={
+            order
+          }
+          onSortChange={
+            changeSort
           }
         />
 

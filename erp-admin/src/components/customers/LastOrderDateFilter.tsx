@@ -9,7 +9,6 @@ import {
 
 import {
   CalendarDays,
-  ChevronDown,
   X,
 } from "lucide-react";
 
@@ -139,11 +138,18 @@ export function LastOrderDateFilter({
   return (
     <div
       ref={containerRef}
-      className="relative w-full min-w-0 sm:w-auto sm:min-w-[240px]"
+      className="relative shrink-0"
     >
       <button
         type="button"
-        aria-label="Filtrar por ultima compra"
+        aria-label={`Filtrar por ultima compra: ${getButtonLabel(
+          from,
+          to,
+        )}`}
+        title={getButtonLabel(
+          from,
+          to,
+        )}
         aria-expanded={isOpen}
         aria-controls={panelId}
         onClick={() =>
@@ -152,39 +158,27 @@ export function LastOrderDateFilter({
               !current,
           )
         }
-        className="flex h-10 w-full items-center justify-between gap-3 rounded-md bg-[#1C21D1] px-3 text-sm font-medium text-white transition-colors hover:bg-[#171BB8]"
+        className={`relative flex h-10 w-10 items-center justify-center rounded-md border text-gray-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C21D1] focus-visible:ring-offset-2 ${
+          hasValue
+            ? "border-[#1C21D1] bg-[#F2F5FC] text-[#1C21D1]"
+            : "border-gray-300 bg-white hover:border-[#1C21D1] hover:text-[#1C21D1]"
+        }`}
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <CalendarDays
-            size={16}
-            strokeWidth={1.8}
-            className="shrink-0"
-            aria-hidden="true"
-          />
-
-          <span className="truncate">
-            {getButtonLabel(
-              from,
-              to,
-            )}
-          </span>
-        </span>
-
-        <ChevronDown
-          size={17}
-          className={`shrink-0 transition-transform ${
-            isOpen
-              ? "rotate-180"
-              : ""
-          }`}
+        <CalendarDays
+          size={18}
+          strokeWidth={1.8}
           aria-hidden="true"
         />
+
+        {hasValue && (
+          <span className="absolute right-2 top-2 size-2 rounded-full bg-[#1C21D1]" />
+        )}
       </button>
 
       {isOpen && (
         <div
           id={panelId}
-          className="absolute left-0 top-full z-50 mt-2 w-full rounded-md border border-gray-200 bg-white p-3 shadow-lg sm:min-w-[280px]"
+          className="absolute right-0 top-full z-50 mt-2 w-[280px] rounded-md border border-gray-200 bg-white p-3 shadow-lg"
         >
           <div className="grid gap-3">
             <label className="grid gap-1 text-sm font-medium text-gray-700">

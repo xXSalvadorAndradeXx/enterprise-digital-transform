@@ -1,7 +1,9 @@
 import {
   ORDER_STATUS_VALUES,
+  type AdminCustomerAddress,
+  type AdminCustomerDetail,
   type AdminCustomerListItem,
-  type OrderStatus,
+  type AdminCustomerOrderHistoryItem,
 } from "@/types/customers";
 
 export const mockAdminCustomers: AdminCustomerListItem[] = [
@@ -89,7 +91,7 @@ export const mockAdminCustomers: AdminCustomerListItem[] = [
     id: "b1f6ce01-4fbc-4901-9107-b69e60a9d015",
     fullName: "Oscar Mejia",
     email: "oscar.mejia@example.com",
-    lastOrderAt: "2026-04-25T15:35:00.000Z",
+    lastOrderAt: null,
     totalOrders: 0,
     totalSpent: "0.00",
   },
@@ -103,33 +105,39 @@ export const mockAdminCustomers: AdminCustomerListItem[] = [
   },
 ];
 
-export interface MockAdminCustomerOrderHistoryItem {
-  orderNumber: string;
-  createdAt: string;
-  total: string;
-  status: OrderStatus;
-}
+export type MockAdminCustomerOrderHistoryItem =
+  AdminCustomerOrderHistoryItem;
 
-export interface MockAdminCustomerAddress {
-  id: string;
-  city: string;
-  addressLine: string;
-  isDefault: boolean;
-}
+export type MockAdminCustomerAddress =
+  AdminCustomerAddress;
 
-export interface MockAdminCustomerDetail
-  extends AdminCustomerListItem {
-  phone: string;
-  addresses: MockAdminCustomerAddress[];
+export type MockAdminCustomerDetail =
+  AdminCustomerDetail;
+
+function buildMockOrderId(
+  customerIndex: number,
+  orderIndex: number,
+): string {
+  return `10000000-0000-4000-8000-${String(
+    customerIndex + 1,
+  ).padStart(4, "0")}${String(
+    orderIndex + 1,
+  ).padStart(8, "0")}`;
 }
 
 function buildMockOrderHistory(
   customer: AdminCustomerListItem,
   customerIndex: number,
 ): MockAdminCustomerOrderHistoryItem[] {
-  if (customer.totalOrders === 0) {
+  if (
+    customer.totalOrders === 0 ||
+    !customer.lastOrderAt
+  ) {
     return [];
   }
+
+  const lastOrderAt =
+    customer.lastOrderAt;
 
   const orderTotal =
     (
@@ -144,7 +152,7 @@ function buildMockOrderHistory(
     },
     (_, orderIndex) => {
       const createdAt =
-        new Date(customer.lastOrderAt);
+        new Date(lastOrderAt);
 
       createdAt.setUTCDate(
         createdAt.getUTCDate() -
@@ -152,6 +160,11 @@ function buildMockOrderHistory(
       );
 
       return {
+        id:
+          buildMockOrderId(
+            customerIndex,
+            orderIndex,
+          ),
         orderNumber: `ORD-${String(
           customerIndex + 1,
         ).padStart(2, "0")}-${String(
@@ -238,7 +251,16 @@ const mockAdminCustomerAddresses: Record<
 > = {
   "0f9db36f-7df2-4d19-8d35-13f62307e16c": [
     {
-      id: "address-ana-01",
+      id: "20000000-0000-4000-8000-000000000001",
+      label: "Casa",
+      department: {
+        id: 6,
+        name: "San Salvador",
+      },
+      district: {
+        id: 61,
+        name: "San Salvador Centro",
+      },
       city: "San Salvador",
       addressLine:
         "Colonia Escalon, avenida Norte, casa 12",
@@ -246,7 +268,16 @@ const mockAdminCustomerAddresses: Record<
         true,
     },
     {
-      id: "address-ana-02",
+      id: "20000000-0000-4000-8000-000000000002",
+      label: "Oficina",
+      department: {
+        id: 5,
+        name: "La Libertad",
+      },
+      district: {
+        id: 52,
+        name: "La Libertad Este",
+      },
       city: "Santa Tecla",
       addressLine:
         "Residencial Las Palmas, poligono B, casa 8",
@@ -256,7 +287,16 @@ const mockAdminCustomerAddresses: Record<
   ],
   "2d9fa0ec-6dd1-45ff-a64a-4e2c601f4f96": [
     {
-      id: "address-carlos-01",
+      id: "20000000-0000-4000-8000-000000000003",
+      label: "Casa",
+      department: {
+        id: 6,
+        name: "San Salvador",
+      },
+      district: {
+        id: 62,
+        name: "San Salvador Este",
+      },
       city: "Soyapango",
       addressLine:
         "Reparto Los Santos, pasaje 4, casa 19",
@@ -266,7 +306,16 @@ const mockAdminCustomerAddresses: Record<
   ],
   "34b8400e-d6f8-4a0c-b44a-fb339120fc1b": [
     {
-      id: "address-sofia-01",
+      id: "20000000-0000-4000-8000-000000000004",
+      label: "Oficina",
+      department: {
+        id: 5,
+        name: "La Libertad",
+      },
+      district: {
+        id: 51,
+        name: "La Libertad Centro",
+      },
       city: "Antiguo Cuscatlan",
       addressLine:
         "Boulevard Orden de Malta, edificio 3",
@@ -274,7 +323,16 @@ const mockAdminCustomerAddresses: Record<
         false,
     },
     {
-      id: "address-sofia-02",
+      id: "20000000-0000-4000-8000-000000000005",
+      label: "Casa",
+      department: {
+        id: 12,
+        name: "San Miguel",
+      },
+      district: {
+        id: 121,
+        name: "San Miguel Centro",
+      },
       city: "San Miguel",
       addressLine:
         "Barrio El Centro, 2a calle poniente",
@@ -282,8 +340,17 @@ const mockAdminCustomerAddresses: Record<
         true,
     },
     {
-      id: "address-sofia-03",
-      city: "La Libertad",
+      id: "20000000-0000-4000-8000-000000000006",
+      label: "Retiro",
+      department: {
+        id: 5,
+        name: "La Libertad",
+      },
+      district: {
+        id: 53,
+        name: "La Libertad Costa",
+      },
+      city: null,
       addressLine:
         "Playa El Tunco, local 5",
       isDefault:
@@ -296,12 +363,19 @@ const mockAdminCustomerAddresses: Record<
 export const mockAdminCustomerDetails:
   MockAdminCustomerDetail[] =
   mockAdminCustomers.map(
-    (customer) => ({
+    (customer, customerIndex) => ({
       ...customer,
+      dui: `${String(
+        customerIndex + 1,
+      ).padStart(8, "0")}-${String(
+        (customerIndex + 1) % 10,
+      )}`,
       phone:
         mockAdminCustomerPhones[
           customer.id
         ] ?? "",
+      isActive:
+        true,
       addresses:
         mockAdminCustomerAddresses[
           customer.id

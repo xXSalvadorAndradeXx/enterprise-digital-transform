@@ -22,28 +22,55 @@ export class AdminCustomerOrdersRequestError extends Error {
   }
 }
 
+function isRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getMessageText(
+  value: unknown,
+): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .filter(
+        (item): item is string =>
+          typeof item === "string",
+      )
+      .join(" ");
+  }
+
+  return "";
+}
+
 function getResponseMessage(
   body: unknown,
 ): string {
-  if (
-    typeof body === "object" &&
-    body !== null &&
-    "message" in body
-  ) {
-    const message =
-      body.message;
+  if (!isRecord(body)) {
+    return "No fue posible consultar el historial de pedidos.";
+  }
 
-    if (typeof message === "string") {
-      return message;
-    }
+  const rootMessage =
+    getMessageText(
+      body.message,
+    );
 
-    if (Array.isArray(message)) {
-      return message
-        .filter(
-          (item): item is string =>
-            typeof item === "string",
-        )
-        .join(" ");
+  if (rootMessage) {
+    return rootMessage;
+  }
+
+  if (isRecord(body.error)) {
+    const errorMessage =
+      getMessageText(
+        body.error.message,
+      );
+
+    if (errorMessage) {
+      return errorMessage;
     }
   }
 

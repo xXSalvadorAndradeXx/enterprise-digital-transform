@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Table,
   type TableColumn,
+  type TableSortConfig,
 } from "@/components/ui/Table";
 
 import {
@@ -13,6 +14,8 @@ import {
 
 import type {
   AdminCustomerListItem,
+  AdminCustomerSortBy,
+  SortOrder,
 } from "@/types/customers";
 
 import type {
@@ -25,6 +28,9 @@ interface CustomersTableProps {
     customer: AdminCustomerListItem,
   ) => string;
   isLoading?: boolean;
+  sortBy: AdminCustomerSortBy | "";
+  order: SortOrder;
+  onSortChange: (key: string) => void;
 }
 
 interface CustomerCellLinkProps {
@@ -38,8 +44,12 @@ interface CustomerCellLinkProps {
 }
 
 function formatLastOrderAt(
-  value: string,
+  value: string | null,
 ): string {
+  if (!value) {
+    return "Sin pedidos";
+  }
+
   return new Intl.DateTimeFormat(
     "es-SV",
     {
@@ -98,6 +108,8 @@ function buildColumns(
     {
       key:
         "fullName",
+      sortable:
+        true,
       header:
         "Nombre",
       accessor: (
@@ -165,6 +177,8 @@ function buildColumns(
     {
       key:
         "lastOrderAt",
+      sortable:
+        true,
       header:
         "Último pedido",
       accessor: (
@@ -190,6 +204,8 @@ function buildColumns(
     {
       key:
         "totalSpent",
+      sortable:
+        true,
       header:
         "Total gastado",
       align:
@@ -217,6 +233,8 @@ function buildColumns(
     {
       key:
         "totalOrders",
+      sortable:
+        true,
       header:
         "Total pedidos",
       align:
@@ -247,7 +265,22 @@ export function CustomersTable({
   customers,
   getCustomerHref,
   isLoading = false,
+  sortBy,
+  order,
+  onSortChange,
 }: CustomersTableProps) {
+  const sortConfig: TableSortConfig | null =
+    sortBy
+      ? {
+          key:
+            sortBy,
+          direction:
+            order === "ASC"
+              ? "asc"
+              : "desc",
+        }
+      : null;
+
   return (
     <Table<AdminCustomerListItem>
       columns={
@@ -265,6 +298,12 @@ export function CustomersTable({
       }
       isLoading={
         isLoading
+      }
+      sortConfig={
+        sortConfig
+      }
+      onSortChange={
+        onSortChange
       }
       emptyMessage="No hay clientes para mostrar."
     />
