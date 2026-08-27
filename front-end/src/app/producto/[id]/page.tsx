@@ -58,6 +58,7 @@ export default async function ProductDetailPage({params}:{params:Promise<{id:str
   const name=product.commercialName??product.nombre??backendProduct.inventory?.productName??"Producto";
   const stock=Number(product.stockTotal??product.stock??backendProduct.inventory?.totalStock??backendProduct.inventory?.stock??0);
   const price=product.effectivePrice??product.precio;const original=product.salePrice;
+  const description=String(product.description??product.descripcion??"").trim();
   const rawDiscount=product.discount as unknown;
   const discountPercentage=typeof rawDiscount==="number"?rawDiscount:(rawDiscount&&typeof rawDiscount==="object"&&"percentage" in rawDiscount?Number((rawDiscount as {percentage?:number}).percentage??0):0);
   const hasActiveDiscount=discountPercentage>0&&Number(price)<Number(original??price);
@@ -67,7 +68,13 @@ export default async function ProductDetailPage({params}:{params:Promise<{id:str
   const rawVariants=(product.variants??[]) as unknown as Array<{id?:string;sku?:string;size?:string;color?:string|{name?:string;hex?:string};stock?:string|number;available?:boolean;stockStatus?:string}>;
   const variants:ProductVariant[]=rawVariants.flatMap((variant,index)=>{const size=String(variant.size??"").trim();const rawColor=variant.color;const hex=typeof rawColor==="string"?rawColor.trim():String(rawColor?.hex??"").trim();const colorName=typeof rawColor==="string"?rawColor:String(rawColor?.name??hex);const variantStock=Number(variant.stock??0);if(!size||!hex)return[];return[{id:String(variant.id??index),sku:String(variant.sku??variant.id??index),size,color:{name:colorName,hex},stock:variantStock,available:variant.available??(variant.stockStatus!=="OUT_OF_STOCK"&&variantStock>0)}]});
   return <main className="mx-auto w-full max-w-[1280px] px-5 py-6 sm:px-8">
-    <nav className="bg-[#f2f5fb] px-5 py-4 text-xs text-slate-600">Inicio&nbsp;&nbsp;›&nbsp;&nbsp;Producto&nbsp;&nbsp;›&nbsp;&nbsp;Detalle</nav>
+    <nav aria-label="Ruta de navegación" className="flex items-center gap-2 bg-[#f2f5fb] px-5 py-4 text-xs text-slate-600">
+      <Link href="/" className="transition-colors hover:text-[#1822d9] hover:underline">Inicio</Link>
+      <span aria-hidden="true">›</span>
+      <Link href="/productos" className="transition-colors hover:text-[#1822d9] hover:underline">Producto</Link>
+      <span aria-hidden="true">›</span>
+      <span aria-current="page" className="font-medium text-slate-900">Detalle</span>
+    </nav>
     <header className="border-b border-[#aeb4bd] px-3 pb-8 pt-10 sm:px-4">
       <h1 className="text-3xl font-extrabold tracking-tight text-black sm:text-4xl lg:text-5xl">{name}</h1>
       <p className="mt-8 text-sm font-bold text-[#1822d9]">Detalles del producto</p>
@@ -75,7 +82,7 @@ export default async function ProductDetailPage({params}:{params:Promise<{id:str
     <article className="mt-12 grid gap-10 lg:grid-cols-[1.05fr_.95fr] lg:items-start">
       <ProductGallery images={images} productName={name}/>
       <div className="min-w-0"><div className="flex flex-wrap items-center gap-3"><span className={`text-3xl font-bold ${hasActiveDiscount?"text-[#ff2d20]":"text-[#1822d9]"}`}>{money.format(Number(price)||0)}</span>{hasActiveDiscount&&original?<><span className="text-base text-slate-600 line-through">{money.format(Number(original)||0)}</span><span className="rounded bg-[#ff3b30] px-2 py-1 text-xs font-bold text-white">-{discountPercentage}%</span></>:null}<span className="rounded-md bg-[#eefaf1] px-3 py-1 text-sm font-semibold text-[#08a637]">{stock} En Stock</span></div>
-        <p className="mt-6 leading-7 text-slate-600">{product.description??product.descripcion}</p>
+        {description&&<section className="mt-6"><h2 className="text-base font-bold text-black">Descripción</h2><p className="mt-2 leading-7 text-slate-600">{description}</p></section>}
         <ProductOptions product={product} variants={variants}/>
       </div>
     </article>

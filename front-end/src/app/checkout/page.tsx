@@ -32,6 +32,7 @@ import {
   readBuyNowSelection,
 } from "@/lib/buy-now";
 import type { BuyNowSelection } from "@/lib/buy-now";
+import { isValidDui } from "@/lib/validations/dui";
 
 const STEP_ORDER: CheckoutStep[] = [
   "contact",
@@ -145,21 +146,28 @@ export default function CheckoutPage() {
   const buyNowTotal = buyNowSelection
     ? buyNowSelection.unitPrice * buyNowSelection.item.quantity
     : 0;
+  const fallbackProductTotal = buyNowSelection
+    ? buyNowTotal
+    : total;
+  const fallbackShippingTotal = deliveryType === "HOME_DELIVERY"
+    ? 4
+    : 0;
   const cartSummary: CheckoutPreviewResponse = {
     subtotal: (buyNowSelection ? buyNowSubtotal : subtotal).toFixed(2),
     discountTotal: (buyNowSelection
       ? Math.max(0, buyNowSubtotal - buyNowTotal)
       : discountTotal
     ).toFixed(2),
-    shippingTotal: "0.00",
-    total: (buyNowSelection ? buyNowTotal : total).toFixed(2),
-    freeShippingApplied: false,
+    shippingTotal: fallbackShippingTotal.toFixed(2),
+    total: (fallbackProductTotal + fallbackShippingTotal).toFixed(2),
+    freeShippingApplied: deliveryType === "STORE_PICKUP",
   };
 
   useEffect(() => {
     const validContact = Boolean(
       contact.fullName.trim() &&
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim()) &&
+      isValidDui(contact.dui) &&
       /^\d{8}$/.test(contact.phone),
     );
     const validDelivery = deliveryType === "HOME_DELIVERY"

@@ -9,7 +9,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, EntityManager, IsNull } from 'typeorm';
+import { Repository, In, EntityManager, IsNull, Brackets } from 'typeorm';
 import * as crypto from 'crypto';
 import { Order } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -47,6 +47,7 @@ import { CartStatus } from '../cart/enums/cart-status.enum';
 import { hashGuestToken } from '../../common/utils/security.util';
 import { ProductVariantConfig } from '../products/entities/product-variant-config.entity';
 import { InventoryDetail } from '../inventory/entities/inventory-detail.entity';
+import { FindAdminOrdersQueryDto } from './dto/find-admin-orders-query.dto';
 
 @Injectable()
 export class OrdersService {
@@ -66,6 +67,125 @@ export class OrdersService {
     @InjectRepository(CheckoutIdempotency)
     private readonly idempotencyRepository: Repository<CheckoutIdempotency>,
   ) {}
+
+  async findAllForAdmin(query: FindAdminOrdersQueryDto) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const builder = this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.delivery', 'delivery')
+      .leftJoinAndSelect('order.customer', 'customer')
+      .leftJoinAndSelect('order.guestCustomer', 'guestCustomer')
+      .orderBy('order.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (query.status) {
+      builder.andWhere('order.status = :status', { status: query.status });
+    }
+
+    const search = query.search?.trim();
+    if (search) {
+      builder.andWhere(
+        new Brackets((where) => {
+          where
+            .where('order.orderNumber ILIKE :search', { search: `%${search}%` })
+            .orWhere('order.customerName ILIKE :search', { search: `%${search}%` })
+            .orWhere('order.customerEmail ILIKE :search', { search: `%${search}%` });
+        }),
+      );
+    }
+
+    const [orders, total] = await builder.getManyAndCount();
+    const payments = orders.length
+      ? await this.orderRepository.manager.getRepository(Payment).find({ where: { orderId: In(orders.map((order) => order.id)) } })
+      : [];
+    const paymentByOrder = new Map(payments.map((payment) => [payment.orderId, payment]));
+
+    const statusCounts = await this.orderRepository
+      .createQueryBuilder('order')
+      .select('order.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('order.status')
+      .getRawMany<{ status: OrderStatus; count: string }>();
+    const counts = Object.fromEntries(statusCounts.map((row) => [row.status, Number(row.count)]));
+
+    return {
+      success: true,
+      data: {
+        items: orders.map((order) => ({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          customerName: order.customerName || order.guestCustomer?.name || 'Cliente',
+          customerEmail: order.customerEmail || order.guestCustomer?.email || null,
+          createdAt: order.createdAt,
+          total: order.totalAmount,
+          deliveryType: order.delivery?.deliveryType || order.deliveryMethod,
+          status: order.status,
+          customerType: order.customerId ? 'REGISTERED' : 'GUEST',
+          paymentMethod: paymentByOrder.get(order.id)?.paymentMethod || null,
+          paymentStatus: paymentByOrder.get(order.id)?.status || null,
+        })),
+        summary: {
+          newOrders: counts[OrderStatus.NEW] || 0,
+          inProcess: (counts[OrderStatus.PENDING] || 0) + (counts[OrderStatus.READY_FOR_PICKUP] || 0),
+          onRoute: counts[OrderStatus.ON_ROUTE] || 0,
+        },
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+        },
+      },
+    };
+  }
+
+  async findOneForAdmin(orderNumber: string) {
+    const order = await this.orderRepository.findOne({
+      where: { orderNumber },
+      relations: [
+        'items',
+        'items.product',
+        'items.product.images',
+        'delivery',
+        'delivery.branch',
+        'customer',
+        'guestCustomer',
+        'statusHistory',
+      ],
+    });
+
+    if (!order) {
+      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'El pedido solicitado no existe' });
+    }
+
+    const payment = await this.orderRepository.manager.getRepository(Payment).findOne({ where: { orderId: order.id } });
+    return {
+      success: true,
+      data: {
+        ...order,
+        guestOrderAccessTokenHash: undefined,
+        customerType: order.customerId ? 'REGISTERED' : 'GUEST',
+        buyer: {
+          fullName: order.customerName || order.guestCustomer?.name || 'Cliente',
+          email: order.customerEmail || order.guestCustomer?.email || null,
+          phone: order.customerPhone || order.guestCustomer?.phone || null,
+          dui: order.contactSnapshot?.dui || null,
+          registeredAt: order.customer?.createdAt || null,
+        },
+        payment: payment
+          ? {
+              method: payment.paymentMethod,
+              status: payment.status,
+              amount: payment.amount,
+              cardLastFour: payment.cardLastFour || null,
+              cardBrand: payment.cardBrand || null,
+            }
+          : null,
+      },
+    };
+  }
 
   async create(createOrderDto: CreateOrderDto): Promise<Order> {
     const {
@@ -581,7 +701,12 @@ export class OrdersService {
             }
             const dtoItem = items?.find(di => di.variantId === item.variantId);
             const detail = item.variantConfig?.inventoryDetail;
-            const refPrice = dtoItem?.priceAtAdded ? Number(dtoItem.priceAtAdded) : Number(item.unitPrice);
+            // El carrito no persiste un snapshot del precio efectivo. Si el
+            // cliente no envía priceAtAdded, Backend recalcula el precio
+            // vigente sin provocar un falso PRICE_CHANGED por descuentos.
+            const refPrice = dtoItem?.priceAtAdded
+              ? Number(dtoItem.priceAtAdded)
+              : undefined;
             return {
               variantId: item.variantId,
               quantity: item.quantity,
@@ -835,11 +960,7 @@ export class OrdersService {
 
         let shippingTotal = '0.00';
         if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
-          if (calculatedSubtotal >= CHECKOUT_CONFIG.FREE_SHIPPING_THRESHOLD) {
-            shippingTotal = '0.00';
-          } else {
-            shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
-          }
+          shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
         }
 
         const total = calculatedSubtotal + Number(shippingTotal);
@@ -1614,7 +1735,11 @@ export class OrdersService {
         }
         const dtoItem = items?.find(di => di.variantId === item.variantId);
         const detail = item.variantConfig?.inventoryDetail;
-        const refPrice = dtoItem?.priceAtAdded ? Number(dtoItem.priceAtAdded) : Number(item.unitPrice);
+        // CartItem.unitPrice expone salePrice y no incluye el descuento
+        // vigente. Solo comparar cuando existe una referencia real enviada.
+        const refPrice = dtoItem?.priceAtAdded
+          ? Number(dtoItem.priceAtAdded)
+          : undefined;
         return {
           variantId: item.variantId,
           quantity: item.quantity,
@@ -1721,19 +1846,14 @@ export class OrdersService {
 
     // 7. Calcular costo de envío y envío gratis
     let shippingTotal = '0.00';
-    let freeShippingApplied = false;
+    let freeShippingApplied = deliveryMethod === DeliveryMethod.PICKUP;
 
     if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
-      if (totalEffective >= CHECKOUT_CONFIG.FREE_SHIPPING_THRESHOLD) {
-        shippingTotal = '0.00';
-        freeShippingApplied = true;
-      } else {
-        shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
-        freeShippingApplied = false;
-      }
+      shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
+      freeShippingApplied = false;
     } else {
       shippingTotal = '0.00';
-      freeShippingApplied = totalEffective >= CHECKOUT_CONFIG.FREE_SHIPPING_THRESHOLD;
+      freeShippingApplied = true;
     }
 
     const total = totalEffective + Number(shippingTotal);

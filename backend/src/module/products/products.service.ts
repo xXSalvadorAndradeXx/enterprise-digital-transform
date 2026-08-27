@@ -1191,14 +1191,15 @@ export class ProductsService {
         '(inventory.category_id = :categoryId OR inventory.gender = :gender)',
         { categoryId, gender },
       );
-      query.orderBy(
+      query.addSelect(
         `CASE
           WHEN inventory.category_id = :categoryId THEN 1
           WHEN inventory.gender = :gender THEN 2
           ELSE 3
         END`,
-        'ASC',
+        'related_rank',
       );
+      query.orderBy('related_rank', 'ASC');
     } else if (categoryId) {
       query.andWhere('inventory.category_id = :categoryId', { categoryId });
     } else if (gender) {

@@ -30,7 +30,7 @@ export const sidebarItems: SidebarItemType[] = [
   },
   {
     id: "pedidos",
-    label: "Pedidos",
+    label: "Ventas",
     href: "/pedidos",
     icon: ShoppingCart,
     permission: "orders:read",

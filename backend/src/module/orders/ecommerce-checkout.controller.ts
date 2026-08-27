@@ -32,7 +32,7 @@ export class EcommerceCheckoutController {
           properties: {
             subtotal: { type: 'string', example: '100.00' },
             discountTotal: { type: 'string', example: '10.00' },
-            shippingTotal: { type: 'string', example: '5.00' },
+            shippingTotal: { type: 'string', example: '4.00' },
             total: { type: 'string', example: '95.00' },
             freeShippingApplied: { type: 'boolean', example: false },
           },

@@ -5,6 +5,7 @@ import {
   readAccessToken,
   readSessionUser,
 } from "@/lib/auth-session";
+import { isValidDui } from "@/lib/validations/dui";
 
 export interface ContactData {
   fullName: string;
@@ -34,9 +35,11 @@ function validate(data: ContactData): ContactErrors {
     errors.email = "Ingresa un correo electrónico válido";
   }
 
-  if (!/^\d{9}$/.test(data.dui)) {
+  if (!isValidDui(data.dui)) {
     errors.dui =
-      "Ingresa los 9 dígitos de tu DUI";
+      data.dui.length === 9
+        ? "El DUI ingresado no es válido"
+        : "Ingresa los 9 dígitos de tu DUI";
   }
 
   /*

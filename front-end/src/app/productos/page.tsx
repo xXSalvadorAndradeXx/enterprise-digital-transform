@@ -306,7 +306,11 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
   return (
     <section className="min-h-[calc(100vh-10rem)] bg-white px-4 py-6 text-[#111111] sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-[1280px]">
-        <nav className="bg-[#f2f5fb] px-5 py-4 text-xs text-slate-600" aria-label="Breadcrumb">Inicio&nbsp;&nbsp;›&nbsp;&nbsp;Productos</nav>
+        <nav className="flex items-center gap-2 bg-[#f2f5fb] px-5 py-4 text-xs text-slate-600" aria-label="Ruta de navegación">
+          <Link href="/" className="transition-colors hover:text-[#1822d9] hover:underline">Inicio</Link>
+          <span aria-hidden="true">›</span>
+          <span aria-current="page" className="font-medium text-slate-900">Productos</span>
+        </nav>
         <div className="mt-6 border-b border-[#e5e7eb] pb-5">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-[#111111] sm:text-4xl">
