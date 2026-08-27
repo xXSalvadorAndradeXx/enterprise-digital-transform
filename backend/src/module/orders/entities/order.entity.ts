@@ -15,7 +15,7 @@ import { OrderDelivery } from './order-delivery.entity';
 import { GuestCustomer } from './guest-customer.entity';
 import { OrderStatusHistory } from './order-status-history.entity';
 import { OrderStatus } from '../enums/order-status.enum';
-import { User } from '../../users/entities/user.entity';
+import { Customer } from '../../customers/entities/customer.entity';
 import { DeliveryMethod } from '../enums/delivery-method.enum';
 
 @Entity({ name: 'orders' })
@@ -99,9 +99,12 @@ export class Order {
   @Column({ type: 'uuid', nullable: true, name: 'customer_id' })
   customerId?: string | null;
 
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Customer, (customer) => customer.orders, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'customer_id' })
-  customer?: User | null;
+  customer?: Customer | null;
 
   // Relación con el cliente invitado (usuario no autenticado)
   @Column({ type: 'uuid', nullable: true, name: 'guest_customer_id' })

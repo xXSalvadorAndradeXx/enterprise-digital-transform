@@ -34,10 +34,16 @@ export const registrationPasswordRequirements = [
     isMet: (value: string) => /[A-Z]/.test(value) && /[a-z]/.test(value),
   },
   {
-    id: "numberOrSymbol",
-    label: "Un número o carácter especial (!@#$%^&*)",
-    message: "La contraseña debe incluir al menos un número o un símbolo.",
-    isMet: (value: string) => /[\d!@#$%^&*]/.test(value),
+    id: "number",
+    label: "Al menos un número",
+    message: "La contraseña debe incluir al menos un número.",
+    isMet: (value: string) => /\d/.test(value),
+  },
+  {
+    id: "symbol",
+    label: "Al menos un carácter especial",
+    message: "La contraseña debe incluir al menos un carácter especial.",
+    isMet: (value: string) => /[^A-Za-z0-9]/.test(value),
   },
 ] as const;
 

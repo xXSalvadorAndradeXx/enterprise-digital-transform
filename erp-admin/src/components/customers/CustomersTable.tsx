@@ -108,10 +108,10 @@ function buildColumns(
     {
       key:
         "fullName",
-      sortable:
-        true,
       header:
         "Nombre",
+      width:
+        "20%",
       accessor: (
         customer,
       ) => {
@@ -146,6 +146,8 @@ function buildColumns(
         "email",
       header:
         "Correo electrónico",
+      width:
+        "28%",
       accessor: (
         customer,
       ) => {
@@ -177,39 +179,12 @@ function buildColumns(
     {
       key:
         "lastOrderAt",
-      sortable:
-        true,
       header:
         "Último pedido",
-      accessor: (
-        customer,
-      ) => (
-        <CustomerCellLink
-          customer={
-            customer
-          }
-          href={
-            getCustomerHref(
-              customer,
-            )
-          }
-          linkClassName="justify-end"
-        >
-          {formatLastOrderAt(
-            customer.lastOrderAt,
-          )}
-        </CustomerCellLink>
-      ),
-    },
-    {
-      key:
-        "totalSpent",
-      sortable:
-        true,
-      header:
-        "Total gastado",
       align:
-        "right",
+        "center",
+      width:
+        "18%",
       accessor: (
         customer,
       ) => (
@@ -224,21 +199,21 @@ function buildColumns(
           }
           linkClassName="justify-center"
         >
-          {formatTotalSpent(
-            customer.totalSpent,
+          {formatLastOrderAt(
+            customer.lastOrderAt,
           )}
         </CustomerCellLink>
       ),
     },
     {
       key:
-        "totalOrders",
-      sortable:
-        true,
+        "totalSpent",
       header:
-        "Total pedidos",
+        "Total gastado",
       align:
-        "center",
+        "right",
+      width:
+        "17%",
       accessor: (
         customer,
       ) => (
@@ -251,6 +226,36 @@ function buildColumns(
               customer,
             )
           }
+          linkClassName="justify-end"
+        >
+          {formatTotalSpent(
+            customer.totalSpent,
+          )}
+        </CustomerCellLink>
+      ),
+    },
+    {
+      key:
+        "totalOrders",
+      header:
+        "Total pedidos",
+      align:
+        "center",
+      width:
+        "17%",
+      accessor: (
+        customer,
+      ) => (
+        <CustomerCellLink
+          customer={
+            customer
+          }
+          href={
+            getCustomerHref(
+              customer,
+            )
+          }
+          linkClassName="justify-center"
         >
           {customer.totalOrders.toLocaleString(
             "es-SV",

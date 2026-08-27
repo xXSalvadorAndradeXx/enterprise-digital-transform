@@ -89,6 +89,17 @@ export class PurchasesController {
     return this.purchasesService.findAll(query);
   }
 
+  // GET /purchases/inventory-options ──────────────────────────────────────
+  // Debe declararse antes de /purchases/:id para que Nest no interprete
+  // "inventory-options" como un UUID de compra.
+  @Get('inventory-options')
+  @RequirePermissions('purchases:read')
+  @ApiOperation({ summary: 'Opciones de inventario para reabastecimiento' })
+  @ApiResponse({ status: 200, description: '{ statusCode, data: RestockInventoryOption[] }' })
+  getInventoryOptions(@Query('search') search?: string) {
+    return this.purchasesService.getInventoryOptions(search);
+  }
+
   // GET /purchases/inventory/:inventoryId/preview-restock ──────────────────
   // ⚠ DEBE ir antes de /inventory/:inventoryId para evitar conflicto de rutas
   @Get('inventory/:inventoryId/preview-restock')

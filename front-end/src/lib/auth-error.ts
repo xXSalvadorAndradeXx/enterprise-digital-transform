@@ -67,6 +67,13 @@ export function normalizeAuthError(error: unknown): NormalizedAuthError {
         fields: ["departmentId", "districtId"],
         message: "La ubicación seleccionada no es válida.",
       };
+
+    case "VALIDATION_ERROR":
+      return {
+        scope: "field",
+        fields: [],
+        message: error.message,
+      };
   }
 
   if (error.status === 0) {
@@ -90,6 +97,14 @@ export function normalizeAuthError(error: unknown): NormalizedAuthError {
       scope: "business",
       fields: [],
       message: "Los datos ingresados ya están registrados.",
+    };
+  }
+
+  if (error.status === 400 || error.status === 422) {
+    return {
+      scope: "field",
+      fields: [],
+      message: error.message,
     };
   }
 

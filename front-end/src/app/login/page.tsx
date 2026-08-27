@@ -21,9 +21,9 @@ const initialFormData: LoginRequest = {
 };
 
 const inputClassName =
-  "h-[38px] w-full rounded-md border border-transparent bg-[#f7f7f8] px-5 pr-12 text-xs text-[#3f3f46] outline-none transition placeholder:text-[#8a8a8f] focus:border-[#2829dd] focus:bg-white focus:ring-2 focus:ring-[#2829dd]/10 aria-invalid:border-red-600 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/10";
+  "h-12 w-full rounded-lg border border-slate-200 bg-[#f7f7f8] px-5 pr-12 text-sm text-[#3f3f46] outline-none transition placeholder:text-[#8a8a8f] focus:border-[#2829dd] focus:bg-white focus:ring-4 focus:ring-[#2829dd]/10 aria-invalid:border-red-600 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/10";
 const primaryButtonClassName =
-  "mx-auto flex h-[34px] w-[238px] max-w-full items-center justify-center rounded-[2px] bg-[#2829dd] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#2022c7] disabled:cursor-not-allowed disabled:bg-[#7f81e9]";
+  "mx-auto flex h-12 w-full items-center justify-center rounded-md bg-[#2829dd] px-6 text-base font-bold text-white shadow-md shadow-indigo-200 transition-colors hover:bg-[#2022c7] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2829dd]/20 disabled:cursor-not-allowed disabled:bg-[#7f81e9]";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -91,7 +91,7 @@ export default function LoginPage() {
 
         <div className="mx-auto grid w-full max-w-[1120px] flex-1 grid-cols-1 px-5 sm:px-8 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.85fr)] md:gap-12 lg:gap-20">
           <div className="flex justify-center py-12 md:translate-x-4 md:items-start md:py-0 md:pt-[102px]">
-            <div className="w-full max-w-[354px]">
+            <div className="w-full max-w-[390px]">
               <h1 className="text-center text-[32px] leading-[1.08] font-bold text-[#404040] sm:text-[34px]">
                 ¡Bienvenido de
                 <br />
@@ -186,7 +186,7 @@ export default function LoginPage() {
                   ) : null}
                 </div>
 
-                <div className="mx-auto mt-3 flex w-[78%] items-center justify-between gap-3">
+                <div className="mt-4 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-1.5">
                     <input
                       id="rememberMe"

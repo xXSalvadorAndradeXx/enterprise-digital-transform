@@ -11,7 +11,7 @@ import {
   Check,
   Index,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { Customer } from '../../customers/entities/customer.entity';
 import { CartItem } from './cart-item.entity';
 import { CartStatus } from '../enums/cart-status.enum';
 
@@ -28,9 +28,9 @@ export class Cart {
   @Column({ name: 'customer_id', type: 'uuid', nullable: true })
   customerId!: string | null;
 
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Customer, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'customer_id' })
-  customer!: User | null;
+  customer!: Customer | null;
 
   @Index()
   @Column({ name: 'guest_token_hash', type: 'varchar', length: 255, nullable: true })
@@ -63,7 +63,7 @@ export class Cart {
   // Propiedad virtual para compatibilidad con código legado
   total?: number;
 
-  get user(): User | null {
+  get user(): Customer | null {
     return this.customer;
   }
 }

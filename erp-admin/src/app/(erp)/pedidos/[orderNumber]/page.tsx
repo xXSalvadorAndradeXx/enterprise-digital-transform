@@ -16,11 +16,20 @@ const statusColors: Record<OrderStatus, { backgroundColor: string; color: string
   DELIVERED: { backgroundColor: "#DCFCE7", color: "#15803D" },
   CANCELLED: { backgroundColor: "#FEE2E2", color: "#DC2626" },
 };
-const allStatuses = Object.keys(labels) as OrderStatus[];
 const money = (value: string | number) => new Intl.NumberFormat("es-SV", { style: "currency", currency: "USD" }).format(Number(value));
 const date = (value?: string | null) => value ? new Intl.DateTimeFormat("es-SV", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)) : "No disponible";
 const deliveryLabel = (value?: string) => value === "HOME_DELIVERY" ? "Entrega a domicilio" : "Retiro en tienda";
 const paymentLabel = (value?: string | null) => value === "CARD" ? "Pago con tarjeta" : value === "PAY_AT_STORE" ? "Pago en local" : "No disponible";
+
+function getAvailableStatuses(
+  deliveryType?: string,
+): OrderStatus[] {
+  const isHomeDelivery = deliveryType === "HOME_DELIVERY";
+
+  return isHomeDelivery
+    ? ["NEW", "PENDING", "ON_ROUTE", "DELIVERED", "CANCELLED"]
+    : ["NEW", "PENDING", "READY_FOR_PICKUP", "DELIVERED", "CANCELLED"];
+}
 
 export default function VentaDetailPage() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
@@ -53,13 +62,16 @@ export default function VentaDetailPage() {
   const address = order.delivery?.deliveryType === "HOME_DELIVERY"
     ? [order.delivery.addressLine, order.delivery.city, order.delivery.districtName, order.delivery.departmentName].filter(Boolean).join(", ")
     : [order.delivery?.branchName, order.delivery?.branchAddress].filter(Boolean).join(" — ");
+  const availableStatuses = getAvailableStatuses(
+    order.delivery?.deliveryType,
+  );
 
   return (
     <main className="space-y-6 pb-12 text-[#4A4A4A]">
       <Link href="/pedidos" className="inline-flex items-center gap-2 text-sm text-[#4A4A4A] hover:text-[#2424DF]"><ArrowLeft size={17} /> Volver a Ventas</Link>
       <div className="space-y-4">
         <h1 className="text-4xl font-bold text-[#4A4A4A]">Detalles del pedido #{order.orderNumber}</h1>
-        <div className="flex flex-wrap gap-3"><select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value as OrderStatus)} style={statusColors[selectedStatus]} className="h-12 min-w-52 rounded-lg border border-slate-400 px-4 font-medium">{allStatuses.map((status) => <option key={status} value={status} style={{ backgroundColor: "#FFFFFF", color: statusColors[status].color }}>{labels[status]}</option>)}</select><button disabled={saving || selectedStatus === order.status} onClick={saveStatus} className="h-12 rounded-lg bg-[#2424DF] px-6 font-semibold text-white disabled:opacity-50">{saving ? "Guardando..." : "Guardar cambios"}</button></div>
+        <div className="flex flex-wrap gap-3"><select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value as OrderStatus)} style={statusColors[selectedStatus]} className="h-12 min-w-52 rounded-lg border border-slate-400 px-4 font-medium">{availableStatuses.map((status) => <option key={status} value={status} style={{ backgroundColor: "#FFFFFF", color: statusColors[status].color }}>{labels[status]}</option>)}</select><button disabled={saving || selectedStatus === order.status} onClick={saveStatus} className="h-12 rounded-lg bg-[#2424DF] px-6 font-semibold text-white disabled:opacity-50">{saving ? "Guardando..." : "Guardar cambios"}</button></div>
       </div>
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-5 py-3 text-red-700">{error}</div>}
 

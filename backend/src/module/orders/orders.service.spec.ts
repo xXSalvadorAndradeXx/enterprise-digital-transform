@@ -4,10 +4,11 @@ import { UnprocessableEntityException, BadRequestException, NotFoundException, F
 import * as crypto from 'crypto';
 import { OrdersService } from './orders.service';
 import { Order } from './entities/order.entity';
-import { User } from '../users/entities/user.entity';
+import { Customer } from '../customers/entities/customer.entity';
 import { GuestCustomer } from './entities/guest-customer.entity';
 import { Branch } from '../branches/entities/branch.entity';
 import { Product } from '../products/entities/product.entity';
+import { ProductVariantConfig } from '../products/entities/product-variant-config.entity';
 import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
 import { Inventory } from '../inventory/entities/inventory.entity';
 import { InventoryReservation } from '../inventory/entities/inventory-reservation.entity';
@@ -79,10 +80,11 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       providers: [
         OrdersService,
         { provide: getRepositoryToken(Order), useValue: mockOrderRepo },
-        { provide: getRepositoryToken(User), useValue: mockUserRepo },
+        { provide: getRepositoryToken(Customer), useValue: mockUserRepo },
         { provide: getRepositoryToken(GuestCustomer), useValue: mockGuestCustomerRepo },
         { provide: getRepositoryToken(Branch), useValue: mockBranchRepo },
         { provide: getRepositoryToken(Product), useValue: mockProductRepo },
+        { provide: getRepositoryToken(ProductVariantConfig), useValue: {} },
         { provide: getRepositoryToken(CheckoutIdempotency), useValue: mockIdempotencyRepo },
       ],
     }).compile();
@@ -205,7 +207,7 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
             getOne: jest.fn().mockResolvedValue(mockInventory),
           }),
           findOne: jest.fn().mockImplementation((entityClass: any, options: any) => {
-            if (entityClass === User || options.where?.id === 'user-uuid-123') return Promise.resolve(mockUser);
+            if (entityClass === Customer || options.where?.id === 'user-uuid-123') return Promise.resolve(mockUser);
             if (options.where?.id === 'branch-1') return Promise.resolve(mockBranch);
             if (options.where?.id === 'prod-uuid-1') return Promise.resolve(mockProduct);
             return Promise.resolve(null);

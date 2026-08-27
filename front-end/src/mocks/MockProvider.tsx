@@ -26,12 +26,10 @@ export function MockProvider({
     }
 
     const startWorker = async () => {
-      const { worker } =
+      const { startMockWorker } =
         await import("@/mocks/browser");
 
-      await worker.start({
-        onUnhandledRequest: "bypass",
-      });
+      await startMockWorker();
 
       setIsReady(true);
     };

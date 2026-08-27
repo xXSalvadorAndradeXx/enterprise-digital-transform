@@ -19,11 +19,9 @@ export default function MSWProvider({
     }
 
     const startMSW = async () => {
-      const { worker } = await import("@/mocks/browser");
+      const { startMockWorker } = await import("@/mocks/browser");
 
-      await worker.start({
-        onUnhandledRequest: "bypass",
-      });
+      await startMockWorker();
 
       setReady(true);
     };

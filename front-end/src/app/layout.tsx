@@ -5,7 +5,6 @@ import {
 } from "next/font/google";
 
 import Layout from "@/components/layout/Layout";
-import { MockProvider } from "@/mocks/MockProvider";
 
 import "./globals.css";
 
@@ -36,11 +35,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <MockProvider>
-          <Layout>
-            {children}
-          </Layout>
-        </MockProvider>
+        <Layout>{children}</Layout>
       </body>
     </html>
   );

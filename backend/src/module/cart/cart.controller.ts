@@ -25,8 +25,8 @@ import { CartService } from './cart.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { CartResponseDto } from './dto/cart-response.dto';
-import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalCustomerJwtAuthGuard } from '../customers/guards/optional-customer-jwt-auth.guard';
+import { CustomerJwtAuthGuard } from '../customers/guards/customer-jwt-auth.guard';
 
 @ApiTags('Carrito de Compras')
 @ApiHeader({
@@ -39,7 +39,7 @@ export class CartController {
   constructor(private readonly cartService: CartService) {}
 
   @Get()
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(OptionalCustomerJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener el carrito activo del usuario autenticado o del visitante (X-Cart-Token)' })
   @ApiResponse({ status: 200, description: 'Carrito obtenido exitosamente', type: CartResponseDto })
@@ -50,12 +50,12 @@ export class CartController {
     @Headers('x-cart-token') xCartToken: string,
   ): Promise<CartResponseDto> {
     const userId = (req as any).user?.userId || (req as any).user?.id || null;
-    const { cart } = await this.cartService.resolveCart(userId, xCartToken, false);
+    const { cart } = await this.cartService.resolveCart(userId, xCartToken, Boolean(userId));
     return CartResponseDto.fromEntity(cart);
   }
 
   @Post('items')
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(OptionalCustomerJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Agregar un ítem al carrito (crea el carrito si no existe). Si es visitante, devuelve X-Cart-Token en header.',
@@ -79,7 +79,7 @@ export class CartController {
   }
 
   @Patch('items/:itemId')
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(OptionalCustomerJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Actualizar la cantidad de un ítem existente en el carrito' })
   @ApiResponse({ status: 200, description: 'Cantidad actualizada exitosamente', type: CartResponseDto })
@@ -97,7 +97,7 @@ export class CartController {
   }
 
   @Delete('items/:itemId')
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(OptionalCustomerJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Eliminar un ítem del carrito' })
   @ApiResponse({ status: 200, description: 'Ítem eliminado exitosamente', type: CartResponseDto })
@@ -113,7 +113,7 @@ export class CartController {
   }
 
   @Delete()
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(OptionalCustomerJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Vaciar todos los ítems del carrito' })
   @ApiResponse({ status: 200, description: 'Carrito vaciado exitosamente', type: CartResponseDto })
@@ -128,7 +128,7 @@ export class CartController {
   }
 
   @Post('merge')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(CustomerJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Fusionar carrito de visitante con el carrito del usuario autenticado (usar después del login)',

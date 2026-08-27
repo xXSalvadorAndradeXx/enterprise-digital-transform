@@ -13,7 +13,7 @@ import { Customer } from './customer.entity';
 import { Department } from '../../branches/entities/department.entity';
 import { District } from '../../branches/entities/district.entity';
 
-@Entity('customer_addresses')
+@Entity('ecommerce_customer_addresses')
 export class CustomerAddress {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -21,11 +21,11 @@ export class CustomerAddress {
   @Column({ name: 'customer_id', type: 'uuid', nullable: false })
   customerId!: string;
 
-  @Column({ name: 'department_id', nullable: false })
-  departmentId!: string | number;
+  @Column({ name: 'department_id', type: 'integer', nullable: false })
+  departmentId!: number | string;
 
-  @Column({ name: 'district_id', nullable: false })
-  districtId!: string | number;
+  @Column({ name: 'district_id', type: 'integer', nullable: false })
+  districtId!: number | string;
 
   @Column({ name: 'city', type: 'varchar', length: 100, nullable: true })
   city?: string | null;

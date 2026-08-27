@@ -23,11 +23,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * formato de transporte utilizado por cada endpoint.
  */
 function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
-  if (isRecord(payload) && "data" in payload) {
-    return payload.data as T;
+  let current: unknown = payload;
+
+  // Algunos endpoints históricos retornan `{ statusCode, data }` y el
+  // interceptor global vuelve a envolverlos en `{ success, data }`.
+  // Se eliminan ambos niveles sin desarmar una respuesta paginada.
+  while (
+    isRecord(current) &&
+    "data" in current &&
+    !("meta" in current && Array.isArray(current.data))
+  ) {
+    current = current.data;
   }
 
-  return payload as T;
+  return current as T;
 }
 
 function normalizePaginated<T>(
@@ -74,7 +83,16 @@ export async function uploadPurchaseInvoice(file: File): Promise<InvoiceUploadRe
     InvoiceUploadResponse | ApiEnvelope<InvoiceUploadResponse>
   >("/upload-invoice", { method: "POST", body: formData });
 
-  return unwrapData(response);
+  const invoice = unwrapData<InvoiceUploadResponse>(response);
+
+  if (!invoice?.invoiceUrl) {
+    throw new PurchasesServiceError(
+      "El servidor no devolvió la URL de la factura.",
+      502,
+    );
+  }
+
+  return invoice;
 }
 
 export async function createNewProductPurchase(payload: CreateNewProductPurchaseRequest): Promise<PurchaseResponse> {
@@ -144,7 +162,8 @@ export async function getRestockInventoryOptions(search = ""): Promise<RestockIn
     RestockInventoryOption[] | ApiEnvelope<RestockInventoryOption[]>
   >(`/inventory-options?${params}`);
 
-  return unwrapData(response);
+  const options = unwrapData(response);
+  return Array.isArray(options) ? options : [];
 }
 
 export async function getRestockPreview(inventoryId: string): Promise<RestockPreviewResponse> {

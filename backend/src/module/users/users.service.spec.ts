@@ -106,10 +106,7 @@ describe('UsersService', () => {
       expect(isMatch).toBe(true);
 
       expect(mockUserRepository.save).toHaveBeenCalled();
-      expect(mockUserRepository.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO "carts"'),
-        ['new-user-uuid']
-      );
+      expect(mockUserRepository.query).not.toHaveBeenCalled();
     });
 
     it('debe lanzar ConflictException si el correo electrónico ya existe', async () => {

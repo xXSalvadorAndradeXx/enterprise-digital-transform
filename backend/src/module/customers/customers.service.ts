@@ -184,8 +184,8 @@ export class CustomersService {
       // Crear dirección principal (isDefault = true, label = 'Casa')
       const address = manager.create(CustomerAddress, {
         customerId: savedCustomer.id,
-        departmentId: String(dto.departmentId),
-        districtId: String(dto.districtId),
+        departmentId: Number(dto.departmentId),
+        districtId: Number(dto.districtId),
         city: dto.city || null,
         addressLine: effectiveAddress,
         label: 'Casa',

@@ -1,34 +1,23 @@
 import { apiRequest } from "@/lib/api-client";
 import type { ApiSuccess } from "@/types/api/api.types";
-import type { LoginRequest } from "@/types/auth/auth.types";
+import type { LoginRequest, RegisterRequest } from "@/types/auth/auth.types";
 import type { Customer } from "@/types/auth/customer.types";
-import type { User } from "@/types/auth/user.types";
 
-export type RegisterRequest = {
-  nombre: string;
-  email: string;
-  password: string;
-};
-
-export type RegisterResponse = User & {
-  createdAt?: string;
-};
-
-export type LoginResponse = ApiSuccess<{
-  customer: Pick<Customer, "id" | "fullName" | "email">;
+export type AuthResponse = ApiSuccess<{
+  customer: Customer;
   accessToken: string;
   expiresIn: number;
 }>;
 
 export function registerUser(data: RegisterRequest) {
-  return apiRequest<RegisterResponse, RegisterRequest>("/auth/register", {
-    method: "POST",
-    body: data,
-  });
+  return apiRequest<AuthResponse, RegisterRequest>(
+    "/ecommerce/auth/register",
+    { method: "POST", body: data },
+  );
 }
 
 export function loginUser(data: LoginRequest) {
-  return apiRequest<LoginResponse, LoginRequest>(
+  return apiRequest<AuthResponse, LoginRequest>(
     "/ecommerce/auth/login",
     {
       method: "POST",

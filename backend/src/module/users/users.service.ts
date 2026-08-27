@@ -58,13 +58,11 @@ export class UsersService {
 
     const savedUser = await this.userRepository.save(user);
 
-    // 6. Crear carrito de compras inicial para el nuevo usuario
-    await this.userRepository.query(
-      `INSERT INTO "carts" ("userId") VALUES ($1) ON CONFLICT ("userId") DO NOTHING`,
-      [savedUser.id],
-    );
+    // Los usuarios de este módulo pertenecen al ERP. Los carritos se crean
+    // únicamente para Customer del e-commerce, por lo que no corresponde
+    // asociar un carrito al usuario administrativo.
 
-    // 7. Punto de integración Mock para envío de notificación al usuario
+    // 6. Punto de integración Mock para envío de notificación al usuario
     this.logger.log(
       `[NOTIFICACIÓN MOCK] Enviar contraseña temporal a ${savedUser.email}. Contraseña temporal: ${temporaryPassword}`
     );

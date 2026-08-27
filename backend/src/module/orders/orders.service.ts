@@ -15,7 +15,7 @@ import { Order } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderItem } from './entities/order-item.entity';
 import { OrderStatus } from './enums/order-status.enum';
-import { User } from '../users/entities/user.entity';
+import { Customer } from '../customers/entities/customer.entity';
 import { GuestCustomer } from './entities/guest-customer.entity';
 import { DeliveryMethod } from './enums/delivery-method.enum';
 import { Branch } from '../branches/entities/branch.entity';
@@ -38,7 +38,7 @@ import { MovementType } from '../inventory/enums/movement-type.enum';
 import { MovementChannel } from '../inventory/enums/movement-channel.enum';
 import { Payment } from '../payments/entities/payment.entity';
 import { PaymentStatus } from '../payments/enums/payment-status.enum';
-import { CustomerAddress } from '../users/entities/customer-address.entity';
+import { CustomerAddress } from '../customers/entities/customer-address.entity';
 import { Cart } from '../cart/entities/cart.entity';
 import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
 import { CheckoutIdempotencyStatus } from './enums/checkout-idempotency-status.enum';
@@ -54,8 +54,8 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    @InjectRepository(Customer)
+    private readonly customerRepository: Repository<Customer>,
     @InjectRepository(GuestCustomer)
     private readonly guestCustomerRepository: Repository<GuestCustomer>,
     @InjectRepository(Branch)
@@ -215,7 +215,7 @@ export class OrdersService {
 
     // Manejar cliente autenticado vs cliente invitado con snapshot del comprador
     if (customerId) {
-      const user = await this.userRepository.findOne({ where: { id: customerId } });
+      const user = await this.customerRepository.findOne({ where: { id: customerId } });
       if (!user) {
         throw new NotFoundException(`Customer with ID ${customerId} not found`);
       }
@@ -227,8 +227,8 @@ export class OrdersService {
       // Snapshot del comprador para inmutabilidad histórica
       order.customerEmail = customerEmail || user.email;
       order.customerName =
-        customerName || `${user.firstName} ${user.lastName}`.trim();
-      order.customerPhone = customerPhone || null;
+        customerName || user.fullName;
+      order.customerPhone = customerPhone || user.phone || null;
     } else if (guestCustomer?.email || customerEmail) {
       const email = guestCustomer?.email || customerEmail!;
       order.customerId = null;
@@ -391,7 +391,9 @@ export class OrdersService {
       statusBefore: null,
       statusAfter: order.status,
       notes: 'Creación inicial de la orden',
-      changedById: order.customerId || null,
+      // El estado inicial lo genera el sistema. changedById referencia a un
+      // usuario administrativo del ERP, no al Customer del e-commerce.
+      changedById: null,
     });
     order.statusHistory = [initialHistory];
 
@@ -466,7 +468,7 @@ export class OrdersService {
     // 3. Resolución de Comprador
     let customerId: string | null = null;
     if (userId) {
-      const user = await this.userRepository.findOne({ where: { id: userId } });
+      const user = await this.customerRepository.findOne({ where: { id: userId } });
       if (!user) {
         throw new NotFoundException(`Cliente con ID ${userId} no encontrado`);
       }
@@ -749,7 +751,7 @@ export class OrdersService {
         if (customerId) {
           order.customerId = customerId;
           order.guestOrderAccessTokenHash = null;
-          const userObj = await tx.findOne(User, { where: { id: customerId } });
+          const userObj = await tx.findOne(Customer, { where: { id: customerId } });
           order.customer = userObj!;
         } else {
           // Generar token de acceso seguro para la orden de invitado (Requerimientos 1 y 2)
@@ -974,7 +976,9 @@ export class OrdersService {
           statusBefore: null,
           statusAfter: order.status,
           notes: 'Creación inicial de la orden',
-          changedById: customerId || null,
+          // El estado inicial lo genera el checkout. El comprador no es un
+          // actor administrativo y no debe guardarse en changed_by_id.
+          changedById: null,
         });
         order.statusHistory = [initialHistory];
 
@@ -1123,14 +1127,15 @@ export class OrdersService {
         if (saveAddress && customerId && deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
           if (delivery.isDefault) {
             // Desactivar default en otras direcciones del cliente para unicidad
-            await tx.update(CustomerAddress, { userId: customerId }, { isDefault: false });
+            await tx.update(CustomerAddress, { customerId }, { isDefault: false });
           }
           const address = tx.create(CustomerAddress, {
-            userId: customerId,
+            customerId,
             departmentId: delivery.departmentId!,
             districtId: delivery.districtId!,
             city: delivery.city!,
             addressLine: delivery.addressLine!,
+            label: 'Principal',
             isDefault: !!delivery.isDefault,
           });
           await tx.save(CustomerAddress, address);
@@ -1146,14 +1151,14 @@ export class OrdersService {
           savedOrder.customerMetricsCountedAt = new Date();
           await tx.save(Order, savedOrder);
 
-          const userObj = await tx.findOne(User, { where: { id: customerId } });
+          const userObj = await tx.findOne(Customer, { where: { id: customerId } });
           if (userObj) {
             userObj.totalOrders = Number(userObj.totalOrders || 0) + 1;
             const currentSpent = Number(userObj.totalSpent || 0);
             const orderTotal = Number(savedOrder.totalAmount || 0);
             userObj.totalSpent = (currentSpent + orderTotal).toFixed(2);
             userObj.lastOrderAt = savedOrder.createdAt || new Date();
-            await tx.save(User, userObj);
+            await tx.save(Customer, userObj);
           }
         }
 
@@ -1604,7 +1609,7 @@ export class OrdersService {
 
     // 3. Resolución de Comprador
     if (userId) {
-      const user = await this.userRepository.findOne({ where: { id: userId } });
+      const user = await this.customerRepository.findOne({ where: { id: userId } });
       if (!user) {
         throw new NotFoundException(`Cliente con ID ${userId} no encontrado`);
       }

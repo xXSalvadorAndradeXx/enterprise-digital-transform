@@ -4,14 +4,14 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CheckoutDto } from './dto/checkout.dto';
-import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
+import { OptionalCustomerJwtAuthGuard } from '../customers/guards/optional-customer-jwt-auth.guard';
 
 @ApiTags('orders')
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(OptionalCustomerJwtAuthGuard)
   @Post('checkout')
   @ApiOperation({
     summary: 'Procesar el checkout definitivo de una orden',
@@ -75,7 +75,7 @@ export class OrdersController {
     return this.ordersService.create(createOrderDto);
   }
 
-  @UseGuards(OptionalJwtAuthGuard)
+  @UseGuards(OptionalCustomerJwtAuthGuard)
   @Get(':orderNumber')
   @ApiOperation({
     summary: 'Consultar detalles de una orden mediante su orderNumber',
