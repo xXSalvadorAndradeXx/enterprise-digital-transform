@@ -1,539 +1,943 @@
 "use client";
 
-import { ApiRequestError } from "@/lib/api-client";
-import { registerUser } from "@/services/auth/auth.service";
-import Link from "next/link";
-import { CheckCircle2, Eye, EyeOff, LogIn } from "lucide-react";
-import { useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import { AuthBenefitsBar } from "@/components/auth/AuthBenefitsBar";
+import { AuthIllustrationPanel } from "@/components/auth/AuthIllustrationPanel";
+import {
+  registrationPasswordRequirements,
+  registerFormSchema,
+} from "@/lib/validations/auth.schemas";
+import { locationsService } from "@/services/locations/locations.service";
+import type { RegisterFormValues } from "@/types/auth/auth.types";
+import type {
+  Department,
+  District,
+} from "@/types/locations/location.types";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CheckCircle2, Eye, EyeOff, Mail } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
-type RegisterFormData = {
-  nombre: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-};
+const registrationSteps = [
+  {
+    id: "personal",
+    progressLabel: "Información personal",
+    title: "Crea una cuenta",
+    contentClassName: "max-w-[330px]",
+    positionClassName: "md:-translate-x-0.5 md:translate-y-[5px]",
+    navigationClassName: "mt-7",
+    previousButtonClassName: "w-[74px]",
+    nextButtonClassName: "w-[74px]",
+    previousLabel: null,
+    nextLabel: "Siguiente",
+  },
+  {
+    id: "credentials",
+    progressLabel: "Credenciales",
+    title: "Credenciales",
+    contentClassName: "max-w-[280px]",
+    positionClassName: "md:-translate-x-px md:-translate-y-5",
+    navigationClassName: "mt-5",
+    previousButtonClassName: "w-[74px]",
+    nextButtonClassName: "w-[74px]",
+    previousLabel: "Anterior",
+    nextLabel: "Siguiente",
+  },
+  {
+    id: "address",
+    progressLabel: "Dirección",
+    title: "Dirección",
+    contentClassName: "max-w-[315px]",
+    positionClassName: "md:translate-x-1 md:-translate-y-[5px]",
+    navigationClassName: "mt-6",
+    previousButtonClassName: "w-[74px]",
+    nextButtonClassName: "w-[74px]",
+    previousLabel: "Anterior",
+    nextLabel: "Revisar datos",
+  },
+  {
+    id: "confirmation",
+    progressLabel: null,
+    title: "Confirmación de datos",
+    contentClassName: "max-w-[400px]",
+    positionClassName: "md:translate-x-[7px]",
+    navigationClassName: "mt-5 pr-5",
+    previousButtonClassName: "w-[83px]",
+    nextButtonClassName: "w-[96px]",
+    previousLabel: "Modificar datos",
+    nextLabel: "Confirmar y enviar",
+  },
+] as const;
 
-type RegisterFormErrors = Partial<Record<keyof RegisterFormData, string>>;
+const editableSteps = registrationSteps.slice(0, 3);
+const stepFields: Array<Array<keyof RegisterFormValues>> = [
+  ["fullName", "dui", "phone"],
+  ["email", "password"],
+  ["departmentId", "districtId", "city", "addressLine"],
+];
 
-const initialFormData: RegisterFormData = {
-  nombre: "",
+const initialFormData: RegisterFormValues = {
+  fullName: "",
+  dui: "",
+  phone: "",
   email: "",
   password: "",
-  confirmPassword: "",
+  departmentId: null,
+  districtId: null,
+  city: "",
+  addressLine: "",
 };
 
-const numberRegex = /\d/;
-const uppercaseRegex = /[A-ZÁÉÍÓÚÑ]/;
-const lowercaseRegex = /[a-záéíóúüñ]/;
-const whitespaceRegex = /\s/;
-const consecutiveSpacesRegex = /\s{2,}/;
-const nameErrorMessage = "Ingresa tu nombre completo.";
-const nameLetterRegex = /[A-Za-zÁÉÍÓÚÑáéíóúñ]/;
-const validNameRegex = /^[A-Za-zÁÉÍÓÚÑáéíóúñ '\u2019-]+$/;
-const localEmailRegex = /^[a-z0-9.!#$%&*+/=?^_`{|}~-]+$/i;
-const allowedEmailDomains = new Set([
-  "gmail.com",
-  "hotmail.com",
-  "outlook.com",
-  "yahoo.com",
-  "icloud.com",
-]);
-const allowedEmailDomainsMessage =
-  "Solo se permiten correos de Gmail, Hotmail, Outlook, Yahoo o iCloud.";
-const commonPasswords = new Set([
-  "123456",
-  "1234567",
-  "12345678",
-  "password",
-  "qwerty123",
-  "abc123",
-  "admin123",
-]);
 const inputClassName =
-  "w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-gray-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
-const passwordInputClassName = `${inputClassName} pr-12`;
-const primaryButtonClassName =
-  "inline-flex min-w-44 items-center justify-center gap-2 rounded-xl bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg disabled:cursor-not-allowed disabled:bg-blue-300 disabled:hover:translate-y-0 disabled:hover:shadow-md";
+  "h-10 w-full rounded-lg border border-transparent bg-[#f7f7f8] px-5 text-sm text-[#4a4a4a] outline-none transition placeholder:text-[#929292] focus:border-[#1c21d1] focus:bg-white focus:ring-2 focus:ring-[#1c21d1]/10 aria-invalid:border-red-600 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/10";
+const navigationButtonClassName =
+  "inline-flex h-[21px] items-center justify-center whitespace-nowrap rounded-[2px] border px-0 text-[9px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c21d1] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-100";
 
-function joinPasswordRequirements(requirements: string[]): string {
-  if (requirements.length <= 1) {
-    return requirements.join("");
-  }
+type CatalogStatus = "idle" | "loading" | "success" | "error";
 
-  return `${requirements.slice(0, -1).join(", ")} y ${
-    requirements[requirements.length - 1]
-  }`;
+interface CatalogState<T> {
+  data: T[];
+  status: CatalogStatus;
 }
 
-function isRepeatedNameCharacter(nombre: string) {
-  const normalizedName = nombre
-    .toLowerCase()
-    .replace(/[\s'\u2019-]/g, "");
+interface DistrictCatalogState extends CatalogState<District> {
+  departmentId: number | null;
+}
+
+interface FieldErrorMessageProps {
+  id: string;
+  message?: string;
+}
+
+function FieldErrorMessage({ id, message }: FieldErrorMessageProps) {
+  if (!message) {
+    return null;
+  }
 
   return (
-    normalizedName.length > 1 &&
-    normalizedName.split("").every((letter) => letter === normalizedName[0])
+    <p id={id} role="alert" className="mt-1.5 px-1 text-xs text-red-600">
+      {message}
+    </p>
   );
 }
 
-function validateName(nombre: string) {
-  const trimmedName = nombre.trim();
+function joinDescriptionIds(
+  ...ids: Array<string | false | null | undefined>
+) {
+  const description = ids
+    .filter((id): id is string => typeof id === "string")
+    .join(" ");
 
-  if (numberRegex.test(trimmedName)) {
-    return "El nombre no debe contener números.";
-  }
-
-  if (consecutiveSpacesRegex.test(trimmedName)) {
-    return "El nombre no debe tener espacios consecutivos.";
-  }
-
-  if (
-    !trimmedName ||
-    nombre !== trimmedName ||
-    trimmedName.length < 6 ||
-    trimmedName.length > 50 ||
-    !trimmedName.includes(" ") ||
-    !validNameRegex.test(trimmedName) ||
-    !nameLetterRegex.test(trimmedName) ||
-    isRepeatedNameCharacter(trimmedName) ||
-    trimmedName.split(" ").some((word) => word.length < 2)
-  ) {
-    return nameErrorMessage;
-  }
-
-  return undefined;
+  return description || undefined;
 }
 
-function isValidEmail(email: string) {
-  if (!email || email.length > 254 || whitespaceRegex.test(email)) {
-    return false;
+function parseLocationId(value: string) {
+  if (!/^[1-9]\d*$/.test(value)) {
+    return null;
   }
 
-  const emailParts = email.split("@");
+  const id = Number(value);
 
-  if (emailParts.length !== 2) {
-    return false;
-  }
-
-  const [localPart, domainPart] = emailParts;
-
-  if (
-    localPart.length < 6 ||
-    !domainPart ||
-    localPart.startsWith(".") ||
-    localPart.endsWith(".") ||
-    localPart.includes("..") ||
-    domainPart.startsWith(".") ||
-    domainPart.endsWith(".") ||
-    domainPart.includes("..") ||
-    !localEmailRegex.test(localPart)
-  ) {
-    return false;
-  }
-
-  const domainLabels = domainPart.split(".");
-  const extension = domainLabels[domainLabels.length - 1];
-
-  return (
-    extension.length >= 2 &&
-    domainLabels.every(
-      (label) =>
-        label.length >= 2 && !label.startsWith("-") && !label.endsWith("-"),
-    )
-  );
-}
-
-function hasAllowedEmailDomain(email: string) {
-  const emailParts = email.split("@");
-
-  if (emailParts.length !== 2) {
-    return false;
-  }
-
-  return allowedEmailDomains.has(emailParts[1]);
-}
-
-function validateEmail(email: string) {
-  if (!email) {
-    return "El correo electrónico es obligatorio.";
-  }
-
-  if (!isValidEmail(email)) {
-    return "Ingresa un correo electrónico válido.";
-  }
-
-  if (!hasAllowedEmailDomain(email)) {
-    return allowedEmailDomainsMessage;
-  }
-
-  return undefined;
-}
-
-function validatePassword(password: string) {
-  if (!password) {
-    return "La contraseña es obligatoria.";
-  }
-
-  const passwordErrors: string[] = [];
-  const isCommonPassword = commonPasswords.has(password.toLowerCase());
-
-  if (password.length < 6) {
-    passwordErrors.push("tener al menos 6 caracteres");
-  }
-
-  if (!uppercaseRegex.test(password)) {
-    passwordErrors.push("contener al menos una letra mayúscula");
-  }
-
-  if (!lowercaseRegex.test(password)) {
-    passwordErrors.push("contener al menos una letra minúscula");
-  }
-
-  if (!numberRegex.test(password)) {
-    passwordErrors.push("contener al menos un número");
-  }
-
-  if (whitespaceRegex.test(password)) {
-    passwordErrors.push("no contener espacios");
-  }
-
-  if (passwordErrors.length > 0) {
-    const requirementsMessage = `La contraseña debe ${joinPasswordRequirements(
-      passwordErrors,
-    )}.`;
-
-    return isCommonPassword
-      ? `${requirementsMessage} La contraseña es demasiado común.`
-      : requirementsMessage;
-  }
-
-  if (isCommonPassword) {
-    return "La contraseña es demasiado común.";
-  }
-
-  return undefined;
-}
-
-function validateRegisterForm(formData: RegisterFormData): RegisterFormErrors {
-  const errors: RegisterFormErrors = {};
-  const email = formData.email.trim().toLowerCase();
-  const nameError = validateName(formData.nombre);
-  const emailError = validateEmail(email);
-  const passwordError = validatePassword(formData.password);
-
-  if (nameError) {
-    errors.nombre = nameError;
-  }
-
-  if (emailError) {
-    errors.email = emailError;
-  }
-
-  if (passwordError) {
-    errors.password = passwordError;
-  }
-
-  if (!formData.confirmPassword) {
-    errors.confirmPassword = "Confirma tu contraseña.";
-  } else if (formData.confirmPassword !== formData.password) {
-    errors.confirmPassword = "Las contraseñas no coinciden.";
-  }
-
-  return errors;
+  return Number.isSafeInteger(id) ? id : null;
 }
 
 export default function RegistroPage() {
-  const [formData, setFormData] = useState<RegisterFormData>(initialFormData);
-  const [errors, setErrors] = useState<RegisterFormErrors>({});
-  const [successMessage, setSuccessMessage] = useState("");
-  const [submitError, setSubmitError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target;
-    const fieldName = name as keyof RegisterFormData;
-    const nextFormData = {
-      ...formData,
-      [fieldName]: value,
-    };
-
-    setFormData(nextFormData);
-
-    setErrors((currentErrors) => {
-      const nextErrors: RegisterFormErrors = {
-        ...currentErrors,
-        [fieldName]: undefined,
-      };
-
-      if (
-        (fieldName === "password" || fieldName === "confirmPassword") &&
-        nextFormData.confirmPassword
-      ) {
-        nextErrors.confirmPassword =
-          nextFormData.confirmPassword === nextFormData.password
-            ? undefined
-            : "Las contraseñas no coinciden.";
-      }
-
-      return nextErrors;
+  const [departmentsCatalog, setDepartmentsCatalog] = useState<
+    CatalogState<Department>
+  >({ data: [], status: "loading" });
+  const [districtsCatalog, setDistrictsCatalog] =
+    useState<DistrictCatalogState>({
+      data: [],
+      departmentId: null,
+      status: "idle",
     });
-    setSuccessMessage("");
-    setSubmitError("");
-  };
+  const [departmentsRequestVersion, setDepartmentsRequestVersion] =
+    useState(0);
+  const [districtsRequestVersion, setDistrictsRequestVersion] = useState(0);
+  const activeStepTitleRef = useRef<HTMLHeadingElement>(null);
+  const previousStepRef = useRef(activeStep);
+  const departmentsStartedVersionRef = useRef<number | null>(null);
+  const departmentsRequestIdRef = useRef(0);
+  const districtsRequestIdRef = useRef(0);
+  const districtAbortControllerRef = useRef<AbortController | null>(null);
+  const {
+    clearErrors,
+    control,
+    register,
+    setValue,
+    trigger,
+    formState: { errors },
+  } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerFormSchema),
+    defaultValues: initialFormData,
+    mode: "onSubmit",
+    reValidateMode: "onChange",
+    shouldFocusError: true,
+    shouldUnregister: false,
+  });
+  const formValues = useWatch({ control });
+  const selectedDepartmentId = formValues.departmentId ?? null;
+  const selectedDistrictId = formValues.districtId ?? null;
+  const passwordValue = formValues.password ?? "";
+  const previousDepartmentIdRef = useRef(selectedDepartmentId);
+  const lastStepIndex = registrationSteps.length - 1;
+  const currentStep = registrationSteps[activeStep];
+  const isDistrictCatalogCurrent =
+    selectedDepartmentId !== null &&
+    districtsCatalog.departmentId === selectedDepartmentId;
+  const currentDistrictStatus: CatalogStatus = selectedDepartmentId === null
+    ? "idle"
+    : isDistrictCatalogCurrent
+      ? districtsCatalog.status
+      : "loading";
+  const availableDistricts = isDistrictCatalogCurrent
+    ? districtsCatalog.data
+    : [];
+  const selectedDepartmentLabel =
+    departmentsCatalog.data.find(
+      (department) => department.id === selectedDepartmentId,
+    )?.name ?? "";
+  const selectedDistrictLabel =
+    availableDistricts.find((district) => district.id === selectedDistrictId)
+      ?.name ?? "";
+  const departmentStatusMessage =
+    departmentsCatalog.status === "loading"
+      ? "Cargando departamentos..."
+      : departmentsCatalog.status === "success" &&
+          departmentsCatalog.data.length === 0
+        ? "No hay departamentos disponibles"
+        : null;
+  const districtStatusMessage =
+    currentDistrictStatus === "loading"
+      ? "Cargando distritos..."
+      : currentDistrictStatus === "success" &&
+          availableDistricts.length === 0
+        ? "No hay distritos disponibles"
+        : null;
+  const departmentPlaceholder = departmentStatusMessage ?? "Departamento";
+  const districtPlaceholder = selectedDepartmentId === null
+    ? "Selecciona primero un departamento"
+    : (districtStatusMessage ?? "Distrito");
+  const isDepartmentSelectDisabled =
+    departmentsCatalog.status !== "success" ||
+    departmentsCatalog.data.length === 0;
+  const isDistrictSelectDisabled =
+    selectedDepartmentId === null ||
+    currentDistrictStatus !== "success" ||
+    availableDistricts.length === 0;
+  const departmentDescriptionIds = joinDescriptionIds(
+    Boolean(errors.departmentId) && "departmentId-error",
+    departmentStatusMessage && "department-catalog-status",
+    departmentsCatalog.status === "error" && "department-catalog-error",
+  );
+  const districtDescriptionIds = joinDescriptionIds(
+    Boolean(errors.districtId) && "districtId-error",
+    districtStatusMessage && "district-catalog-status",
+    currentDistrictStatus === "error" && "district-catalog-error",
+  );
+  const confirmationRows = [
+    ["Nombre completo:", formValues.fullName],
+    ["Teléfono:", formValues.phone],
+    ["Email:", formValues.email],
+    ["Dirección:", formValues.addressLine],
+    ["Ciudad:", formValues.city],
+    ["Departamento:", selectedDepartmentLabel],
+    ["Distrito", selectedDistrictLabel],
+  ] as const;
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const validationErrors = validateRegisterForm(formData);
-    setErrors(validationErrors);
-    setSuccessMessage("");
-    setSubmitError("");
-
-    if (Object.keys(validationErrors).length > 0) {
+  useEffect(() => {
+    if (
+      activeStep !== editableSteps.length - 1 ||
+      departmentsStartedVersionRef.current === departmentsRequestVersion
+    ) {
       return;
     }
 
-    setIsSubmitting(true);
+    departmentsStartedVersionRef.current = departmentsRequestVersion;
+    const requestId = ++departmentsRequestIdRef.current;
+    const controller = new AbortController();
+    let requestCompleted = false;
 
-    try {
-      await registerUser({
-        nombre: formData.nombre.trim(),
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-      });
-
-      setFormData(initialFormData);
-      setSuccessMessage("¡Registro completado correctamente!.");
-    } catch (error) {
-      if (error instanceof ApiRequestError) {
-        setSubmitError(error.message);
+    queueMicrotask(() => {
+      if (
+        controller.signal.aborted ||
+        requestId !== departmentsRequestIdRef.current
+      ) {
         return;
       }
 
-      setSubmitError("No se pudo conectar con el servidor.");
-    } finally {
-      setIsSubmitting(false);
+      void locationsService
+        .getDepartments(controller.signal)
+        .then((departments) => {
+          if (
+            controller.signal.aborted ||
+            requestId !== departmentsRequestIdRef.current
+          ) {
+            return;
+          }
+
+          requestCompleted = true;
+          setDepartmentsCatalog({ data: departments, status: "success" });
+        })
+        .catch(() => {
+          if (
+            controller.signal.aborted ||
+            requestId !== departmentsRequestIdRef.current
+          ) {
+            return;
+          }
+
+          requestCompleted = true;
+          setDepartmentsCatalog({ data: [], status: "error" });
+        });
+    });
+
+    return () => {
+      controller.abort();
+
+      if (
+        !requestCompleted &&
+        departmentsStartedVersionRef.current === departmentsRequestVersion
+      ) {
+        departmentsStartedVersionRef.current = null;
+      }
+    };
+  }, [activeStep, departmentsRequestVersion]);
+
+  useEffect(() => {
+    if (previousStepRef.current === activeStep) {
+      return;
     }
+
+    previousStepRef.current = activeStep;
+    activeStepTitleRef.current?.focus();
+  }, [activeStep]);
+
+  useEffect(() => {
+    if (previousDepartmentIdRef.current !== selectedDepartmentId) {
+      previousDepartmentIdRef.current = selectedDepartmentId;
+      setValue("districtId", null, { shouldDirty: true });
+      clearErrors("districtId");
+    }
+
+    districtAbortControllerRef.current?.abort();
+    const requestId = ++districtsRequestIdRef.current;
+
+    if (selectedDepartmentId === null) {
+      districtAbortControllerRef.current = null;
+      return;
+    }
+
+    const controller = new AbortController();
+    districtAbortControllerRef.current = controller;
+
+    queueMicrotask(() => {
+      if (
+        controller.signal.aborted ||
+        requestId !== districtsRequestIdRef.current
+      ) {
+        return;
+      }
+
+      void locationsService
+        .getDistricts(selectedDepartmentId, controller.signal)
+        .then((districts) => {
+          if (
+            controller.signal.aborted ||
+            requestId !== districtsRequestIdRef.current
+          ) {
+            return;
+          }
+
+          setDistrictsCatalog({
+            data: districts,
+            departmentId: selectedDepartmentId,
+            status: "success",
+          });
+        })
+        .catch(() => {
+          if (
+            controller.signal.aborted ||
+            requestId !== districtsRequestIdRef.current
+          ) {
+            return;
+          }
+
+          setDistrictsCatalog({
+            data: [],
+            departmentId: selectedDepartmentId,
+            status: "error",
+          });
+        });
+    });
+
+    return () => {
+      controller.abort();
+
+      if (districtAbortControllerRef.current === controller) {
+        districtAbortControllerRef.current = null;
+      }
+    };
+  }, [
+    clearErrors,
+    districtsRequestVersion,
+    selectedDepartmentId,
+    setValue,
+  ]);
+
+  const goToPreviousStep = () => {
+    setActiveStep((currentStepIndex) =>
+      Math.max(currentStepIndex - 1, 0),
+    );
+  };
+
+  const goToNextStep = async () => {
+    if (activeStep >= editableSteps.length) {
+      return;
+    }
+
+    const isCurrentStepValid = await trigger(stepFields[activeStep], {
+      shouldFocus: true,
+    });
+
+    if (!isCurrentStepValid) {
+      return;
+    }
+
+    setActiveStep((currentStepIndex) =>
+      Math.min(currentStepIndex + 1, lastStepIndex),
+    );
+  };
+
+  const selectStep = (stepIndex: number) => {
+    if (stepIndex <= activeStep) {
+      setActiveStep(stepIndex);
+      return;
+    }
+
+    void goToNextStep();
   };
 
   return (
-    <section className="flex min-h-[calc(100vh-10rem)] items-center justify-center bg-[linear-gradient(180deg,#f8fbff_0%,#eef7ff_52%,#f9fafb_100%)] px-6 py-8 sm:py-10">
-      {successMessage ? (
-        <div
-          role="status"
-          className="w-full max-w-sm rounded-2xl border border-emerald-200 bg-white p-7 text-center shadow-[0_24px_80px_rgba(5,150,105,0.18)]"
+    <section className="flex min-h-screen w-full flex-col overflow-x-hidden bg-white">
+      <AuthBenefitsBar />
+
+      {activeStep < lastStepIndex ? (
+        <nav
+          className="mx-auto w-full max-w-[558px] px-4 pt-14 sm:px-0 sm:pt-16"
+          aria-label="Progreso del registro"
         >
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 ring-8 ring-emerald-100">
-            <CheckCircle2 className="h-11 w-11 text-emerald-600" aria-hidden="true" />
-          </div>
+          <ol className="grid grid-cols-3 gap-2 sm:grid-cols-[repeat(3,171px)] sm:justify-between sm:gap-0">
+            {editableSteps.map((step, stepIndex) => {
+              const isActive = stepIndex === activeStep;
+              const isUnavailable = stepIndex > activeStep + 1;
 
-          <h1 className="mt-7 text-2xl font-extrabold text-gray-950">
-            {successMessage}
-          </h1>
+              return (
+                <li
+                  key={step.id}
+                  aria-current={isActive ? "step" : undefined}
+                  className={`min-w-0 border-b-2 pb-4 ${
+                    isActive ? "border-[#1c21d1]" : "border-transparent"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => selectStep(stepIndex)}
+                    disabled={isUnavailable}
+                    className="flex w-full min-w-0 items-center justify-center gap-2 disabled:cursor-not-allowed sm:justify-start sm:gap-3"
+                    aria-label={`Ir al paso ${stepIndex + 1}: ${step.progressLabel}`}
+                  >
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                        isActive
+                          ? "bg-[#1c21d1] text-white"
+                          : "bg-[#b5b1b8] text-white"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {stepIndex + 1}
+                    </span>
+                    <span
+                      className={`min-w-0 text-center text-[10px] font-semibold sm:whitespace-nowrap sm:text-xs ${
+                        isActive ? "text-[#1c21d1]" : "text-[#aea9b1]"
+                      }`}
+                    >
+                      {step.progressLabel}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+      ) : null}
 
-          <p className="mt-3 text-sm leading-6 text-gray-600">
-            ¡Tu cuenta fue creada con éxito!
-          </p>
-
-          <Link
-            href="/login"
-            className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-100"
+      <div
+        className={`mx-auto grid w-full max-w-[1120px] flex-1 grid-cols-1 px-5 pb-0 sm:px-8 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.85fr)] md:gap-12 lg:gap-20 ${
+          activeStep < lastStepIndex ? "pt-10" : "pt-12 sm:pt-16"
+        }`}
+      >
+        <main
+          className="flex justify-center pb-12 md:translate-x-5 md:pb-0"
+          aria-labelledby="active-registration-step"
+        >
+          <form
+            className={`w-full ${currentStep.contentClassName} ${currentStep.positionClassName}`}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void goToNextStep();
+            }}
+            noValidate
           >
-            <LogIn className="h-4 w-4" aria-hidden="true" />
-            Iniciar sesión
-          </Link>
-        </div>
-      ) : (
-        <div className="w-full max-w-md rounded-lg border border-sky-100 bg-white p-5 shadow-[0_18px_55px_rgba(37,99,235,0.10)] sm:p-6">
-        <div className="border-b border-slate-100 pb-4">
-          <h1 className="text-2xl font-bold text-gray-950">Registro</h1>
-
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            Crea tu cuenta para continuar comprando en E-Commerce.
-          </p>
-        </div>
-
-        <form className="mt-5 space-y-4" onSubmit={handleSubmit} noValidate>
-          <div>
-            <label
-              htmlFor="nombre"
-              className="block text-sm font-medium text-gray-700"
+            <h1
+              ref={activeStepTitleRef}
+              id="active-registration-step"
+              tabIndex={-1}
+              className="text-[34px] leading-[1.15] font-bold tracking-[0.02em] text-[#4a4a4a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c21d1] focus-visible:ring-offset-4"
             >
-              Nombre completo
-            </label>
-            <div className="relative mt-2">
-              <input
-                id="nombre"
-                name="nombre"
-                type="text"
-                autoComplete="name"
-                value={formData.nombre}
-                onChange={handleChange}
-                className={inputClassName}
-                aria-invalid={Boolean(errors.nombre)}
-                aria-describedby={errors.nombre ? "nombre-error" : undefined}
-              />
-            </div>
-            {errors.nombre ? (
-              <p id="nombre-error" className="mt-2 text-sm text-red-600">
-                {errors.nombre}
-              </p>
+              {currentStep.title}
+            </h1>
+
+            {activeStep === 0 ? (
+              <div className="mt-6 space-y-[14px]">
+                <div>
+                  <label htmlFor="fullName" className="sr-only">
+                    Nombre completo
+                  </label>
+                  <input
+                    id="fullName"
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Nombre completo"
+                    {...register("fullName")}
+                    className={inputClassName}
+                    aria-invalid={Boolean(errors.fullName)}
+                    aria-describedby={
+                      errors.fullName ? "fullName-error" : undefined
+                    }
+                  />
+                  <FieldErrorMessage
+                    id="fullName-error"
+                    message={errors.fullName?.message}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="dui" className="sr-only">
+                    Documento Único de Identidad (DUI)
+                  </label>
+                  <input
+                    id="dui"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Documento Único de Identidad (DUI)"
+                    {...register("dui")}
+                    className={inputClassName}
+                    aria-invalid={Boolean(errors.dui)}
+                    aria-describedby={errors.dui ? "dui-error" : undefined}
+                  />
+                  <FieldErrorMessage
+                    id="dui-error"
+                    message={errors.dui?.message}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="phone" className="sr-only">
+                    Teléfono
+                  </label>
+                  <input
+                    id="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    placeholder="Teléfono"
+                    {...register("phone")}
+                    className={inputClassName}
+                    aria-invalid={Boolean(errors.phone)}
+                    aria-describedby={
+                      errors.phone ? "phone-error" : undefined
+                    }
+                  />
+                  <FieldErrorMessage
+                    id="phone-error"
+                    message={errors.phone?.message}
+                  />
+                </div>
+              </div>
             ) : null}
-          </div>
 
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Correo electrónico
-            </label>
-            <div className="relative mt-2">
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={formData.email}
-                onChange={handleChange}
-                className={inputClassName}
-                aria-invalid={Boolean(errors.email)}
-                aria-describedby={errors.email ? "email-error" : undefined}
-              />
-            </div>
-            {errors.email ? (
-              <p id="email-error" className="mt-2 text-sm text-red-600">
-                {errors.email}
-              </p>
+            {activeStep === 1 ? (
+              <div className="mt-[27px]">
+                <div>
+                  <label htmlFor="email" className="sr-only">
+                    Correo
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="Correo"
+                      {...register("email")}
+                      className={`${inputClassName} pr-11`}
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={
+                        errors.email ? "email-error" : undefined
+                      }
+                    />
+                    <Mail
+                      className="pointer-events-none absolute top-1/2 right-4 h-[18px] w-[18px] -translate-y-1/2 text-[#93969d]"
+                      strokeWidth={1.7}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <FieldErrorMessage
+                    id="email-error"
+                    message={errors.email?.message}
+                  />
+                </div>
+
+                <div className="mt-[14px]">
+                  <label htmlFor="password" className="sr-only">
+                    Contraseña
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      placeholder="Contraseña"
+                      {...register("password")}
+                      className={`${inputClassName} pr-11`}
+                      aria-invalid={Boolean(errors.password)}
+                      aria-describedby={
+                        errors.password
+                          ? "password-error password-requirements"
+                          : "password-requirements"
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPassword((currentValue) => !currentValue)
+                      }
+                      className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-[#93969d] transition hover:text-[#1c21d1]"
+                      aria-label={
+                        showPassword
+                          ? "Ocultar contraseña"
+                          : "Mostrar contraseña"
+                      }
+                      aria-pressed={showPassword}
+                    >
+                      {showPassword ? (
+                        <Eye
+                          className="h-[18px] w-[18px]"
+                          strokeWidth={1.7}
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <EyeOff
+                          className="h-[18px] w-[18px]"
+                          strokeWidth={1.7}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </button>
+                  </div>
+                  <FieldErrorMessage
+                    id="password-error"
+                    message={errors.password?.message}
+                  />
+                </div>
+
+                <div
+                  id="password-requirements"
+                  className="mt-px px-0.5 text-[#929292]"
+                >
+                  <p className="text-[11px] font-semibold text-[#363636]">
+                    La contraseña debe contener:
+                  </p>
+                  <ul className="mt-0.5">
+                    {registrationPasswordRequirements.map((requirement) => {
+                      const isMet = requirement.isMet(passwordValue);
+
+                      return (
+                        <li
+                          key={requirement.id}
+                          className={`flex items-center gap-2 text-[10px] leading-[14px] ${
+                            isMet ? "text-emerald-600" : "text-[#929292]"
+                          }`}
+                        >
+                          <CheckCircle2
+                            className="h-3.5 w-3.5 shrink-0"
+                            strokeWidth={1.8}
+                            aria-hidden="true"
+                          />
+                          <span>{requirement.label}</span>
+                          <span className="sr-only">
+                            {isMet ? " cumplido" : " pendiente"}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
             ) : null}
-          </div>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700"
+            {activeStep === 2 ? (
+              <div className="mt-[5px] space-y-[10px]">
+                <div>
+                  <label htmlFor="departmentId" className="sr-only">
+                    Departamento
+                  </label>
+                  <Controller
+                    name="departmentId"
+                    control={control}
+                    render={({ field }) => (
+                      <select
+                        id="departmentId"
+                        name={field.name}
+                        ref={field.ref}
+                        value={field.value ?? ""}
+                        onBlur={field.onBlur}
+                        onChange={(event) => {
+                          const nextDepartmentId = parseLocationId(
+                            event.target.value,
+                          );
+
+                          if (nextDepartmentId !== selectedDepartmentId) {
+                            districtAbortControllerRef.current?.abort();
+                            previousDepartmentIdRef.current = nextDepartmentId;
+                            setValue("districtId", null, {
+                              shouldDirty: true,
+                            });
+                            clearErrors("districtId");
+                            setDistrictsCatalog({
+                              data: [],
+                              departmentId: nextDepartmentId,
+                              status:
+                                nextDepartmentId === null ? "idle" : "loading",
+                            });
+                          }
+
+                          field.onChange(nextDepartmentId);
+                        }}
+                        disabled={isDepartmentSelectDisabled}
+                        className={`${inputClassName} cursor-pointer disabled:cursor-not-allowed disabled:opacity-60`}
+                        aria-invalid={Boolean(errors.departmentId)}
+                        aria-describedby={departmentDescriptionIds}
+                        aria-busy={departmentsCatalog.status === "loading"}
+                      >
+                        <option value="">{departmentPlaceholder}</option>
+                        {departmentsCatalog.data.map((department) => (
+                          <option key={department.id} value={department.id}>
+                            {department.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  />
+                  {departmentStatusMessage ? (
+                    <p
+                      id="department-catalog-status"
+                      role="status"
+                      className="sr-only"
+                    >
+                      {departmentStatusMessage}
+                    </p>
+                  ) : null}
+                  {departmentsCatalog.status === "error" ? (
+                    <div
+                      id="department-catalog-error"
+                      role="alert"
+                      className="mt-1.5 flex items-center justify-between gap-3 px-1 text-xs text-red-600"
+                    >
+                      <span>No pudimos cargar los departamentos.</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDepartmentsCatalog({
+                            data: [],
+                            status: "loading",
+                          });
+                          setDepartmentsRequestVersion(
+                            (currentVersion) => currentVersion + 1,
+                          );
+                        }}
+                        className="shrink-0 font-semibold text-[#1c21d1] underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c21d1]"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  ) : null}
+                  <FieldErrorMessage
+                    id="departmentId-error"
+                    message={errors.departmentId?.message}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="districtId" className="sr-only">
+                    Distrito
+                  </label>
+                  <Controller
+                    name="districtId"
+                    control={control}
+                    render={({ field }) => (
+                      <select
+                        id="districtId"
+                        name={field.name}
+                        ref={field.ref}
+                        value={field.value ?? ""}
+                        onBlur={field.onBlur}
+                        onChange={(event) =>
+                          field.onChange(parseLocationId(event.target.value))
+                        }
+                        disabled={isDistrictSelectDisabled}
+                        className={`${inputClassName} cursor-pointer disabled:cursor-not-allowed disabled:opacity-60`}
+                        aria-invalid={Boolean(errors.districtId)}
+                        aria-describedby={districtDescriptionIds}
+                        aria-busy={currentDistrictStatus === "loading"}
+                      >
+                        <option value="">{districtPlaceholder}</option>
+                        {availableDistricts.map((district) => (
+                          <option key={district.id} value={district.id}>
+                            {district.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  />
+                  {districtStatusMessage ? (
+                    <p
+                      id="district-catalog-status"
+                      role="status"
+                      className="sr-only"
+                    >
+                      {districtStatusMessage}
+                    </p>
+                  ) : null}
+                  {currentDistrictStatus === "error" ? (
+                    <div
+                      id="district-catalog-error"
+                      role="alert"
+                      className="mt-1.5 flex items-center justify-between gap-3 px-1 text-xs text-red-600"
+                    >
+                      <span>No pudimos cargar los distritos.</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDistrictsCatalog({
+                            data: [],
+                            departmentId: selectedDepartmentId,
+                            status: "loading",
+                          });
+                          setDistrictsRequestVersion(
+                            (currentVersion) => currentVersion + 1,
+                          );
+                        }}
+                        className="shrink-0 font-semibold text-[#1c21d1] underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c21d1]"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  ) : null}
+                  <FieldErrorMessage
+                    id="districtId-error"
+                    message={errors.districtId?.message}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="city" className="sr-only">
+                    Ciudad
+                  </label>
+                  <input
+                    id="city"
+                    type="text"
+                    autoComplete="address-level2"
+                    placeholder="Ciudad"
+                    {...register("city")}
+                    className={inputClassName}
+                    aria-invalid={Boolean(errors.city)}
+                    aria-describedby={errors.city ? "city-error" : undefined}
+                  />
+                  <FieldErrorMessage
+                    id="city-error"
+                    message={errors.city?.message}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="addressLine" className="sr-only">
+                    Dirección
+                  </label>
+                  <input
+                    id="addressLine"
+                    type="text"
+                    autoComplete="street-address"
+                    placeholder="Dirección"
+                    {...register("addressLine")}
+                    className={inputClassName}
+                    aria-invalid={Boolean(errors.addressLine)}
+                    aria-describedby={
+                      errors.addressLine ? "addressLine-error" : undefined
+                    }
+                  />
+                  <FieldErrorMessage
+                    id="addressLine-error"
+                    message={errors.addressLine?.message}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {activeStep === lastStepIndex ? (
+              <dl className="mt-6 space-y-[14px] text-sm">
+                {confirmationRows.map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="grid grid-cols-2 items-baseline gap-3"
+                  >
+                    <dt className="text-right text-[#999999]">{label}</dt>
+                    <dd className="min-w-0 break-words text-black">
+                      {value || "—"}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+
+            <div
+              className={`${currentStep.navigationClassName} flex flex-wrap justify-end gap-2`}
             >
-              Contraseña
-            </label>
-            <div className="relative mt-2">
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                value={formData.password}
-                onChange={handleChange}
-                className={passwordInputClassName}
-                aria-invalid={Boolean(errors.password)}
-                aria-describedby={
-                  errors.password ? "password-error" : undefined
-                }
-              />
+              {currentStep.previousLabel ? (
+                <button
+                  type="button"
+                  onClick={goToPreviousStep}
+                  className={`${navigationButtonClassName} ${currentStep.previousButtonClassName} border-[#1c21d1] bg-white text-[#1c21d1] hover:bg-[#f2f5fc]`}
+                >
+                  {currentStep.previousLabel}
+                </button>
+              ) : null}
+
               <button
-                type="button"
-                onClick={() => setShowPassword((currentValue) => !currentValue)}
-                className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-md text-gray-500 transition hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                aria-label={
-                  showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-                }
+                type={activeStep < lastStepIndex ? "submit" : "button"}
+                disabled={activeStep === lastStepIndex}
+                className={`${navigationButtonClassName} ${currentStep.nextButtonClassName} border-[#1c21d1] bg-[#1c21d1] text-white hover:bg-[#171bb8] disabled:bg-[#1c21d1] disabled:text-white`}
               >
-                {showPassword ? (
-                  <Eye className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <EyeOff className="h-5 w-5" aria-hidden="true" />
-                )}
+                {currentStep.nextLabel}
               </button>
             </div>
-            {errors.password ? (
-              <p id="password-error" className="mt-2 text-sm text-red-600">
-                {errors.password}
-              </p>
-            ) : null}
-          </div>
+          </form>
+        </main>
 
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Confirmar contraseña
-            </label>
-            <div className="relative mt-2">
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type={showConfirmPassword ? "text" : "password"}
-                autoComplete="new-password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className={passwordInputClassName}
-                aria-invalid={Boolean(errors.confirmPassword)}
-                aria-describedby={
-                  errors.confirmPassword
-                    ? "confirm-password-error"
-                    : undefined
-                }
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setShowConfirmPassword((currentValue) => !currentValue)
-                }
-                className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-md text-gray-500 transition hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                aria-label={
-                  showConfirmPassword
-                    ? "Ocultar confirmación de contraseña"
-                    : "Mostrar confirmación de contraseña"
-                }
-              >
-                {showConfirmPassword ? (
-                  <Eye className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <EyeOff className="h-5 w-5" aria-hidden="true" />
-                )}
-              </button>
-            </div>
-            {errors.confirmPassword ? (
-              <p
-                id="confirm-password-error"
-                className="mt-2 text-sm text-red-600"
-              >
-                {errors.confirmPassword}
-              </p>
-            ) : null}
-          </div>
-
-          {submitError ? (
-            <p className="rounded-md bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-              {submitError}
-            </p>
-          ) : null}
-
-          <div className="flex justify-center pt-1">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={primaryButtonClassName}
-            >
-              {isSubmitting ? "Registrando..." : "Crear cuenta"}
-            </button>
-          </div>
-
-          <p className="border-t border-slate-100 pt-4 text-center text-sm text-gray-600">
-            ¿Ya tienes cuenta?{" "}
-            <Link
-              href="/login"
-              className="font-semibold text-blue-600 underline-offset-4 transition hover:text-blue-700 hover:underline"
-            >
-              Inicia sesión
-            </Link>
-          </p>
-        </form>
+        <aside className="hidden h-full items-end justify-end md:flex md:pr-2">
+          <AuthIllustrationPanel variant="registro" />
+        </aside>
       </div>
-      )}
     </section>
   );
 }

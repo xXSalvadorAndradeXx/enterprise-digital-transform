@@ -1,107 +1,53 @@
-const API_BASE_URL =
-  "http://localhost:3000/api/v1";
+const API_BASE_URL = "http://localhost:3000/api/v1";
 
 type ApiRequestOptions<TBody> = {
-  method?:
-    | "GET"
-    | "POST"
-    | "PUT"
-    | "PATCH"
-    | "DELETE";
-
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: TBody;
-
   headers?: HeadersInit;
+  signal?: AbortSignal;
 };
 
 export class ApiRequestError extends Error {
   status: number;
+  code: string | null;
   response: unknown;
 
-  constructor(
-    message: string,
-    status: number,
-    response: unknown,
-  ) {
+  constructor(message: string, status: number, response: unknown, code: string | null = null) {
     super(message);
-
     this.name = "ApiRequestError";
     this.status = status;
+    this.code = code;
     this.response = response;
   }
 }
 
-function getErrorMessage(
-  responseData: unknown,
-  fallbackMessage: string,
-) {
-  if (
-    typeof responseData === "object" &&
-    responseData !== null
-  ) {
-    const message = (
-      responseData as {
-        message?: unknown;
-      }
-    ).message;
+function getErrorMessage(responseData: unknown, fallbackMessage: string) {
+  if (typeof responseData !== "object" || responseData === null) return fallbackMessage;
 
-    if (Array.isArray(message)) {
-      return message.join(" ");
-    }
+  const message = (responseData as { message?: unknown }).message;
+  if (Array.isArray(message)) return message.join(" ");
+  if (typeof message === "string") return message;
 
-    if (typeof message === "string") {
-      return message;
-    }
-
-    const nestedError = (
-      responseData as {
-        error?: unknown;
-      }
-    ).error;
-
-    if (
-      typeof nestedError === "object" &&
-      nestedError !== null &&
-      "message" in nestedError &&
-      typeof (
-        nestedError as {
-          message?: unknown;
-        }
-      ).message === "string"
-    ) {
-      return (
-        nestedError as {
-          message: string;
-        }
-      ).message;
-    }
+  const nestedError = (responseData as { error?: unknown }).error;
+  if (typeof nestedError === "object" && nestedError !== null) {
+    const nestedMessage = (nestedError as { message?: unknown }).message;
+    if (typeof nestedMessage === "string") return nestedMessage;
   }
 
   return fallbackMessage;
 }
 
-async function readJsonResponse(
-  response: Response,
-): Promise<unknown> {
-  /*
-   * 204 no contiene body.
-   */
-  if (response.status === 204) {
-    return null;
-  }
+function getErrorCode(responseData: unknown): string | null {
+  if (typeof responseData !== "object" || responseData === null) return null;
+  const error = (responseData as { error?: unknown }).error;
+  if (typeof error !== "object" || error === null) return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" && code.length > 0 ? code : null;
+}
 
-  const contentType =
-    response.headers.get(
-      "content-type",
-    );
-
-  if (
-    !contentType?.includes(
-      "application/json",
-    )
-  ) {
-    return null;
-  }
+async function readJsonResponse(response: Response): Promise<unknown> {
+  if (response.status === 204) return null;
+  if (!response.headers.get("content-type")?.includes("application/json")) return null;
 
   try {
     return await response.json();
@@ -110,136 +56,49 @@ async function readJsonResponse(
   }
 }
 
-async function executeRequest<
-  TResponse,
-  TBody,
->(
+async function executeRequest<TResponse, TBody>(
   path: string,
   options: ApiRequestOptions<TBody>,
-): Promise<{
-  data: TResponse;
-  response: Response;
-}> {
-  const {
-    method = "GET",
-    body,
-    headers,
-  } = options;
+): Promise<{ data: TResponse; response: Response }> {
+  const { method = "GET", body, headers, signal } = options;
 
   try {
-    const response = await fetch(
-      `${API_BASE_URL}${path}`,
-      {
-        method,
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+    });
 
-        /*
-         * Necesario para cookies HttpOnly,
-         * principalmente refresh de sesión.
-         */
-        credentials: "include",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-
-          ...headers,
-        },
-
-        body:
-          body === undefined
-            ? undefined
-            : JSON.stringify(body),
-      },
-    );
-
-    const responseData =
-      await readJsonResponse(
-        response,
-      );
-
+    const responseData = await readJsonResponse(response);
     if (!response.ok) {
       throw new ApiRequestError(
-        getErrorMessage(
-          responseData,
-          "No se pudo completar la solicitud.",
-        ),
-
+        getErrorMessage(responseData, "No se pudo completar la solicitud."),
         response.status,
-
         responseData,
+        getErrorCode(responseData),
       );
     }
 
-    return {
-      data:
-        responseData as TResponse,
-
-      response,
-    };
+    return { data: responseData as TResponse, response };
   } catch (error) {
-    if (
-      error instanceof
-      ApiRequestError
-    ) {
-      throw error;
-    }
-
-    throw new ApiRequestError(
-      "No se pudo conectar con el servidor.",
-      0,
-      null,
-    );
+    if (error instanceof ApiRequestError) throw error;
+    throw new ApiRequestError("No se pudo conectar con el servidor.", 0, null, null);
   }
 }
 
-/*
- * Solicitud estándar.
- *
- * Devuelve únicamente el contenido
- * normalizado de la respuesta.
- */
-export async function apiRequest<
-  TResponse,
-  TBody = undefined,
->(
+export async function apiRequest<TResponse, TBody = undefined>(
   path: string,
   options: ApiRequestOptions<TBody> = {},
 ): Promise<TResponse> {
-  const result =
-    await executeRequest<
-      TResponse,
-      TBody
-    >(
-      path,
-      options,
-    );
-
+  const result = await executeRequest<TResponse, TBody>(path, options);
   return result.data;
 }
 
-/*
- * Utilizar cuando además del JSON
- * necesitamos consultar información
- * HTTP como response headers.
- *
- * Ejemplo:
- * X-Cart-Token.
- */
-export async function apiRequestWithResponse<
-  TResponse,
-  TBody = undefined,
->(
+export async function apiRequestWithResponse<TResponse, TBody = undefined>(
   path: string,
   options: ApiRequestOptions<TBody> = {},
-): Promise<{
-  data: TResponse;
-  response: Response;
-}> {
-  return executeRequest<
-    TResponse,
-    TBody
-  >(
-    path,
-    options,
-  );
+): Promise<{ data: TResponse; response: Response }> {
+  return executeRequest<TResponse, TBody>(path, options);
 }

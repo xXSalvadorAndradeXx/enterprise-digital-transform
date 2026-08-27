@@ -12,7 +12,18 @@ import {
   UseGuards,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiBadRequestResponse,
+  ApiUnauthorizedResponse,
+  ApiConflictResponse,
+  ApiUnprocessableEntityResponse,
+  ApiBody,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import * as crypto from 'crypto';
 import { CustomersService } from '../customers.service';
@@ -28,11 +39,87 @@ export class EcommerceAuthController {
 
   @ApiOperation({
     summary: 'Registrar un nuevo cliente comprador y crear sesión',
+    description:
+      'Crea una nueva cuenta de cliente e-commerce, asigna su dirección principal y genera un Access Token en el cuerpo JSON junto a una cookie HttpOnly para el Refresh Token.',
   })
   @ApiBody({ type: EcommerceRegisterDto })
-  @ApiResponse({
-    status: 201,
+  @ApiCreatedResponse({
     description: 'Cliente registrado y sesión creada correctamente',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            accessToken: {
+              type: 'string',
+              example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+            },
+            customer: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1' },
+                fullName: { type: 'string', example: 'Carlos Eduardo Gómez' },
+                email: { type: 'string', example: 'carlos.gomez@correo.com' },
+                phone: { type: 'string', example: '+50371234567' },
+                dui: { type: 'string', example: '01234567-8' },
+              },
+            },
+            expiresIn: { type: 'number', example: 900 },
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Error de validación en los datos de registro (VALIDATION_ERROR)',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: false },
+        error: {
+          type: 'object',
+          properties: {
+            code: { type: 'string', example: 'VALIDATION_ERROR' },
+            message: { type: 'string', example: 'Los datos enviados no son válidos' },
+            details: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  field: { type: 'string', example: 'email' },
+                  errors: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    example: ['El formato del correo es inválido'],
+                  },
+                },
+              },
+            },
+          },
+        },
+        timestamp: { type: 'string', example: '2026-08-26T19:53:00.000Z' },
+      },
+    },
+  })
+  @ApiConflictResponse({
+    description: 'El correo o DUI ya se encuentra registrado (EMAIL_ALREADY_EXISTS / DUI_ALREADY_EXISTS)',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: false },
+        error: {
+          type: 'object',
+          properties: {
+            code: { type: 'string', example: 'EMAIL_ALREADY_EXISTS' },
+            message: { type: 'string', example: 'El correo electrónico ya está registrado por otro cliente activo' },
+            details: { type: 'object', example: { email: 'carlos.gomez@correo.com' } },
+          },
+        },
+        timestamp: { type: 'string', example: '2026-08-26T19:53:00.000Z' },
+      },
+    },
   })
   @Post('register')
   async register(
@@ -51,13 +138,14 @@ export class EcommerceAuthController {
     return {
       success: true,
       data: {
+        accessToken,
         customer: {
           id: customer.id,
           fullName: customer.fullName,
           email: customer.email,
           phone: customer.phone,
+          dui: customer.dui,
         },
-        accessToken,
         expiresIn: 900,
       },
     };
@@ -65,11 +153,55 @@ export class EcommerceAuthController {
 
   @ApiOperation({
     summary: 'Iniciar sesión de cliente comprador',
+    description:
+      'Autentica un cliente e-commerce mediante email y contraseña, retornando el Access Token en el JSON y estableciendo el Refresh Token en cookie HttpOnly.',
   })
   @ApiBody({ type: EcommerceLoginDto })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     description: 'Inicio de sesión exitoso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            accessToken: {
+              type: 'string',
+              example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+            },
+            customer: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1' },
+                fullName: { type: 'string', example: 'Carlos Eduardo Gómez' },
+                email: { type: 'string', example: 'carlos.gomez@correo.com' },
+                phone: { type: 'string', example: '+50371234567' },
+                dui: { type: 'string', example: '01234567-8' },
+              },
+            },
+            expiresIn: { type: 'number', example: 900 },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Credenciales inválidas (INVALID_CREDENTIALS)',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: false },
+        error: {
+          type: 'object',
+          properties: {
+            code: { type: 'string', example: 'INVALID_CREDENTIALS' },
+            message: { type: 'string', example: 'Las credenciales proporcionadas no son válidas' },
+          },
+        },
+        timestamp: { type: 'string', example: '2026-08-26T19:53:00.000Z' },
+      },
+    },
   })
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -96,13 +228,14 @@ export class EcommerceAuthController {
     return {
       success: true,
       data: {
+        accessToken,
         customer: {
           id: customer.id,
           fullName: customer.fullName,
           email: customer.email,
           phone: customer.phone,
+          dui: customer.dui,
         },
-        accessToken,
         expiresIn: 900,
       },
     };
@@ -111,9 +244,24 @@ export class EcommerceAuthController {
   @ApiOperation({
     summary: 'Renovar access token mediante rotación de refresh token',
   })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     description: 'Renovación exitosa',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+            expiresIn: { type: 'number', example: 900 },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Sesión expirada o token revocado (SESSION_EXPIRED_OR_REVOKED)',
   })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
@@ -157,6 +305,9 @@ export class EcommerceAuthController {
   @ApiOperation({
     summary: 'Cerrar sesión de cliente',
   })
+  @ApiOkResponse({
+    description: 'Sesión cerrada correctamente',
+  })
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(
@@ -197,6 +348,7 @@ export class EcommerceAuthController {
         fullName: customer.fullName,
         email: customer.email,
         phone: customer.phone,
+        dui: customer.dui,
       },
     };
   }

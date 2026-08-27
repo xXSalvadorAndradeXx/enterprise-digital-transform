@@ -69,9 +69,9 @@ export class EcommerceRegisterDto {
   email!: string;
 
   @ApiProperty({
-    description: 'Contraseña del cliente para inicio de sesión (mínimo 12 caracteres, mayúscula, minúscula, número y símbolo)',
+    description: 'Contraseña del cliente para inicio de sesión (mínimo 8 caracteres, mayúscula, minúscula, número y símbolo)',
     example: 'SeguraPassword123!',
-    minLength: 12,
+    minLength: 8,
     maxLength: 100,
   })
   @IsString({ message: 'La contraseña debe ser una cadena de texto' })
@@ -85,38 +85,48 @@ export class EcommerceRegisterDto {
     description: 'Identificador del departamento de la dirección principal',
     example: '1',
   })
-  @IsString({ message: 'El ID del departamento debe ser una cadena de texto o ID válido' })
   @IsNotEmpty({ message: 'El departamento es obligatorio' })
-  departmentId!: string;
+  departmentId!: string | number;
 
   @ApiProperty({
     description: 'Identificador del distrito de la dirección principal',
     example: '187',
   })
-  @IsString({ message: 'El ID del distrito debe ser una cadena de texto o ID válido' })
   @IsNotEmpty({ message: 'El distrito es obligatorio' })
-  districtId!: string;
+  districtId!: string | number;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Ciudad de la dirección principal',
     example: 'San Salvador',
     maxLength: 100,
   })
-  @IsOptional()
   @IsString({ message: 'La ciudad debe ser una cadena de texto' })
+  @IsNotEmpty({ message: 'La ciudad es obligatoria' })
   @MaxLength(100, { message: 'La ciudad no puede exceder los 100 caracteres' })
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
-  city?: string;
+  city!: string;
 
-  @ApiProperty({
-    description: 'Dirección detallada (calle, pasaje, block, etc.) de la dirección principal',
+  @ApiPropertyOptional({
+    description: 'Dirección detallada (calle, pasaje, block, etc.)',
     example: 'Residencial San Francisco, Senda 3, Casa #14',
     minLength: 5,
     maxLength: 500,
   })
+  @IsOptional()
+  @IsString({ message: 'La dirección debe ser una cadena de texto' })
+  @Length(5, 500, { message: 'La dirección debe tener entre 5 y 500 caracteres' })
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  address?: string;
+
+  @ApiPropertyOptional({
+    description: 'Dirección detallada (calle, pasaje, block, etc.) - alias heredado',
+    example: 'Residencial San Francisco, Senda 3, Casa #14',
+    minLength: 5,
+    maxLength: 500,
+  })
+  @IsOptional()
   @IsString({ message: 'La dirección detallada debe ser una cadena de texto' })
-  @IsNotEmpty({ message: 'La dirección detallada es obligatoria' })
   @Length(5, 500, { message: 'La dirección detallada debe tener entre 5 y 500 caracteres' })
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
-  addressLine!: string;
+  addressLine?: string;
 }

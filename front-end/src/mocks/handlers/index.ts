@@ -7,6 +7,9 @@ import {
 } from "./cart.handlers";
 
 
+import { authHandlers } from "./auth.handlers";
+import { locationHandlers } from "./locations.handlers";
+
 /**
  * Handlers temporales utilizados para
  * desarrollo y pruebas mientras Backend
@@ -14,4 +17,6 @@ import {
  */
 export const handlers: RequestHandler[] = [
   ...cartHandlers,
+  ...authHandlers,
+  ...locationHandlers,
 ];

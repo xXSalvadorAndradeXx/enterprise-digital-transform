@@ -1,4 +1,7 @@
 import { apiRequest } from "@/lib/api-client";
+import type { ApiSuccess } from "@/types/api/api.types";
+import type { LoginRequest } from "@/types/auth/auth.types";
+import type { Customer } from "@/types/auth/customer.types";
 import type { User } from "@/types/auth/user.types";
 
 export type RegisterRequest = {
@@ -11,16 +14,11 @@ export type RegisterResponse = User & {
   createdAt?: string;
 };
 
-export type LoginRequest = {
-  email: string;
-  password: string;
-};
-
-export type LoginResponse = {
-  message: string;
-  access_token: string;
-  user: User;
-};
+export type LoginResponse = ApiSuccess<{
+  customer: Pick<Customer, "id" | "fullName" | "email">;
+  accessToken: string;
+  expiresIn: number;
+}>;
 
 export function registerUser(data: RegisterRequest) {
   return apiRequest<RegisterResponse, RegisterRequest>("/auth/register", {
@@ -30,8 +28,11 @@ export function registerUser(data: RegisterRequest) {
 }
 
 export function loginUser(data: LoginRequest) {
-  return apiRequest<LoginResponse, LoginRequest>("/auth/login", {
-    method: "POST",
-    body: data,
-  });
+  return apiRequest<LoginResponse, LoginRequest>(
+    "/ecommerce/auth/login",
+    {
+      method: "POST",
+      body: data,
+    },
+  );
 }
