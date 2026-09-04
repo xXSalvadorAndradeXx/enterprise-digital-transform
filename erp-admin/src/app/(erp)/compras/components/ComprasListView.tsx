@@ -22,6 +22,7 @@ export default function ComprasListView({ showEmptyState = false }: ComprasListV
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [selected, setSelected] = useState<PurchaseResponse | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
@@ -35,6 +36,11 @@ export default function ComprasListView({ showEmptyState = false }: ComprasListV
   }, [debouncedSearch, page]);
 
   useEffect(() => { const timeout = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300); return () => clearTimeout(timeout); }, [search]);
+  useEffect(() => {
+    if (!deleteError) return;
+    const timeout = setTimeout(() => setDeleteError(""), 10_000);
+    return () => clearTimeout(timeout);
+  }, [deleteError]);
   useEffect(() => {
     const controller = new AbortController();
 
@@ -59,12 +65,27 @@ export default function ComprasListView({ showEmptyState = false }: ComprasListV
     { id: "actions", header: "Acciones", className: "w-[11%]", align: "center", render: (row) => <div className="flex items-center justify-center gap-3"><button type="button" aria-label={`Editar compra ${row.reference}`} onClick={() => router.push(`/compras/${row.id}/editar`)} className="rounded p-1 text-black transition hover:bg-gray-100"><Pencil aria-hidden="true" size={20} /></button><button type="button" aria-label={`Eliminar compra ${row.reference}`} onClick={(event) => { setDeleteTrigger(event.currentTarget); setSelected(row); setConfirmOpen(true); }} className="rounded p-1 text-red-600 transition hover:bg-red-50"><Trash2 aria-hidden="true" size={20} /></button></div> },
   ], [router]);
 
-  const confirmDelete = async () => { if (!selected) return; try { await deletePurchase(selected.id); setConfirmOpen(false); setSelected(null); setSuccessOpen(true); await load(); } catch (caught) { setError(caught instanceof Error ? caught.message : "No se pudo eliminar la compra."); } };
+  const confirmDelete = async () => {
+    if (!selected) return;
+    setDeleteError("");
+    try {
+      await deletePurchase(selected.id);
+      setConfirmOpen(false);
+      setSelected(null);
+      setSuccessOpen(true);
+      await load();
+    } catch {
+      setConfirmOpen(false);
+      setSelected(null);
+      setDeleteError("Lo sentimos, esta compra no puede ser eliminada.");
+    }
+  };
   const hasRows = !showEmptyState && rows.length > 0;
 
   return <div className="w-full max-w-[1035px] min-w-0 text-black">
     <header><h1 className="font-[var(--font-title)] text-[32px] font-bold">Compras a proveedores</h1><p className="text-[18px] text-[#4A4A4A]">Gestiona y visualiza la información de tus compras.</p></header>
     {error && <p role="alert" className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">{error}</p>}
+    {deleteError && <p role="alert" className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">{deleteError}</p>}
     {hasRows || loading ? <section className="mt-4 flex min-h-[445px] flex-col overflow-hidden rounded-lg border border-[#878A92] bg-white">
       <div className="flex flex-wrap items-center gap-4 px-4 py-6"><button type="button" onClick={() => router.push("/compras/nueva")} className="h-10 rounded bg-[#1C21D1] px-5 font-semibold text-white">Agregar compra</button><SearchBar value={search} placeholder="Buscar proveedor o producto" onChange={setSearch} className="!h-10 w-full sm:w-[280px]" /></div>
       {loading ? <p role="status" className="p-8 text-center">Cargando compras...</p> : <Table columns={columns} data={rows} getRowKey={(row) => row.id} />}

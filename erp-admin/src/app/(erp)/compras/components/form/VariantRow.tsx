@@ -41,7 +41,7 @@ const fields: Array<{
   { name: "size", label: "Talla:", inputWidth: "sm:w-[88px]" },
   { name: "quantity", label: "Cantidad:", inputWidth: "sm:w-[88px]" },
   { name: "unitCost", label: "Costo Unitario:", inputWidth: "sm:w-[104px]" },
-  { name: "color", label: "Color:", inputWidth: "sm:w-[104px]" },
+  { name: "color", label: "Color:", inputWidth: "sm:w-[152px]" },
 ];
 
 export function VariantRow({
@@ -75,7 +75,7 @@ export function VariantRow({
                 <ColorHexInput
                   value={value.color}
                   disabled={disabled}
-                  ariaLabel="Color hexadecimal de la variante"
+                  ariaLabel="Color de la variante"
                   onChange={(color) => onChange(value.id, "color", color)}
                   className={`w-full ${field.inputWidth}`}
                 />

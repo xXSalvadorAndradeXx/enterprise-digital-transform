@@ -8,6 +8,7 @@ import {
   getCheckoutPreview,
   createCheckout,
   CheckoutError,
+  getCheckoutErrorMessage,
 } from "@/services/checkout/checkout.service";
 
 import type {
@@ -186,7 +187,7 @@ export default function CheckoutPage() {
           setCheckoutError(null);
         },
         (error: unknown) => {
-          setCheckoutError(error instanceof Error ? error.message : "No se pudo actualizar el resumen del pedido.");
+          setCheckoutError(error instanceof Error ? getCheckoutErrorMessage(error) : "No se pudo actualizar el resumen del pedido.");
         },
       );
     }, 300);
@@ -326,7 +327,7 @@ export default function CheckoutPage() {
        * Cualquier otro error controlado
        */
       if (error instanceof CheckoutError) {
-        setCheckoutError(error.message);
+        setCheckoutError(getCheckoutErrorMessage(error));
 
         return;
       }

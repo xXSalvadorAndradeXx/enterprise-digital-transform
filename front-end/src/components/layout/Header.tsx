@@ -74,7 +74,22 @@ export default function Header() {
     </span>
   )}
 </button>
-      <div className="relative" ref={accountRef}><button onClick={()=>setAccountOpen(v=>!v)} className="flex items-center gap-1 rounded-full p-2 hover:bg-[#f2f5fb]" aria-label="Menú de usuario"><User className="h-5 w-5"/><ChevronDown className="h-3 w-3"/></button>{accountOpen&&<div className="absolute right-0 top-12 w-56 rounded-lg border bg-white p-2 shadow-xl">{authenticated?<><p className="px-3 py-2 text-xs text-slate-500">Sesión iniciada</p><Link href="/cuenta" className="block rounded-md px-3 py-2 text-sm font-semibold hover:bg-[#f2f5fb]">{userName}</Link></>:<><Link href="/login" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-[#f2f5fb]"><LogIn className="h-4 w-4"/>Iniciar sesión</Link><Link href="/registro" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-[#f2f5fb]"><UserPlus className="h-4 w-4"/>Registrarse</Link></>}</div>}</div>
+      <div className="relative" ref={accountRef}>
+        {authenticated ? (
+          <Link href="/cuenta" aria-label={`Abrir cuenta de ${userName}`} className="flex items-center gap-2 rounded-full p-2 hover:bg-[#f2f5fb]">
+            <span className="rounded-full bg-[#D4E4FF] p-2"><User className="h-4 w-4" aria-hidden="true"/></span>
+            <span className="hidden max-w-32 truncate text-sm font-medium sm:block">{userName}</span>
+          </Link>
+        ) : (
+          <>
+            <button type="button" onClick={()=>setAccountOpen(v=>!v)} aria-expanded={accountOpen} className="flex items-center gap-1 rounded-full p-2 hover:bg-[#f2f5fb]" aria-label="Menú de usuario"><User className="h-5 w-5"/><ChevronDown className="h-3 w-3"/></button>
+            {accountOpen && <div className="absolute right-0 top-12 w-56 rounded-lg border bg-white p-2 shadow-xl">
+              <Link href="/login" onClick={()=>setAccountOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-[#f2f5fb]"><LogIn className="h-4 w-4"/>Iniciar sesión</Link>
+              <Link href="/registro" onClick={()=>setAccountOpen(false)} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-[#f2f5fb]"><UserPlus className="h-4 w-4"/>Registrarse</Link>
+            </div>}
+          </>
+        )}
+      </div>
     </div>
     {mobileOpen&&<div className="fixed inset-0 z-[60] bg-black/30 lg:hidden" onMouseDown={e=>e.target===e.currentTarget&&closeMobileMenu()}><aside className="h-full w-[min(88vw,340px)] overflow-y-auto bg-white p-5 shadow-2xl"><div className="flex items-center justify-between"><span className="font-serif text-2xl">Woden</span><button onClick={closeMobileMenu} aria-label="Cerrar menú"><X/></button></div><form onSubmit={submitSearch} className="mt-6 flex items-center rounded border px-3"><Search className="h-4 w-4"/><input value={search} onChange={e=>setSearch(e.target.value)} className="h-11 min-w-0 flex-1 px-2 outline-none" placeholder="Buscar productos"/></form><nav className="mt-6 space-y-1"><Link href="/" onClick={closeMobileMenu} className="block rounded px-3 py-3 hover:bg-[#f2f5fb]">Inicio</Link><div><button type="button" onClick={()=>setMobileCategoriesOpen(value=>!value)} aria-expanded={mobileCategoriesOpen} className="flex w-full items-center justify-between rounded px-3 py-3 text-left font-semibold hover:bg-[#f2f5fb]">Categorías<ChevronDown className={`h-4 w-4 transition-transform ${mobileCategoriesOpen?"rotate-180":""}`}/></button>{mobileCategoriesOpen?<div className="ml-3 border-l border-[#e1e5ed] pl-2">{categoryLinks}</div>:null}</div></nav></aside></div>}
     <MiniCart

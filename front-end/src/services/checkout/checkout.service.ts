@@ -35,6 +35,16 @@ function getErrorCode(response: unknown): string | undefined {
   return undefined;
 }
 
+export function getCheckoutErrorMessage(error: Error): string {
+  const code = error instanceof ApiRequestError
+    ? getErrorCode(error.response)
+    : error instanceof CheckoutError ? error.code : undefined;
+  if (code === "INVALID_PAYMENT_COMBINATION" || error.message === "Combinación de método de pago y tipo de entrega no permitida") {
+    return "Para pagar en la tienda, selecciona «Retiro en tienda». Si prefieres entrega a domicilio, elige «Pago con tarjeta».";
+  }
+  return error.message;
+}
+
 export async function getCheckoutPreview(
   data: CheckoutPreviewRequest,
 ): Promise<CheckoutPreviewData> {

@@ -12,7 +12,7 @@ import {
 
 import Sidebar from "@/components/layout/sidebar/Sidebar";
 import Topbar from "@/components/layout/topbar/Topbar";
-import { ROUTE_PERMISSIONS } from "@/constants/route-permissions";
+import { ROUTE_PERMISSIONS, getFirstAllowedRoute } from "@/constants/route-permissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { getUserPermissions } from "@/services/auth/permissions.service";
 import type { PermissionCode } from "@/types/auth/permissions.types";
@@ -221,14 +221,11 @@ useEffect(() => {
 
   
 
-  const normalizedRole = user.rol
-    .trim()
-    .toUpperCase();
-
-  const fallbackRoute =
-    normalizedRole === "EMPLEADO"
-      ? "/pedidos"
-      : "/dashboard";
+  const fallbackRoute = getFirstAllowedRoute(permissions);
+  if (!fallbackRoute) {
+    setPermissionsError("No tienes permisos asignados para acceder al ERP.");
+    return;
+  }
 
 
 
@@ -240,6 +237,7 @@ useEffect(() => {
   isLoadingPermissions,
   mustChangePassword,
   permissionsError,
+  permissions,
   router,
   user,
 ]);

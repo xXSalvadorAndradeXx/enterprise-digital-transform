@@ -3,6 +3,10 @@ import { DataSource } from 'typeorm';
 import { Permission } from '../permissions/entities/permission.entity';
 
 const PERMISSIONS = [
+  { code: 'dashboard:read', description: 'Ver dashboard administrativo' },
+  { code: 'orders:read', description: 'Ver ventas y pedidos' },
+  { code: 'pos:access', description: 'Acceder al punto de venta' },
+  { code: 'content:read', description: 'Ver contenido administrativo' },
   // users
   { code: 'users:read',         description: 'Ver usuarios' },
   { code: 'users:create',       description: 'Crear usuarios' },

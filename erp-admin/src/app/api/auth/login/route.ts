@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { setAuthToken } from "@/lib/session";
+import { setAuthToken, getAuthSession, deleteAuthToken } from "@/lib/session";
 import type {
   AuthErrorType,
   AuthUser,
@@ -435,8 +435,14 @@ export async function POST(request: NextRequest) {
      * Al navegador solamente se devuelve la sesión pública.
      * Nunca se devuelve el access token.
      */
+    const verifiedSession = await getAuthSession({ refreshOnUnauthorized: true });
+    if (!verifiedSession) {
+      await deleteAuthToken();
+      return createErrorResponse("server", "No se pudo verificar la sesión. Inténtalo nuevamente.", 503);
+    }
+
     return NextResponse.json(
-      normalizedResponse.session,
+      verifiedSession,
       { status: 200 },
     );
   } catch (error) {

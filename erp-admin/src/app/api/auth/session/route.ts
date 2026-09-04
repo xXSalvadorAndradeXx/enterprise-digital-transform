@@ -6,6 +6,7 @@ import {
 } from "@/lib/session";
 
 export async function GET() {
+  try {
   const session = await getAuthSession({
     refreshOnUnauthorized: true,
   });
@@ -23,6 +24,12 @@ export async function GET() {
   }
 
   return NextResponse.json(session);
+  } catch {
+    return NextResponse.json(
+      { message: "No fue posible renovar la sesión. Intenta nuevamente." },
+      { status: 503 },
+    );
+  }
 }
 
 export async function DELETE() {

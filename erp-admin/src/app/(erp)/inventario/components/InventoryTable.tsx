@@ -111,7 +111,7 @@ export default function InventoryTable({ inventory }: InventoryTableProps) {
             <th className="w-[17%] text-left">Proveedor</th>
             <th className="w-[15%] text-left">Fecha</th>
             <th className="w-[12%] text-left">Precio</th>
-            <th className="w-[14%] text-center">Status</th>
+            <th className="w-[14%] text-center">Estado</th>
             <th className="w-[10%] text-center">Stock</th>
           </tr>
         </thead>
@@ -185,7 +185,7 @@ export default function InventoryTable({ inventory }: InventoryTableProps) {
                               <th className="w-[24%] px-7 text-left">SKU</th>
                               <th className="w-[18%] px-7 text-left">STOCK</th>
                               <th className="w-[20%] px-7 text-left">Costo uni.</th>
-                              <th className="w-[18%] px-7 text-center">Status</th>
+                              <th className="w-[18%] px-7 text-center">Estado</th>
                             </tr>
                           </thead>
                           <tbody>
