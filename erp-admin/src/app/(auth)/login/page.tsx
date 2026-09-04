@@ -24,6 +24,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLogin } from "@/hooks/auth/useLogin";
+import { getFirstAllowedRoute } from "@/constants/route-permissions";
 
 const INVALID_CREDENTIALS_MESSAGE =
   "Usuario o contraseña incorrectos.";
@@ -270,14 +271,7 @@ export default function LoginPage() {
         return;
       }
 
-      const normalizedRole = session.user.rol
-        .trim()
-        .toUpperCase();
-
-      const destination =
-        normalizedRole === "EMPLEADO"
-          ? "/pedidos"
-          : "/dashboard";
+      const destination = getFirstAllowedRoute(session.user.permissions) ?? "/dashboard";
 
       router.replace(destination);
       router.refresh();

@@ -12,6 +12,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import PasswordRequirementsHint from "@/components/ui/PasswordRequirementsHint";
 import { useAuth } from "@/contexts/AuthContext";
+import { getFirstAllowedRoute } from "@/constants/route-permissions";
 import { changePassword } from "@/services/auth/change-password.service";
 
 import SuccessAlert from "./components/SuccessAlert";
@@ -93,10 +94,7 @@ export default function ChangePasswordPage() {
     }
 
     if (!mustChangePassword) {
-      const destination =
-        user.rol.trim().toUpperCase() === "EMPLEADO"
-          ? "/pedidos"
-          : "/dashboard";
+      const destination = getFirstAllowedRoute(user.permissions) ?? "/dashboard";
 
       router.replace(destination);
     }

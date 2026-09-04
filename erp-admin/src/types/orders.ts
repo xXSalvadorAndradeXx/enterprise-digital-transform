@@ -51,6 +51,6 @@ export interface AdminOrderDetail extends AdminOrderListItem {
     sku?: string | null;
     size?: string | null;
     color?: string | null;
-    product: { commercialName: string; images?: Array<{ imageUrl: string; sortOrder: number }> };
+    product: { commercialName: string; images?: Array<{ imageUrl: string; sortOrder: number }> } | null;
   }>;
 }

@@ -118,14 +118,6 @@ export async function fetchBackendWithAuth(
     return retriedResponse;
   }
 
-  if (response.status === 500) {
-    return fetchBackendWithAuthOnce(
-      input,
-      init,
-      options,
-    );
-  }
-
   return response;
 }
 
@@ -200,7 +192,7 @@ export function unauthorizedResponse():
       error:
         "Unauthorized",
       message:
-        "Sesión no autenticada.",
+        "Tu sesión ha vencido. Inicia sesión nuevamente para continuar.",
     },
     {
       status: 401,

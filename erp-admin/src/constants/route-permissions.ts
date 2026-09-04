@@ -15,3 +15,9 @@ export const ROUTE_PERMISSIONS: Record<
   "/compras": "purchases:read",
   "/contenido": "content:read",
 };
+
+export function getFirstAllowedRoute(permissions: readonly string[] = []): string | null {
+  return Object.entries(ROUTE_PERMISSIONS).find(([, permission]) =>
+    permissions.includes(permission),
+  )?.[0] ?? null;
+}

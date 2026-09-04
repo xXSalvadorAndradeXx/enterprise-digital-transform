@@ -3,7 +3,7 @@ import type {
   UserPermissions,
 } from "@/types/auth/permissions.types";
 
-const ADMIN_PERMISSIONS: PermissionCode[] = [
+const PORTAL_PERMISSION_CODES: PermissionCode[] = [
   "dashboard:read",
   "products:read",
   "orders:read",
@@ -16,16 +16,9 @@ const ADMIN_PERMISSIONS: PermissionCode[] = [
   "content:read",
 ];
 
-const EMPLOYEE_PERMISSIONS: PermissionCode[] = [
-  "orders:read",
-  "pos:access",
-  "inventory:read",
-  "customers:read",
-];
-
 const KNOWN_PERMISSION_CODES =
   new Set<PermissionCode>([
-    ...ADMIN_PERMISSIONS,
+    ...PORTAL_PERMISSION_CODES,
   ]);
 
 function isPermissionCode(
@@ -51,12 +44,10 @@ function normalizePermissionCodes(
 /**
  * Obtiene los permisos efectivos del usuario.
  *
- * Si la sesion ya contiene permisos reales del Backend, se usan esos permisos.
- * El fallback por rol se mantiene para sesiones publicas creadas antes de que
- * el perfil del Backend devuelva permissions.
+ * Solo se utilizan permisos verificados por backend, nunca inferidos del rol.
  */
 export async function getUserPermissions(
-  role: string,
+  _role: string,
   grantedPermissions?: readonly string[],
 ): Promise<UserPermissions> {
   if (grantedPermissions) {
@@ -65,23 +56,6 @@ export async function getUserPermissions(
         normalizePermissionCodes(
           grantedPermissions,
         ),
-    };
-  }
-
-  const normalizedRole = role.trim().toUpperCase();
-
-  if (
-    normalizedRole === "ADMIN" ||
-    normalizedRole === "SUPERADMIN"
-  ) {
-    return {
-      permissions: ADMIN_PERMISSIONS,
-    };
-  }
-
-  if (normalizedRole === "EMPLEADO") {
-    return {
-      permissions: EMPLOYEE_PERMISSIONS,
     };
   }
 

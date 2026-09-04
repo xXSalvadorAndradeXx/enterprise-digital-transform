@@ -13,6 +13,9 @@ const LEGACY_MOCK_SESSION_COOKIE_NAME = "erp_mock_session";
 const AUTH_SESSION_MAX_AGE_SECONDS = 15 * 60;
 const AUTH_REFRESH_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 const BACKEND_REQUEST_TIMEOUT_MS = 10_000;
+const REFRESH_MARGIN_SECONDS = 30;
+// Comparte únicamente la rotación; cada petición escribe sus propias cookies.
+const pendingRefreshes = new Map<string, Promise<AuthTokenPair | null>>();
 
 type SessionCookieStore = Awaited<ReturnType<typeof cookies>>;
 
@@ -218,9 +221,23 @@ export async function setMustChangePasswordRequirement(
   );
 }
 
-export async function getAuthToken(): Promise<string | null> {
+export async function getAuthToken(allowRefresh = true): Promise<string | null> {
   const cookieStore = await cookies();
-
+  const token = cookieStore.get(AUTH_SESSION_COOKIE_NAME)?.value;
+  if (!allowRefresh) return token ?? null;
+  if (token) {
+    try {
+      // exp solo decide cuándo renovar; backend sigue validando firma y permisos.
+      const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+      if (typeof payload.exp === "number" && payload.exp > Date.now() / 1000 + REFRESH_MARGIN_SECONDS) {
+        return token;
+      }
+    } catch {
+      // Un token inválido también requiere recuperar la sesión.
+    }
+  }
+  if (!(await getRefreshToken())) return null;
+  if (!(await refreshAuthToken())) return null;
   return cookieStore.get(AUTH_SESSION_COOKIE_NAME)?.value ?? null;
 }
 
@@ -246,10 +263,30 @@ export async function refreshAuthToken(): Promise<boolean> {
   const refreshToken = await getRefreshToken();
   const backendApiUrl = getBackendApiUrl();
 
-  if (!refreshToken || !backendApiUrl) {
+  if (!refreshToken || !backendApiUrl) return false;
+
+  let pending = pendingRefreshes.get(refreshToken);
+  if (!pending) {
+    pending = requestTokenRotation(backendApiUrl, refreshToken);
+    pendingRefreshes.set(refreshToken, pending);
+    // Breve margen para peticiones que ya salieron con la cookie anterior.
+    void pending.finally(() => {
+      setTimeout(() => pendingRefreshes.delete(refreshToken), 5_000).unref();
+    }).catch(() => {});
+  }
+  const tokens = await pending;
+  if (!tokens) {
     await deleteAuthToken();
     return false;
   }
+  await setSessionTokens(tokens);
+  return true;
+}
+
+async function requestTokenRotation(
+  backendApiUrl: string,
+  refreshToken: string,
+): Promise<AuthTokenPair | null> {
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
@@ -270,24 +307,18 @@ export async function refreshAuthToken(): Promise<boolean> {
     });
 
     if (!refreshResponse.ok) {
-      await deleteAuthToken();
-      return false;
+      if (refreshResponse.status === 401 || refreshResponse.status === 403) return null;
+      throw new Error("No fue posible renovar la sesión. Intenta nuevamente.");
     }
 
     const responseBody = await readJsonResponse(refreshResponse);
     const tokens = normalizeAuthTokens(responseBody);
 
     if (!tokens) {
-      await deleteAuthToken();
-      return false;
+      throw new Error("Respuesta de renovación de sesión inválida.");
     }
 
-    await setSessionTokens(tokens);
-
-    return true;
-  } catch {
-    await deleteAuthToken();
-    return false;
+    return tokens;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -311,7 +342,8 @@ async function fetchProfileSession(
 export async function getAuthSession(
   options: GetAuthSessionOptions = {},
 ): Promise<PublicAuthSession | null> {
-  const accessToken = await getAuthToken();
+  // Server Components no pueden escribir cookies ni rotar la sesión.
+  const accessToken = await getAuthToken(options.refreshOnUnauthorized === true);
   const backendApiUrl = getBackendApiUrl();
   const cookieStore = await cookies();
 

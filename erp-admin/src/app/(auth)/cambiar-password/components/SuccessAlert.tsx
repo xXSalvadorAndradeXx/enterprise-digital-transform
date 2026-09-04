@@ -10,6 +10,7 @@ import { Check, LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { getFirstAllowedRoute } from "@/constants/route-permissions";
 
 interface SuccessAlertProps {
   open: boolean;
@@ -56,11 +57,7 @@ export default function SuccessAlert({
         return;
       }
 
-      const destination =
-        session.user.rol.trim().toUpperCase() ===
-        "EMPLEADO"
-          ? "/pedidos"
-          : "/dashboard";
+      const destination = getFirstAllowedRoute(session.user.permissions) ?? "/dashboard";
 
       router.replace(destination);
 

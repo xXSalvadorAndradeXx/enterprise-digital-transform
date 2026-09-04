@@ -113,13 +113,12 @@ function ConfirmationContent() {
           </Link>
 
           {customerType !== "GUEST" && (
-            <button
-              type="button"
-              disabled
-              className="rounded-md border border-[#1B21D1] px-8 py-3 text-sm font-medium text-[#1B21D1]"
+            <Link
+              href="/cuenta/pedidos"
+              className="rounded-md border border-[#1B21D1] px-8 py-3 text-sm font-medium text-[#1B21D1] transition hover:bg-[#1B21D1]/5"
             >
               Ver mis pedidos
-            </button>
+            </Link>
           )}
         </div>
       </div>
