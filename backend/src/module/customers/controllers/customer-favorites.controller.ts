@@ -19,6 +19,7 @@ import {
   ApiBody,
   ApiBearerAuth,
   ApiResponse,
+  ApiParam,
 } from '@nestjs/swagger';
 import { CustomerFavoritesService } from '../customer-favorites.service';
 import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
@@ -40,11 +41,11 @@ export class CustomerFavoritesController {
   ) {}
 
   @ApiOperation({
-    summary: 'Obtener el listado de productos favoritos del cliente autenticado',
+    summary: 'GET /api/v1/customers/me/favorites — Obtener la lista paginada de favoritos del cliente autenticado',
   })
   @ApiResponse({
     status: 200,
-    description: 'Lista paginada de favoritos con resúmenes compatibles con la tarjeta del e-commerce',
+    description: 'Lista paginada de favoritos con resúmenes de producto para la grilla del e-commerce',
     type: PaginatedFavoritesResponseDto,
   })
   @Get()
@@ -63,7 +64,7 @@ export class CustomerFavoritesController {
   }
 
   @ApiOperation({
-    summary: 'Agregar un producto a los favoritos del cliente autenticado',
+    summary: 'POST /api/v1/customers/me/favorites — Agregar un producto a la lista de favoritos',
   })
   @ApiBody({ type: CreateFavoriteDto })
   @ApiResponse({
@@ -93,15 +94,20 @@ export class CustomerFavoritesController {
   }
 
   @ApiOperation({
-    summary: 'Verificar si un producto está en los favoritos del cliente autenticado (botón corazón global)',
+    summary: 'GET /api/v1/customers/me/favorites/:productId/status — Estado de favorito de un producto (botón de corazón global)',
+  })
+  @ApiParam({
+    name: 'productId',
+    description: 'UUID v4 del producto a verificar',
+    type: String,
   })
   @ApiResponse({
     status: 200,
-    description: 'Estado del producto en favoritos',
+    description: 'Estado de favorito del producto',
     type: FavoriteStatusResponseDto,
   })
-  @Get('check/:productId')
-  async checkIsFavorite(
+  @Get(':productId/status')
+  async checkIsFavoriteStatus(
     @Req() req: any,
     @Param(
       'productId',
@@ -127,7 +133,41 @@ export class CustomerFavoritesController {
   }
 
   @ApiOperation({
-    summary: 'Eliminar un producto específico de los favoritos del cliente autenticado',
+    summary: 'GET /api/v1/customers/me/favorites/check/:productId — Alias de verificación del estado de favorito',
+  })
+  @Get('check/:productId')
+  async checkIsFavoriteAlias(
+    @Req() req: any,
+    @Param(
+      'productId',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () =>
+          new BadRequestException({
+            code: 'VALIDATION_ERROR',
+            message: 'El ID del producto debe ser un UUID versión 4 válido',
+          }),
+      }),
+    )
+    productId: string,
+  ) {
+    const status = await this.customerFavoritesService.isFavorite(
+      req.user.id,
+      productId,
+    );
+    return {
+      success: true,
+      data: status,
+    };
+  }
+
+  @ApiOperation({
+    summary: 'DELETE /api/v1/customers/me/favorites/:productId — Eliminar un producto de los favoritos',
+  })
+  @ApiParam({
+    name: 'productId',
+    description: 'UUID v4 del producto a eliminar de favoritos',
+    type: String,
   })
   @ApiResponse({
     status: 200,
@@ -164,11 +204,11 @@ export class CustomerFavoritesController {
   }
 
   @ApiOperation({
-    summary: 'Vaciar completamente la lista de favoritos del cliente autenticado',
+    summary: 'DELETE /api/v1/customers/me/favorites — Vaciar completamente la lista de favoritos',
   })
   @ApiResponse({
     status: 200,
-    description: 'Todos los favoritos eliminados correctamente',
+    description: 'Todos los favoritos han sido eliminados correctamente',
   })
   @Delete()
   async clearAllFavorites(@Req() req: any) {
