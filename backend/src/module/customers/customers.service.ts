@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { HashService } from '../auth/services/hash.service';
 import { EcommerceRegisterDto } from './dto/ecommerce-register.dto';
 import { CustomerProfileResponseDto } from './dto/customer-profile-response.dto';
+import { UpdateCustomerProfileDto } from './dto/update-customer-profile.dto';
 import { plainToInstance } from 'class-transformer';
 import {
   SESSION_ABSOLUTE_MAX_TTL_SECONDS,
@@ -373,6 +374,83 @@ export class CustomersService {
     dto.createdAt = customer.createdAt;
 
     return plainToInstance(CustomerProfileResponseDto, dto, {
+      excludeExtraneousValues: false,
+    });
+  }
+
+  async updateMyProfile(
+    customerId: string,
+    dto: UpdateCustomerProfileDto,
+  ): Promise<CustomerProfileResponseDto> {
+    if (!customerId) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Identificador de cliente no provisto en el token de acceso.',
+      });
+    }
+
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId, deletedAt: IsNull() },
+    });
+
+    if (!customer) {
+      throw new NotFoundException({
+        code: 'CUSTOMER_NOT_FOUND',
+        message: 'No se encontró la cuenta de cliente a actualizar.',
+      });
+    }
+
+    if (!customer.isActive) {
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_DISABLED',
+        message: 'La cuenta del cliente se encuentra inactiva o deshabilitada.',
+      });
+    }
+
+    let hasChanges = false;
+
+    // 1. Actualización de nombre (resuelto desde dto.name o dto.fullName)
+    const newName = dto.getResolvedName ? dto.getResolvedName() : (dto.name ?? dto.fullName);
+    if (newName !== undefined && newName !== null) {
+      const normalizedName = newName.trim();
+      if (normalizedName.length > 0 && normalizedName !== customer.fullName) {
+        customer.fullName = normalizedName;
+        hasChanges = true;
+      }
+    }
+
+    // 2. Actualización de teléfono salvadoreño
+    if (dto.phone !== undefined && dto.phone !== null) {
+      let normalizedPhone = dto.phone.trim();
+      const cleanedDigits = normalizedPhone.replace(/[^\d+]/g, '');
+      if (/^\d{8}$/.test(cleanedDigits)) {
+        normalizedPhone = `+503${cleanedDigits}`;
+      } else {
+        normalizedPhone = cleanedDigits;
+      }
+
+      if (normalizedPhone !== customer.phone) {
+        customer.phone = normalizedPhone;
+        hasChanges = true;
+      }
+    }
+
+    let savedCustomer = customer;
+    if (hasChanges) {
+      savedCustomer = await this.customerRepository.save(customer);
+    }
+
+    const responseDto = new CustomerProfileResponseDto();
+    responseDto.id = savedCustomer.id;
+    responseDto.name = savedCustomer.fullName;
+    responseDto.fullName = savedCustomer.fullName;
+    responseDto.email = savedCustomer.email;
+    responseDto.phone = savedCustomer.phone;
+    responseDto.dui = savedCustomer.dui ?? null;
+    responseDto.role = 'cliente';
+    responseDto.createdAt = savedCustomer.createdAt;
+
+    return plainToInstance(CustomerProfileResponseDto, responseDto, {
       excludeExtraneousValues: false,
     });
   }

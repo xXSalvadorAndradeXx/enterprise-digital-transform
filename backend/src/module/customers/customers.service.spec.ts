@@ -146,4 +146,114 @@ describe('CustomersService - getMyProfile', () => {
       UnauthorizedException,
     );
   });
+
+  describe('updateMyProfile', () => {
+    it('debe actualizar name y phone con ownership respetado y retornar perfil actualizado', async () => {
+      const existingCustomer = { ...mockCustomer };
+      customerRepository.findOne.mockResolvedValue(existingCustomer);
+      customerRepository.save.mockImplementation(async (cust: any) => ({
+        ...cust,
+      }));
+
+      const dto = {
+        name: 'Carlos Actualizado',
+        phone: '+50379998888',
+        getResolvedName: () => 'Carlos Actualizado',
+      };
+
+      const result = await service.updateMyProfile(mockCustomer.id, dto as any);
+
+      expect(customerRepository.findOne).toHaveBeenCalledWith({
+        where: { id: mockCustomer.id, deletedAt: expect.anything() },
+      });
+      expect(customerRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: mockCustomer.id,
+          fullName: 'Carlos Actualizado',
+          phone: '+50379998888',
+          email: mockCustomer.email, // email conservado inmutable
+        }),
+      );
+      expect(result.name).toBe('Carlos Actualizado');
+      expect(result.phone).toBe('+50379998888');
+      expect(result.email).toBe(mockCustomer.email);
+    });
+
+    it('debe conservar los valores existentes cuando un campo opcional no venga en el request', async () => {
+      const existingCustomer = { ...mockCustomer };
+      customerRepository.findOne.mockResolvedValue(existingCustomer);
+      customerRepository.save.mockImplementation(async (cust: any) => cust);
+
+      const dto = {
+        name: 'Nuevo Nombre Solamente',
+        getResolvedName: () => 'Nuevo Nombre Solamente',
+      };
+
+      const result = await service.updateMyProfile(mockCustomer.id, dto as any);
+
+      expect(customerRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fullName: 'Nuevo Nombre Solamente',
+          phone: mockCustomer.phone, // teléfono intacto
+        }),
+      );
+      expect(result.phone).toBe(mockCustomer.phone);
+    });
+
+    it('debe normalizar el teléfono de 8 dígitos al formato salvadoreño +503', async () => {
+      const existingCustomer = { ...mockCustomer };
+      customerRepository.findOne.mockResolvedValue(existingCustomer);
+      customerRepository.save.mockImplementation(async (cust: any) => cust);
+
+      const dto = {
+        phone: '61234567',
+      };
+
+      const result = await service.updateMyProfile(mockCustomer.id, dto as any);
+
+      expect(customerRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phone: '+50361234567',
+        }),
+      );
+      expect(result.phone).toBe('+50361234567');
+    });
+
+    it('no debe llamar a save() si los valores enviados son idénticos a los existentes', async () => {
+      const existingCustomer = { ...mockCustomer };
+      customerRepository.findOne.mockResolvedValue(existingCustomer);
+
+      const dto = {
+        name: mockCustomer.fullName,
+        phone: mockCustomer.phone,
+        getResolvedName: () => mockCustomer.fullName,
+      };
+
+      const result = await service.updateMyProfile(mockCustomer.id, dto as any);
+
+      expect(customerRepository.save).not.toHaveBeenCalled();
+      expect(result.name).toBe(mockCustomer.fullName);
+      expect(result.phone).toBe(mockCustomer.phone);
+    });
+
+    it('debe lanzar NotFoundException si el cliente no existe al intentar actualizar', async () => {
+      customerRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateMyProfile('non-existent', { name: 'Test' } as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe lanzar UnauthorizedException si la cuenta del cliente está inactiva al actualizar', async () => {
+      customerRepository.findOne.mockResolvedValue({
+        ...mockCustomer,
+        isActive: false,
+      });
+
+      await expect(
+        service.updateMyProfile(mockCustomer.id, { name: 'Test' } as any),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
 });
+

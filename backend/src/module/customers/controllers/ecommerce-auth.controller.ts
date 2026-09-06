@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   Get,
+  Patch,
   UseGuards,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -30,6 +31,7 @@ import { CustomersService } from '../customers.service';
 import { EcommerceRegisterDto } from '../dto/ecommerce-register.dto';
 import { EcommerceLoginDto } from '../dto/ecommerce-login.dto';
 import { CustomerProfileResponseDto } from '../dto/customer-profile-response.dto';
+import { UpdateCustomerProfileDto } from '../dto/update-customer-profile.dto';
 import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
 import { REFRESH_TOKEN_COOKIE_NAME } from '../constants/ecommerce-auth.constant';
 
@@ -346,6 +348,37 @@ export class EcommerceAuthController {
     return {
       success: true,
       data: profile,
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Actualizar perfil del cliente comprador autenticado',
+    description:
+      'Actualiza únicamente nombre y teléfono del cliente comprador autenticado. Requiere Bearer Token y respeta ownership.',
+  })
+  @ApiBody({ type: UpdateCustomerProfileDto })
+  @ApiOkResponse({
+    description: 'Perfil del cliente actualizado exitosamente',
+    type: CustomerProfileResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Error de validación o campo prohibido enviado en el body (VALIDATION_ERROR)',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token de acceso inválido, expirado o cuenta inactiva',
+  })
+  @ApiBearerAuth()
+  @UseGuards(CustomerJwtAuthGuard)
+  @Patch('me')
+  async updateMe(
+    @Req() req: any,
+    @Body() dto: UpdateCustomerProfileDto,
+  ) {
+    const updatedProfile = await this.customersService.updateMyProfile(req.user.id, dto);
+    return {
+      success: true,
+      message: 'Perfil actualizado correctamente.',
+      data: updatedProfile,
     };
   }
 }

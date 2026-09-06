@@ -1,10 +1,11 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, ParseUUIDPipe, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth, ApiOkResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth, ApiOkResponse, ApiUnauthorizedResponse, ApiBadRequestResponse } from '@nestjs/swagger';
 import { CustomersService } from '../customers.service';
 import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
 import { CreateCustomerAddressDto } from '../dto/create-customer-address.dto';
 import { UpdateCustomerAddressDto } from '../dto/update-customer-address.dto';
 import { CustomerProfileResponseDto } from '../dto/customer-profile-response.dto';
+import { UpdateCustomerProfileDto } from '../dto/update-customer-profile.dto';
 
 @ApiTags('Customers')
 @Controller('customers')
@@ -30,6 +31,37 @@ export class CustomersController {
     return {
       success: true,
       data: profile,
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Actualizar nombre y teléfono del cliente autenticado',
+    description:
+      'Actualiza exclusivamente name y phone garantizando ownership estricto por token JWT. Rechaza campos readonly.',
+  })
+  @ApiBody({ type: UpdateCustomerProfileDto })
+  @ApiOkResponse({
+    description: 'Perfil actualizado exitosamente',
+    type: CustomerProfileResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Error de validación en los datos o envío de campos prohibidos (VALIDATION_ERROR)',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token de acceso inválido, expirado o cuenta inactiva',
+  })
+  @ApiBearerAuth()
+  @UseGuards(CustomerJwtAuthGuard)
+  @Patch('me')
+  async updateMyProfile(
+    @Req() req: any,
+    @Body() dto: UpdateCustomerProfileDto,
+  ) {
+    const updatedProfile = await this.customersService.updateMyProfile(req.user.id, dto);
+    return {
+      success: true,
+      message: 'Perfil actualizado correctamente.',
+      data: updatedProfile,
     };
   }
 
