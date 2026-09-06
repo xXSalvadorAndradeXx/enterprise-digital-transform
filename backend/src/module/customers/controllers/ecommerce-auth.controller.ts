@@ -9,7 +9,6 @@ import {
   HttpCode,
   HttpStatus,
   Get,
-  Patch,
   UseGuards,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -31,9 +30,10 @@ import { CustomersService } from '../customers.service';
 import { EcommerceRegisterDto } from '../dto/ecommerce-register.dto';
 import { EcommerceLoginDto } from '../dto/ecommerce-login.dto';
 import { CustomerProfileResponseDto } from '../dto/customer-profile-response.dto';
-import { UpdateCustomerProfileDto } from '../dto/update-customer-profile.dto';
 import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
 import { REFRESH_TOKEN_COOKIE_NAME } from '../constants/ecommerce-auth.constant';
+import { CurrentCustomer } from '../decorators/current-customer.decorator';
+import type { CurrentCustomerPayload } from '../decorators/current-customer.decorator';
 
 @ApiTags('Ecommerce Auth')
 @Controller('ecommerce/auth')
@@ -329,12 +329,12 @@ export class EcommerceAuthController {
   }
 
   @ApiOperation({
-    summary: 'Obtener información del cliente autenticado',
+    summary: 'Obtener información de identidad del cliente autenticado',
     description:
-      'Retorna el perfil del cliente autenticado proyectando únicamente datos necesarios para la pantalla de Cuenta, garantizando email como solo lectura y sin exponer métricas administrativas.',
+      'Retorna los datos de identidad y perfil del cliente autenticado para verificar la sesión activa. Reutiliza getMyProfile().',
   })
   @ApiOkResponse({
-    description: 'Perfil del cliente autenticado obtenido exitosamente',
+    description: 'Datos de sesión e identidad del cliente autenticado',
     type: CustomerProfileResponseDto,
   })
   @ApiUnauthorizedResponse({
@@ -343,42 +343,11 @@ export class EcommerceAuthController {
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
   @Get('me')
-  async me(@Req() req: any) {
-    const profile = await this.customersService.getMyProfile(req.user.id, req.user);
+  async me(@CurrentCustomer() customer: CurrentCustomerPayload) {
+    const profile = await this.customersService.getMyProfile(customer.id, customer);
     return {
       success: true,
       data: profile,
-    };
-  }
-
-  @ApiOperation({
-    summary: 'Actualizar perfil del cliente comprador autenticado',
-    description:
-      'Actualiza únicamente nombre y teléfono del cliente comprador autenticado. Requiere Bearer Token y respeta ownership.',
-  })
-  @ApiBody({ type: UpdateCustomerProfileDto })
-  @ApiOkResponse({
-    description: 'Perfil del cliente actualizado exitosamente',
-    type: CustomerProfileResponseDto,
-  })
-  @ApiBadRequestResponse({
-    description: 'Error de validación o campo prohibido enviado en el body (VALIDATION_ERROR)',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Token de acceso inválido, expirado o cuenta inactiva',
-  })
-  @ApiBearerAuth()
-  @UseGuards(CustomerJwtAuthGuard)
-  @Patch('me')
-  async updateMe(
-    @Req() req: any,
-    @Body() dto: UpdateCustomerProfileDto,
-  ) {
-    const updatedProfile = await this.customersService.updateMyProfile(req.user.id, dto);
-    return {
-      success: true,
-      message: 'Perfil actualizado correctamente.',
-      data: updatedProfile,
     };
   }
 }

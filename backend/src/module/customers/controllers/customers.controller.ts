@@ -1,11 +1,22 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, ParseUUIDPipe, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth, ApiOkResponse, ApiUnauthorizedResponse, ApiBadRequestResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ParseUUIDPipe, BadRequestException } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBody,
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiUnauthorizedResponse,
+  ApiBadRequestResponse,
+  ApiNotFoundResponse,
+} from '@nestjs/swagger';
 import { CustomersService } from '../customers.service';
 import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
 import { CreateCustomerAddressDto } from '../dto/create-customer-address.dto';
 import { UpdateCustomerAddressDto } from '../dto/update-customer-address.dto';
 import { CustomerProfileResponseDto } from '../dto/customer-profile-response.dto';
 import { UpdateCustomerProfileDto } from '../dto/update-customer-profile.dto';
+import { CurrentCustomer } from '../decorators/current-customer.decorator';
+import type { CurrentCustomerPayload } from '../decorators/current-customer.decorator';
 
 @ApiTags('Customers')
 @Controller('customers')
@@ -14,20 +25,24 @@ export class CustomersController {
 
   @ApiOperation({
     summary: 'Obtener el perfil del cliente autenticado',
-    description: 'Retorna los datos esenciales del perfil del cliente actual para la pantalla de Cuenta.',
+    description:
+      'Retorna los datos esenciales del perfil del cliente actual para la pantalla de Cuenta, omitiendo métricas administrativas y relaciones completas.',
   })
   @ApiOkResponse({
     description: 'Perfil del cliente autenticado obtenido exitosamente',
     type: CustomerProfileResponseDto,
   })
   @ApiUnauthorizedResponse({
-    description: 'Token de acceso inválido, expirado o cuenta inactiva',
+    description: 'Token de acceso inválido, expirado o cuenta deshabilitada (ACCOUNT_DISABLED)',
+  })
+  @ApiNotFoundResponse({
+    description: 'Cliente no encontrado (CUSTOMER_NOT_FOUND)',
   })
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
   @Get('me')
-  async getMyProfile(@Req() req: any) {
-    const profile = await this.customersService.getMyProfile(req.user.id, req.user);
+  async getMyProfile(@CurrentCustomer() customer: CurrentCustomerPayload) {
+    const profile = await this.customersService.getMyProfile(customer.id, customer);
     return {
       success: true,
       data: profile,
@@ -48,16 +63,19 @@ export class CustomersController {
     description: 'Error de validación en los datos o envío de campos prohibidos (VALIDATION_ERROR)',
   })
   @ApiUnauthorizedResponse({
-    description: 'Token de acceso inválido, expirado o cuenta inactiva',
+    description: 'Token de acceso inválido, expirado o cuenta deshabilitada (ACCOUNT_DISABLED)',
+  })
+  @ApiNotFoundResponse({
+    description: 'Cliente no encontrado (CUSTOMER_NOT_FOUND)',
   })
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
   @Patch('me')
   async updateMyProfile(
-    @Req() req: any,
+    @CurrentCustomer() customer: CurrentCustomerPayload,
     @Body() dto: UpdateCustomerProfileDto,
   ) {
-    const updatedProfile = await this.customersService.updateMyProfile(req.user.id, dto);
+    const updatedProfile = await this.customersService.updateMyProfile(customer.id, dto);
     return {
       success: true,
       message: 'Perfil actualizado correctamente.',
@@ -71,8 +89,8 @@ export class CustomersController {
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
   @Get('me/addresses')
-  async getMyAddresses(@Req() req: any) {
-    const addresses = await this.customersService.getAddresses(req.user.id);
+  async getMyAddresses(@CurrentCustomer() customer: CurrentCustomerPayload) {
+    const addresses = await this.customersService.getAddresses(customer.id);
 
     const formattedAddresses = addresses.map((addr) => ({
       id: addr.id,
@@ -109,9 +127,9 @@ export class CustomersController {
   @Post('me/addresses')
   async createAddress(
     @Body() dto: CreateCustomerAddressDto,
-    @Req() req: any,
+    @CurrentCustomer() customer: CurrentCustomerPayload,
   ) {
-    const address = await this.customersService.createAddress(req.user.id, dto);
+    const address = await this.customersService.createAddress(customer.id, dto);
 
     const formattedAddress = {
       id: address.id,
@@ -155,9 +173,9 @@ export class CustomersController {
     }}))
     id: string,
     @Body() dto: UpdateCustomerAddressDto,
-    @Req() req: any,
+    @CurrentCustomer() customer: CurrentCustomerPayload,
   ) {
-    const address = await this.customersService.updateAddress(req.user.id, id, dto);
+    const address = await this.customersService.updateAddress(customer.id, id, dto);
 
     const formattedAddress = {
       id: address.id,
@@ -199,9 +217,9 @@ export class CustomersController {
       });
     }}))
     id: string,
-    @Req() req: any,
+    @CurrentCustomer() customer: CurrentCustomerPayload,
   ) {
-    await this.customersService.removeAddress(req.user.id, id);
+    await this.customersService.removeAddress(customer.id, id);
     return {
       success: true,
       message: 'Dirección eliminada correctamente.',
@@ -222,9 +240,9 @@ export class CustomersController {
       });
     }}))
     id: string,
-    @Req() req: any,
+    @CurrentCustomer() customer: CurrentCustomerPayload,
   ) {
-    const address = await this.customersService.setDefaultAddress(req.user.id, id);
+    const address = await this.customersService.setDefaultAddress(customer.id, id);
 
     const formattedAddress = {
       id: address.id,
