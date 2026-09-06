@@ -14,6 +14,7 @@ import { Product } from '../../products/entities/product.entity';
 @Entity('customer_favorites')
 @Unique('UQ_customer_favorite_customer_product', ['customerId', 'productId'])
 @Index('IDX_customer_favorite_customer_id', ['customerId'])
+@Index('IDX_customer_favorite_product_id', ['productId'])
 export class CustomerFavorite {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
