@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   normalizeAuthError,
   type NormalizedAuthError,
@@ -12,12 +12,21 @@ export interface UseCustomerProfileValue {
   profile: CustomerProfile | null;
   isLoading: boolean;
   error: NormalizedAuthError | null;
+  retry: () => void;
 }
 
 export function useCustomerProfile(): UseCustomerProfileValue {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<NormalizedAuthError | null>(null);
+  const [requestVersion, setRequestVersion] = useState(0);
+
+  const retry = useCallback(() => {
+    setProfile(null);
+    setError(null);
+    setIsLoading(true);
+    setRequestVersion((currentVersion) => currentVersion + 1);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -42,7 +51,7 @@ export function useCustomerProfile(): UseCustomerProfileValue {
       });
 
     return () => controller.abort();
-  }, []);
+  }, [requestVersion]);
 
-  return { profile, isLoading, error };
+  return { profile, isLoading, error, retry };
 }
