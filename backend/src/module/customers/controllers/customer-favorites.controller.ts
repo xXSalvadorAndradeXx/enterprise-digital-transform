@@ -5,15 +5,25 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   Req,
   UseGuards,
   ParseUUIDPipe,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBody,
+  ApiBearerAuth,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { CustomerFavoritesService } from '../customer-favorites.service';
 import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
-import { AddFavoriteDto } from '../dto/add-favorite.dto';
+import { CreateFavoriteDto } from '../dto/create-favorite.dto';
+import { FavoritesQueryDto } from '../dto/favorites-query.dto';
+import { PaginatedFavoritesResponseDto } from '../dto/favorite-response.dto';
+import { FavoriteStatusResponseDto } from '../dto/favorite-status-response.dto';
 
 @ApiTags('Customer Favorites')
 @ApiBearerAuth()
@@ -27,21 +37,32 @@ export class CustomerFavoritesController {
   @ApiOperation({
     summary: 'Obtener el listado de productos favoritos del cliente autenticado',
   })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de favoritos con resúmenes compatibles con la tarjeta del e-commerce',
+    type: PaginatedFavoritesResponseDto,
+  })
   @Get()
-  async getMyFavorites(@Req() req: any) {
-    const items = await this.customerFavoritesService.findAll(req.user.id);
+  async getMyFavorites(
+    @Req() req: any,
+    @Query() query: FavoritesQueryDto,
+  ) {
+    const result = await this.customerFavoritesService.findAll(
+      req.user.id,
+      query,
+    );
     return {
       success: true,
-      data: items,
+      data: result,
     };
   }
 
   @ApiOperation({
     summary: 'Agregar un producto a los favoritos del cliente autenticado',
   })
-  @ApiBody({ type: AddFavoriteDto })
+  @ApiBody({ type: CreateFavoriteDto })
   @Post()
-  async addFavorite(@Req() req: any, @Body() dto: AddFavoriteDto) {
+  async addFavorite(@Req() req: any, @Body() dto: CreateFavoriteDto) {
     const result = await this.customerFavoritesService.add(
       req.user.id,
       dto.productId,
@@ -53,7 +74,12 @@ export class CustomerFavoritesController {
   }
 
   @ApiOperation({
-    summary: 'Verificar si un producto está en los favoritos del cliente autenticado',
+    summary: 'Verificar si un producto está en los favoritos del cliente autenticado (botón corazón global)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado del producto en favoritos',
+    type: FavoriteStatusResponseDto,
   })
   @Get('check/:productId')
   async checkIsFavorite(
@@ -71,13 +97,13 @@ export class CustomerFavoritesController {
     )
     productId: string,
   ) {
-    const isFav = await this.customerFavoritesService.isFavorite(
+    const status = await this.customerFavoritesService.isFavorite(
       req.user.id,
       productId,
     );
     return {
       success: true,
-      isFavorite: isFav,
+      data: status,
     };
   }
 
