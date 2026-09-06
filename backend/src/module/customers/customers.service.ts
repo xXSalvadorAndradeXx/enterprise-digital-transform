@@ -11,6 +11,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { HashService } from '../auth/services/hash.service';
 import { EcommerceRegisterDto } from './dto/ecommerce-register.dto';
+import { CustomerProfileResponseDto } from './dto/customer-profile-response.dto';
+import { plainToInstance } from 'class-transformer';
 import {
   SESSION_ABSOLUTE_MAX_TTL_SECONDS,
   COOKIE_TTL_SHORT,
@@ -304,6 +306,75 @@ export class CustomersService {
       });
     }
     return customer;
+  }
+
+  async getMyProfile(
+    customerId: string,
+    cachedUser?: Partial<Customer> & { customerId?: string; fullName?: string },
+  ): Promise<CustomerProfileResponseDto> {
+    if (!customerId) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Identificador de cliente no provisto en el token de acceso.',
+      });
+    }
+
+    // 1. Optimización: Si la estrategia Auth ya cargó los campos requeridos en la misma petición,
+    // evitamos hacer una consulta adicional a la base de datos.
+    if (
+      cachedUser &&
+      (cachedUser.id === customerId || cachedUser.customerId === customerId) &&
+      cachedUser.email &&
+      cachedUser.phone
+    ) {
+      const dto = new CustomerProfileResponseDto();
+      dto.id = cachedUser.id ?? customerId;
+      dto.name = cachedUser.fullName ?? '';
+      dto.fullName = cachedUser.fullName;
+      dto.email = cachedUser.email;
+      dto.phone = cachedUser.phone;
+      dto.dui = cachedUser.dui ?? null;
+      dto.role = 'cliente';
+      dto.createdAt = cachedUser.createdAt ?? null;
+
+      return plainToInstance(CustomerProfileResponseDto, dto, {
+        excludeExtraneousValues: false,
+      });
+    }
+
+    // 2. Consulta con proyección mínima en caso de que falten campos en memoria
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId, deletedAt: IsNull() },
+      select: ['id', 'fullName', 'email', 'phone', 'dui', 'isActive', 'createdAt'],
+    });
+
+    if (!customer) {
+      throw new NotFoundException({
+        code: 'CUSTOMER_NOT_FOUND',
+        message: 'No se encontró la cuenta del cliente asociada al token.',
+      });
+    }
+
+    if (!customer.isActive) {
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_DISABLED',
+        message: 'La cuenta del cliente se encuentra inactiva o deshabilitada.',
+      });
+    }
+
+    const dto = new CustomerProfileResponseDto();
+    dto.id = customer.id;
+    dto.name = customer.fullName;
+    dto.fullName = customer.fullName;
+    dto.email = customer.email;
+    dto.phone = customer.phone;
+    dto.dui = customer.dui ?? null;
+    dto.role = 'cliente';
+    dto.createdAt = customer.createdAt;
+
+    return plainToInstance(CustomerProfileResponseDto, dto, {
+      excludeExtraneousValues: false,
+    });
   }
 
   /**

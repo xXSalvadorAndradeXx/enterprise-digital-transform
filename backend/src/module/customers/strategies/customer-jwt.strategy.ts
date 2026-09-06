@@ -44,6 +44,9 @@ export class CustomerJwtStrategy extends PassportStrategy(Strategy, 'customer-jw
       customerId: customer.id,
       email: customer.email,
       fullName: customer.fullName,
+      phone: customer.phone,
+      dui: customer.dui,
+      createdAt: customer.createdAt,
       type: 'CUSTOMER',
     };
   }

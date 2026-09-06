@@ -1,14 +1,37 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Req, UseGuards, ParseUUIDPipe, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth, ApiOkResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { CustomersService } from '../customers.service';
 import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
 import { CreateCustomerAddressDto } from '../dto/create-customer-address.dto';
 import { UpdateCustomerAddressDto } from '../dto/update-customer-address.dto';
+import { CustomerProfileResponseDto } from '../dto/customer-profile-response.dto';
 
-@ApiTags('Customers Addresses')
+@ApiTags('Customers')
 @Controller('customers')
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
+
+  @ApiOperation({
+    summary: 'Obtener el perfil del cliente autenticado',
+    description: 'Retorna los datos esenciales del perfil del cliente actual para la pantalla de Cuenta.',
+  })
+  @ApiOkResponse({
+    description: 'Perfil del cliente autenticado obtenido exitosamente',
+    type: CustomerProfileResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token de acceso inválido, expirado o cuenta inactiva',
+  })
+  @ApiBearerAuth()
+  @UseGuards(CustomerJwtAuthGuard)
+  @Get('me')
+  async getMyProfile(@Req() req: any) {
+    const profile = await this.customersService.getMyProfile(req.user.id, req.user);
+    return {
+      success: true,
+      data: profile,
+    };
+  }
 
   @ApiOperation({
     summary: 'Obtener las direcciones registradas del cliente autenticado',

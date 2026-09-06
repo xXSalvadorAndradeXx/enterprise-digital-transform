@@ -29,6 +29,7 @@ import * as crypto from 'crypto';
 import { CustomersService } from '../customers.service';
 import { EcommerceRegisterDto } from '../dto/ecommerce-register.dto';
 import { EcommerceLoginDto } from '../dto/ecommerce-login.dto';
+import { CustomerProfileResponseDto } from '../dto/customer-profile-response.dto';
 import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
 import { REFRESH_TOKEN_COOKIE_NAME } from '../constants/ecommerce-auth.constant';
 
@@ -327,29 +328,24 @@ export class EcommerceAuthController {
 
   @ApiOperation({
     summary: 'Obtener información del cliente autenticado',
+    description:
+      'Retorna el perfil del cliente autenticado proyectando únicamente datos necesarios para la pantalla de Cuenta, garantizando email como solo lectura y sin exponer métricas administrativas.',
+  })
+  @ApiOkResponse({
+    description: 'Perfil del cliente autenticado obtenido exitosamente',
+    type: CustomerProfileResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token de acceso inválido, expirado o cuenta inactiva',
   })
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
   @Get('me')
   async me(@Req() req: any) {
-    const customer = await this.customersService.findOne(req.user.id);
-    
-    if (!customer.isActive) {
-      throw new UnauthorizedException({
-        code: 'INVALID_CREDENTIALS',
-        message: 'Acceso no autorizado.',
-      });
-    }
-
+    const profile = await this.customersService.getMyProfile(req.user.id, req.user);
     return {
       success: true,
-      data: {
-        id: customer.id,
-        fullName: customer.fullName,
-        email: customer.email,
-        phone: customer.phone,
-        dui: customer.dui,
-      },
+      data: profile,
     };
   }
 }
