@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CustomerFavorite } from './entities/customer-favorite.entity';
@@ -84,15 +89,29 @@ export class CustomerFavoritesService {
   }
 
   /**
-   * Agrega un producto a la lista de favoritos del cliente (idempotente).
+   * Agrega un producto a la lista de favoritos del cliente autenticado.
+   * Retorna 201 con la relación y los datos actuales del producto.
+   * Lanza 404 si el producto no existe o está en soft delete.
+   * Lanza 409 (FAVORITE_ALREADY_EXISTS) si el producto ya está en favoritos.
    */
-  async add(customerId: string, productId: string) {
+  async add(customerId: string, productId: string): Promise<FavoriteResponseDto> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
+      relations: [
+        'images',
+        'tags',
+        'inventory',
+        'inventory.category',
+        'variantConfigs',
+        'variantConfigs.inventoryDetail',
+      ],
     });
 
-    if (!product) {
-      throw new NotFoundException('Producto no encontrado o no disponible');
+    if (!product || product.deletedAt !== null) {
+      throw new NotFoundException({
+        code: 'PRODUCT_NOT_FOUND',
+        message: 'El producto especificado no existe o no se encuentra disponible',
+      });
     }
 
     const existing = await this.favoriteRepository.findOne({
@@ -100,11 +119,10 @@ export class CustomerFavoritesService {
     });
 
     if (existing) {
-      return {
-        favoriteId: existing.id,
-        createdAt: existing.createdAt.toISOString(),
-        message: 'El producto ya se encuentra en tus favoritos',
-      };
+      throw new ConflictException({
+        code: 'FAVORITE_ALREADY_EXISTS',
+        message: 'El producto ya se encuentra guardado en tus favoritos',
+      });
     }
 
     const newFavorite = this.favoriteRepository.create({
@@ -112,12 +130,37 @@ export class CustomerFavoritesService {
       productId,
     });
 
-    const saved = await this.favoriteRepository.save(newFavorite);
+    let saved: CustomerFavorite;
+    try {
+      saved = await this.favoriteRepository.save(newFavorite);
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        throw new ConflictException({
+          code: 'FAVORITE_ALREADY_EXISTS',
+          message: 'El producto ya se encuentra guardado en tus favoritos',
+        });
+      }
+      throw error;
+    }
+
+    const effectivePriceNum = ProductSpecification.calculateEffectivePrice(
+      product.salePrice,
+      product.discount,
+      product.discountStartsAt,
+      product.discountEndsAt,
+    );
+    const inStock = ProductSpecification.isProductPublishableAndSellable(product);
+    const publicDto = PublicProductResponseDto.fromEntity(
+      product,
+      effectivePriceNum,
+      inStock,
+    );
+    const summary = FavoriteProductSummaryDto.fromPublicDto(publicDto);
 
     return {
       favoriteId: saved.id,
       createdAt: saved.createdAt.toISOString(),
-      message: 'Producto agregado a favoritos correctamente',
+      product: summary,
     };
   }
 
@@ -130,7 +173,10 @@ export class CustomerFavoritesService {
     });
 
     if (!favorite) {
-      throw new NotFoundException('El producto no se encuentra en tus favoritos');
+      throw new NotFoundException({
+        code: 'FAVORITE_NOT_FOUND',
+        message: 'El producto no se encuentra en tus favoritos',
+      });
     }
 
     await this.favoriteRepository.remove(favorite);
@@ -154,7 +200,7 @@ export class CustomerFavoritesService {
   }
 
   /**
-   * Verifica si un producto específico está en los favoritos del cliente (para el botón de corazón global).
+   * Verifica si un producto específico está en los favoritos del cliente.
    */
   async isFavorite(
     customerId: string,

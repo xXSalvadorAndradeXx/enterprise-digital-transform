@@ -9,6 +9,8 @@ import {
   Req,
   UseGuards,
   ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
 import {
@@ -22,7 +24,10 @@ import { CustomerFavoritesService } from '../customer-favorites.service';
 import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
 import { CreateFavoriteDto } from '../dto/create-favorite.dto';
 import { FavoritesQueryDto } from '../dto/favorites-query.dto';
-import { PaginatedFavoritesResponseDto } from '../dto/favorite-response.dto';
+import {
+  FavoriteResponseDto,
+  PaginatedFavoritesResponseDto,
+} from '../dto/favorite-response.dto';
 import { FavoriteStatusResponseDto } from '../dto/favorite-status-response.dto';
 
 @ApiTags('Customer Favorites')
@@ -61,15 +66,29 @@ export class CustomerFavoritesController {
     summary: 'Agregar un producto a los favoritos del cliente autenticado',
   })
   @ApiBody({ type: CreateFavoriteDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Producto agregado a favoritos correctamente',
+    type: FavoriteResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'El producto especificado no existe o está eliminado (PRODUCT_NOT_FOUND)',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'El producto ya existe en la lista de favoritos (FAVORITE_ALREADY_EXISTS)',
+  })
   @Post()
+  @HttpCode(HttpStatus.CREATED)
   async addFavorite(@Req() req: any, @Body() dto: CreateFavoriteDto) {
-    const result = await this.customerFavoritesService.add(
+    const favorite = await this.customerFavoritesService.add(
       req.user.id,
       dto.productId,
     );
     return {
       success: true,
-      data: result,
+      data: favorite,
     };
   }
 
@@ -110,6 +129,14 @@ export class CustomerFavoritesController {
   @ApiOperation({
     summary: 'Eliminar un producto específico de los favoritos del cliente autenticado',
   })
+  @ApiResponse({
+    status: 200,
+    description: 'Producto eliminado de favoritos correctamente',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'El producto no existe en los favoritos del cliente (FAVORITE_NOT_FOUND)',
+  })
   @Delete(':productId')
   async removeFavorite(
     @Req() req: any,
@@ -138,6 +165,10 @@ export class CustomerFavoritesController {
 
   @ApiOperation({
     summary: 'Vaciar completamente la lista de favoritos del cliente autenticado',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Todos los favoritos eliminados correctamente',
   })
   @Delete()
   async clearAllFavorites(@Req() req: any) {
