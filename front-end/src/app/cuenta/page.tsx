@@ -7,6 +7,7 @@ import {
   Mail,
   Phone,
   UserRound,
+  X,
   XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -27,34 +28,51 @@ type ProfileFeedback =
 const inputClassName =
   "mt-1 w-full bg-transparent text-lg leading-tight text-black outline-none focus-visible:ring-2 focus-visible:ring-[#2528dc] sm:text-[26px]";
 
-function ProfileFeedbackPanel({ feedback }: { feedback: Exclude<ProfileFeedback, null> }) {
+function ProfileFeedbackPanel({
+  feedback,
+  onClose,
+}: {
+  feedback: Exclude<ProfileFeedback, null>;
+  onClose: () => void;
+}) {
   const isSuccess = feedback.type === "success";
   const Icon = isSuccess ? CheckCircle2 : XCircle;
 
   return (
     <div className="pointer-events-none absolute inset-4 z-10 flex items-center justify-center p-2 sm:inset-10">
       <div
-        className="w-full max-w-[666px] rounded-[17px] bg-[#f7f7f7] px-6 py-8 text-center shadow-[0_10px_25px_rgba(0,0,0,0.03)] sm:px-12"
-        role={isSuccess ? "status" : "alert"}
-        aria-live={isSuccess ? "polite" : "assertive"}
+        className="relative w-full max-w-[666px] rounded-[17px] bg-[#f7f7f7] px-6 py-8 text-center shadow-[0_10px_25px_rgba(0,0,0,0.03)] sm:px-12"
       >
-        <Icon
-          className={`mx-auto h-14 w-14 ${isSuccess ? "text-[#50bd5c]" : "text-[#ff453b]"}`}
-          strokeWidth={1.8}
-          aria-hidden="true"
-        />
-        <p
-          className={`mt-5 text-2xl font-semibold sm:text-[26px] ${
-            isSuccess ? "text-[#50bd5c]" : "text-[#ff453b]"
-          }`}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar notificación"
+          className="pointer-events-auto absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full text-[#565656] transition-colors hover:bg-black/5 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2528dc] sm:right-4 sm:top-4"
         >
-          {isSuccess ? "¡Perfil actualizado!" : "¡Algo salió mal!"}
-        </p>
-        <p className="mt-4 text-sm font-medium leading-6 text-[#565656] sm:text-base">
-          {isSuccess
-            ? "Tus datos se han actualizado correctamente"
-            : feedback.message}
-        </p>
+          <X className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
+        </button>
+        <div
+          role={isSuccess ? "status" : "alert"}
+          aria-live={isSuccess ? "polite" : "assertive"}
+        >
+          <Icon
+            className={`mx-auto h-14 w-14 ${isSuccess ? "text-[#50bd5c]" : "text-[#ff453b]"}`}
+            strokeWidth={1.8}
+            aria-hidden="true"
+          />
+          <p
+            className={`mt-5 text-2xl font-semibold sm:text-[26px] ${
+              isSuccess ? "text-[#50bd5c]" : "text-[#ff453b]"
+            }`}
+          >
+            {isSuccess ? "¡Perfil actualizado!" : "¡Algo salió mal!"}
+          </p>
+          <p className="mt-4 text-sm font-medium leading-6 text-[#565656] sm:text-base">
+            {isSuccess
+              ? "Tus datos se han actualizado correctamente"
+              : feedback.message}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -80,12 +98,22 @@ export default function CuentaPage() {
   useEffect(() => {
     if (!feedback) return;
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFeedback(null);
+      }
+    };
+
     const timeoutId = window.setTimeout(
       () => setFeedback(null),
       feedback.type === "success" ? 3_000 : 5_000,
     );
+    window.addEventListener("keydown", handleKeyDown);
 
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [feedback]);
 
   const profileFields = profile
@@ -296,7 +324,12 @@ export default function CuentaPage() {
             </dl>
           ) : null}
 
-          {feedback ? <ProfileFeedbackPanel feedback={feedback} /> : null}
+          {feedback ? (
+            <ProfileFeedbackPanel
+              feedback={feedback}
+              onClose={() => setFeedback(null)}
+            />
+          ) : null}
         </section>
 
         {!isLoading && !error && profile ? (
