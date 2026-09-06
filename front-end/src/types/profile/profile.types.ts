@@ -4,3 +4,8 @@ export interface CustomerProfile {
   email: string;
   phone: string | null;
 }
+
+export interface UpdateCustomerProfileRequest {
+  name: string;
+  phone: string;
+}

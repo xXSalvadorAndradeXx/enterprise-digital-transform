@@ -1,18 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   normalizeAuthError,
   type NormalizedAuthError,
 } from "@/lib/auth-error";
-import { getCustomerProfile } from "@/services/profile/profile.service";
-import type { CustomerProfile } from "@/types/profile/profile.types";
+import {
+  getCustomerProfile,
+  updateCustomerProfile,
+} from "@/services/profile/profile.service";
+import type {
+  CustomerProfile,
+  UpdateCustomerProfileRequest,
+} from "@/types/profile/profile.types";
 
 export interface UseCustomerProfileValue {
   profile: CustomerProfile | null;
   isLoading: boolean;
   error: NormalizedAuthError | null;
+  isUpdating: boolean;
   retry: () => void;
+  updateProfile: (
+    payload: UpdateCustomerProfileRequest,
+  ) => Promise<CustomerProfile | null>;
 }
 
 export function useCustomerProfile(): UseCustomerProfileValue {
@@ -20,6 +30,9 @@ export function useCustomerProfile(): UseCustomerProfileValue {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<NormalizedAuthError | null>(null);
   const [requestVersion, setRequestVersion] = useState(0);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const updateControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(false);
 
   const retry = useCallback(() => {
     setProfile(null);
@@ -53,5 +66,52 @@ export function useCustomerProfile(): UseCustomerProfileValue {
     return () => controller.abort();
   }, [requestVersion]);
 
-  return { profile, isLoading, error, retry };
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      updateControllerRef.current?.abort();
+    };
+  }, []);
+
+  const updateProfile = useCallback(
+    async (payload: UpdateCustomerProfileRequest): Promise<CustomerProfile | null> => {
+      if (updateControllerRef.current) {
+        return null;
+      }
+
+      const controller = new AbortController();
+      updateControllerRef.current = controller;
+      setIsUpdating(true);
+
+      try {
+        const customerProfile = await updateCustomerProfile(payload, controller.signal);
+
+        if (controller.signal.aborted || !isMountedRef.current) {
+          return null;
+        }
+
+        setProfile(customerProfile);
+        setError(null);
+        return customerProfile;
+      } catch (requestError) {
+        if (controller.signal.aborted || !isMountedRef.current) {
+          return null;
+        }
+
+        throw requestError;
+      } finally {
+        if (updateControllerRef.current === controller) {
+          updateControllerRef.current = null;
+          if (isMountedRef.current) {
+            setIsUpdating(false);
+          }
+        }
+      }
+    },
+    [],
+  );
+
+  return { profile, isLoading, error, isUpdating, retry, updateProfile };
 }
