@@ -104,7 +104,7 @@ describe('CartController', () => {
 
     const result = await controller.getCart(req, undefined);
     expect(result.id).toBe('cart-uuid-1');
-    expect(service.resolveCart).toHaveBeenCalledWith('user-uuid-1', undefined, false);
+    expect(service.resolveCart).toHaveBeenCalledWith('user-uuid-1', undefined, true);
   });
 
   it('addItem should resolve cart and set X-Cart-Token header if new guest cart created', async () => {

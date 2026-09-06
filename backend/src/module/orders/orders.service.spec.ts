@@ -76,6 +76,41 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       findOne: jest.fn().mockResolvedValue(null),
     };
 
+    const mockVariantConfigRepo = {
+      findOne: jest.fn().mockImplementation(async ({ where }: any) => {
+        const id = where?.id;
+        const mockProd = await mockProductRepo.findOne({ where: { id } });
+        const productObj = mockProd || {
+          id: 'prod-uuid-1',
+          productId: 'prod-uuid-1',
+          status: ProductStatus.ACTIVE,
+          isActive: true,
+          isPublished: true,
+          deletedAt: null,
+          commercialName: 'Producto Test',
+          salePrice: 10.00,
+          discount: 0,
+          discountStartsAt: null,
+          discountEndsAt: null,
+          inventory: { id: 'inv-1', status: 'ACTIVE', stock: 100, available: 100 },
+        };
+        return {
+          id: id || 'variant-uuid-1',
+          productId: productObj.id || 'prod-uuid-1',
+          inventoryDetailId: 'inv-detail-1',
+          minStock: 1,
+          product: productObj,
+          inventoryDetail: {
+            id: 'inv-detail-1',
+            stock: 100,
+            size: 'M',
+            color: 'Negro',
+            sku: 'SKU-TEST',
+          },
+        };
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
@@ -84,7 +119,7 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         { provide: getRepositoryToken(GuestCustomer), useValue: mockGuestCustomerRepo },
         { provide: getRepositoryToken(Branch), useValue: mockBranchRepo },
         { provide: getRepositoryToken(Product), useValue: mockProductRepo },
-        { provide: getRepositoryToken(ProductVariantConfig), useValue: {} },
+        { provide: getRepositoryToken(ProductVariantConfig), useValue: mockVariantConfigRepo },
         { provide: getRepositoryToken(CheckoutIdempotency), useValue: mockIdempotencyRepo },
       ],
     }).compile();
@@ -209,7 +244,22 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
           findOne: jest.fn().mockImplementation((entityClass: any, options: any) => {
             if (entityClass === Customer || options.where?.id === 'user-uuid-123') return Promise.resolve(mockUser);
             if (options.where?.id === 'branch-1') return Promise.resolve(mockBranch);
-            if (options.where?.id === 'prod-uuid-1') return Promise.resolve(mockProduct);
+            if (entityClass === ProductVariantConfig || options.where?.id === 'prod-uuid-1') {
+              return Promise.resolve({
+                id: options.where?.id || 'prod-uuid-1',
+                productId: 'prod-uuid-1',
+                inventoryDetailId: 'inv-detail-1',
+                minStock: 1,
+                product: mockProduct,
+                inventoryDetail: {
+                  id: 'inv-detail-1',
+                  stock: 100,
+                  size: 'M',
+                  color: 'Negro',
+                  sku: 'SKU-TEST',
+                },
+              });
+            }
             return Promise.resolve(null);
           }),
           create: jest.fn().mockImplementation((cls: any, dto: any) => ({ id: 'uuid-gen', ...dto })),
@@ -354,7 +404,7 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         expect(previewResult.data.discountTotal).toBe('0.00');
         expect(previewResult.data.shippingTotal).toBe('0.00');
         expect(previewResult.data.total).toBe('20.00');
-        expect(previewResult.data.freeShippingApplied).toBe(false);
+        expect(previewResult.data.freeShippingApplied).toBe(true);
       });
     });
 
@@ -389,11 +439,11 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
 
         const previewResult = await service.checkoutPreview(dto, undefined);
         expect(previewResult.data.freeShippingApplied).toBe(false);
-        expect(previewResult.data.shippingTotal).toBe('5.00');
-        expect(previewResult.data.total).toBe('54.99');
+        expect(previewResult.data.shippingTotal).toBe('4.00');
+        expect(previewResult.data.total).toBe('53.99');
       });
 
-      it('debe aplicar envío gratuito si el subtotal es exactamente 50.00', async () => {
+      it('debe aplicar la tarifa de envío en HOME_DELIVERY para subtotal de 50.00', async () => {
         const dto: any = {
           source: CheckoutSource.BUY_NOW,
           items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 50.00 }],
@@ -422,9 +472,9 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         mockProductRepo.findOne.mockResolvedValue(mockProduct);
 
         const previewResult = await service.checkoutPreview(dto, undefined);
-        expect(previewResult.data.freeShippingApplied).toBe(true);
-        expect(previewResult.data.shippingTotal).toBe('0.00');
-        expect(previewResult.data.total).toBe('50.00');
+        expect(previewResult.data.freeShippingApplied).toBe(false);
+        expect(previewResult.data.shippingTotal).toBe('4.00');
+        expect(previewResult.data.total).toBe('54.00');
       });
     });
 
