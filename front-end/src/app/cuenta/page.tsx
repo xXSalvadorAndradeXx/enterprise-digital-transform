@@ -126,7 +126,6 @@ export default function CuentaPage() {
       setIsEditing(false);
       setFeedback({ type: "success" });
     } catch {
-      setIsEditing(false);
       setFeedback({
         type: "error",
         message:
