@@ -13,6 +13,7 @@ import {
 import { Exclude } from 'class-transformer';
 import { CustomerAddress } from './customer-address.entity';
 import { EcommerceAuthSession } from './ecommerce-auth-session.entity';
+import { CustomerFavorite } from './customer-favorite.entity';
 import { Order } from '../../orders/entities/order.entity';
 
 @Entity('customers')
@@ -72,6 +73,9 @@ export class Customer {
 
   @OneToMany(() => Order, (order) => order.customer)
   orders!: Order[];
+
+  @OneToMany(() => CustomerFavorite, (favorite) => favorite.customer)
+  favorites!: CustomerFavorite[];
 
   @BeforeInsert()
   @BeforeUpdate()

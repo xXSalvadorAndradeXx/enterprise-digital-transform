@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Customer } from './entities/customer.entity';
 import { CustomerAddress } from './entities/customer-address.entity';
 import { EcommerceAuthSession } from './entities/ecommerce-auth-session.entity';
+import { CustomerFavorite } from './entities/customer-favorite.entity';
 import { Order } from '../orders/entities/order.entity';
 
 import { CustomersService } from './customers.service';
@@ -17,7 +18,13 @@ import { CustomersAdminController } from './controllers/customers-admin.controll
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Customer, CustomerAddress, EcommerceAuthSession, Order]),
+    TypeOrmModule.forFeature([
+      Customer,
+      CustomerAddress,
+      EcommerceAuthSession,
+      CustomerFavorite,
+      Order,
+    ]),
     LocationsModule,
     AuthModule,
     UsersModule,
