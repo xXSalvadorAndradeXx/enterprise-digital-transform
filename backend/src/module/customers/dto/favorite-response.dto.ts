@@ -3,8 +3,8 @@ import { PublicProductResponseDto } from '../../products/dto/public-product-resp
 
 export class FavoriteProductSummaryDto extends PublicProductResponseDto {
   @ApiPropertyOptional({
-    example: 'http://localhost:3000/uploads/products/front.webp',
-    description: 'URL de la imagen principal del producto (compatibilidad con tarjeta ecommerce)',
+    example: 'http://localhost:3000/uploads/products/front-01.webp',
+    description: 'URL resoluble de la imagen principal del producto para la tarjeta e-commerce',
     nullable: true,
   })
   imageUrl!: string | null;
@@ -49,7 +49,7 @@ export class FavoriteResponseDto {
 
   @ApiProperty({
     type: FavoriteProductSummaryDto,
-    description: 'Resumen completo del producto compatible con la tarjeta de e-commerce Frontend',
+    description: 'Resumen comercial del producto compatible con la tarjeta de e-commerce Frontend',
   })
   product!: FavoriteProductSummaryDto;
 }
