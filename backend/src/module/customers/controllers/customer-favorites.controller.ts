@@ -176,6 +176,9 @@ export class CustomerFavoritesController {
     return {
       success: true,
       message: result.message,
+      data: {
+        deletedCount: result.deletedCount,
+      },
     };
   }
 }

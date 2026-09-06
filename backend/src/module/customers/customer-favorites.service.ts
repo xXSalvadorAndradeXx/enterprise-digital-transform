@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -165,7 +164,7 @@ export class CustomerFavoritesService {
   }
 
   /**
-   * Elimina un producto específico de la lista de favoritos del cliente.
+   * Elimina un producto específico de la lista de favoritos del cliente autenticado.
    */
   async remove(customerId: string, productId: string) {
     const favorite = await this.favoriteRepository.findOne({
@@ -188,19 +187,21 @@ export class CustomerFavoritesService {
   }
 
   /**
-   * Elimina todos los favoritos del cliente autenticado.
+   * Elimina masivamente todos los favoritos del cliente autenticado en una sola consulta SQL.
+   * Es idempotente: si la lista ya está vacía, retorna deletedCount: 0 sin arrojar error.
    */
   async clearAll(customerId: string) {
-    await this.favoriteRepository.delete({ customerId });
+    const result = await this.favoriteRepository.delete({ customerId });
+    const deletedCount = result.affected ?? 0;
 
     return {
-      success: true,
+      deletedCount,
       message: 'Todos los favoritos han sido eliminados correctamente',
     };
   }
 
   /**
-   * Verifica si un producto específico está en los favoritos del cliente.
+   * Verifica si un producto específico está en los favoritos del cliente (botón de corazón global).
    */
   async isFavorite(
     customerId: string,
