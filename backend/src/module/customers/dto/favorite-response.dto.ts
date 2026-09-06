@@ -21,6 +21,14 @@ export class FavoriteProductSummaryDto extends PublicProductResponseDto {
     
     const isDiscountObj = publicDto.discount && typeof publicDto.discount === 'object';
     summary.hasDiscount = Boolean(isDiscountObj && (publicDto.discount as any).isActive);
+
+    if (!publicDto.isPublished) {
+      summary.availability = 'UNAVAILABLE';
+      summary.inStock = false;
+    } else if (publicDto.stockTotal <= 0) {
+      summary.availability = 'OUT_OF_STOCK';
+      summary.inStock = false;
+    }
     
     return summary;
   }
