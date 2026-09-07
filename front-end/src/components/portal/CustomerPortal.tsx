@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   AUTH_SESSION_CHANGED_EVENT,
@@ -46,8 +47,11 @@ export function CustomerPortal({ children }: { children: ReactNode }) {
     const logoutRequest = logoutUser();
     logoutRequestRef.current = logoutRequest;
 
-    clearAuthSession();
-    router.replace("/login");
+    // Complete the session-driven remount before choosing the logout destination.
+    flushSync(() => {
+      clearAuthSession();
+    });
+    router.replace("/");
 
     void logoutRequest.catch(() => undefined);
   }, [router]);
