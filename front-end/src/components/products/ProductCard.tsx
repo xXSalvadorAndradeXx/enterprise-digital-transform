@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Heart, ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -11,6 +12,14 @@ import type { Product, ProductImage, ProductVariant } from "@/types/products/pro
 
 type ProductCardProps = {
   product: Product;
+  isFavorite?: boolean;
+  isFavoritePending?: boolean;
+  onFavoriteToggle?: (
+    nextFavorite: boolean,
+    product: Product,
+  ) => void | Promise<void>;
+  showViewProductAction?: boolean;
+  addToCartLabel?: string;
 };
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
@@ -30,12 +39,20 @@ function formatProductPrice(price: Product["precio"]) {
   return String(price);
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  isFavorite,
+  isFavoritePending = false,
+  onFavoriteToggle,
+  showViewProductAction = false,
+  addToCartLabel = "Añadir al Carrito",
+}: ProductCardProps) {
   const router = useRouter();
   const {addToCart}=useCart();
   const [failedImageUrl, setFailedImageUrl] = useState("");
   const [favorite,setFavorite] = useState(false);
   const [isAdding,setIsAdding]=useState(false);
+  const [isUpdatingFavorite,setIsUpdatingFavorite]=useState(false);
   const [cartError,setCartError]=useState("");
   const [showBuyNowModal,setShowBuyNowModal]=useState(false);
   const backendProduct = product as Product & {
@@ -76,9 +93,12 @@ export default function ProductCard({ product }: ProductCardProps) {
   const rawVariants=(product.variants??[]) as unknown as Array<{id?:string;sku?:string;size?:string;color?:string|{name?:string;hex?:string};stock?:number|string;available?:boolean;stockStatus?:string}>;
   const availableVariants:ProductVariant[]=rawVariants.flatMap((variant,index)=>{const rawColor=variant.color;const hex=typeof rawColor==="string"?rawColor:String(rawColor?.hex??"");const variantStock=Number(variant.stock??0);if(!variant.id||!variant.size||!hex||variantStock<=0||variant.stockStatus==="OUT_OF_STOCK"||variant.available===false)return[];return[{id:String(variant.id??index),sku:String(variant.sku??variant.id??index),size:String(variant.size),color:{name:typeof rawColor==="string"?rawColor:String(rawColor?.name??hex),hex},stock:variantStock,available:true}]});
   const firstAvailableVariant=availableVariants[0];
+  const isFavoriteControlled = isFavorite !== undefined;
+  const favoriteMarked = isFavorite ?? favorite;
+  const favoriteActionDisabled = isFavoritePending || isUpdatingFavorite;
 
-  useEffect(()=>{const timer=window.setTimeout(()=>{try{const values=JSON.parse(localStorage.getItem("woden-wishlist")??"[]") as Array<string|number>;setFavorite(values.map(String).includes(String(product.id)))}catch{}},0);return()=>window.clearTimeout(timer)},[product.id]);
-  const toggleFavorite=()=>{const next=!favorite;setFavorite(next);try{const values=JSON.parse(localStorage.getItem("woden-wishlist")??"[]") as Array<string|number>;const ids=new Set(values.map(String));if(next){ids.add(String(product.id))}else{ids.delete(String(product.id))}localStorage.setItem("woden-wishlist",JSON.stringify([...ids]))}catch{}};
+  useEffect(()=>{if(isFavoriteControlled)return;const timer=window.setTimeout(()=>{try{const values=JSON.parse(localStorage.getItem("woden-wishlist")??"[]") as Array<string|number>;setFavorite(values.map(String).includes(String(product.id)))}catch{}},0);return()=>window.clearTimeout(timer)},[isFavoriteControlled,product.id]);
+  const toggleFavorite=async()=>{if(favoriteActionDisabled)return;const next=!favoriteMarked;if(onFavoriteToggle){setIsUpdatingFavorite(true);try{await onFavoriteToggle(next,product);if(!isFavoriteControlled)setFavorite(next)}finally{setIsUpdatingFavorite(false)}return}setFavorite(next);try{const values=JSON.parse(localStorage.getItem("woden-wishlist")??"[]") as Array<string|number>;const ids=new Set(values.map(String));if(next){ids.add(String(product.id))}else{ids.delete(String(product.id))}localStorage.setItem("woden-wishlist",JSON.stringify([...ids]))}catch{}};
   const handleQuickAdd=async()=>{if(!firstAvailableVariant){router.push(detailHref);return}setCartError("");setIsAdding(true);try{await addToCart(product,firstAvailableVariant,1)}catch(error){setCartError(error instanceof Error?error.message:"No se pudo agregar el producto al carrito.")}finally{setIsAdding(false)}};
   const handleBuyNow=()=>{if(availableVariants.length===0){router.push(detailHref);return}setShowBuyNowModal(true)};
   const confirmBuyNow=(variant:ProductVariant,quantity:number)=>{const unitPrice=Number(currentPrice);const originalUnitPrice=Number(originalPrice??currentPrice);saveBuyNowSelection({item:{variantId:variant.id,quantity,priceAtAdded:Number.isFinite(unitPrice)?unitPrice.toFixed(2):undefined},productName:name,unitPrice:Number.isFinite(unitPrice)?unitPrice:0,originalUnitPrice:Number.isFinite(originalUnitPrice)?originalUnitPrice:unitPrice});setShowBuyNowModal(false);router.push("/checkout?source=buy-now")};
@@ -94,7 +114,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-[#F4F7FB]">
         {hasActiveDiscount ? <span className="absolute left-2 top-2 z-10 rounded bg-[#ff3b30] px-2 py-1 text-xs font-bold text-white">-{discountPercentage}%</span> : null}
-        <button onClick={toggleFavorite} aria-label={favorite?"Quitar de favoritos":"Agregar a favoritos"} className="absolute right-2 top-2 z-10 rounded-full bg-white p-2 shadow"><Heart className={`h-4 w-4 ${favorite?"fill-red-500 text-red-500":""}`}/></button>
+        <button type="button" onClick={()=>void toggleFavorite()} disabled={favoriteActionDisabled} aria-pressed={favoriteMarked} aria-label={favoriteMarked?"Quitar de favoritos":"Agregar a favoritos"} className={`absolute right-2 top-2 z-10 rounded-full bg-white p-2 shadow ${favoriteActionDisabled?"cursor-wait opacity-70":""}`}><Heart className={`h-4 w-4 ${favoriteMarked?"fill-red-500 text-red-500":""}`}/></button>
         {shouldShowImage ? (
           <Image
             src={imageUrl}
@@ -147,7 +167,16 @@ export default function ProductCard({ product }: ProductCardProps) {
               <span className="text-green-600">●</span> {stock} unidades disponibles
             </p>
           </div>
-          <div className="grid grid-cols-[1fr_42px] gap-2"><button type="button" onClick={handleBuyNow} disabled={!isAvailable} className="inline-flex h-10 items-center justify-center rounded-lg bg-[#1822d9] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Comprar ahora</button><button type="button" onClick={()=>void handleQuickAdd()} disabled={!isAvailable||isAdding} aria-label={`Agregar ${name} al carrito`} className="flex h-10 items-center justify-center rounded-lg bg-[#dbe6ff] text-[#1822d9] disabled:cursor-not-allowed disabled:opacity-50"><ShoppingCart className="h-4 w-4"/></button></div>
+          {showViewProductAction ? (
+            <div className="grid gap-2">
+              <Link href={detailHref} className="inline-flex h-10 items-center justify-center rounded-lg border border-[#1822d9] bg-white px-3 text-sm font-semibold text-[#1822d9] transition hover:bg-[#eef3ff]">
+                Ver Producto
+              </Link>
+              <button type="button" onClick={()=>void handleQuickAdd()} disabled={!isAvailable||isAdding} aria-label={`Agregar ${name} al carrito`} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1822d9] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"><ShoppingCart className="h-4 w-4"/>{isAdding?"Agregando...":addToCartLabel}</button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-[1fr_42px] gap-2"><button type="button" onClick={handleBuyNow} disabled={!isAvailable} className="inline-flex h-10 items-center justify-center rounded-lg bg-[#1822d9] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Comprar ahora</button><button type="button" onClick={()=>void handleQuickAdd()} disabled={!isAvailable||isAdding} aria-label={`Agregar ${name} al carrito`} className="flex h-10 items-center justify-center rounded-lg bg-[#dbe6ff] text-[#1822d9] disabled:cursor-not-allowed disabled:opacity-50"><ShoppingCart className="h-4 w-4"/></button></div>
+          )}
           {cartError&&<p role="alert" className="text-xs text-red-600">{cartError}</p>}
         </div>
       </div>
