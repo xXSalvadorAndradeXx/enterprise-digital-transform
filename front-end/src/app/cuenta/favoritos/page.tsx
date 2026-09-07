@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+
 import type { Product } from "@/types/products/product.types";
 import ProductCard from "@/components/products/ProductCard";
 import { useFavorites } from "@/hooks/favorites/useFavorites";
@@ -23,9 +24,7 @@ function toProductAvailability(
   return stock > 0 ? "IN_STOCK" : "OUT_OF_STOCK";
 }
 
-function favoriteProductToProduct(
-  product: FavoriteProduct,
-): Product {
+function favoriteProductToProduct(product: FavoriteProduct): Product {
   const price = String(product.salePrice ?? "0");
   const imageUrl = product.imageUrl ?? "";
 
@@ -105,14 +104,24 @@ export default function FavoritesPage() {
   });
 
   const hasFavorites = favorites.length > 0;
-  const canGoBack = page > 1 && !isLoading;
-  const canGoForward = page < totalPages && !isLoading;
+  const hasMutationInProgress =
+    isClearing || removingProductId !== null;
+
+  const canGoBack =
+    page > 1 && !isLoading && !hasMutationInProgress;
+
+  const canGoForward =
+    page < totalPages && !isLoading && !hasMutationInProgress;
 
   const handleFavoriteToggle = async (
     nextFavorite: boolean,
     product: Product,
   ) => {
-    if (nextFavorite) {
+    if (
+      nextFavorite ||
+      isClearing ||
+      removingProductId !== null
+    ) {
       return;
     }
 
@@ -120,7 +129,11 @@ export default function FavoritesPage() {
   };
 
   const handleClearFavorites = async () => {
-    if (!hasFavorites || isClearing) {
+    if (
+      !hasFavorites ||
+      isClearing ||
+      removingProductId !== null
+    ) {
       return;
     }
 
@@ -137,7 +150,10 @@ export default function FavoritesPage() {
 
           {total > 0 ? (
             <p className="mt-2 text-sm font-medium text-[#4A4A4A]">
-              {total} {total === 1 ? "art\u00edculo guardado" : "art\u00edculos guardados"}
+              {total}{" "}
+              {total === 1
+                ? "artículo guardado"
+                : "artículos guardados"}
             </p>
           ) : null}
         </div>
@@ -145,7 +161,11 @@ export default function FavoritesPage() {
         <button
           type="button"
           onClick={() => void handleClearFavorites()}
-          disabled={!hasFavorites || isClearing}
+          disabled={
+            !hasFavorites ||
+            isClearing ||
+            removingProductId !== null
+          }
           className="inline-flex h-11 items-center justify-center rounded-sm border border-[#2222e7] px-5 text-sm font-semibold text-[#2222e7] transition hover:bg-[#f2f5fb] disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400 disabled:hover:bg-transparent"
         >
           {isClearing ? "Vaciando..." : "Vaciar lista"}
@@ -153,6 +173,15 @@ export default function FavoritesPage() {
       </header>
 
       <div className="mt-8">
+        {error && hasFavorites ? (
+          <div
+            role="alert"
+            className="mb-5 rounded-lg border border-red-100 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700"
+          >
+            {error.message}
+          </div>
+        ) : null}
+
         {isLoading && !hasFavorites ? (
           <FavoriteGridSkeleton />
         ) : error && !hasFavorites ? (
@@ -161,6 +190,7 @@ export default function FavoritesPage() {
             className="rounded-lg border border-red-100 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700"
           >
             <p>{error.message}</p>
+
             <button
               type="button"
               onClick={() => void loadFavorites()}
@@ -181,25 +211,27 @@ export default function FavoritesPage() {
             />
 
             <h2 className="text-3xl font-bold text-black">
-              {"No hay art\u00edculos en esta lista."}
+              No hay artículos en esta lista.
             </h2>
 
             <p className="mt-5 max-w-[520px] text-lg leading-8 text-[#555555]">
-              {"A\u00f1ade art\u00edculos que te gustar\u00eda comprar"}
+              Añade artículos que te gustaría comprar
             </p>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {favorites.map((favorite) => {
-                const product = favoriteProductToProduct(favorite.product);
+                const product = favoriteProductToProduct(
+                  favorite.product,
+                );
 
                 return (
                   <ProductCard
                     key={favorite.favoriteId}
                     product={product}
                     isFavorite
-                    isFavoritePending={removingProductId === product.id}
+                    isFavoritePending={hasMutationInProgress}
                     onFavoriteToggle={handleFavoriteToggle}
                     showViewProductAction
                     addToCartLabel="Añadir al Carrito"
@@ -210,7 +242,7 @@ export default function FavoritesPage() {
 
             {totalPages > 1 ? (
               <nav
-                aria-label={"Paginaci\u00f3n de favoritos"}
+                aria-label="Paginación de favoritos"
                 className="mt-10 flex items-center justify-center gap-3"
               >
                 <button
