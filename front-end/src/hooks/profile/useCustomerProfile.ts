@@ -6,6 +6,10 @@ import {
   type NormalizedAuthError,
 } from "@/lib/auth-error";
 import {
+  readAuthSessionIdentity,
+  syncSessionUserProfile,
+} from "@/lib/auth-session";
+import {
   getCustomerProfile,
   updateCustomerProfile,
 } from "@/services/profile/profile.service";
@@ -31,6 +35,8 @@ export function useCustomerProfile(): UseCustomerProfileValue {
   const [error, setError] = useState<NormalizedAuthError | null>(null);
   const [requestVersion, setRequestVersion] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
+  const loadControllerRef = useRef<AbortController | null>(null);
+  const loadVersionRef = useRef(0);
   const updateControllerRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef(false);
 
@@ -42,28 +48,58 @@ export function useCustomerProfile(): UseCustomerProfileValue {
   }, []);
 
   useEffect(() => {
+    const requestIdentity = readAuthSessionIdentity();
+    const loadVersion = loadVersionRef.current + 1;
+
+    loadVersionRef.current = loadVersion;
+    loadControllerRef.current?.abort();
+
+    if (!requestIdentity) {
+      loadControllerRef.current = null;
+      return;
+    }
+
     const controller = new AbortController();
+    loadControllerRef.current = controller;
+
+    const isCurrentLoad = () =>
+      !controller.signal.aborted &&
+      loadControllerRef.current === controller &&
+      loadVersionRef.current === loadVersion &&
+      readAuthSessionIdentity() === requestIdentity;
 
     getCustomerProfile(controller.signal)
       .then((customerProfile) => {
-        if (!controller.signal.aborted) {
-          setProfile(customerProfile);
-          setError(null);
+        if (
+          !isCurrentLoad() ||
+          !syncSessionUserProfile(customerProfile, requestIdentity)
+        ) {
+          return;
         }
+
+        setProfile(customerProfile);
+        setError(null);
       })
       .catch((requestError: unknown) => {
-        if (!controller.signal.aborted) {
-          setProfile(null);
-          setError(normalizeAuthError(requestError));
-        }
+        if (!isCurrentLoad()) return;
+
+        setProfile(null);
+        setError(normalizeAuthError(requestError));
       })
       .finally(() => {
-        if (!controller.signal.aborted) {
-          setIsLoading(false);
-        }
+        if (!isCurrentLoad()) return;
+
+        loadControllerRef.current = null;
+        setIsLoading(false);
       });
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+
+      if (loadControllerRef.current === controller) {
+        loadControllerRef.current = null;
+      }
+    };
   }, [requestVersion]);
 
   useEffect(() => {
@@ -71,6 +107,8 @@ export function useCustomerProfile(): UseCustomerProfileValue {
 
     return () => {
       isMountedRef.current = false;
+      loadVersionRef.current += 1;
+      loadControllerRef.current?.abort();
       updateControllerRef.current?.abort();
     };
   }, []);
@@ -81,6 +119,12 @@ export function useCustomerProfile(): UseCustomerProfileValue {
         return null;
       }
 
+      const requestIdentity = readAuthSessionIdentity();
+
+      if (!requestIdentity) {
+        return null;
+      }
+
       const controller = new AbortController();
       updateControllerRef.current = controller;
       setIsUpdating(true);
@@ -88,12 +132,21 @@ export function useCustomerProfile(): UseCustomerProfileValue {
       try {
         const customerProfile = await updateCustomerProfile(payload, controller.signal);
 
-        if (controller.signal.aborted || !isMountedRef.current) {
+        if (
+          controller.signal.aborted ||
+          !isMountedRef.current ||
+          readAuthSessionIdentity() !== requestIdentity ||
+          !syncSessionUserProfile(customerProfile, requestIdentity)
+        ) {
           return null;
         }
 
+        loadVersionRef.current += 1;
+        loadControllerRef.current?.abort();
+        loadControllerRef.current = null;
         setProfile(customerProfile);
         setError(null);
+        setIsLoading(false);
         return customerProfile;
       } catch (requestError) {
         if (controller.signal.aborted || !isMountedRef.current) {

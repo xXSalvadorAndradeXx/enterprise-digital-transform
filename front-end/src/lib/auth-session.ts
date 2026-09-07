@@ -4,6 +4,13 @@ export const AUTH_SESSION_CHANGED_EVENT = "auth-session-changed";
 
 export type AuthUser = Partial<User>;
 
+export interface SessionUserProfile {
+  id: string | number;
+  name: string;
+  email: string;
+  phone: string | null;
+}
+
 function canUseStorage() {
   return typeof window !== "undefined";
 }
@@ -50,6 +57,81 @@ export function readSessionUser(): AuthUser | null {
   }
 
   return null;
+}
+
+export function readAuthSessionIdentity(): string | null {
+  const accessToken = readAccessToken();
+
+  if (!accessToken) {
+    return null;
+  }
+
+  const sessionUser = readSessionUser() as Record<string, unknown> | null;
+  const userId = sessionUser?.id;
+
+  if (typeof userId === "string" && userId.trim()) {
+    return `user:${userId}`;
+  }
+
+  if (typeof userId === "number" && Number.isFinite(userId)) {
+    return `user:${userId}`;
+  }
+
+  return `token:${accessToken}`;
+}
+
+export function syncSessionUserProfile(
+  profile: SessionUserProfile,
+  expectedIdentity: string | null,
+): boolean {
+  const currentIdentity = readAuthSessionIdentity();
+
+  if (!currentIdentity || currentIdentity !== expectedIdentity) {
+    return false;
+  }
+
+  const storedUser = readSessionUser();
+  const currentUser =
+    storedUser && !Array.isArray(storedUser)
+      ? (storedUser as Record<string, unknown>)
+      : null;
+  const currentUserId = currentUser?.id;
+
+  if (
+    currentUserId !== undefined &&
+    currentUserId !== null &&
+    String(currentUserId) !== String(profile.id)
+  ) {
+    return false;
+  }
+
+  const updatedUser: Record<string, unknown> = {
+    ...(currentUser ?? {}),
+    id: profile.id,
+    email: profile.email,
+    phone: profile.phone,
+  };
+  const nameAliases = ["nombre", "name", "fullName"] as const;
+  const existingNameAliases = nameAliases.filter(
+    (alias) => currentUser && alias in currentUser,
+  );
+
+  if (existingNameAliases.length === 0) {
+    updatedUser.fullName = profile.name;
+  } else {
+    existingNameAliases.forEach((alias) => {
+      updatedUser[alias] = profile.name;
+    });
+  }
+
+  if (JSON.stringify(currentUser) === JSON.stringify(updatedUser)) {
+    return true;
+  }
+
+  localStorage.setItem("user", JSON.stringify(updatedUser));
+  notifyAuthSessionChanged();
+
+  return true;
 }
 
 export function saveAuthSession(responseData: unknown) {

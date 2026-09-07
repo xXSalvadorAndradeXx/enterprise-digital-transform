@@ -6,6 +6,7 @@ let refreshRequest: Promise<string | null> | null = null;
 type ApiRequestOptions<TBody> = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: TBody;
+  cache?: RequestCache;
   headers?: HeadersInit;
   signal?: AbortSignal;
 };
@@ -143,7 +144,7 @@ async function executeRequest<TResponse, TBody>(
   path: string,
   options: ApiRequestOptions<TBody>,
 ): Promise<{ data: TResponse; response: Response }> {
-  const { method = "GET", body, headers, signal } = options;
+  const { method = "GET", body, cache, headers, signal } = options;
 
   try {
     const requestHeaders = await ensureFreshAuthorization(path, headers);
@@ -152,6 +153,7 @@ async function executeRequest<TResponse, TBody>(
       credentials: "include",
       headers: { "Content-Type": "application/json", ...requestHeaders },
       body: body === undefined ? undefined : JSON.stringify(body),
+      cache,
       signal,
     });
 

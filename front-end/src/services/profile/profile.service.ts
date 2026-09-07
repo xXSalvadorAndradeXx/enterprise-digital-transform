@@ -24,6 +24,7 @@ export async function getCustomerProfile(
   const response = await apiRequest<ApiSuccess<CustomerProfile>>(
     CUSTOMER_PROFILE_PATH,
     {
+      cache: "no-store",
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
