@@ -1,7 +1,19 @@
+import {
+  AUTH_SESSION_CHANGED_EVENT,
+  clearAuthSession,
+  readAccessToken,
+  saveRefreshedAccessToken,
+} from "@/lib/auth-session";
+
 const API_BASE_URL = "http://localhost:3000/api/v1";
 
-const ACCESS_TOKEN_STORAGE_KEY = "access_token";
-let refreshRequest: Promise<string | null> | null = null;
+interface RefreshRequest {
+  accessToken: string;
+  controller: AbortController;
+  promise: Promise<string | null>;
+}
+
+let refreshRequest: RefreshRequest | null = null;
 
 type ApiRequestOptions<TBody> = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -60,12 +72,6 @@ async function readJsonResponse(response: Response): Promise<unknown> {
   }
 }
 
-function readStoredAccessToken(): string | null {
-  return typeof window === "undefined"
-    ? null
-    : localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
-}
-
 function isJwtExpired(token: string): boolean {
   try {
     const payloadPart = token.split(".")[1];
@@ -86,16 +92,32 @@ function extractRefreshedAccessToken(responseData: unknown): string | null {
   return extractRefreshedAccessToken(record.data);
 }
 
-async function refreshAccessToken(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
-  if (refreshRequest) return refreshRequest;
+function refreshAccessToken(accessToken: string): Promise<string | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
 
-  refreshRequest = (async () => {
+  if (refreshRequest?.accessToken === accessToken) {
+    return refreshRequest.promise;
+  }
+
+  refreshRequest?.controller.abort();
+
+  const controller = new AbortController();
+  const abortIfSessionChanged = () => {
+    if (readAccessToken() !== accessToken) {
+      controller.abort();
+    }
+  };
+
+  window.addEventListener(AUTH_SESSION_CHANGED_EVENT, abortIfSessionChanged);
+  window.addEventListener("storage", abortIfSessionChanged);
+
+  const promise = (async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/ecommerce/auth/refresh`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
       });
       const responseData = await readJsonResponse(response);
       const token = response.ok
@@ -103,23 +125,29 @@ async function refreshAccessToken(): Promise<string | null> {
         : null;
 
       if (token) {
-        localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
-        window.dispatchEvent(new Event("auth-session-changed"));
-        return token;
+        return saveRefreshedAccessToken(token, accessToken) ? token : null;
       }
 
-      localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-      localStorage.removeItem("user");
-      window.dispatchEvent(new Event("auth-session-changed"));
+      clearAuthSession(accessToken);
       return null;
     } catch {
       return null;
     } finally {
-      refreshRequest = null;
+      window.removeEventListener(
+        AUTH_SESSION_CHANGED_EVENT,
+        abortIfSessionChanged,
+      );
+      window.removeEventListener("storage", abortIfSessionChanged);
+
+      if (refreshRequest?.controller === controller) {
+        refreshRequest = null;
+      }
     }
   })();
 
-  return refreshRequest;
+  refreshRequest = { accessToken, controller, promise };
+
+  return promise;
 }
 
 async function ensureFreshAuthorization(
@@ -128,11 +156,23 @@ async function ensureFreshAuthorization(
 ): Promise<HeadersInit | undefined> {
   if (path.startsWith("/ecommerce/auth/")) return headers;
 
-  const token = readStoredAccessToken();
+  const token = readAccessToken();
   if (!token || !isJwtExpired(token)) return headers;
 
-  const refreshedToken = await refreshAccessToken();
-  if (!refreshedToken) return headers;
+  const refreshedToken = await refreshAccessToken(token);
+
+  if (!refreshedToken) {
+    if (readAccessToken() !== token) {
+      throw new ApiRequestError(
+        "La sesión ya no está activa.",
+        401,
+        null,
+        "SESSION_ENDED",
+      );
+    }
+
+    return headers;
+  }
 
   return {
     ...headers,
