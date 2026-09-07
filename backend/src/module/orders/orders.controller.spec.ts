@@ -75,7 +75,7 @@ describe('OrdersController', () => {
 
       const result = await controller.checkout(checkoutDto, req, validIdempotencyKey);
 
-      expect(ordersService.checkout).toHaveBeenCalledWith(checkoutDto, 'user-123', validIdempotencyKey);
+      expect(ordersService.checkout).toHaveBeenCalledWith(checkoutDto, 'user-123', validIdempotencyKey, undefined);
       expect(result).toEqual(mockOrder);
     });
   });

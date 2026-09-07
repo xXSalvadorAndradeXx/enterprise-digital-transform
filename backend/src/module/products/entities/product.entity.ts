@@ -16,6 +16,7 @@ import { User } from '../../users/entities/user.entity';
 import { ProductImage } from './product-image.entity';
 import { ProductTag } from './product-tag.entity';
 import { ProductVariantConfig } from './product-variant-config.entity';
+import { CustomerFavorite } from '../../customers/entities/customer-favorite.entity';
 import { ProductStatus } from '../enums/product-status.enum';
 
 @Entity('products')
@@ -127,4 +128,7 @@ export class Product {
 
   @OneToMany(() => ProductVariantConfig, (config) => config.product)
   variantConfigs!: ProductVariantConfig[];
+
+  @OneToMany(() => CustomerFavorite, (favorite) => favorite.product)
+  favorites!: CustomerFavorite[];
 }
