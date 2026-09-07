@@ -2,13 +2,21 @@
 
 import { Minus, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+
 import type { ProductVariant } from "@/types/products/product.types";
 
 interface BuyNowVariantModalProps {
   productName: string;
   variants: ProductVariant[];
   onClose: () => void;
-  onConfirm: (variant: ProductVariant, quantity: number) => void;
+  onConfirm: (
+    variant: ProductVariant,
+    quantity: number,
+  ) => void | Promise<void>;
+  title?: string;
+  confirmLabel?: string;
+  pendingLabel?: string;
+  isConfirming?: boolean;
 }
 
 export default function BuyNowVariantModal({
@@ -16,45 +24,85 @@ export default function BuyNowVariantModal({
   variants,
   onClose,
   onConfirm,
+  title = "Elige tu producto",
+  confirmLabel = "Ir a comprar",
+  pendingLabel = "Procesando...",
+  isConfirming = false,
 }: BuyNowVariantModalProps) {
   const availableVariants = useMemo(
-    () => variants.filter((variant) => variant.available && variant.stock > 0),
+    () =>
+      variants.filter(
+        (variant) =>
+          variant.available &&
+          variant.stock > 0,
+      ),
     [variants],
   );
+
   const colors = useMemo(
     () =>
       Array.from(
         new Map(
-          availableVariants.map((variant) => [variant.color.hex, variant.color]),
+          availableVariants.map((variant) => [
+            variant.color.hex,
+            variant.color,
+          ]),
         ).values(),
       ),
     [availableVariants],
   );
-  const [colorHex, setColorHex] = useState(colors[0]?.hex ?? "");
+
+  const [colorHex, setColorHex] = useState(
+    colors[0]?.hex ?? "",
+  );
+
   const sizes = availableVariants.filter(
-    (variant) => variant.color.hex === colorHex,
+    (variant) =>
+      variant.color.hex === colorHex,
   );
-  const [variantId, setVariantId] = useState(sizes[0]?.id ?? "");
-  const selectedVariant = availableVariants.find(
-    (variant) => variant.id === variantId,
+
+  const [variantId, setVariantId] = useState(
+    sizes[0]?.id ?? "",
   );
-  const [quantity, setQuantity] = useState(1);
+
+  const selectedVariant =
+    availableVariants.find(
+      (variant) =>
+        variant.id === variantId,
+    );
+
+  const [quantity, setQuantity] =
+    useState(1);
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const previousOverflow =
+      document.body.style.overflow;
+
+    document.body.style.overflow =
+      "hidden";
+
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow =
+        previousOverflow;
     };
   }, []);
 
-  useEffect(() => {
-    const firstForColor = availableVariants.find(
-      (variant) => variant.color.hex === colorHex,
+  const chooseColor = (
+    nextColorHex: string,
+  ) => {
+    const firstForColor =
+      availableVariants.find(
+        (variant) =>
+          variant.color.hex ===
+          nextColorHex,
+      );
+
+    setColorHex(nextColorHex);
+    setVariantId(
+      firstForColor?.id ?? "",
     );
-    setVariantId(firstForColor?.id ?? "");
     setQuantity(1);
-  }, [colorHex, availableVariants]);
+  };
 
   return (
     <div
@@ -62,34 +110,50 @@ export default function BuyNowVariantModal({
       role="presentation"
       onClick={(event) => {
         event.stopPropagation();
-        if (event.target === event.currentTarget) onClose();
+
+        if (
+          event.target === event.currentTarget &&
+          !isConfirming
+        ) {
+          onClose();
+        }
       }}
     >
       <section
         role="dialog"
         aria-modal="true"
-        aria-labelledby="buy-now-title"
+        aria-labelledby="variant-modal-title"
         className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event) =>
+          event.stopPropagation()
+        }
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 id="buy-now-title" className="text-xl font-bold text-slate-950">
-              Elige tu producto
+            <h2
+              id="variant-modal-title"
+              className="text-xl font-bold text-slate-950"
+            >
+              {title}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">{productName}</p>
+
+            <p className="mt-1 text-sm text-slate-500">
+              {productName}
+            </p>
           </div>
+
           <button
             type="button"
             onClick={onClose}
+            disabled={isConfirming}
             aria-label="Cerrar selección"
-            className="rounded-full p-2 text-slate-600 hover:bg-slate-100"
+            className="rounded-full p-2 text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {colors.length > 0 && (
+        {colors.length > 0 ? (
           <div className="mt-6">
             <p className="mb-3 text-sm font-semibold">
               Color
@@ -97,6 +161,7 @@ export default function BuyNowVariantModal({
                 {selectedVariant?.color.name}
               </span>
             </p>
+
             <div className="flex flex-wrap gap-3">
               {colors.map((color) => (
                 <button
@@ -104,32 +169,48 @@ export default function BuyNowVariantModal({
                   key={color.hex}
                   title={color.name}
                   aria-label={`Seleccionar color ${color.name}`}
-                  onClick={() => setColorHex(color.hex)}
+                  disabled={isConfirming}
+                  onClick={() =>
+                    chooseColor(
+                      color.hex,
+                    )
+                  }
                   className={`h-9 w-9 rounded-full border-2 ${
-                    colorHex === color.hex
+                    colorHex ===
+                    color.hex
                       ? "border-[#1822d9] ring-2 ring-blue-100"
                       : "border-slate-300"
                   }`}
-                  style={{ backgroundColor: color.hex }}
+                  style={{
+                    backgroundColor:
+                      color.hex,
+                  }}
                 />
               ))}
             </div>
           </div>
-        )}
+        ) : null}
 
         <div className="mt-6">
-          <p className="mb-3 text-sm font-semibold">Talla</p>
+          <p className="mb-3 text-sm font-semibold">
+            Talla
+          </p>
+
           <div className="flex flex-wrap gap-2">
             {sizes.map((variant) => (
               <button
                 type="button"
                 key={variant.id}
+                disabled={isConfirming}
                 onClick={() => {
-                  setVariantId(variant.id);
+                  setVariantId(
+                    variant.id,
+                  );
                   setQuantity(1);
                 }}
                 className={`min-w-12 rounded-md border px-3 py-2 text-sm font-medium ${
-                  variantId === variant.id
+                  variantId ===
+                  variant.id
                     ? "border-[#1822d9] bg-[#1822d9] text-white"
                     : "border-slate-300 bg-white text-slate-900"
                 }`}
@@ -141,26 +222,51 @@ export default function BuyNowVariantModal({
         </div>
 
         <div className="mt-6">
-          <p className="mb-3 text-sm font-semibold">Cantidad</p>
+          <p className="mb-3 text-sm font-semibold">
+            Cantidad
+          </p>
+
           <div className="inline-flex h-11 items-center overflow-hidden rounded-md border border-slate-300 bg-slate-50">
             <button
               type="button"
-              disabled={quantity <= 1}
-              onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+              disabled={
+                quantity <= 1 ||
+                isConfirming
+              }
+              onClick={() =>
+                setQuantity(
+                  (value) =>
+                    Math.max(
+                      1,
+                      value - 1,
+                    ),
+                )
+              }
               aria-label="Disminuir cantidad"
               className="flex h-full w-11 items-center justify-center disabled:opacity-30"
             >
               <Minus className="h-4 w-4" />
             </button>
+
             <span className="min-w-10 text-center text-sm font-semibold">
               {quantity}
             </span>
+
             <button
               type="button"
-              disabled={!selectedVariant || quantity >= selectedVariant.stock}
+              disabled={
+                !selectedVariant ||
+                quantity >=
+                  selectedVariant.stock ||
+                isConfirming
+              }
               onClick={() =>
-                setQuantity((value) =>
-                  Math.min(selectedVariant?.stock ?? 1, value + 1),
+                setQuantity(
+                  (value) =>
+                    Math.min(
+                      selectedVariant?.stock ?? 1,
+                      value + 1,
+                    ),
                 )
               }
               aria-label="Aumentar cantidad"
@@ -169,20 +275,35 @@ export default function BuyNowVariantModal({
               <Plus className="h-4 w-4" />
             </button>
           </div>
-          {selectedVariant && (
+
+          {selectedVariant ? (
             <p className="mt-2 text-xs text-slate-500">
-              Máximo {selectedVariant.stock} unidades
+              Máximo{" "}
+              {selectedVariant.stock}{" "}
+              unidades
             </p>
-          )}
+          ) : null}
         </div>
 
         <button
           type="button"
-          disabled={!selectedVariant}
-          onClick={() => selectedVariant && onConfirm(selectedVariant, quantity)}
+          disabled={
+            !selectedVariant ||
+            isConfirming
+          }
+          onClick={() => {
+            if (selectedVariant) {
+              void onConfirm(
+                selectedVariant,
+                quantity,
+              );
+            }
+          }}
           className="mt-7 h-12 w-full rounded-lg bg-[#1822d9] font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
         >
-          Ir a comprar
+          {isConfirming
+            ? pendingLabel
+            : confirmLabel}
         </button>
       </section>
     </div>
