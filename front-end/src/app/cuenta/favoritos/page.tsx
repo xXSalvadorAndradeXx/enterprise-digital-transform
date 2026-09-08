@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { Heart } from "lucide-react";
 
 import type { Product } from "@/types/products/product.types";
 import ProductCard from "@/components/products/ProductCard";
@@ -67,7 +67,14 @@ function favoriteProductToProduct(product: FavoriteProduct): Product {
 
 function FavoriteGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label="Cargando favoritos"
+      className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
+    >
+      <span className="sr-only">Cargando favoritos...</span>
+
       {Array.from({ length: 6 }, (_, index) => (
         <div
           key={index}
@@ -178,7 +185,15 @@ export default function FavoritesPage() {
             role="alert"
             className="mb-5 rounded-lg border border-red-100 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700"
           >
-            {error.message}
+            <p>{error.message}</p>
+
+            <button
+              type="button"
+              onClick={() => void loadFavorites()}
+              className="mt-3 text-[#1822d9] underline-offset-4 hover:underline"
+            >
+              Intentar nuevamente
+            </button>
           </div>
         ) : null}
 
@@ -201,14 +216,15 @@ export default function FavoritesPage() {
           </div>
         ) : !hasFavorites ? (
           <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
-            <Image
-              src="/images/cart-empty.svg"
-              alt=""
+            <div
               aria-hidden="true"
-              className="mb-5 h-[180px] w-[180px] object-contain"
-              width={180}
-              height={180}
-            />
+              className="mb-5 flex h-[180px] w-[180px] items-center justify-center rounded-full bg-[#EEF3FF]"
+            >
+              <Heart
+                className="h-24 w-24 text-[#1822d9]"
+                strokeWidth={1.5}
+              />
+            </div>
 
             <h2 className="text-3xl font-bold text-black">
               No hay artículos en esta lista.
