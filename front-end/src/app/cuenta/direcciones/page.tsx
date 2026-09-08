@@ -17,28 +17,38 @@ import type { CustomerAddress } from "@/types/addresses/address.types";
 
 function AddressCardSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="space-y-3">
       {Array.from({ length: 2 }, (_, index) => (
         <div
           key={index}
-          className="min-h-[220px] animate-pulse rounded-xl border border-[#e0e3e8] bg-white p-5"
+          className="flex min-h-[116px] animate-pulse gap-4 rounded-md bg-[#F1F0FF] px-4 py-3 sm:px-5"
         >
-          <div className="h-5 w-28 rounded bg-slate-200" />
-          <div className="mt-6 h-4 w-full rounded bg-slate-200" />
-          <div className="mt-3 h-4 w-4/5 rounded bg-slate-200" />
-          <div className="mt-8 h-10 w-full rounded bg-slate-200" />
+          <div className="h-9 w-9 shrink-0 rounded-full bg-[#DDE5FF]" />
+
+          <div className="min-w-0 flex-1">
+            <div className="h-4 w-24 rounded bg-[#D7D6F5]" />
+            <div className="mt-3 h-3 w-36 rounded bg-[#D7D6F5]" />
+            <div className="mt-2 h-3 w-48 max-w-full rounded bg-[#D7D6F5]" />
+            <div className="mt-2 h-3 w-64 max-w-full rounded bg-[#D7D6F5]" />
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-function formatLocation(address: CustomerAddress) {
-  return [
-    address.city,
+function getAddressLocationLines(address: CustomerAddress) {
+  const city = address.city?.trim();
+  const districtLine = [
     address.district?.name,
     address.department?.name,
   ].filter(Boolean);
+
+  return {
+    city,
+    districtLine:
+      districtLine.length > 0 ? districtLine.join(" / ") : null,
+  };
 }
 
 function AddressCard({
@@ -48,64 +58,82 @@ function AddressCard({
   address: CustomerAddress;
   onEdit: (address: CustomerAddress) => void;
 }) {
-  const locationParts = formatLocation(address);
+  const { city, districtLine } = getAddressLocationLines(address);
 
   return (
-    <article className="flex min-h-[220px] min-w-0 flex-col rounded-xl border border-[#d9dde5] bg-white p-5 shadow-sm transition hover:border-[#b9c6e6] hover:shadow-md">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="break-words text-lg font-bold text-black">
-            {address.label}
-          </h2>
+    <article className="flex min-w-0 flex-col gap-3 rounded-md bg-[#F1F0FF] px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+      <div className="flex min-w-0 gap-3 sm:gap-4">
+        <span className="relative mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-[#1822d9]">
+          <MapPin
+            className="h-5 w-5"
+            strokeWidth={1.7}
+            aria-hidden="true"
+          />
 
           {address.isDefault ? (
-            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#EEF3FF] px-3 py-1 text-xs font-semibold text-[#1822d9]">
+            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#1822d9] text-white">
               <CheckCircle2
-                className="h-4 w-4"
+                className="h-3 w-3"
                 aria-hidden="true"
               />
-              Dirección principal
-            </div>
+            </span>
           ) : null}
-        </div>
+        </span>
 
-        <div className="flex shrink-0 gap-2">
-          <button
-            type="button"
-            onClick={() => onEdit(address)}
-            aria-label={`Editar dirección ${address.label}`}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#d9dde5] text-[#1822d9] transition hover:bg-[#EEF3FF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1822d9]"
-          >
-            <Pencil className="h-4 w-4" aria-hidden="true" />
-          </button>
+        <div className="min-w-0 text-sm leading-5 text-[#4A4A4A]">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h2 className="break-words text-[15px] font-bold text-black">
+              {address.label}
+            </h2>
 
-          <button
-            type="button"
-            aria-label={`Eliminar dirección ${address.label}`}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#d9dde5] text-red-600 transition hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
-          >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-          </button>
+            {address.isDefault ? (
+              <span className="text-xs font-semibold text-[#1822d9]">
+                Dirección principal
+              </span>
+            ) : null}
+          </div>
+
+          {city ? (
+            <p className="mt-1 break-words font-medium text-[#333333]">
+              {city}
+            </p>
+          ) : null}
+
+          {districtLine ? (
+            <p className="break-words">{districtLine}</p>
+          ) : null}
+
+          <p className="mt-1 break-words text-[#333333]">
+            {address.addressLine}
+          </p>
         </div>
       </div>
 
-      <div className="mt-5 flex min-w-0 flex-1 gap-3 text-sm leading-6 text-[#4A4A4A]">
-        <MapPin
-          className="mt-0.5 h-5 w-5 shrink-0 text-[#1822d9]"
-          aria-hidden="true"
-        />
+      <div className="flex shrink-0 items-center gap-2 self-end sm:self-start">
+        <button
+          type="button"
+          onClick={() => onEdit(address)}
+          aria-label={`Editar dirección ${address.label}`}
+          className="inline-flex h-8 w-8 items-center justify-center rounded text-[#1822d9] transition hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1822d9]"
+        >
+          <Pencil
+            className="h-4 w-4"
+            strokeWidth={1.8}
+            aria-hidden="true"
+          />
+        </button>
 
-        <div className="min-w-0 space-y-2">
-          <p className="break-words font-semibold text-[#111111]">
-            {address.addressLine}
-          </p>
-
-          {locationParts.length > 0 ? (
-            <p className="break-words">
-              {locationParts.join(", ")}
-            </p>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          aria-label={`Eliminar dirección ${address.label}`}
+          className="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 transition hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+        >
+          <Trash2
+            className="h-4 w-4"
+            strokeWidth={1.8}
+            aria-hidden="true"
+          />
+        </button>
       </div>
     </article>
   );
@@ -120,12 +148,8 @@ export default function AddressesPage() {
   const [addressModalKey, setAddressModalKey] = useState(0);
   const [isSubmittingAddress, setIsSubmittingAddress] = useState(false);
 
-  const {
-    addresses,
-    isLoading,
-    error,
-    loadAddresses,
-  } = useAddresses();
+  const { addresses, isLoading, error, loadAddresses } =
+    useAddresses();
 
   const hasAddresses = addresses.length > 0;
 
@@ -161,24 +185,18 @@ export default function AddressesPage() {
 
   return (
     <section className="min-h-[calc(100vh-10rem)] text-[#111111]">
-      <header className="flex flex-col gap-4 border-b border-[#d9dde5] pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-black sm:text-4xl">
-            Direcciones
-          </h1>
-
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4A4A4A]">
-            Administra las direcciones que usas para recibir tus pedidos.
-          </p>
-        </div>
+      <header className="flex flex-col gap-4 border-b border-[#d9dde5] pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-3xl font-bold tracking-tight text-black sm:text-4xl">
+          Direcciones
+        </h1>
 
         <button
           type="button"
           onClick={openCreateAddressModal}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-sm bg-[#1822d9] px-5 text-sm font-semibold text-white transition hover:bg-[#1118b8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1822d9]"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-sm bg-[#1822d9] px-4 text-sm font-semibold text-white transition hover:bg-[#1118b8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1822d9]"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
-          Nueva dirección
+          Nueva Dirección
         </button>
       </header>
 
@@ -203,8 +221,8 @@ export default function AddressesPage() {
         {isLoading && !hasAddresses ? (
           <AddressCardSkeleton />
         ) : !hasAddresses && !error ? (
-          <div className="rounded-xl border border-dashed border-[#cfd6e4] bg-white px-5 py-12 text-center">
-            <h2 className="text-xl font-bold text-black">
+          <div className="rounded-md bg-[#F1F0FF] px-5 py-10 text-center">
+            <h2 className="text-lg font-bold text-black">
               Aún no tienes direcciones guardadas.
             </h2>
 
@@ -213,7 +231,7 @@ export default function AddressesPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="space-y-3">
             {addresses.map((address) => (
               <AddressCard
                 key={address.id}

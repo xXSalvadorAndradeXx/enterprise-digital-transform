@@ -21,6 +21,7 @@ import type {
 
 type ProductCardProps = {
   product: Product;
+  variant?: "default" | "favorite";
   isFavorite?: boolean;
   isFavoritePending?: boolean;
   onFavoriteToggle?: (
@@ -165,6 +166,7 @@ function normalizeProductVariants(
 
 export default function ProductCard({
   product,
+  variant = "default",
   isFavorite,
   isFavoritePending = false,
   onFavoriteToggle,
@@ -173,6 +175,8 @@ export default function ProductCard({
 }: ProductCardProps) {
   const router = useRouter();
   const { addToCart } = useCart();
+  const isFavoriteVariant =
+    variant === "favorite";
 
   const [failedImageUrl, setFailedImageUrl] =
     useState("");
@@ -617,7 +621,11 @@ export default function ProductCard({
 
   return (
     <article
-      className="group flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-lg border border-[#e0e3e8] bg-white p-4 transition hover:shadow-lg"
+      className={
+        isFavoriteVariant
+          ? "group flex h-full w-full max-w-[236px] cursor-pointer flex-col overflow-hidden rounded-lg border border-[#E4E6EC] bg-white p-3 shadow-[0_8px_22px_rgba(15,23,42,0.08)] transition hover:shadow-md sm:w-[224px]"
+          : "group flex h-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-lg border border-[#e0e3e8] bg-white p-4 transition hover:shadow-lg"
+      }
       role="link"
       tabIndex={0}
       onClick={(event) => {
@@ -636,8 +644,15 @@ export default function ProductCard({
       }}
       aria-label={`Ver detalle de ${name}`}
     >
-      <div className="relative aspect-[16/10] overflow-hidden bg-[#F4F7FB]">
-        {hasActiveDiscount ? (
+      <div
+        className={
+          isFavoriteVariant
+            ? "relative aspect-square overflow-hidden rounded-md bg-[#F5F6F8]"
+            : "relative aspect-[16/10] overflow-hidden bg-[#F4F7FB]"
+        }
+      >
+        {hasActiveDiscount &&
+        !isFavoriteVariant ? (
           <span className="absolute left-2 top-2 z-10 rounded bg-[#ff3b30] px-2 py-1 text-xs font-bold text-white">
             -{discountPercentage}%
           </span>
@@ -659,7 +674,11 @@ export default function ProductCard({
               ? "Quitar de favoritos"
               : "Agregar a favoritos"
           }
-          className={`absolute right-2 top-2 z-10 rounded-full bg-white p-2 shadow ${
+          className={`absolute right-2 top-2 z-10 rounded-full bg-white shadow ${
+            isFavoriteVariant
+              ? "flex h-8 w-8 items-center justify-center p-0 ring-1 ring-black/5"
+              : "p-2"
+          } ${
             favoriteActionDisabled
               ? "cursor-wait opacity-70"
               : ""
@@ -680,8 +699,16 @@ export default function ProductCard({
             alt={name}
             fill
             unoptimized
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes={
+              isFavoriteVariant
+                ? "(max-width: 640px) 236px, 224px"
+                : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            }
+            className={
+              isFavoriteVariant
+                ? "object-contain p-4"
+                : "object-cover transition-transform duration-500 group-hover:scale-105"
+            }
             onError={() =>
               setFailedImageUrl(
                 imageUrl,
@@ -697,43 +724,85 @@ export default function ProductCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col pt-4">
-        <div className="flex flex-wrap items-start justify-between gap-2.5">
+      <div
+        className={
+          isFavoriteVariant
+            ? "flex flex-1 flex-col pt-3"
+            : "flex flex-1 flex-col pt-4"
+        }
+      >
+        <div
+          className={
+            isFavoriteVariant
+              ? "min-w-0"
+              : "flex flex-wrap items-start justify-between gap-2.5"
+          }
+        >
           <div className="min-w-0 flex-1">
-            <p className="text-base font-bold uppercase leading-5">
+            <p
+              className={
+                isFavoriteVariant
+                  ? "hidden"
+                  : "text-base font-bold uppercase leading-5"
+              }
+            >
               {brand}
             </p>
 
-            <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-[#111111]">
+            <h3
+              className={
+                isFavoriteVariant
+                  ? "line-clamp-2 min-h-10 text-[15px] font-semibold leading-5 text-[#111111]"
+                  : "line-clamp-2 text-sm font-semibold leading-5 text-[#111111]"
+              }
+            >
               {name}
             </h3>
           </div>
 
-          <span
-            className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
-              isAvailable
-                ? "border border-[#D9E2EC] bg-[#EAF3FF] text-[#003791]"
-                : "border border-[#D9E2EC] bg-[#F4F7FB] text-slate-500"
-            }`}
-          >
-            {isAvailable
-              ? "Disponible"
-              : "Agotado"}
-          </span>
+          {!isFavoriteVariant ? (
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                isAvailable
+                  ? "border border-[#D9E2EC] bg-[#EAF3FF] text-[#003791]"
+                  : "border border-[#D9E2EC] bg-[#F4F7FB] text-slate-500"
+              }`}
+            >
+              {isAvailable
+                ? "Disponible"
+                : "Agotado"}
+            </span>
+          ) : null}
         </div>
 
-        <div className="mt-auto grid gap-3 pt-3">
+        <div
+          className={
+            isFavoriteVariant
+              ? "mt-auto grid gap-3 pt-1"
+              : "mt-auto grid gap-3 pt-3"
+          }
+        >
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase text-slate-500">
+            <p
+              className={
+                isFavoriteVariant
+                  ? "hidden"
+                  : "text-xs font-semibold uppercase text-slate-500"
+              }
+            >
               Precio
             </p>
 
             <p
-              className={`mt-0.5 truncate text-xl font-extrabold ${
-                hasActiveDiscount
-                  ? "text-[#ff2d20]"
-                  : "text-[#111111]"
-              }`}
+              className={
+                isFavoriteVariant
+                  ? "mt-1 truncate text-sm font-semibold text-[#555555]"
+                  : `mt-0.5 truncate text-xl font-extrabold ${
+                      hasActiveDiscount
+                        ? "text-[#ff2d20]"
+                        : "text-[#111111]"
+                    }`
+              }
             >
               {formatProductPrice(
                 currentPrice,
@@ -741,7 +810,8 @@ export default function ProductCard({
             </p>
 
             {hasActiveDiscount &&
-            originalPrice ? (
+            originalPrice &&
+            !isFavoriteVariant ? (
               <p className="text-sm text-slate-500 line-through">
                 {formatProductPrice(
                   originalPrice,
@@ -749,7 +819,13 @@ export default function ProductCard({
               </p>
             ) : null}
 
-            <p className="mt-1 text-xs font-medium text-slate-500">
+            <p
+              className={
+                isFavoriteVariant
+                  ? "hidden"
+                  : "mt-1 text-xs font-medium text-slate-500"
+              }
+            >
               <span className="text-green-600">
                 ●
               </span>{" "}
@@ -758,10 +834,20 @@ export default function ProductCard({
           </div>
 
           {showViewProductAction ? (
-            <div className="grid gap-2">
+            <div
+              className={
+                isFavoriteVariant
+                  ? "grid grid-cols-[1fr_40px] gap-2"
+                  : "grid gap-2"
+              }
+            >
               <Link
                 href={detailHref}
-                className="inline-flex h-10 items-center justify-center rounded-lg border border-[#1822d9] bg-white px-3 text-sm font-semibold text-[#1822d9] transition hover:bg-[#eef3ff]"
+                className={
+                  isFavoriteVariant
+                    ? "inline-flex h-10 items-center justify-center rounded-md bg-[#1822d9] px-3 text-sm font-semibold text-white transition hover:bg-[#1118b8]"
+                    : "inline-flex h-10 items-center justify-center rounded-lg border border-[#1822d9] bg-white px-3 text-sm font-semibold text-[#1822d9] transition hover:bg-[#eef3ff]"
+                }
               >
                 Ver Producto
               </Link>
@@ -777,15 +863,26 @@ export default function ProductCard({
                   isLoadingCartProduct
                 }
                 aria-label={`Agregar ${name} al carrito`}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1822d9] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className={
+                  isFavoriteVariant
+                    ? "inline-flex h-10 w-10 items-center justify-center rounded-md bg-[#1822d9] text-white transition hover:bg-[#1118b8] disabled:cursor-not-allowed disabled:opacity-50"
+                    : "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1822d9] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                }
               >
-                <ShoppingCart className="h-4 w-4" />
+                <ShoppingCart
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                />
 
-                {isLoadingCartProduct
-                  ? "Cargando..."
-                  : isAdding
-                    ? "Agregando..."
-                    : addToCartLabel}
+                {!isFavoriteVariant ? (
+                  <>
+                    {isLoadingCartProduct
+                      ? "Cargando..."
+                      : isAdding
+                        ? "Agregando..."
+                        : addToCartLabel}
+                  </>
+                ) : null}
               </button>
             </div>
           ) : (
