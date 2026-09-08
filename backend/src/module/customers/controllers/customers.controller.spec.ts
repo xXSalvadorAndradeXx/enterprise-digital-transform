@@ -4,30 +4,17 @@ import { CustomersService } from '../customers.service';
 import { CurrentCustomerPayload } from '../decorators/current-customer.decorator';
 import { UpdateCustomerProfileDto } from '../dto/update-customer-profile.dto';
 
+import {
+  createMockCustomerPayload,
+  createMockProfileResponse,
+} from '../test/customer-profile.mock';
+
 describe('CustomersController - Profile Endpoints', () => {
   let controller: CustomersController;
   let service: any;
 
-  const mockCustomerPayload: CurrentCustomerPayload = {
-    id: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1',
-    customerId: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1',
-    email: 'carlos.gomez@correo.com',
-    fullName: 'Carlos Eduardo Gómez',
-    phone: '+50371234567',
-    dui: '01234567-8',
-    type: 'CUSTOMER',
-  };
-
-  const mockProfileResponse = {
-    id: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1',
-    name: 'Carlos Eduardo Gómez',
-    fullName: 'Carlos Eduardo Gómez',
-    email: 'carlos.gomez@correo.com',
-    phone: '+50371234567',
-    dui: '01234567-8',
-    role: 'cliente',
-    createdAt: new Date('2026-08-26T19:53:00.000Z'),
-  };
+  const mockCustomerPayload: CurrentCustomerPayload = createMockCustomerPayload();
+  const mockProfileResponse = createMockProfileResponse();
 
   beforeEach(async () => {
     service = {

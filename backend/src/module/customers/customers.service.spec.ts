@@ -270,6 +270,37 @@ describe('CustomersService - getMyProfile', () => {
         service.updateMyProfile(mockCustomer.id, { name: 'Test' } as any),
       ).rejects.toThrow(UnauthorizedException);
     });
+
+    it('debe ignorar campos no permitidos (email, customerId, role, id) y conservar los valores originales intactos', async () => {
+      const existingCustomer = { ...mockCustomer };
+      customerRepository.findOne.mockResolvedValue(existingCustomer);
+      customerRepository.save.mockImplementation(async (cust: any) => ({ ...cust }));
+
+      const maliciousDto = {
+        name: 'Carlos Actualizado',
+        phone: '+50378889999',
+        email: 'attacker@evil.com',
+        customerId: 'hacked-id',
+        id: 'hacked-id',
+        role: 'admin',
+        totalOrders: 9999,
+        getResolvedName: () => 'Carlos Actualizado',
+      };
+
+      const result = await service.updateMyProfile(mockCustomer.id, maliciousDto as any);
+
+      expect(customerRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: mockCustomer.id,
+          email: mockCustomer.email,
+          fullName: 'Carlos Actualizado',
+          phone: '+50378889999',
+        }),
+      );
+      expect(result.email).toBe(mockCustomer.email);
+      expect(result.id).toBe(mockCustomer.id);
+      expect(result.role).toBe('cliente');
+    });
   });
 
   describe('revokeSession', () => {
