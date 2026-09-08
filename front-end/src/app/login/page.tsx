@@ -99,7 +99,7 @@ export default function LoginPage() {
         password: formData.password,
       });
 
-      saveAuthSession(responseData);
+      saveAuthSession(responseData.data);
       setFormData(initialFormData);
       setSuccessMessage("Inicio de sesión exitoso. Preparando tu cuenta...");
       router.push("/cuenta");

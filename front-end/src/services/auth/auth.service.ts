@@ -17,9 +17,16 @@ export type LoginRequest = {
 };
 
 export type LoginResponse = {
-  message: string;
-  access_token: string;
-  user: User;
+  success: boolean;
+  data: {
+    accessToken: string;
+    refreshToken: string;
+    access_token: string;
+    refresh_token: string;
+    user: User;
+    mustChangePassword?: boolean;
+    must_change_password?: boolean;
+  };
 };
 
 export function registerUser(data: RegisterRequest) {
