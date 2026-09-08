@@ -246,9 +246,28 @@ export class EcommerceAuthController {
 
   @ApiOperation({
     summary: 'Renovar access token mediante rotación de refresh token',
+    description:
+      'Renueva el access token (vigencia de 15 minutos / 900s) utilizando la cookie HttpOnly "refreshToken" (o body de respaldo). ' +
+      'Implementa rotación obligatoria de refresh token sin extender la duración absoluta máxima de la sesión (24 horas). ' +
+      'Este endpoint NO depende del access token anterior (no requiere cabecera Authorization), evitando loops de refresh. ' +
+      'Si el token de renovación expiró, no existe o fue revocado, el servidor limpia automáticamente la cookie y responde 401 (SESSION_EXPIRED_OR_REVOKED).',
+  })
+  @ApiBody({
+    required: false,
+    description: 'Cuerpo opcional para clientes que no soportan cookies HttpOnly (fallback alternativo)',
+    schema: {
+      type: 'object',
+      properties: {
+        refreshToken: {
+          type: 'string',
+          description: 'Refresh token opcional en texto plano',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        },
+      },
+    },
   })
   @ApiOkResponse({
-    description: 'Renovación exitosa',
+    description: 'Renovación exitosa. Retorna el nuevo access token y actualiza la cookie HttpOnly. No expone datos privados.',
     schema: {
       type: 'object',
       properties: {
@@ -256,15 +275,37 @@ export class EcommerceAuthController {
         data: {
           type: 'object',
           properties: {
-            accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
-            expiresIn: { type: 'number', example: 900 },
+            accessToken: {
+              type: 'string',
+              description: 'Nuevo access token JWT emitido',
+              example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+            },
+            expiresIn: {
+              type: 'number',
+              description: 'Segundos de vigencia del token (fijo en 900s / 15 min)',
+              example: 900,
+            },
           },
         },
       },
     },
   })
   @ApiUnauthorizedResponse({
-    description: 'Sesión expirada o token revocado (SESSION_EXPIRED_OR_REVOKED)',
+    description: 'Sesión expirada o token revocado (SESSION_EXPIRED_OR_REVOKED), o cuenta desactivada (ACCOUNT_DISABLED)',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: false },
+        error: {
+          type: 'object',
+          properties: {
+            code: { type: 'string', example: 'SESSION_EXPIRED_OR_REVOKED' },
+            message: { type: 'string', example: 'La sesión ha expirado o ya no es válida' },
+          },
+        },
+        timestamp: { type: 'string', example: '2026-09-07T18:00:00.000Z' },
+      },
+    },
   })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
@@ -319,10 +360,25 @@ export class EcommerceAuthController {
   @ApiOperation({
     summary: 'Cerrar sesión de cliente (Logout)',
     description:
-      'Invalida la sesión activa en el servidor revocando el refresh token en base de datos y eliminando la cookie HttpOnly con la misma configuración de seguridad (Path, SameSite, Secure). Es una operación idempotente.',
+      'Invalida la sesión activa en el servidor revocando el refresh token en base de datos y eliminando la cookie HttpOnly con la misma configuración de seguridad (Path, SameSite, Secure). ' +
+      'Es una operación idempotente que no falla si la sesión ya fue cerrada con anterioridad.',
+  })
+  @ApiBody({
+    required: false,
+    description: 'Cuerpo opcional para clientes sin soporte de cookies (fallback alternativo)',
+    schema: {
+      type: 'object',
+      properties: {
+        refreshToken: {
+          type: 'string',
+          description: 'Refresh token opcional a revocar si no se utilizó cookie',
+          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        },
+      },
+    },
   })
   @ApiOkResponse({
-    description: 'Sesión cerrada correctamente y cookie eliminada',
+    description: 'Sesión cerrada correctamente y cookie eliminada del cliente',
     schema: {
       type: 'object',
       properties: {
@@ -354,16 +410,49 @@ export class EcommerceAuthController {
   }
 
   @ApiOperation({
-    summary: 'Obtener información de identidad del cliente autenticado',
+    summary: 'Obtener información de identidad y perfil del cliente autenticado',
     description:
-      'Retorna los datos de identidad y perfil del cliente autenticado para verificar la sesión activa. Reutiliza getMyProfile().',
+      'Retorna los datos de identidad y perfil del cliente autenticado para verificar la sesión activa en el portal E-Commerce. ' +
+      'Reutiliza getMyProfile(). El campo email es de solo lectura.',
   })
   @ApiOkResponse({
-    description: 'Datos de sesión e identidad del cliente autenticado',
-    type: CustomerProfileResponseDto,
+    description: 'Datos de sesión e identidad del cliente autenticado obtenidos exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1' },
+            name: { type: 'string', example: 'Carlos Eduardo Gómez' },
+            fullName: { type: 'string', example: 'Carlos Eduardo Gómez' },
+            email: { type: 'string', format: 'email', example: 'carlos.gomez@correo.com', description: 'Correo electrónico (solo lectura)' },
+            phone: { type: 'string', example: '+50371234567' },
+            dui: { type: 'string', nullable: true, example: '01234567-8' },
+            role: { type: 'string', example: 'cliente' },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-08-01T10:00:00.000Z' },
+          },
+        },
+      },
+    },
   })
   @ApiUnauthorizedResponse({
-    description: 'Token de acceso inválido, expirado o cuenta inactiva',
+    description: 'Token de acceso ausente, inválido o expirado (UNAUTHORIZED / TOKEN_EXPIRED), o cuenta deshabilitada (ACCOUNT_DISABLED)',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: false },
+        error: {
+          type: 'object',
+          properties: {
+            code: { type: 'string', example: 'UNAUTHORIZED' },
+            message: { type: 'string', example: 'Acceso no autorizado. Token inválido o inexistente.' },
+          },
+        },
+        timestamp: { type: 'string', example: '2026-09-07T18:00:00.000Z' },
+      },
+    },
   })
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
