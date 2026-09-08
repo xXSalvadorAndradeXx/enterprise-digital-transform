@@ -18,6 +18,7 @@ import {
   SESSION_ABSOLUTE_MAX_TTL_SECONDS,
   COOKIE_TTL_SHORT,
   COOKIE_TTL_LONG_SECONDS,
+  REFRESH_TOKEN_COOKIE_PATH,
   REFRESH_TOKEN_COOKIE_NAME,
   buildRefreshTokenCookieOptions,
   hashToken,
@@ -798,6 +799,9 @@ export class CustomersService {
    * Útil para logout o invalidación por compromiso de seguridad.
    */
   async revokeSession(refreshToken: string): Promise<void> {
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      return;
+    }
     const tokenHash = hashToken(refreshToken);
     const session = await this.sessionRepository.findOne({
       where: { refreshTokenHash: tokenHash, revokedAt: IsNull() },
@@ -830,15 +834,22 @@ export class CustomersService {
   }
 
   /**
-   * Limpia la cookie del refresh token (útil para logout).
+   * Limpia la cookie HttpOnly del refresh token utilizando la misma configuración
+   * (Path, SameSite, Secure) con la que fue emitida, garantizando logout en el cliente.
    */
   clearRefreshTokenCookie(res: Response): void {
     const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
+    const clearOptions = {
       httpOnly: true,
-      sameSite: 'lax',
-      path: '/api/v1/ecommerce/auth',
+      sameSite: 'lax' as const,
+      path: REFRESH_TOKEN_COOKIE_PATH,
       secure: isProduction,
+    };
+   
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, clearOptions);
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
+      ...clearOptions,
+      path: '/',
     });
   }
 

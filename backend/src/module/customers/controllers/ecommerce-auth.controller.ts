@@ -306,10 +306,19 @@ export class EcommerceAuthController {
   }
 
   @ApiOperation({
-    summary: 'Cerrar sesión de cliente',
+    summary: 'Cerrar sesión de cliente (Logout)',
+    description:
+      'Invalida la sesión activa en el servidor revocando el refresh token en base de datos y eliminando la cookie HttpOnly con la misma configuración de seguridad (Path, SameSite, Secure). Es una operación idempotente.',
   })
   @ApiOkResponse({
-    description: 'Sesión cerrada correctamente',
+    description: 'Sesión cerrada correctamente y cookie eliminada',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: { type: 'string', example: 'Sesión cerrada correctamente.' },
+      },
+    },
   })
   @Post('logout')
   @HttpCode(HttpStatus.OK)
@@ -317,11 +326,16 @@ export class EcommerceAuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const currentRefreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE_NAME];
-    if (currentRefreshToken) {
+    const currentRefreshToken =
+      req.cookies?.[REFRESH_TOKEN_COOKIE_NAME] ||
+      (req.body as Record<string, any>)?.refreshToken;
+
+    if (currentRefreshToken && typeof currentRefreshToken === 'string') {
       await this.customersService.revokeSession(currentRefreshToken);
     }
+
     this.customersService.clearRefreshTokenCookie(res);
+
     return {
       success: true,
       message: 'Sesión cerrada correctamente.',

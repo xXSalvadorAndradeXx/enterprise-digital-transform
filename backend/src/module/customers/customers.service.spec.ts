@@ -14,6 +14,8 @@ import { HashService } from '../auth/services/hash.service';
 describe('CustomersService - getMyProfile', () => {
   let service: CustomersService;
   let customerRepository: any;
+  let sessionRepository: any;
+  let configService: any;
 
   const mockCustomer = {
     id: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1',
@@ -38,6 +40,20 @@ describe('CustomersService - getMyProfile', () => {
       createQueryBuilder: jest.fn(),
     };
 
+    sessionRepository = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
+      create: jest.fn(),
+    };
+
+    configService = {
+      get: jest.fn().mockImplementation((key: string) => {
+        if (key === 'NODE_ENV') return 'production';
+        return undefined;
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CustomersService,
@@ -51,7 +67,7 @@ describe('CustomersService - getMyProfile', () => {
         },
         {
           provide: getRepositoryToken(EcommerceAuthSession),
-          useValue: {},
+          useValue: sessionRepository,
         },
         {
           provide: getRepositoryToken(Order),
@@ -67,7 +83,7 @@ describe('CustomersService - getMyProfile', () => {
         },
         {
           provide: ConfigService,
-          useValue: { get: jest.fn() },
+          useValue: configService,
         },
         {
           provide: HashService,
@@ -253,6 +269,80 @@ describe('CustomersService - getMyProfile', () => {
       await expect(
         service.updateMyProfile(mockCustomer.id, { name: 'Test' } as any),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('revokeSession', () => {
+    it('debe marcar revokedAt en la sesión activa y guardarla en la base de datos', async () => {
+      const mockSession = {
+        id: 'session-123',
+        customerId: mockCustomer.id,
+        refreshTokenHash: 'some_hash',
+        revokedAt: null,
+      };
+
+      sessionRepository.findOne.mockResolvedValue(mockSession);
+      sessionRepository.save.mockResolvedValue({
+        ...mockSession,
+        revokedAt: new Date(),
+      });
+
+      await service.revokeSession('valid_refresh_token');
+
+      expect(sessionRepository.findOne).toHaveBeenCalledWith({
+        where: {
+          refreshTokenHash: expect.any(String),
+          revokedAt: expect.anything(),
+        },
+      });
+      expect(sessionRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'session-123',
+          revokedAt: expect.any(Date),
+        }),
+      );
+    });
+
+    it('debe ser idempotente si la sesión no existe o ya está revocada', async () => {
+      sessionRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.revokeSession('already_revoked_token'),
+      ).resolves.not.toThrow();
+
+      expect(sessionRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('debe ser idempotente si se envía un valor vacío o no string', async () => {
+      await expect(service.revokeSession('')).resolves.not.toThrow();
+      await expect(service.revokeSession(null as any)).resolves.not.toThrow();
+      expect(sessionRepository.findOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('clearRefreshTokenCookie', () => {
+    it('debe invocar clearCookie con el nombre y path estandarizado del módulo auth', () => {
+      const mockRes = {
+        clearCookie: jest.fn(),
+      } as any;
+
+      service.clearRefreshTokenCookie(mockRes);
+
+      expect(mockRes.clearCookie).toHaveBeenCalledWith(
+        'refreshToken',
+        expect.objectContaining({
+          httpOnly: true,
+          sameSite: 'lax',
+          path: '/api/v1/ecommerce/auth',
+          secure: true,
+        }),
+      );
+      expect(mockRes.clearCookie).toHaveBeenCalledWith(
+        'refreshToken',
+        expect.objectContaining({
+          path: '/',
+        }),
+      );
     });
   });
 });
