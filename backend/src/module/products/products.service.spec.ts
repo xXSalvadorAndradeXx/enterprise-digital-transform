@@ -52,21 +52,24 @@ describe('ProductsService', () => {
     deletedAt: null,
   });
 
-  const mockInventoryDetail: InventoryDetail = Object.assign(new InventoryDetail(), {
-    id: 'inv-detail-uuid-1',
-    sku: 'SKU-AUD-RED',
-    size: 'M',
-    color: '#FF0000',
-    stock: 50,
-    unitCost: 10,
-    minStock: 5,
-    inventory: mockInventory,
-    inventoryId: 'inv-uuid-1',
-    purchaseItem: null,
-    purchaseItemId: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
+  const mockInventoryDetail: InventoryDetail = Object.assign(
+    new InventoryDetail(),
+    {
+      id: 'inv-detail-uuid-1',
+      sku: 'SKU-AUD-RED',
+      size: 'M',
+      color: '#FF0000',
+      stock: 50,
+      unitCost: 10,
+      minStock: 5,
+      inventory: mockInventory,
+      inventoryId: 'inv-uuid-1',
+      purchaseItem: null,
+      purchaseItemId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  );
 
   const mockProduct: Product = Object.assign(new Product(), {
     id: 'prod-uuid-1',
@@ -907,7 +910,11 @@ describe('ProductsService', () => {
         }),
       });
 
-      const dto = PublicProductResponseDto.fromEntity(productWithoutConfigs, 200.0, true);
+      const dto = PublicProductResponseDto.fromEntity(
+        productWithoutConfigs,
+        200.0,
+        true,
+      );
       expect(dto.variants).toHaveLength(1);
       expect(dto.variants[0].sku).toBe('SKU-FALLBACK');
       expect(dto.variants[0].size).toBe('XL');
@@ -941,7 +948,11 @@ describe('ProductsService', () => {
         }),
       });
 
-      const dto = PublicProductDetailResponseDto.fromEntity(productWithoutConfigs, 200.0, true);
+      const dto = PublicProductDetailResponseDto.fromEntity(
+        productWithoutConfigs,
+        200.0,
+        true,
+      );
       expect(dto.variants).toHaveLength(1);
       expect(dto.variants[0].id).toBe('inv-detail-uuid-1');
       expect(dto.variants[0].sku).toBe('SKU-FALLBACK-DETAIL');

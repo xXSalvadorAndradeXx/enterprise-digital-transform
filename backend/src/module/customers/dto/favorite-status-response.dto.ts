@@ -9,7 +9,8 @@ export class FavoriteStatusResponseDto {
 
   @ApiProperty({
     example: true,
-    description: 'Indica si el producto está guardado en los favoritos del cliente autenticado (estado del botón de corazón)',
+    description:
+      'Indica si el producto está guardado en los favoritos del cliente autenticado (estado del botón de corazón)',
   })
   isFavorite!: boolean;
 }

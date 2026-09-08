@@ -11,7 +11,8 @@ export class CustomerJwtAuthGuard extends AuthGuard('customer-jwt') {
       }
       const isExpired =
         info?.name === 'TokenExpiredError' ||
-        (typeof info?.message === 'string' && info.message.toLowerCase().includes('expired'));
+        (typeof info?.message === 'string' &&
+          info.message.toLowerCase().includes('expired'));
 
       throw new UnauthorizedException({
         statusCode: 401,

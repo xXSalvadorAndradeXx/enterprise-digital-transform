@@ -10,7 +10,10 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PASSWORD_POLICY_REGEX, PASSWORD_POLICY_MESSAGE } from '../../../common/constants/password.constant';
+import {
+  PASSWORD_POLICY_REGEX,
+  PASSWORD_POLICY_MESSAGE,
+} from '../../../common/constants/password.constant';
 
 export class EcommerceRegisterDto {
   @ApiProperty({
@@ -21,12 +24,15 @@ export class EcommerceRegisterDto {
   })
   @IsString({ message: 'El nombre completo debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'El nombre completo es obligatorio' })
-  @Length(3, 150, { message: 'El nombre completo debe tener entre 3 y 150 caracteres' })
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Length(3, 150, {
+    message: 'El nombre completo debe tener entre 3 y 150 caracteres',
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   fullName!: string;
 
   @ApiProperty({
-    description: 'DUI (Documento Único de Identidad) de El Salvador, con o sin guion',
+    description:
+      'DUI (Documento Único de Identidad) de El Salvador, con o sin guion',
     example: '01234567-8',
   })
   @IsString({ message: 'El DUI debe ser una cadena de texto' })
@@ -39,7 +45,9 @@ export class EcommerceRegisterDto {
     }
     return cleaned;
   })
-  @Matches(/^\d{8}-\d$/, { message: 'El DUI debe tener el formato válido XXXXXXXX-X' })
+  @Matches(/^\d{8}-\d$/, {
+    message: 'El DUI debe tener el formato válido XXXXXXXX-X',
+  })
   dui!: string;
 
   @ApiProperty({
@@ -56,7 +64,10 @@ export class EcommerceRegisterDto {
     }
     return cleaned;
   })
-  @Matches(/^\+503[267]\d{7}$/, { message: 'El teléfono debe ser un número válido de El Salvador (+503XXXXXXXX)' })
+  @Matches(/^\+503[267]\d{7}$/, {
+    message:
+      'El teléfono debe ser un número válido de El Salvador (+503XXXXXXXX)',
+  })
   phone!: string;
 
   @ApiProperty({
@@ -65,11 +76,14 @@ export class EcommerceRegisterDto {
   })
   @IsEmail({}, { message: 'El formato del correo es inválido' })
   @IsNotEmpty({ message: 'El correo electrónico es obligatorio' })
-  @Transform(({ value }) => typeof value === 'string' ? value.toLowerCase().trim() : value)
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toLowerCase().trim() : value,
+  )
   email!: string;
 
   @ApiProperty({
-    description: 'Contraseña del cliente para inicio de sesión (mínimo 8 caracteres, mayúscula, minúscula, número y símbolo)',
+    description:
+      'Contraseña del cliente para inicio de sesión (mínimo 8 caracteres, mayúscula, minúscula, número y símbolo)',
     example: 'SeguraPassword123!',
     minLength: 8,
     maxLength: 100,
@@ -103,7 +117,7 @@ export class EcommerceRegisterDto {
   @IsString({ message: 'La ciudad debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'La ciudad es obligatoria' })
   @MaxLength(100, { message: 'La ciudad no puede exceder los 100 caracteres' })
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   city!: string;
 
   @ApiPropertyOptional({
@@ -114,19 +128,24 @@ export class EcommerceRegisterDto {
   })
   @IsOptional()
   @IsString({ message: 'La dirección debe ser una cadena de texto' })
-  @Length(5, 500, { message: 'La dirección debe tener entre 5 y 500 caracteres' })
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Length(5, 500, {
+    message: 'La dirección debe tener entre 5 y 500 caracteres',
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   address?: string;
 
   @ApiPropertyOptional({
-    description: 'Dirección detallada (calle, pasaje, block, etc.) - alias heredado',
+    description:
+      'Dirección detallada (calle, pasaje, block, etc.) - alias heredado',
     example: 'Residencial San Francisco, Senda 3, Casa #14',
     minLength: 5,
     maxLength: 500,
   })
   @IsOptional()
   @IsString({ message: 'La dirección detallada debe ser una cadena de texto' })
-  @Length(5, 500, { message: 'La dirección detallada debe tener entre 5 y 500 caracteres' })
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Length(5, 500, {
+    message: 'La dirección detallada debe tener entre 5 y 500 caracteres',
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   addressLine?: string;
 }

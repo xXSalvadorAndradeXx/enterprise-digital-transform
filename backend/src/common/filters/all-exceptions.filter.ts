@@ -41,7 +41,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
         code = this.getHttpStatusErrorCode(statusCode);
-      } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      } else if (
+        typeof exceptionResponse === 'object' &&
+        exceptionResponse !== null
+      ) {
         const resp = exceptionResponse as Record<string, any>;
 
         // Si la excepción ya trae un código de error personalizado

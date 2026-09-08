@@ -232,13 +232,21 @@ export class AddOrdersPaymentsAndReservations1787600000000 implements MigrationI
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "payments" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "inventory_reservations" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "checkout_idempotencies" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "order_status_history" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "inventory_reservations" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "checkout_idempotencies" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "order_status_history" CASCADE`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "order_items" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "orders" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "order_deliveries" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "guest_customers" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "customer_addresses" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "customer_addresses" CASCADE`,
+    );
   }
 }

@@ -62,7 +62,10 @@ export class EcommerceAuthController {
             customer: {
               type: 'object',
               properties: {
-                id: { type: 'string', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1' },
+                id: {
+                  type: 'string',
+                  example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1',
+                },
                 fullName: { type: 'string', example: 'Carlos Eduardo Gómez' },
                 email: { type: 'string', example: 'carlos.gomez@correo.com' },
                 phone: { type: 'string', example: '+50371234567' },
@@ -76,7 +79,8 @@ export class EcommerceAuthController {
     },
   })
   @ApiBadRequestResponse({
-    description: 'Error de validación en los datos de registro (VALIDATION_ERROR)',
+    description:
+      'Error de validación en los datos de registro (VALIDATION_ERROR)',
     schema: {
       type: 'object',
       properties: {
@@ -85,7 +89,10 @@ export class EcommerceAuthController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'VALIDATION_ERROR' },
-            message: { type: 'string', example: 'Los datos enviados no son válidos' },
+            message: {
+              type: 'string',
+              example: 'Los datos enviados no son válidos',
+            },
             details: {
               type: 'array',
               items: {
@@ -107,7 +114,8 @@ export class EcommerceAuthController {
     },
   })
   @ApiConflictResponse({
-    description: 'El correo o DUI ya se encuentra registrado (EMAIL_ALREADY_EXISTS / DUI_ALREADY_EXISTS)',
+    description:
+      'El correo o DUI ya se encuentra registrado (EMAIL_ALREADY_EXISTS / DUI_ALREADY_EXISTS)',
     schema: {
       type: 'object',
       properties: {
@@ -116,8 +124,15 @@ export class EcommerceAuthController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'EMAIL_ALREADY_EXISTS' },
-            message: { type: 'string', example: 'El correo electrónico ya está registrado por otro cliente activo' },
-            details: { type: 'object', example: { email: 'carlos.gomez@correo.com' } },
+            message: {
+              type: 'string',
+              example:
+                'El correo electrónico ya está registrado por otro cliente activo',
+            },
+            details: {
+              type: 'object',
+              example: { email: 'carlos.gomez@correo.com' },
+            },
           },
         },
         timestamp: { type: 'string', example: '2026-08-26T19:53:00.000Z' },
@@ -131,12 +146,18 @@ export class EcommerceAuthController {
     @Headers('user-agent') userAgent: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const ipHash = req.ip ? crypto.createHash('sha256').update(req.ip).digest('hex') : undefined;
+    const ipHash = req.ip
+      ? crypto.createHash('sha256').update(req.ip).digest('hex')
+      : undefined;
 
     const { customer, accessToken, rawRefreshToken, cookieMaxAge } =
       await this.customersService.register(dto, userAgent, ipHash);
 
-    this.customersService.setRefreshTokenCookie(res, rawRefreshToken, cookieMaxAge);
+    this.customersService.setRefreshTokenCookie(
+      res,
+      rawRefreshToken,
+      cookieMaxAge,
+    );
 
     return {
       success: true,
@@ -176,7 +197,10 @@ export class EcommerceAuthController {
             customer: {
               type: 'object',
               properties: {
-                id: { type: 'string', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1' },
+                id: {
+                  type: 'string',
+                  example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1',
+                },
                 fullName: { type: 'string', example: 'Carlos Eduardo Gómez' },
                 email: { type: 'string', example: 'carlos.gomez@correo.com' },
                 phone: { type: 'string', example: '+50371234567' },
@@ -199,7 +223,10 @@ export class EcommerceAuthController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'INVALID_CREDENTIALS' },
-            message: { type: 'string', example: 'Las credenciales proporcionadas no son válidas' },
+            message: {
+              type: 'string',
+              example: 'Las credenciales proporcionadas no son válidas',
+            },
           },
         },
         timestamp: { type: 'string', example: '2026-08-26T19:53:00.000Z' },
@@ -214,17 +241,24 @@ export class EcommerceAuthController {
     @Headers('user-agent') userAgent: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const customer = await this.customersService.validateCredentials(dto.email, dto.password);
-
-    const accessToken = await this.customersService.generateAccessToken(customer);
-
-    const ipHash = req.ip ? crypto.createHash('sha256').update(req.ip).digest('hex') : undefined;
-    const { rawToken, cookieMaxAge } = await this.customersService.issueRefreshToken(
-      customer.id,
-      dto.rememberMe,
-      userAgent,
-      ipHash,
+    const customer = await this.customersService.validateCredentials(
+      dto.email,
+      dto.password,
     );
+
+    const accessToken =
+      await this.customersService.generateAccessToken(customer);
+
+    const ipHash = req.ip
+      ? crypto.createHash('sha256').update(req.ip).digest('hex')
+      : undefined;
+    const { rawToken, cookieMaxAge } =
+      await this.customersService.issueRefreshToken(
+        customer.id,
+        dto.rememberMe,
+        userAgent,
+        ipHash,
+      );
 
     this.customersService.setRefreshTokenCookie(res, rawToken, cookieMaxAge);
 
@@ -254,7 +288,8 @@ export class EcommerceAuthController {
   })
   @ApiBody({
     required: false,
-    description: 'Cuerpo opcional para clientes que no soportan cookies HttpOnly (fallback alternativo)',
+    description:
+      'Cuerpo opcional para clientes que no soportan cookies HttpOnly (fallback alternativo)',
     schema: {
       type: 'object',
       properties: {
@@ -267,7 +302,8 @@ export class EcommerceAuthController {
     },
   })
   @ApiOkResponse({
-    description: 'Renovación exitosa. Retorna el nuevo access token y actualiza la cookie HttpOnly. No expone datos privados.',
+    description:
+      'Renovación exitosa. Retorna el nuevo access token y actualiza la cookie HttpOnly. No expone datos privados.',
     schema: {
       type: 'object',
       properties: {
@@ -282,7 +318,8 @@ export class EcommerceAuthController {
             },
             expiresIn: {
               type: 'number',
-              description: 'Segundos de vigencia del token (fijo en 900s / 15 min)',
+              description:
+                'Segundos de vigencia del token (fijo en 900s / 15 min)',
               example: 900,
             },
           },
@@ -291,7 +328,8 @@ export class EcommerceAuthController {
     },
   })
   @ApiUnauthorizedResponse({
-    description: 'Sesión expirada o token revocado (SESSION_EXPIRED_OR_REVOKED), o cuenta desactivada (ACCOUNT_DISABLED)',
+    description:
+      'Sesión expirada o token revocado (SESSION_EXPIRED_OR_REVOKED), o cuenta desactivada (ACCOUNT_DISABLED)',
     schema: {
       type: 'object',
       properties: {
@@ -300,7 +338,10 @@ export class EcommerceAuthController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'SESSION_EXPIRED_OR_REVOKED' },
-            message: { type: 'string', example: 'La sesión ha expirado o ya no es válida' },
+            message: {
+              type: 'string',
+              example: 'La sesión ha expirado o ya no es válida',
+            },
           },
         },
         timestamp: { type: 'string', example: '2026-09-07T18:00:00.000Z' },
@@ -326,21 +367,24 @@ export class EcommerceAuthController {
     }
 
     try {
-      const { rawToken, cookieMaxAge, customerId } = await this.customersService.rotateRefreshToken(
-        currentRefreshToken,
-        true,
-      );
+      const { rawToken, cookieMaxAge, customerId } =
+        await this.customersService.rotateRefreshToken(
+          currentRefreshToken,
+          true,
+        );
 
       const customer = await this.customersService.findOne(customerId);
       if (!customer || !customer.isActive) {
         this.customersService.clearRefreshTokenCookie(res);
         throw new UnauthorizedException({
           code: 'ACCOUNT_DISABLED',
-          message: 'La cuenta del cliente se encuentra inactiva o deshabilitada.',
+          message:
+            'La cuenta del cliente se encuentra inactiva o deshabilitada.',
         });
       }
 
-      const accessToken = await this.customersService.generateAccessToken(customer);
+      const accessToken =
+        await this.customersService.generateAccessToken(customer);
 
       this.customersService.setRefreshTokenCookie(res, rawToken, cookieMaxAge);
 
@@ -365,13 +409,15 @@ export class EcommerceAuthController {
   })
   @ApiBody({
     required: false,
-    description: 'Cuerpo opcional para clientes sin soporte de cookies (fallback alternativo)',
+    description:
+      'Cuerpo opcional para clientes sin soporte de cookies (fallback alternativo)',
     schema: {
       type: 'object',
       properties: {
         refreshToken: {
           type: 'string',
-          description: 'Refresh token opcional a revocar si no se utilizó cookie',
+          description:
+            'Refresh token opcional a revocar si no se utilizó cookie',
           example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
       },
@@ -389,10 +435,7 @@ export class EcommerceAuthController {
   })
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const currentRefreshToken =
       req.cookies?.[REFRESH_TOKEN_COOKIE_NAME] ||
       (req.body as Record<string, any>)?.refreshToken;
@@ -410,13 +453,15 @@ export class EcommerceAuthController {
   }
 
   @ApiOperation({
-    summary: 'Obtener información de identidad y perfil del cliente autenticado',
+    summary:
+      'Obtener información de identidad y perfil del cliente autenticado',
     description:
       'Retorna los datos de identidad y perfil del cliente autenticado para verificar la sesión activa en el portal E-Commerce. ' +
       'Reutiliza getMyProfile(). El campo email es de solo lectura.',
   })
   @ApiOkResponse({
-    description: 'Datos de sesión e identidad del cliente autenticado obtenidos exitosamente',
+    description:
+      'Datos de sesión e identidad del cliente autenticado obtenidos exitosamente',
     schema: {
       type: 'object',
       properties: {
@@ -424,21 +469,35 @@ export class EcommerceAuthController {
         data: {
           type: 'object',
           properties: {
-            id: { type: 'string', format: 'uuid', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1' },
+            id: {
+              type: 'string',
+              format: 'uuid',
+              example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1',
+            },
             name: { type: 'string', example: 'Carlos Eduardo Gómez' },
             fullName: { type: 'string', example: 'Carlos Eduardo Gómez' },
-            email: { type: 'string', format: 'email', example: 'carlos.gomez@correo.com', description: 'Correo electrónico (solo lectura)' },
+            email: {
+              type: 'string',
+              format: 'email',
+              example: 'carlos.gomez@correo.com',
+              description: 'Correo electrónico (solo lectura)',
+            },
             phone: { type: 'string', example: '+50371234567' },
             dui: { type: 'string', nullable: true, example: '01234567-8' },
             role: { type: 'string', example: 'cliente' },
-            createdAt: { type: 'string', format: 'date-time', example: '2026-08-01T10:00:00.000Z' },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-08-01T10:00:00.000Z',
+            },
           },
         },
       },
     },
   })
   @ApiUnauthorizedResponse({
-    description: 'Token de acceso ausente, inválido o expirado (UNAUTHORIZED / TOKEN_EXPIRED), o cuenta deshabilitada (ACCOUNT_DISABLED)',
+    description:
+      'Token de acceso ausente, inválido o expirado (UNAUTHORIZED / TOKEN_EXPIRED), o cuenta deshabilitada (ACCOUNT_DISABLED)',
     schema: {
       type: 'object',
       properties: {
@@ -447,7 +506,10 @@ export class EcommerceAuthController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'UNAUTHORIZED' },
-            message: { type: 'string', example: 'Acceso no autorizado. Token inválido o inexistente.' },
+            message: {
+              type: 'string',
+              example: 'Acceso no autorizado. Token inválido o inexistente.',
+            },
           },
         },
         timestamp: { type: 'string', example: '2026-09-07T18:00:00.000Z' },
@@ -458,7 +520,10 @@ export class EcommerceAuthController {
   @UseGuards(CustomerJwtAuthGuard)
   @Get('me')
   async me(@CurrentCustomer() customer: CurrentCustomerPayload) {
-    const profile = await this.customersService.getMyProfile(customer.id, customer);
+    const profile = await this.customersService.getMyProfile(
+      customer.id,
+      customer,
+    );
     return {
       success: true,
       data: profile,

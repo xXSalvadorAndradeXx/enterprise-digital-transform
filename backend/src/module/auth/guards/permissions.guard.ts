@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UsersService } from '../../users/users.service';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
@@ -11,10 +16,10 @@ export class PermissionsGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
+      PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true;
@@ -39,9 +44,13 @@ export class PermissionsGuard implements CanActivate {
     const userPermissions = userDetail.permissions || [];
 
     // Comprobar si el usuario posee todos los permisos requeridos
-    const hasPermission = requiredPermissions.every((perm) => userPermissions.includes(perm));
+    const hasPermission = requiredPermissions.every((perm) =>
+      userPermissions.includes(perm),
+    );
     if (!hasPermission) {
-      throw new ForbiddenException('Acceso denegado: No tienes permisos suficientes para realizar esta acción');
+      throw new ForbiddenException(
+        'Acceso denegado: No tienes permisos suficientes para realizar esta acción',
+      );
     }
 
     return true;

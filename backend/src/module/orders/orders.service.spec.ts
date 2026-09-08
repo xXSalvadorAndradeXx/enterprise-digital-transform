@@ -1,6 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { UnprocessableEntityException, BadRequestException, NotFoundException, ForbiddenException, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  UnprocessableEntityException,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import * as crypto from 'crypto';
 import { OrdersService } from './orders.service';
 import { Order } from './entities/order.entity';
@@ -24,9 +31,13 @@ import { Payment } from '../payments/entities/payment.entity';
 import { OrderStatus } from './enums/order-status.enum';
 import { DeliveryMethod } from './enums/delivery-method.enum';
 import { CheckoutIdempotencyStatus } from './enums/checkout-idempotency-status.enum';
-jest.mock('../../../common/utils/address.util', () => ({
-  validateDepartmentDistrict: jest.fn().mockReturnValue(true),
-}), { virtual: true });
+jest.mock(
+  '../../../common/utils/address.util',
+  () => ({
+    validateDepartmentDistrict: jest.fn().mockReturnValue(true),
+  }),
+  { virtual: true },
+);
 
 describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigurosa', () => {
   let service: OrdersService;
@@ -41,23 +52,42 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
   beforeEach(async () => {
     mockOrderRepo = {
       findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockImplementation((dto) => ({ id: 'order-uuid-1', ...dto })),
-      save: jest.fn().mockImplementation((entity) => Promise.resolve({ id: 'order-uuid-1', ...entity })),
+      create: jest
+        .fn()
+        .mockImplementation((dto) => ({ id: 'order-uuid-1', ...dto })),
+      save: jest
+        .fn()
+        .mockImplementation((entity) =>
+          Promise.resolve({ id: 'order-uuid-1', ...entity }),
+        ),
       manager: {
         transaction: jest.fn(),
-        create: jest.fn().mockImplementation((cls, dto) => ({ id: 'generated-uuid', ...dto })),
-        save: jest.fn().mockImplementation((cls, dto) => Promise.resolve(dto || cls)),
+        create: jest
+          .fn()
+          .mockImplementation((cls, dto) => ({ id: 'generated-uuid', ...dto })),
+        save: jest
+          .fn()
+          .mockImplementation((cls, dto) => Promise.resolve(dto || cls)),
       },
     };
 
     mockUserRepo = {
-      findOne: jest.fn().mockResolvedValue({ id: 'user-uuid-123', isActive: true, totalOrders: 2, totalSpent: '200.00' }),
+      findOne: jest.fn().mockResolvedValue({
+        id: 'user-uuid-123',
+        isActive: true,
+        totalOrders: 2,
+        totalSpent: '200.00',
+      }),
     };
 
     mockGuestCustomerRepo = {
       findOne: jest.fn(),
       create: jest.fn().mockImplementation((dto) => dto),
-      save: jest.fn().mockImplementation((dto) => Promise.resolve({ id: 'guest-uuid', ...dto })),
+      save: jest
+        .fn()
+        .mockImplementation((dto) =>
+          Promise.resolve({ id: 'guest-uuid', ...dto }),
+        ),
     };
 
     mockBranchRepo = {
@@ -83,7 +113,11 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         return {
           id: options?.where?.id || 'prod-uuid-1',
           product: prod,
-          inventoryDetail: { id: 'inv-detail-1', stock: 100, inventory: { stock: 100 } },
+          inventoryDetail: {
+            id: 'inv-detail-1',
+            stock: 100,
+            inventory: { stock: 100 },
+          },
         };
       }),
     };
@@ -102,11 +136,20 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         OrdersService,
         { provide: getRepositoryToken(Order), useValue: mockOrderRepo },
         { provide: getRepositoryToken(Customer), useValue: mockUserRepo },
-        { provide: getRepositoryToken(GuestCustomer), useValue: mockGuestCustomerRepo },
+        {
+          provide: getRepositoryToken(GuestCustomer),
+          useValue: mockGuestCustomerRepo,
+        },
         { provide: getRepositoryToken(Branch), useValue: mockBranchRepo },
         { provide: getRepositoryToken(Product), useValue: mockProductRepo },
-        { provide: getRepositoryToken(ProductVariantConfig), useValue: mockVariantConfigRepo },
-        { provide: getRepositoryToken(CheckoutIdempotency), useValue: mockIdempotencyRepo },
+        {
+          provide: getRepositoryToken(ProductVariantConfig),
+          useValue: mockVariantConfigRepo,
+        },
+        {
+          provide: getRepositoryToken(CheckoutIdempotency),
+          useValue: mockIdempotencyRepo,
+        },
       ],
     }).compile();
 
@@ -121,8 +164,18 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
     const checkoutDto: any = {
       source: CheckoutSource.BUY_NOW,
       items: [{ variantId: 'prod-uuid-1', quantity: 1 }],
-      contact: { fullName: 'Pedro Perez', email: 'pedro@example.com', phone: '+50370000000' },
-      delivery: { deliveryType: DeliveryType.HOME_DELIVERY, departmentId: 'SS', districtId: 'San_Salvador', city: 'San Salvador', addressLine: 'Calle 1' },
+      contact: {
+        fullName: 'Pedro Perez',
+        email: 'pedro@example.com',
+        phone: '+50370000000',
+      },
+      delivery: {
+        deliveryType: DeliveryType.HOME_DELIVERY,
+        departmentId: 'SS',
+        districtId: 'San_Salvador',
+        city: 'San Salvador',
+        addressLine: 'Calle 1',
+      },
       paymentMethod: PaymentMethod.CARD,
     };
     const validKey = '123e4567-e89b-12d3-a456-426614174000';
@@ -187,8 +240,15 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       const checkoutDto: any = {
         source: CheckoutSource.BUY_NOW,
         items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 100 }],
-        contact: { fullName: 'Cliente Registrado', email: 'cliente@example.com', phone: '+50370000000' },
-        delivery: { deliveryType: DeliveryType.STORE_PICKUP, branchId: 'branch-1' },
+        contact: {
+          fullName: 'Cliente Registrado',
+          email: 'cliente@example.com',
+          phone: '+50370000000',
+        },
+        delivery: {
+          deliveryType: DeliveryType.STORE_PICKUP,
+          branchId: 'branch-1',
+        },
         paymentMethod: PaymentMethod.PAY_AT_STORE,
       };
 
@@ -199,7 +259,12 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         lastOrderAt: null,
       };
 
-      const mockBranch = { id: 'branch-1', name: 'Sucursal 1', isActive: true, allowsPickup: true };
+      const mockBranch = {
+        id: 'branch-1',
+        name: 'Sucursal 1',
+        isActive: true,
+        allowsPickup: true,
+      };
       mockBranchRepo.findOne.mockResolvedValue(mockBranch);
 
       const mockInventory = { id: 'inv-1', stock: 10, reserved: 0 };
@@ -223,7 +288,11 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
                 findOne: jest.fn().mockResolvedValue({
                   id: 'prod-uuid-1',
                   product: mockProduct,
-                  inventoryDetail: { id: 'inv-1', stock: 10, inventory: mockInventory },
+                  inventoryDetail: {
+                    id: 'inv-1',
+                    stock: 10,
+                    inventory: mockInventory,
+                  },
                 }),
               };
             }
@@ -238,20 +307,42 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
             where: jest.fn().mockReturnThis(),
             getOne: jest.fn().mockResolvedValue(mockInventory),
           }),
-          findOne: jest.fn().mockImplementation((entityClass: any, options: any) => {
-            if (entityClass === Customer || options?.where?.id === 'user-uuid-123') return Promise.resolve(mockUser);
-            if (options?.where?.id === 'branch-1') return Promise.resolve(mockBranch);
-            if (entityClass === ProductVariantConfig || options?.where?.id === 'prod-uuid-1') {
-              return Promise.resolve({
-                id: 'prod-uuid-1',
-                product: mockProduct,
-                inventoryDetail: { id: 'inv-1', inventoryId: 'inv-1', stock: 10, inventory: mockInventory },
-              });
-            }
-            return Promise.resolve(null);
-          }),
-          create: jest.fn().mockImplementation((cls: any, dto: any) => ({ id: 'uuid-gen', ...dto })),
-          save: jest.fn().mockImplementation((clsOrObj: any, obj?: any) => Promise.resolve(obj || clsOrObj)),
+          findOne: jest
+            .fn()
+            .mockImplementation((entityClass: any, options: any) => {
+              if (
+                entityClass === Customer ||
+                options?.where?.id === 'user-uuid-123'
+              )
+                return Promise.resolve(mockUser);
+              if (options?.where?.id === 'branch-1')
+                return Promise.resolve(mockBranch);
+              if (
+                entityClass === ProductVariantConfig ||
+                options?.where?.id === 'prod-uuid-1'
+              ) {
+                return Promise.resolve({
+                  id: 'prod-uuid-1',
+                  product: mockProduct,
+                  inventoryDetail: {
+                    id: 'inv-1',
+                    inventoryId: 'inv-1',
+                    stock: 10,
+                    inventory: mockInventory,
+                  },
+                });
+              }
+              return Promise.resolve(null);
+            }),
+          create: jest.fn().mockImplementation((cls: any, dto: any) => ({
+            id: 'uuid-gen',
+            ...dto,
+          })),
+          save: jest
+            .fn()
+            .mockImplementation((clsOrObj: any, obj?: any) =>
+              Promise.resolve(obj || clsOrObj),
+            ),
           delete: jest.fn().mockResolvedValue({}),
         };
         return cb(fakeTx);
@@ -284,7 +375,9 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       });
 
       try {
-        await service.updateStatus('order-123', { status: OrderStatus.READY_FOR_PICKUP } as any);
+        await service.updateStatus('order-123', {
+          status: OrderStatus.READY_FOR_PICKUP,
+        });
         fail('Debería haber lanzado BadRequestException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(BadRequestException);
@@ -308,7 +401,9 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       });
 
       try {
-        await service.updateStatus('order-456', { status: OrderStatus.ON_ROUTE } as any);
+        await service.updateStatus('order-456', {
+          status: OrderStatus.ON_ROUTE,
+        });
         fail('Debería haber lanzado BadRequestException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(BadRequestException);
@@ -326,10 +421,12 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         findOne: jest.fn(),
         delete: jest.fn(),
       };
-      mockOrderRepo.manager.getRepository = jest.fn().mockImplementation((cls) => {
-        if (cls.name === 'Cart') return mockCartRepo;
-        return {};
-      });
+      mockOrderRepo.manager.getRepository = jest
+        .fn()
+        .mockImplementation((cls) => {
+          if (cls.name === 'Cart') return mockCartRepo;
+          return {};
+        });
     });
 
     describe('CART vs BUY_NOW y Clientes vs Invitados', () => {
@@ -337,26 +434,44 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         const dto: any = {
           source: CheckoutSource.CART,
           items: [{ variantId: 'prod-uuid-1', quantity: 2 }],
-          contact: { fullName: 'Invitado', email: 'guest@example.com', phone: '+50370000000' },
-          delivery: { deliveryType: DeliveryType.STORE_PICKUP, branchId: 'branch-1' },
+          contact: {
+            fullName: 'Invitado',
+            email: 'guest@example.com',
+            phone: '+50370000000',
+          },
+          delivery: {
+            deliveryType: DeliveryType.STORE_PICKUP,
+            branchId: 'branch-1',
+          },
           paymentMethod: PaymentMethod.PAY_AT_STORE,
         };
 
         // Si es CART, debe obtener del carrito activo. Si el carrito está vacío o no se encuentra, arroja error
         mockCartRepo.findOne.mockResolvedValue(null);
-        await expect(service.checkoutPreview(dto, undefined, '123')).rejects.toThrow();
+        await expect(
+          service.checkoutPreview(dto, undefined, '123'),
+        ).rejects.toThrow();
       });
 
       it('debe validar que un carrito vacío no pueda completar checkout', async () => {
         const dto: any = {
           source: CheckoutSource.CART,
-          contact: { fullName: 'Invitado', email: 'guest@example.com', phone: '+50370000000' },
-          delivery: { deliveryType: DeliveryType.STORE_PICKUP, branchId: 'branch-1' },
+          contact: {
+            fullName: 'Invitado',
+            email: 'guest@example.com',
+            phone: '+50370000000',
+          },
+          delivery: {
+            deliveryType: DeliveryType.STORE_PICKUP,
+            branchId: 'branch-1',
+          },
           paymentMethod: PaymentMethod.PAY_AT_STORE,
         };
 
         mockCartRepo.findOne.mockResolvedValue({ id: 1, items: [] });
-        await expect(service.checkoutPreview(dto, undefined, '1')).rejects.toThrow();
+        await expect(
+          service.checkoutPreview(dto, undefined, '1'),
+        ).rejects.toThrow();
       });
     });
 
@@ -364,13 +479,27 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       it('debe calcular correctamente los totales y no mutar la base de datos', async () => {
         const dto: any = {
           source: CheckoutSource.BUY_NOW,
-          items: [{ variantId: 'prod-uuid-1', quantity: 2, priceAtAdded: 10.00 }],
-          contact: { fullName: 'Juan', email: 'juan@example.com', phone: '+50370000000' },
-          delivery: { deliveryType: DeliveryType.STORE_PICKUP, branchId: 'branch-1' },
+          items: [
+            { variantId: 'prod-uuid-1', quantity: 2, priceAtAdded: 10.0 },
+          ],
+          contact: {
+            fullName: 'Juan',
+            email: 'juan@example.com',
+            phone: '+50370000000',
+          },
+          delivery: {
+            deliveryType: DeliveryType.STORE_PICKUP,
+            branchId: 'branch-1',
+          },
           paymentMethod: PaymentMethod.PAY_AT_STORE,
         };
 
-        const mockBranch = { id: 'branch-1', name: 'Sucursal Central', isActive: true, allowsPickup: true };
+        const mockBranch = {
+          id: 'branch-1',
+          name: 'Sucursal Central',
+          isActive: true,
+          allowsPickup: true,
+        };
         mockBranchRepo.findOne.mockResolvedValue(mockBranch);
 
         const mockProduct = {
@@ -381,7 +510,7 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
           isPublished: true,
           deletedAt: null,
           commercialName: 'Producto 1',
-          salePrice: 10.00,
+          salePrice: 10.0,
           inventory: { stock: 100 },
         };
         mockProductRepo.findOne.mockResolvedValue(mockProduct);
@@ -400,8 +529,14 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       it('debe aplicar la tarifa de envío estándar en HOME_DELIVERY si el subtotal es 49.99', async () => {
         const dto: any = {
           source: CheckoutSource.BUY_NOW,
-          items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 49.99 }],
-          contact: { fullName: 'Juan', email: 'juan@example.com', phone: '+50370000000' },
+          items: [
+            { variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 49.99 },
+          ],
+          contact: {
+            fullName: 'Juan',
+            email: 'juan@example.com',
+            phone: '+50370000000',
+          },
           delivery: {
             deliveryType: DeliveryType.HOME_DELIVERY,
             departmentId: 'SS',
@@ -434,8 +569,14 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       it('debe aplicar envío gratuito si el subtotal es exactamente 50.00', async () => {
         const dto: any = {
           source: CheckoutSource.BUY_NOW,
-          items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 50.00 }],
-          contact: { fullName: 'Juan', email: 'juan@example.com', phone: '+50370000000' },
+          items: [
+            { variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 50.0 },
+          ],
+          contact: {
+            fullName: 'Juan',
+            email: 'juan@example.com',
+            phone: '+50370000000',
+          },
           delivery: {
             deliveryType: DeliveryType.HOME_DELIVERY,
             departmentId: 'SS',
@@ -454,7 +595,7 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
           isPublished: true,
           deletedAt: null,
           commercialName: 'Producto 1',
-          salePrice: 50.00,
+          salePrice: 50.0,
           inventory: { stock: 100 },
         };
         mockProductRepo.findOne.mockResolvedValue(mockProduct);
@@ -471,7 +612,11 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         const dto: any = {
           source: CheckoutSource.BUY_NOW,
           items: [{ variantId: 'prod-uuid-1', quantity: 1 }],
-          contact: { fullName: 'Juan', email: 'juan@example.com', phone: '+50370000000' },
+          contact: {
+            fullName: 'Juan',
+            email: 'juan@example.com',
+            phone: '+50370000000',
+          },
           delivery: {
             deliveryType: DeliveryType.HOME_DELIVERY,
             departmentId: 'SS',
@@ -487,4 +632,3 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
     });
   });
 });
-

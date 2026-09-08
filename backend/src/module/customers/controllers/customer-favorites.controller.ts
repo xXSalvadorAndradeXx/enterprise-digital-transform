@@ -41,18 +41,17 @@ export class CustomerFavoritesController {
   ) {}
 
   @ApiOperation({
-    summary: 'GET /api/v1/customers/me/favorites — Obtener la lista paginada de favoritos del cliente autenticado',
+    summary:
+      'GET /api/v1/customers/me/favorites — Obtener la lista paginada de favoritos del cliente autenticado',
   })
   @ApiResponse({
     status: 200,
-    description: 'Lista paginada de favoritos con resúmenes de producto para la grilla del e-commerce',
+    description:
+      'Lista paginada de favoritos con resúmenes de producto para la grilla del e-commerce',
     type: PaginatedFavoritesResponseDto,
   })
   @Get()
-  async getMyFavorites(
-    @Req() req: any,
-    @Query() query: FavoritesQueryDto,
-  ) {
+  async getMyFavorites(@Req() req: any, @Query() query: FavoritesQueryDto) {
     const result = await this.customerFavoritesService.findAll(
       req.user.id,
       query,
@@ -64,7 +63,8 @@ export class CustomerFavoritesController {
   }
 
   @ApiOperation({
-    summary: 'POST /api/v1/customers/me/favorites — Agregar un producto a la lista de favoritos',
+    summary:
+      'POST /api/v1/customers/me/favorites — Agregar un producto a la lista de favoritos',
   })
   @ApiBody({ type: CreateFavoriteDto })
   @ApiResponse({
@@ -74,11 +74,13 @@ export class CustomerFavoritesController {
   })
   @ApiResponse({
     status: 404,
-    description: 'El producto especificado no existe o está eliminado (PRODUCT_NOT_FOUND)',
+    description:
+      'El producto especificado no existe o está eliminado (PRODUCT_NOT_FOUND)',
   })
   @ApiResponse({
     status: 409,
-    description: 'El producto ya existe en la lista de favoritos (FAVORITE_ALREADY_EXISTS)',
+    description:
+      'El producto ya existe en la lista de favoritos (FAVORITE_ALREADY_EXISTS)',
   })
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -94,7 +96,8 @@ export class CustomerFavoritesController {
   }
 
   @ApiOperation({
-    summary: 'GET /api/v1/customers/me/favorites/:productId/status — Estado de favorito de un producto (botón de corazón global)',
+    summary:
+      'GET /api/v1/customers/me/favorites/:productId/status — Estado de favorito de un producto (botón de corazón global)',
   })
   @ApiParam({
     name: 'productId',
@@ -133,7 +136,8 @@ export class CustomerFavoritesController {
   }
 
   @ApiOperation({
-    summary: 'GET /api/v1/customers/me/favorites/check/:productId — Alias de verificación del estado de favorito',
+    summary:
+      'GET /api/v1/customers/me/favorites/check/:productId — Alias de verificación del estado de favorito',
   })
   @Get('check/:productId')
   async checkIsFavoriteAlias(
@@ -162,7 +166,8 @@ export class CustomerFavoritesController {
   }
 
   @ApiOperation({
-    summary: 'DELETE /api/v1/customers/me/favorites/:productId — Eliminar un producto de los favoritos',
+    summary:
+      'DELETE /api/v1/customers/me/favorites/:productId — Eliminar un producto de los favoritos',
   })
   @ApiParam({
     name: 'productId',
@@ -175,7 +180,8 @@ export class CustomerFavoritesController {
   })
   @ApiResponse({
     status: 404,
-    description: 'El producto no existe en los favoritos del cliente (FAVORITE_NOT_FOUND)',
+    description:
+      'El producto no existe en los favoritos del cliente (FAVORITE_NOT_FOUND)',
   })
   @Delete(':productId')
   async removeFavorite(
@@ -204,7 +210,8 @@ export class CustomerFavoritesController {
   }
 
   @ApiOperation({
-    summary: 'DELETE /api/v1/customers/me/favorites — Vaciar completamente la lista de favoritos',
+    summary:
+      'DELETE /api/v1/customers/me/favorites — Vaciar completamente la lista de favoritos',
   })
   @ApiResponse({
     status: 200,

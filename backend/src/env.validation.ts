@@ -44,17 +44,17 @@ class EnvironmentVariables {
 }
 
 export function validate(config: Record<string, unknown>) {
-  const validatedConfig = plainToInstance(
-    EnvironmentVariables,
-    config,
-    { enableImplicitConversion: true },
-  );
+  const validatedConfig = plainToInstance(EnvironmentVariables, config, {
+    enableImplicitConversion: true,
+  });
 
-  const errors = validateSync(validatedConfig, { skipMissingProperties: false });
+  const errors = validateSync(validatedConfig, {
+    skipMissingProperties: false,
+  });
 
   if (errors.length > 0) {
     throw new Error(
-      `Error de validación de configuración: \n${errors.map((err) => Object.values(err.constraints || {}).join('\n')).join('\n')}`
+      `Error de validación de configuración: \n${errors.map((err) => Object.values(err.constraints || {}).join('\n')).join('\n')}`,
     );
   }
 

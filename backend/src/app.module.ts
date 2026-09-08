@@ -33,13 +33,13 @@ import { CustomersModule } from '../src/module/customers/customers.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        host: config.get<string>('DB_HOST',),
+        host: config.get<string>('DB_HOST'),
         port: config.get<number>('DB_PORT', 5432),
         username: config.get<string>('DB_USERNAME'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
         autoLoadEntities: true, // Carga automáticamente las entidades de tus módulos
-        synchronize: false,      // Sincroniza las tablas con tus entidades (solo para desarrollo)
+        synchronize: false, // Sincroniza las tablas con tus entidades (solo para desarrollo)
       }),
     }),
 
@@ -63,4 +63,4 @@ import { CustomersModule } from '../src/module/customers/customers.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

@@ -1,7 +1,11 @@
 // src/purchases/entities/purchase-status-history.entity.ts
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, ManyToOne, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SupplierPurchase } from './supplier-purchase.entity';

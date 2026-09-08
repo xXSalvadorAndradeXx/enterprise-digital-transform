@@ -36,7 +36,12 @@ export class CustomerAddress {
   @Column({ name: 'label', type: 'varchar', length: 50, nullable: false })
   label!: string;
 
-  @Column({ name: 'is_default', type: 'boolean', default: false, nullable: false })
+  @Column({
+    name: 'is_default',
+    type: 'boolean',
+    default: false,
+    nullable: false,
+  })
   isDefault!: boolean;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
@@ -49,7 +54,9 @@ export class CustomerAddress {
   deletedAt!: Date | null;
 
   // Relations
-  @ManyToOne(() => Customer, (customer) => customer.addresses, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Customer, (customer) => customer.addresses, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'customer_id' })
   customer!: Customer;
 

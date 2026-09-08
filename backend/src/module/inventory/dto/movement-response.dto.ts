@@ -13,7 +13,6 @@ export class MovementProductDto {
 export class MovementUserDto {
   @ApiProperty({ example: 'uuid' })
   id!: string;
-  
 
   @ApiProperty({ example: 'Juan' })
   firstName!: string;

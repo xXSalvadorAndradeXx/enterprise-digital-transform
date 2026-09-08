@@ -8,7 +8,10 @@ import { Repository } from 'typeorm';
 import { Customer } from '../entities/customer.entity';
 
 @Injectable()
-export class CustomerJwtStrategy extends PassportStrategy(Strategy, 'customer-jwt') {
+export class CustomerJwtStrategy extends PassportStrategy(
+  Strategy,
+  'customer-jwt',
+) {
   constructor(
     configService: ConfigService,
     @InjectRepository(Customer)
@@ -44,7 +47,8 @@ export class CustomerJwtStrategy extends PassportStrategy(Strategy, 'customer-jw
     if (!customer.isActive) {
       throw new UnauthorizedException({
         code: 'ACCOUNT_DISABLED',
-        message: 'Acceso no autorizado. La cuenta se encuentra inactiva o deshabilitada.',
+        message:
+          'Acceso no autorizado. La cuenta se encuentra inactiva o deshabilitada.',
       });
     }
 

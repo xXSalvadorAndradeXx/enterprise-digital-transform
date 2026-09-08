@@ -8,7 +8,7 @@ import {
   IsNotEmpty,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MovementType }    from '../enums/movement-type.enum';
+import { MovementType } from '../enums/movement-type.enum';
 import { MovementChannel } from '../enums/movement-channel.enum';
 
 export class AdjustStockDto {

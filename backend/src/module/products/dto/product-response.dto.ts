@@ -104,10 +104,16 @@ export class ProductResponseDto {
   @ApiProperty({ enum: ProductStatus })
   status!: ProductStatus;
 
-  @ApiProperty({ example: false, description: 'Indica si el producto está publicado en e-commerce' })
+  @ApiProperty({
+    example: false,
+    description: 'Indica si el producto está publicado en e-commerce',
+  })
   isPublished!: boolean;
 
-  @ApiPropertyOptional({ description: 'Fecha y hora de primera publicación en e-commerce', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Fecha y hora de primera publicación en e-commerce',
+    nullable: true,
+  })
   publishedAt!: Date | null;
 
   @ApiPropertyOptional()

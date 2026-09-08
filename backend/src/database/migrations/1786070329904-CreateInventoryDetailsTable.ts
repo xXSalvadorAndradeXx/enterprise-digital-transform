@@ -1,10 +1,10 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateInventoryDetailsTable1786070329904 implements MigrationInterface {
-    name = 'CreateInventoryDetailsTable1786070329904'
+  name = 'CreateInventoryDetailsTable1786070329904';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "supplier_purchase_items" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "purchase_id" uuid NOT NULL,
@@ -21,7 +21,7 @@ export class CreateInventoryDetailsTable1786070329904 implements MigrationInterf
             )
         `);
 
-        await queryRunner.query(`
+    await queryRunner.query(`
             CREATE TABLE IF NOT EXISTS "purchase_status_history" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "purchase_id" uuid NOT NULL,
@@ -34,8 +34,8 @@ export class CreateInventoryDetailsTable1786070329904 implements MigrationInterf
             )
         `);
 
-        await queryRunner.query(
-            `CREATE TABLE "inventory_details" (
+    await queryRunner.query(
+      `CREATE TABLE "inventory_details" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(), 
                 "sku" character varying(100) NOT NULL, 
                 "size" character varying(50) NOT NULL, 
@@ -54,17 +54,29 @@ export class CreateInventoryDetailsTable1786070329904 implements MigrationInterf
                 CONSTRAINT "unit_cost_non_negative" CHECK (unit_cost >= 0), 
                 CONSTRAINT "stock_non_negative" CHECK (stock >= 0), 
                 CONSTRAINT "PK_683768d20320aec50b45e7b0e7f" PRIMARY KEY ("id")
-            )`
-        );
-        await queryRunner.query(`CREATE INDEX "IDX_634d300a22785103ea37759377" ON "inventory_details" ("inventory_id", "size", "color")`);
-        await queryRunner.query(`ALTER TABLE "inventory_details" ADD CONSTRAINT "FK_b6dfdb4875a0860ba9f89bb2e93" FOREIGN KEY ("inventory_id") REFERENCES "inventories"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "inventory_details" ADD CONSTRAINT "FK_f11f9f675827128cf1d7418bc53" FOREIGN KEY ("purchase_item_id") REFERENCES "supplier_purchase_items"("id") ON DELETE SET NULL ON UPDATE NO ACTION`);
-    }
+            )`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_634d300a22785103ea37759377" ON "inventory_details" ("inventory_id", "size", "color")`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "inventory_details" ADD CONSTRAINT "FK_b6dfdb4875a0860ba9f89bb2e93" FOREIGN KEY ("inventory_id") REFERENCES "inventories"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "inventory_details" ADD CONSTRAINT "FK_f11f9f675827128cf1d7418bc53" FOREIGN KEY ("purchase_item_id") REFERENCES "supplier_purchase_items"("id") ON DELETE SET NULL ON UPDATE NO ACTION`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "inventory_details" DROP CONSTRAINT IF EXISTS "FK_f11f9f675827128cf1d7418bc53"`);
-        await queryRunner.query(`ALTER TABLE "inventory_details" DROP CONSTRAINT IF EXISTS "FK_b6dfdb4875a0860ba9f89bb2e93"`);
-        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_634d300a22785103ea37759377"`);
-        await queryRunner.query(`DROP TABLE IF EXISTS "inventory_details" CASCADE`);
-    }
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `ALTER TABLE "inventory_details" DROP CONSTRAINT IF EXISTS "FK_f11f9f675827128cf1d7418bc53"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "inventory_details" DROP CONSTRAINT IF EXISTS "FK_b6dfdb4875a0860ba9f89bb2e93"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_634d300a22785103ea37759377"`,
+    );
+    await queryRunner.query(`DROP TABLE IF EXISTS "inventory_details" CASCADE`);
+  }
 }

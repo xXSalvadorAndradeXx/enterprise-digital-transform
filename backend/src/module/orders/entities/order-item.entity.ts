@@ -71,4 +71,3 @@ export class OrderItem {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 }
-

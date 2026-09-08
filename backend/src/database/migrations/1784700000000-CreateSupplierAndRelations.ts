@@ -32,7 +32,7 @@ export class CreateSupplierAndRelations1784700000000 implements MigrationInterfa
     `);
 
     // 4. Agregar columna supplierId / FK a products
-    const hasSupplierId = await queryRunner.hasColumn("products", "supplierId");
+    const hasSupplierId = await queryRunner.hasColumn('products', 'supplierId');
     if (!hasSupplierId) {
       await queryRunner.query(`
         ALTER TABLE "products" 
@@ -41,8 +41,10 @@ export class CreateSupplierAndRelations1784700000000 implements MigrationInterfa
     }
 
     // Verificar FK
-    const table = await queryRunner.getTable("products");
-    const foreignKey = table?.foreignKeys.find(fk => fk.columnNames.indexOf("supplierId") !== -1);
+    const table = await queryRunner.getTable('products');
+    const foreignKey = table?.foreignKeys.find(
+      (fk) => fk.columnNames.indexOf('supplierId') !== -1,
+    );
     if (!foreignKey) {
       await queryRunner.query(`
         ALTER TABLE "products" 
@@ -81,13 +83,17 @@ export class CreateSupplierAndRelations1784700000000 implements MigrationInterfa
   public async down(queryRunner: QueryRunner): Promise<void> {
     // 1. Eliminar tabla supplier_purchases
     await queryRunner.query(`DROP TABLE IF EXISTS "supplier_purchases"`);
-    
+
     // Eliminar enum de género
     await queryRunner.query(`DROP TYPE IF EXISTS product_gender_enum CASCADE`);
 
     // 2. Eliminar FK y columna supplierId de products si existen
-    await queryRunner.query(`ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_products_supplier"`);
-    await queryRunner.query(`ALTER TABLE "products" DROP COLUMN IF EXISTS "supplierId"`);
+    await queryRunner.query(
+      `ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_products_supplier"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "products" DROP COLUMN IF EXISTS "supplierId"`,
+    );
 
     // 3. Eliminar índice case-insensitive
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_suppliers_name_lower"`);

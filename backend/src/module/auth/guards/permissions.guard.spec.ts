@@ -35,7 +35,9 @@ describe('PermissionsGuard', () => {
   });
 
   it('debe permitir acceso si el usuario tiene todos los permisos requeridos', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['read', 'delete']);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue(['read', 'delete']);
     usersService.findOne.mockResolvedValue({
       id: 'user-uuid-1',
       permissions: ['read', 'create', 'delete'],
@@ -46,19 +48,24 @@ describe('PermissionsGuard', () => {
   });
 
   it('debe lanzar ForbiddenException si el usuario carece de al menos un permiso', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['read', 'delete']);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue(['read', 'delete']);
     usersService.findOne.mockResolvedValue({
       id: 'user-uuid-1',
       permissions: ['read'],
     });
     const context = createMockContext({ userId: 'user-uuid-1' });
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('debe lanzar ForbiddenException si no existe usuario en la petición', async () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['delete']);
     const context = createMockContext(undefined);
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(context)).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 });
-

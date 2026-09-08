@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { Role } from './entities/role.entity';
 import { Permission } from '../permissions/entities/permission.entity';
@@ -67,8 +71,22 @@ describe('RolesService', () => {
   describe('findAll', () => {
     it('debe retornar la lista de roles con conteos mapeados', async () => {
       const mockRoles = [
-        { id: '1', name: 'SUPERADMIN', description: 'Super Admin', userCount: 1, permissionCount: 15, permissions: [] },
-        { id: '2', name: 'CLIENTE', description: 'Cliente', userCount: 10, permissionCount: 3, permissions: [] },
+        {
+          id: '1',
+          name: 'SUPERADMIN',
+          description: 'Super Admin',
+          userCount: 1,
+          permissionCount: 15,
+          permissions: [],
+        },
+        {
+          id: '2',
+          name: 'CLIENTE',
+          description: 'Cliente',
+          userCount: 10,
+          permissionCount: 3,
+          permissions: [],
+        },
       ];
 
       mockQueryBuilder.getMany.mockResolvedValue(mockRoles);
@@ -76,10 +94,21 @@ describe('RolesService', () => {
       const result = await service.findAll();
 
       expect(result).toEqual(mockRoles);
-      expect(mockRoleRepository.createQueryBuilder).toHaveBeenCalledWith('role');
-      expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('role.permissions', 'permissions');
-      expect(mockQueryBuilder.loadRelationCountAndMap).toHaveBeenCalledWith('role.userCount', 'role.users');
-      expect(mockQueryBuilder.loadRelationCountAndMap).toHaveBeenCalledWith('role.permissionCount', 'role.permissions');
+      expect(mockRoleRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'role',
+      );
+      expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+        'role.permissions',
+        'permissions',
+      );
+      expect(mockQueryBuilder.loadRelationCountAndMap).toHaveBeenCalledWith(
+        'role.userCount',
+        'role.users',
+      );
+      expect(mockQueryBuilder.loadRelationCountAndMap).toHaveBeenCalledWith(
+        'role.permissionCount',
+        'role.permissions',
+      );
       expect(mockQueryBuilder.getMany).toHaveBeenCalled();
     });
   });
@@ -99,7 +128,9 @@ describe('RolesService', () => {
       const result = await service.findOneWithCounts('role-uuid');
 
       expect(result).toEqual(mockRole);
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith('role.id = :id', { id: 'role-uuid' });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('role.id = :id', {
+        id: 'role-uuid',
+      });
       expect(mockQueryBuilder.getOne).toHaveBeenCalled();
     });
 
@@ -107,7 +138,7 @@ describe('RolesService', () => {
       mockQueryBuilder.getOne.mockResolvedValue(null);
 
       await expect(
-        service.findOneWithCounts('non-existent-uuid')
+        service.findOneWithCounts('non-existent-uuid'),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -135,7 +166,9 @@ describe('RolesService', () => {
 
       mockRoleRepository.findOne.mockResolvedValue(null); // No duplicado
       mockPermissionRepository.findBy.mockResolvedValue(mockPermissions);
-      mockRoleRepository.save.mockImplementation((role) => Promise.resolve({ id: 'role-uuid', ...role }));
+      mockRoleRepository.save.mockImplementation((role) =>
+        Promise.resolve({ id: 'role-uuid', ...role }),
+      );
       mockQueryBuilder.getOne.mockResolvedValue(expectedRole);
 
       const result = await service.create(createRoleDto);
@@ -153,11 +186,14 @@ describe('RolesService', () => {
         description: 'Permite editar productos',
       };
 
-      mockRoleRepository.findOne.mockResolvedValue({ id: 'existing-uuid', name: 'EDITOR' } as unknown as Role);
+      mockRoleRepository.findOne.mockResolvedValue({
+        id: 'existing-uuid',
+        name: 'EDITOR',
+      });
 
-      await expect(
-        service.create(createRoleDto)
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create(createRoleDto)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('debe lanzar NotFoundException si alguno de los permisos indicados no existe', async () => {
@@ -169,9 +205,9 @@ describe('RolesService', () => {
       mockRoleRepository.findOne.mockResolvedValue(null);
       mockPermissionRepository.findBy.mockResolvedValue([]); // No se encuentra el permiso
 
-      await expect(
-        service.create(createRoleDto)
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.create(createRoleDto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -197,7 +233,9 @@ describe('RolesService', () => {
         if (where.id === 'role-uuid') return Promise.resolve(mockRole);
         return Promise.resolve(null);
       });
-      mockRoleRepository.save.mockImplementation((role) => Promise.resolve(role));
+      mockRoleRepository.save.mockImplementation((role) =>
+        Promise.resolve(role),
+      );
       mockQueryBuilder.getOne.mockResolvedValue(expectedRole);
 
       const result = await service.update('role-uuid', {
@@ -218,9 +256,7 @@ describe('RolesService', () => {
         permissions: [],
       } as unknown as Role;
 
-      const mockPermissions = [
-        { id: 'perm-1', code: 'users:read' },
-      ];
+      const mockPermissions = [{ id: 'perm-1', code: 'users:read' }];
 
       const expectedRole = {
         id: 'role-uuid',
@@ -234,7 +270,9 @@ describe('RolesService', () => {
         return Promise.resolve(null);
       });
       mockPermissionRepository.findBy.mockResolvedValue(mockPermissions);
-      mockRoleRepository.save.mockImplementation((role) => Promise.resolve(role));
+      mockRoleRepository.save.mockImplementation((role) =>
+        Promise.resolve(role),
+      );
       mockQueryBuilder.getOne.mockResolvedValue(expectedRole);
 
       const result = await service.update('role-uuid', {
@@ -261,7 +299,10 @@ describe('RolesService', () => {
       mockPermissionRepository.findBy.mockResolvedValue([]); // No se encuentra el permiso
 
       await expect(
-        service.update('role-uuid', { name: 'EDITOR', permissionIds: ['non-existent'] })
+        service.update('role-uuid', {
+          name: 'EDITOR',
+          permissionIds: ['non-existent'],
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -269,7 +310,7 @@ describe('RolesService', () => {
       mockRoleRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        service.update('non-existent-uuid', { name: 'EDITOR' })
+        service.update('non-existent-uuid', { name: 'EDITOR' }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -283,7 +324,7 @@ describe('RolesService', () => {
       mockRoleRepository.findOne.mockResolvedValue(mockRole);
 
       await expect(
-        service.update('role-uuid', { name: 'NUEVO_SUPERADMIN' })
+        service.update('role-uuid', { name: 'NUEVO_SUPERADMIN' }),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -296,12 +337,16 @@ describe('RolesService', () => {
 
       mockRoleRepository.findOne.mockImplementation(({ where }) => {
         if (where.id === 'role-uuid') return Promise.resolve(mockRole);
-        if (where.name === 'CLIENTE') return Promise.resolve({ id: 'client-uuid', name: 'CLIENTE' } as unknown as Role);
+        if (where.name === 'CLIENTE')
+          return Promise.resolve({
+            id: 'client-uuid',
+            name: 'CLIENTE',
+          } as unknown as Role);
         return Promise.resolve(null);
       });
 
       await expect(
-        service.update('role-uuid', { name: 'cliente' })
+        service.update('role-uuid', { name: 'cliente' }),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -316,7 +361,10 @@ describe('RolesService', () => {
       } as unknown as Role;
 
       mockRoleRepository.findOne.mockResolvedValue(mockRole);
-      mockRoleRepository.softRemove.mockResolvedValue({ ...mockRole, deletedAt: new Date() });
+      mockRoleRepository.softRemove.mockResolvedValue({
+        ...mockRole,
+        deletedAt: new Date(),
+      });
 
       const result = await service.remove('role-uuid');
 
@@ -327,9 +375,9 @@ describe('RolesService', () => {
     it('debe lanzar NotFoundException si el rol a eliminar no existe', async () => {
       mockRoleRepository.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.remove('non-existent-uuid')
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.remove('non-existent-uuid')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('debe lanzar ConflictException si el rol es de sistema', async () => {
@@ -342,9 +390,9 @@ describe('RolesService', () => {
 
       mockRoleRepository.findOne.mockResolvedValue(mockRole);
 
-      await expect(
-        service.remove('role-uuid')
-      ).rejects.toThrow(ConflictException);
+      await expect(service.remove('role-uuid')).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('debe lanzar ConflictException si el rol tiene usuarios asignados', async () => {
@@ -357,9 +405,9 @@ describe('RolesService', () => {
 
       mockRoleRepository.findOne.mockResolvedValue(mockRole);
 
-      await expect(
-        service.remove('role-uuid')
-      ).rejects.toThrow(ConflictException);
+      await expect(service.remove('role-uuid')).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 });

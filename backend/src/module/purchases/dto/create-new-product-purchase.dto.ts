@@ -1,17 +1,24 @@
 // src/purchases/dto/create-new-product-purchase.dto.ts
 import {
-  IsUUID, IsString, MinLength, MaxLength,
-  IsOptional, IsUrl, IsArray, ArrayMinSize,
-  ValidateNested, IsDateString, IsEnum, IsInt, IsPositive,
+  IsUUID,
+  IsString,
+  MinLength,
+  MaxLength,
+  IsOptional,
+  IsUrl,
+  IsArray,
+  ArrayMinSize,
+  ValidateNested,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsPositive,
 } from 'class-validator';
 
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CreatePurchaseVariantDto } from './create-purchase-variant.dto';
 import { ProductGender } from '../enums/product-gender.enum';
-
-
-
 
 export class CreateNewProductPurchaseDto {
   /** RN-024 */
@@ -32,11 +39,11 @@ export class CreateNewProductPurchaseDto {
 
   // ── CORREGIDO: era @IsUUID(), ahora es number ────────────────────────────
 
-@ApiProperty({ example: 1 })
-@Transform(({ value }) => parseInt(value, 10))
-@IsInt()
-@IsPositive()
-categoryId!: number;
+  @ApiProperty({ example: 1 })
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsInt()
+  @IsPositive()
+  categoryId!: number;
 
   @ApiProperty({ example: 'Zara' })
   @IsString()

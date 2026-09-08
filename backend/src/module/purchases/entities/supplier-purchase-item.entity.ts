@@ -1,7 +1,12 @@
 // src/purchases/entities/supplier-purchase-item.entity.ts
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, ManyToOne, JoinColumn, Index,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SupplierPurchase } from './supplier-purchase.entity';
@@ -38,12 +43,12 @@ export class SupplierPurchaseItem {
   quantity!: number;
 
   /** RN-009: >= 0 */
-  @ApiProperty({ example: 25.50 })
+  @ApiProperty({ example: 25.5 })
   @Column({ name: 'unit_cost', type: 'numeric', precision: 10, scale: 2 })
   unitCost!: number;
 
   /** Calculado en Service */
-  @ApiProperty({ example: 255.00 })
+  @ApiProperty({ example: 255.0 })
   @Column({ type: 'numeric', precision: 12, scale: 2 })
   subtotal!: number;
 

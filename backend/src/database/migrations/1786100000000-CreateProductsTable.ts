@@ -8,8 +8,12 @@ export class CreateProductsTable1786100000000 implements MigrationInterface {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
     // Drop constraints and drop the old products table
-    await queryRunner.query(`ALTER TABLE "cart_items" DROP CONSTRAINT IF EXISTS "FK_72679d98b31c737937b8932ebe6"`);
-    await queryRunner.query(`ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_ff56834e735fa78a15d0cf21926"`);
+    await queryRunner.query(
+      `ALTER TABLE "cart_items" DROP CONSTRAINT IF EXISTS "FK_72679d98b31c737937b8932ebe6"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_ff56834e735fa78a15d0cf21926"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "products" CASCADE`);
 
     // 2. Crear tabla products
@@ -58,13 +62,23 @@ export class CreateProductsTable1786100000000 implements MigrationInterface {
     `);
 
     // 4. Índices
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_products_status" ON "products" ("status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_products_sale_price" ON "products" ("sale_price")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_products_created_at_desc" ON "products" ("created_at" DESC)`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_products_discount_ends_at" ON "products" ("discount_ends_at")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_products_status" ON "products" ("status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_products_sale_price" ON "products" ("sale_price")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_products_created_at_desc" ON "products" ("created_at" DESC)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_products_discount_ends_at" ON "products" ("discount_ends_at")`,
+    );
 
     // 5. Ajustar columna productId en cart_items a tipo UUID
-    await queryRunner.query(`ALTER TABLE "cart_items" DROP COLUMN IF EXISTS "productId"`);
+    await queryRunner.query(
+      `ALTER TABLE "cart_items" DROP COLUMN IF EXISTS "productId"`,
+    );
     await queryRunner.query(`ALTER TABLE "cart_items" ADD "productId" uuid`);
     await queryRunner.query(`
       ALTER TABLE "cart_items" 
@@ -75,13 +89,23 @@ export class CreateProductsTable1786100000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_products_discount_ends_at"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_products_created_at_desc"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_products_discount_ends_at"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_products_created_at_desc"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_products_sale_price"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_products_status"`);
-    await queryRunner.query(`ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_products_updated_by"`);
-    await queryRunner.query(`ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_products_created_by"`);
-    await queryRunner.query(`ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_products_inventory"`);
+    await queryRunner.query(
+      `ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_products_updated_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_products_created_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "FK_products_inventory"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "products"`);
   }
 }

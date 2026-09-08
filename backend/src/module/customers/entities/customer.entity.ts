@@ -24,20 +24,42 @@ export class Customer {
   @Column({ name: 'full_name', type: 'varchar', length: 150, nullable: false })
   fullName!: string;
 
-  @Column({ name: 'dui', type: 'varchar', length: 20, unique: true, nullable: false })
+  @Column({
+    name: 'dui',
+    type: 'varchar',
+    length: 20,
+    unique: true,
+    nullable: false,
+  })
   dui!: string;
 
-  @Column({ name: 'email', type: 'varchar', length: 150, unique: true, nullable: false })
+  @Column({
+    name: 'email',
+    type: 'varchar',
+    length: 150,
+    unique: true,
+    nullable: false,
+  })
   email!: string;
 
   @Column({ name: 'phone', type: 'varchar', length: 20, nullable: false })
   phone!: string;
 
   @Exclude()
-  @Column({ name: 'password_hash', type: 'varchar', length: 255, nullable: false })
+  @Column({
+    name: 'password_hash',
+    type: 'varchar',
+    length: 255,
+    nullable: false,
+  })
   passwordHash!: string;
 
-  @Column({ name: 'is_active', type: 'boolean', default: true, nullable: false })
+  @Column({
+    name: 'is_active',
+    type: 'boolean',
+    default: true,
+    nullable: false,
+  })
   isActive!: boolean;
 
   @Column({ name: 'last_order_at', type: 'timestamptz', nullable: true })
@@ -53,7 +75,12 @@ export class Customer {
   })
   totalSpent!: string | number;
 
-  @Column({ name: 'total_orders', type: 'integer', default: 0, nullable: false })
+  @Column({
+    name: 'total_orders',
+    type: 'integer',
+    default: 0,
+    nullable: false,
+  })
   totalOrders!: number;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
@@ -65,10 +92,16 @@ export class Customer {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
 
-  @OneToMany(() => CustomerAddress, (address: CustomerAddress) => address.customer)
+  @OneToMany(
+    () => CustomerAddress,
+    (address: CustomerAddress) => address.customer,
+  )
   addresses!: CustomerAddress[];
 
-  @OneToMany(() => EcommerceAuthSession, (session: EcommerceAuthSession) => session.customer)
+  @OneToMany(
+    () => EcommerceAuthSession,
+    (session: EcommerceAuthSession) => session.customer,
+  )
   authSessions!: EcommerceAuthSession[];
 
   @OneToMany(() => Order, (order) => order.customer)

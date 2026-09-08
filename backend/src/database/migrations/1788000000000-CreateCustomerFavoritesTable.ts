@@ -33,8 +33,12 @@ export class CreateCustomerFavoritesTable1788000000000 implements MigrationInter
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_customer_favorite_product_id"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_customer_favorite_customer_id"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_customer_favorite_product_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_customer_favorite_customer_id"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "customer_favorites"`);
   }
 }

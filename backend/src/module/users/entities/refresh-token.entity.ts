@@ -33,7 +33,12 @@ export class RefreshToken {
   @Column({ type: 'boolean', default: false })
   revoked!: boolean;
 
-  @Column({ name: 'replaced_by_token_hash', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'replaced_by_token_hash',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   replacedByTokenHash!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

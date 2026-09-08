@@ -10,12 +10,20 @@ export class PermissionsService {
     private readonly permissionRepository: Repository<Permission>,
   ) {}
 
-  async findAll(): Promise<{ resource: string; permissions: { id: string; code: string; description: string | null }[] }[]> {
+  async findAll(): Promise<
+    {
+      resource: string;
+      permissions: { id: string; code: string; description: string | null }[];
+    }[]
+  > {
     const permissions = await this.permissionRepository.find({
       order: { code: 'ASC' },
     });
 
-    const groupedMap: Record<string, { id: string; code: string; description: string | null }[]> = {};
+    const groupedMap: Record<
+      string,
+      { id: string; code: string; description: string | null }[]
+    > = {};
 
     for (const perm of permissions) {
       const [resource] = perm.code.split(':');

@@ -63,7 +63,8 @@ export class CustomerFavoritesService {
           product.discountStartsAt,
           product.discountEndsAt,
         );
-        const inStock = ProductSpecification.isProductPublishableAndSellable(product);
+        const inStock =
+          ProductSpecification.isProductPublishableAndSellable(product);
         const publicDto = PublicProductResponseDto.fromEntity(
           product,
           effectivePriceNum,
@@ -93,7 +94,10 @@ export class CustomerFavoritesService {
    * Lanza 404 si el producto no existe o está en soft delete.
    * Lanza 409 (FAVORITE_ALREADY_EXISTS) si el producto ya está en favoritos.
    */
-  async add(customerId: string, productId: string): Promise<FavoriteResponseDto> {
+  async add(
+    customerId: string,
+    productId: string,
+  ): Promise<FavoriteResponseDto> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
       relations: [
@@ -109,7 +113,8 @@ export class CustomerFavoritesService {
     if (!product || product.deletedAt !== null) {
       throw new NotFoundException({
         code: 'PRODUCT_NOT_FOUND',
-        message: 'El producto especificado no existe o no se encuentra disponible',
+        message:
+          'El producto especificado no existe o no se encuentra disponible',
       });
     }
 
@@ -148,7 +153,8 @@ export class CustomerFavoritesService {
       product.discountStartsAt,
       product.discountEndsAt,
     );
-    const inStock = ProductSpecification.isProductPublishableAndSellable(product);
+    const inStock =
+      ProductSpecification.isProductPublishableAndSellable(product);
     const publicDto = PublicProductResponseDto.fromEntity(
       product,
       effectivePriceNum,

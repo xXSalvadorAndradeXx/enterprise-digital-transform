@@ -81,7 +81,12 @@ export class Product {
   })
   status!: ProductStatus;
 
-  @Column({ name: 'is_published', type: 'boolean', default: false, nullable: false })
+  @Column({
+    name: 'is_published',
+    type: 'boolean',
+    default: false,
+    nullable: false,
+  })
   isPublished!: boolean;
 
   @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
@@ -110,7 +115,7 @@ export class Product {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
 
-   get isActive(): boolean {
+  get isActive(): boolean {
     return this.status === ProductStatus.ACTIVE;
   }
 

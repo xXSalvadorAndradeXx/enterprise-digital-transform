@@ -1,5 +1,19 @@
-import { Controller, Patch, Param, Body, Req, UseGuards, Get, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiHeader, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Patch,
+  Param,
+  Body,
+  Req,
+  UseGuards,
+  Get,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiHeader,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -34,13 +48,19 @@ export class AdminOrdersController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('orders:update')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Actualizar estado de una orden desde el panel administrativo' })
+  @ApiOperation({
+    summary: 'Actualizar estado de una orden desde el panel administrativo',
+  })
   async updateStatus(
     @Param('orderNumber') orderNumber: string,
     @Body() updateOrderStatusDto: UpdateOrderStatusDto,
     @Req() req: any,
   ) {
     const changedById = req.user?.id || updateOrderStatusDto.changedById;
-    return this.ordersService.updateStatusByOrderNumber(orderNumber, updateOrderStatusDto, changedById);
+    return this.ordersService.updateStatusByOrderNumber(
+      orderNumber,
+      updateOrderStatusDto,
+      changedById,
+    );
   }
 }

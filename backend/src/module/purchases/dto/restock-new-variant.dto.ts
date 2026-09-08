@@ -1,7 +1,12 @@
 // src/purchases/dto/restock-new-variant.dto.ts
 import {
-  IsString, MinLength, MaxLength,
-  Matches, IsInt, IsNumber, Min,
+  IsString,
+  MinLength,
+  MaxLength,
+  Matches,
+  IsInt,
+  IsNumber,
+  Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -26,7 +31,7 @@ export class RestockNewVariantDto {
   @Min(1)
   quantity!: number;
 
-  @ApiProperty({ example: 9.50 })
+  @ApiProperty({ example: 9.5 })
   @IsNumber()
   @Min(0)
   unitCost!: number;

@@ -32,7 +32,15 @@ describe('CustomerFavoritesService', () => {
       stock: 10,
       category: { id: 'cat-1', name: 'Calzado' },
     } as any,
-    images: [{ id: 'img-1', productId: 'prod-uuid-1', imageUrl: '/uploads/products/front.webp', sortOrder: 0, createdAt: new Date() }] as any,
+    images: [
+      {
+        id: 'img-1',
+        productId: 'prod-uuid-1',
+        imageUrl: '/uploads/products/front.webp',
+        sortOrder: 0,
+        createdAt: new Date(),
+      },
+    ] as any,
     tags: [],
     variantConfigs: [],
     createdById: null,
@@ -122,9 +130,9 @@ describe('CustomerFavoritesService', () => {
       jest.spyOn(productRepository, 'findOne').mockResolvedValue(mockProduct);
       jest.spyOn(favoriteRepository, 'findOne').mockResolvedValue(mockFavorite);
 
-      await expect(
-        service.add('cust-uuid-1', 'prod-uuid-1'),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.add('cust-uuid-1', 'prod-uuid-1')).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -134,7 +142,10 @@ describe('CustomerFavoritesService', () => {
         .spyOn(favoriteRepository, 'findAndCount')
         .mockResolvedValue([[mockFavorite], 1]);
 
-      const result = await service.findAll('cust-uuid-1', { page: 1, limit: 10 });
+      const result = await service.findAll('cust-uuid-1', {
+        page: 1,
+        limit: 10,
+      });
 
       expect(result.total).toBe(1);
       expect(result.items.length).toBe(1);
@@ -148,7 +159,10 @@ describe('CustomerFavoritesService', () => {
         .spyOn(favoriteRepository, 'findAndCount')
         .mockResolvedValue([[deletedFav], 1]);
 
-      const result = await service.findAll('cust-uuid-1', { page: 1, limit: 10 });
+      const result = await service.findAll('cust-uuid-1', {
+        page: 1,
+        limit: 10,
+      });
 
       expect(result.items.length).toBe(0);
       expect(result.total).toBe(1);

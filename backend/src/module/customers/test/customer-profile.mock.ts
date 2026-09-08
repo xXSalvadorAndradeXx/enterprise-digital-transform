@@ -4,7 +4,9 @@ import type { CurrentCustomerPayload } from '../decorators/current-customer.deco
 
 export const MOCK_CUSTOMER_ID = 'd3b07384-d113-49cd-a5d6-8c4d5865dec1';
 
-export function createMockCustomer(overrides: Partial<Customer> = {}): Customer {
+export function createMockCustomer(
+  overrides: Partial<Customer> = {},
+): Customer {
   return {
     id: MOCK_CUSTOMER_ID,
     fullName: 'Carlos Eduardo Gómez',

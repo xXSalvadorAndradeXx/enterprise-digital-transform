@@ -82,7 +82,10 @@ export class AuthController {
         user: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: 'd3b07384-d113-4603-9d4f-40291410d5e6' },
+            id: {
+              type: 'string',
+              example: 'd3b07384-d113-4603-9d4f-40291410d5e6',
+            },
             nombre: { type: 'string', example: 'Juan Pérez' },
             email: { type: 'string', example: 'juan@example.com' },
             rol: { type: 'string', example: 'cliente' },
@@ -111,8 +114,14 @@ export class AuthController {
     const refreshToken = await this.authService.issueRefreshToken(user.id);
     await this.authService.handleSuccessfulLogin(user);
 
-    const rol = user.roles && user.roles.length > 0 ? user.roles[0].name : (user.rol || 'cliente');
-    const nombre = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.nombre || user.email;
+    const rol =
+      user.roles && user.roles.length > 0
+        ? user.roles[0].name
+        : user.rol || 'cliente';
+    const nombre =
+      `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+      user.nombre ||
+      user.email;
 
     return {
       accessToken,

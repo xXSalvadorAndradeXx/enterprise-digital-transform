@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, ParseUUIDPipe, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  ParseUUIDPipe,
+  BadRequestException,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -39,21 +50,44 @@ export class CustomersController {
         data: {
           type: 'object',
           properties: {
-            id: { type: 'string', format: 'uuid', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1' },
+            id: {
+              type: 'string',
+              format: 'uuid',
+              example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1',
+            },
             name: { type: 'string', example: 'Carlos Eduardo Gómez' },
             fullName: { type: 'string', example: 'Carlos Eduardo Gómez' },
-            email: { type: 'string', format: 'email', example: 'carlos.gomez@correo.com', description: 'Correo registrado (solo lectura)' },
-            phone: { type: 'string', example: '+50371234567', description: 'Teléfono de contacto salvadoreño' },
-            dui: { type: 'string', nullable: true, example: '01234567-8', description: 'DUI salvadoreño (solo lectura)' },
+            email: {
+              type: 'string',
+              format: 'email',
+              example: 'carlos.gomez@correo.com',
+              description: 'Correo registrado (solo lectura)',
+            },
+            phone: {
+              type: 'string',
+              example: '+50371234567',
+              description: 'Teléfono de contacto salvadoreño',
+            },
+            dui: {
+              type: 'string',
+              nullable: true,
+              example: '01234567-8',
+              description: 'DUI salvadoreño (solo lectura)',
+            },
             role: { type: 'string', example: 'cliente' },
-            createdAt: { type: 'string', format: 'date-time', example: '2026-08-01T10:00:00.000Z' },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-08-01T10:00:00.000Z',
+            },
           },
         },
       },
     },
   })
   @ApiUnauthorizedResponse({
-    description: 'Token de acceso ausente, inválido o expirado (UNAUTHORIZED / TOKEN_EXPIRED), o cuenta deshabilitada (ACCOUNT_DISABLED)',
+    description:
+      'Token de acceso ausente, inválido o expirado (UNAUTHORIZED / TOKEN_EXPIRED), o cuenta deshabilitada (ACCOUNT_DISABLED)',
     schema: {
       type: 'object',
       properties: {
@@ -62,7 +96,10 @@ export class CustomersController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'UNAUTHORIZED' },
-            message: { type: 'string', example: 'Acceso no autorizado. Token inválido o inexistente.' },
+            message: {
+              type: 'string',
+              example: 'Acceso no autorizado. Token inválido o inexistente.',
+            },
           },
         },
         timestamp: { type: 'string', example: '2026-09-07T18:00:00.000Z' },
@@ -79,7 +116,11 @@ export class CustomersController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'CUSTOMER_NOT_FOUND' },
-            message: { type: 'string', example: 'No se encontró la cuenta del cliente asociada al token.' },
+            message: {
+              type: 'string',
+              example:
+                'No se encontró la cuenta del cliente asociada al token.',
+            },
           },
         },
         timestamp: { type: 'string', example: '2026-09-07T18:00:00.000Z' },
@@ -90,7 +131,10 @@ export class CustomersController {
   @UseGuards(CustomerJwtAuthGuard)
   @Get('me')
   async getMyProfile(@CurrentCustomer() customer: CurrentCustomerPayload) {
-    const profile = await this.customersService.getMyProfile(customer.id, customer);
+    const profile = await this.customersService.getMyProfile(
+      customer.id,
+      customer,
+    );
     return {
       success: true,
       data: profile,
@@ -107,7 +151,8 @@ export class CustomersController {
   })
   @ApiBody({
     type: UpdateCustomerProfileDto,
-    description: 'Datos editables del perfil del cliente (únicamente name y phone)',
+    description:
+      'Datos editables del perfil del cliente (únicamente name y phone)',
     examples: {
       actualizacionCompleta: {
         summary: 'Actualizar nombre y teléfono',
@@ -131,30 +176,48 @@ export class CustomersController {
     },
   })
   @ApiOkResponse({
-    description: 'Perfil actualizado exitosamente. Retorna el perfil final para sincronización inmediata del Frontend.',
+    description:
+      'Perfil actualizado exitosamente. Retorna el perfil final para sincronización inmediata del Frontend.',
     schema: {
       type: 'object',
       properties: {
         success: { type: 'boolean', example: true },
-        message: { type: 'string', example: 'Perfil actualizado correctamente.' },
+        message: {
+          type: 'string',
+          example: 'Perfil actualizado correctamente.',
+        },
         data: {
           type: 'object',
           properties: {
-            id: { type: 'string', format: 'uuid', example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1' },
+            id: {
+              type: 'string',
+              format: 'uuid',
+              example: 'd3b07384-d113-49cd-a5d6-8c4d5865dec1',
+            },
             name: { type: 'string', example: 'Carlos Eduardo Gómez' },
             fullName: { type: 'string', example: 'Carlos Eduardo Gómez' },
-            email: { type: 'string', format: 'email', example: 'carlos.gomez@correo.com', description: 'Correo persistido (solo lectura, sin mutación)' },
+            email: {
+              type: 'string',
+              format: 'email',
+              example: 'carlos.gomez@correo.com',
+              description: 'Correo persistido (solo lectura, sin mutación)',
+            },
             phone: { type: 'string', example: '+50371234567' },
             dui: { type: 'string', nullable: true, example: '01234567-8' },
             role: { type: 'string', example: 'cliente' },
-            createdAt: { type: 'string', format: 'date-time', example: '2026-08-01T10:00:00.000Z' },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-08-01T10:00:00.000Z',
+            },
           },
         },
       },
     },
   })
   @ApiBadRequestResponse({
-    description: 'Error de validación en los datos (VALIDATION_ERROR). Por ejemplo: nombre vacío o teléfono salvadoreño inválido.',
+    description:
+      'Error de validación en los datos (VALIDATION_ERROR). Por ejemplo: nombre vacío o teléfono salvadoreño inválido.',
     schema: {
       type: 'object',
       properties: {
@@ -163,11 +226,16 @@ export class CustomersController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'VALIDATION_ERROR' },
-            message: { type: 'string', example: 'Los datos enviados no son válidos' },
+            message: {
+              type: 'string',
+              example: 'Los datos enviados no son válidos',
+            },
             details: {
               type: 'array',
               items: { type: 'string' },
-              example: ['El nombre no puede estar vacío ni compuesto únicamente por espacios'],
+              example: [
+                'El nombre no puede estar vacío ni compuesto únicamente por espacios',
+              ],
             },
           },
         },
@@ -176,7 +244,8 @@ export class CustomersController {
     },
   })
   @ApiUnauthorizedResponse({
-    description: 'Token de acceso inválido, expirado o cuenta deshabilitada (UNAUTHORIZED / TOKEN_EXPIRED / ACCOUNT_DISABLED)',
+    description:
+      'Token de acceso inválido, expirado o cuenta deshabilitada (UNAUTHORIZED / TOKEN_EXPIRED / ACCOUNT_DISABLED)',
     schema: {
       type: 'object',
       properties: {
@@ -185,7 +254,10 @@ export class CustomersController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'UNAUTHORIZED' },
-            message: { type: 'string', example: 'Acceso no autorizado. Token inválido o inexistente.' },
+            message: {
+              type: 'string',
+              example: 'Acceso no autorizado. Token inválido o inexistente.',
+            },
           },
         },
         timestamp: { type: 'string', example: '2026-09-07T18:00:00.000Z' },
@@ -202,7 +274,10 @@ export class CustomersController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'CUSTOMER_NOT_FOUND' },
-            message: { type: 'string', example: 'No se encontró la cuenta de cliente a actualizar.' },
+            message: {
+              type: 'string',
+              example: 'No se encontró la cuenta de cliente a actualizar.',
+            },
           },
         },
         timestamp: { type: 'string', example: '2026-09-07T18:00:00.000Z' },
@@ -216,7 +291,10 @@ export class CustomersController {
     @CurrentCustomer() customer: CurrentCustomerPayload,
     @Body() dto: UpdateCustomerProfileDto,
   ) {
-    const updatedProfile = await this.customersService.updateMyProfile(customer.id, dto);
+    const updatedProfile = await this.customersService.updateMyProfile(
+      customer.id,
+      dto,
+    );
     return {
       success: true,
       message: 'Perfil actualizado correctamente.',
@@ -306,17 +384,27 @@ export class CustomersController {
   @UseGuards(CustomerJwtAuthGuard)
   @Patch('me/addresses/:id')
   async updateAddress(
-    @Param('id', new ParseUUIDPipe({ version: '4', exceptionFactory: () => {
-      return new BadRequestException({
-        code: 'VALIDATION_ERROR',
-        message: 'El ID de la dirección debe ser un UUID versión 4 válido',
-      });
-    }}))
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () => {
+          return new BadRequestException({
+            code: 'VALIDATION_ERROR',
+            message: 'El ID de la dirección debe ser un UUID versión 4 válido',
+          });
+        },
+      }),
+    )
     id: string,
     @Body() dto: UpdateCustomerAddressDto,
     @CurrentCustomer() customer: CurrentCustomerPayload,
   ) {
-    const address = await this.customersService.updateAddress(customer.id, id, dto);
+    const address = await this.customersService.updateAddress(
+      customer.id,
+      id,
+      dto,
+    );
 
     const formattedAddress = {
       id: address.id,
@@ -351,12 +439,18 @@ export class CustomersController {
   @UseGuards(CustomerJwtAuthGuard)
   @Delete('me/addresses/:id')
   async removeAddress(
-    @Param('id', new ParseUUIDPipe({ version: '4', exceptionFactory: () => {
-      return new BadRequestException({
-        code: 'VALIDATION_ERROR',
-        message: 'El ID de la dirección debe ser un UUID versión 4 válido',
-      });
-    }}))
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () => {
+          return new BadRequestException({
+            code: 'VALIDATION_ERROR',
+            message: 'El ID de la dirección debe ser un UUID versión 4 válido',
+          });
+        },
+      }),
+    )
     id: string,
     @CurrentCustomer() customer: CurrentCustomerPayload,
   ) {
@@ -368,22 +462,32 @@ export class CustomersController {
   }
 
   @ApiOperation({
-    summary: 'Establecer una dirección como principal para el cliente autenticado',
+    summary:
+      'Establecer una dirección como principal para el cliente autenticado',
   })
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
   @Patch('me/addresses/:id/default')
   async setDefaultAddress(
-    @Param('id', new ParseUUIDPipe({ version: '4', exceptionFactory: () => {
-      return new BadRequestException({
-        code: 'VALIDATION_ERROR',
-        message: 'El ID de la dirección debe ser un UUID versión 4 válido',
-      });
-    }}))
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () => {
+          return new BadRequestException({
+            code: 'VALIDATION_ERROR',
+            message: 'El ID de la dirección debe ser un UUID versión 4 válido',
+          });
+        },
+      }),
+    )
     id: string,
     @CurrentCustomer() customer: CurrentCustomerPayload,
   ) {
-    const address = await this.customersService.setDefaultAddress(customer.id, id);
+    const address = await this.customersService.setDefaultAddress(
+      customer.id,
+      id,
+    );
 
     const formattedAddress = {
       id: address.id,

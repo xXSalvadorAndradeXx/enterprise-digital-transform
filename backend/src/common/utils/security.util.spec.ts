@@ -13,7 +13,7 @@ describe('generateTemporaryPassword', () => {
 
   it('debe cumplir con las políticas de complejidad (mayúscula, minúscula, número, especial)', () => {
     const password = generateTemporaryPassword(12);
-    
+
     const hasUppercase = /[A-Z]/.test(password);
     const hasLowercase = /[a-z]/.test(password);
     const hasDigit = /[0-9]/.test(password);

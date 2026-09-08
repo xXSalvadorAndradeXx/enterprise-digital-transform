@@ -1,8 +1,15 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Supplier } from './entities/supplier.entity';
-import { SupplierPurchase, PurchaseStatus } from './entities/supplier-purchase.entity';
+import {
+  SupplierPurchase,
+  PurchaseStatus,
+} from './entities/supplier-purchase.entity';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { SupplierQueryDto } from './dto/supplier-query.dto';
@@ -45,7 +52,9 @@ export class SuppliersService {
     const totalPages = Math.ceil(total / limit) || 0;
 
     return {
-      data: suppliers.map((supplier) => SupplierResponseDto.fromEntity(supplier)),
+      data: suppliers.map((supplier) =>
+        SupplierResponseDto.fromEntity(supplier),
+      ),
       total,
       page,
       limit,
@@ -61,13 +70,20 @@ export class SuppliersService {
     return SupplierResponseDto.fromEntity(supplier);
   }
 
-  async create(createSupplierDto: CreateSupplierDto): Promise<SupplierResponseDto> {
-    const existing = await this.supplierRepository.createQueryBuilder('supplier')
-      .where('LOWER(supplier.name) = LOWER(:name)', { name: createSupplierDto.name })
+  async create(
+    createSupplierDto: CreateSupplierDto,
+  ): Promise<SupplierResponseDto> {
+    const existing = await this.supplierRepository
+      .createQueryBuilder('supplier')
+      .where('LOWER(supplier.name) = LOWER(:name)', {
+        name: createSupplierDto.name,
+      })
       .getOne();
 
     if (existing) {
-      throw new ConflictException(`Ya existe un proveedor con el nombre "${createSupplierDto.name}"`);
+      throw new ConflictException(
+        `Ya existe un proveedor con el nombre "${createSupplierDto.name}"`,
+      );
     }
 
     const supplier = this.supplierRepository.create(createSupplierDto);
@@ -75,20 +91,31 @@ export class SuppliersService {
     return SupplierResponseDto.fromEntity(saved);
   }
 
-  async update(id: string, updateSupplierDto: UpdateSupplierDto): Promise<SupplierResponseDto> {
+  async update(
+    id: string,
+    updateSupplierDto: UpdateSupplierDto,
+  ): Promise<SupplierResponseDto> {
     const supplier = await this.supplierRepository.findOne({ where: { id } });
     if (!supplier) {
       throw new NotFoundException(`Proveedor con id ${id} no encontrado`);
     }
 
-    if (updateSupplierDto.name && updateSupplierDto.name.toLowerCase() !== supplier.name.toLowerCase()) {
-      const duplicate = await this.supplierRepository.createQueryBuilder('supplier')
-        .where('LOWER(supplier.name) = LOWER(:name)', { name: updateSupplierDto.name })
+    if (
+      updateSupplierDto.name &&
+      updateSupplierDto.name.toLowerCase() !== supplier.name.toLowerCase()
+    ) {
+      const duplicate = await this.supplierRepository
+        .createQueryBuilder('supplier')
+        .where('LOWER(supplier.name) = LOWER(:name)', {
+          name: updateSupplierDto.name,
+        })
         .andWhere('supplier.id != :id', { id })
         .getOne();
 
       if (duplicate) {
-        throw new ConflictException(`Ya existe otro proveedor con el nombre "${updateSupplierDto.name}"`);
+        throw new ConflictException(
+          `Ya existe otro proveedor con el nombre "${updateSupplierDto.name}"`,
+        );
       }
     }
 

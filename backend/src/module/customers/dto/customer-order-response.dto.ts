@@ -1,24 +1,8 @@
-import { Expose } from 'class-transformer';
+import {
+  CustomerOrderListItemResponseDto,
+  OrderItemSummaryDto,
+} from '../../orders/dto/customer-order-list-item-response.dto';
 
-export class CustomerOrderResponseDto {
-  @Expose()
-  id!: string;
+export { CustomerOrderListItemResponseDto, OrderItemSummaryDto };
 
-  @Expose()
-  orderNumber!: string;
-
-  @Expose()
-  status!: string;
-
-  @Expose()
-  createdAt!: Date;
-
-  @Expose()
-  deliveryType!: string;
-
-  @Expose()
-  total!: string;
-
-  @Expose()
-  totalItems!: number;
-}
+export class CustomerOrderResponseDto extends CustomerOrderListItemResponseDto {}

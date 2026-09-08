@@ -33,7 +33,12 @@ export class Cart {
   customer!: Customer | null;
 
   @Index()
-  @Column({ name: 'guest_token_hash', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'guest_token_hash',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   guestTokenHash!: string | null;
 
   @Index()

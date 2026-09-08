@@ -58,7 +58,9 @@ describe('CustomerJwtAuthGuard - 401 & Token Expiration Handling', () => {
       expect(error.getStatus()).toBe(401);
       const response = error.getResponse();
       expect(response.code).toBe('UNAUTHORIZED');
-      expect(response.message).toBe('Acceso no autorizado. Token inválido o inexistente.');
+      expect(response.message).toBe(
+        'Acceso no autorizado. Token inválido o inexistente.',
+      );
     }
   });
 
@@ -79,7 +81,8 @@ describe('CustomerJwtAuthGuard - 401 & Token Expiration Handling', () => {
   it('debe propagar excepciones lanzadas en la validación (ej. ACCOUNT_DISABLED)', () => {
     const customErr = new UnauthorizedException({
       code: 'ACCOUNT_DISABLED',
-      message: 'Acceso no autorizado. La cuenta se encuentra inactiva o deshabilitada.',
+      message:
+        'Acceso no autorizado. La cuenta se encuentra inactiva o deshabilitada.',
     });
 
     try {

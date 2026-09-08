@@ -5,7 +5,6 @@ import { CustomersService } from './customers.service';
 import { Customer } from './entities/customer.entity';
 import { CustomerAddress } from './entities/customer-address.entity';
 import { EcommerceAuthSession } from './entities/ecommerce-auth-session.entity';
-import { Order } from '../orders/entities/order.entity';
 import { LocationsService } from '../locations/locations.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -70,10 +69,6 @@ describe('CustomersService - getMyProfile', () => {
           useValue: sessionRepository,
         },
         {
-          provide: getRepositoryToken(Order),
-          useValue: {},
-        },
-        {
           provide: LocationsService,
           useValue: {},
         },
@@ -129,7 +124,15 @@ describe('CustomersService - getMyProfile', () => {
 
     expect(customerRepository.findOne).toHaveBeenCalledWith({
       where: { id: mockCustomer.id, deletedAt: expect.anything() },
-      select: ['id', 'fullName', 'email', 'phone', 'dui', 'isActive', 'createdAt'],
+      select: [
+        'id',
+        'fullName',
+        'email',
+        'phone',
+        'dui',
+        'isActive',
+        'createdAt',
+      ],
     });
 
     expect(result.id).toBe(mockCustomer.id);
@@ -177,7 +180,7 @@ describe('CustomersService - getMyProfile', () => {
         getResolvedName: () => 'Carlos Actualizado',
       };
 
-      const result = await service.updateMyProfile(mockCustomer.id, dto as any);
+      const result = await service.updateMyProfile(mockCustomer.id, dto);
 
       expect(customerRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockCustomer.id, deletedAt: expect.anything() },
@@ -205,7 +208,7 @@ describe('CustomersService - getMyProfile', () => {
         getResolvedName: () => 'Nuevo Nombre Solamente',
       };
 
-      const result = await service.updateMyProfile(mockCustomer.id, dto as any);
+      const result = await service.updateMyProfile(mockCustomer.id, dto);
 
       expect(customerRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -245,7 +248,7 @@ describe('CustomersService - getMyProfile', () => {
         getResolvedName: () => mockCustomer.fullName,
       };
 
-      const result = await service.updateMyProfile(mockCustomer.id, dto as any);
+      const result = await service.updateMyProfile(mockCustomer.id, dto);
 
       expect(customerRepository.save).not.toHaveBeenCalled();
       expect(result.name).toBe(mockCustomer.fullName);
@@ -274,7 +277,9 @@ describe('CustomersService - getMyProfile', () => {
     it('debe ignorar campos no permitidos (email, customerId, role, id) y conservar los valores originales intactos', async () => {
       const existingCustomer = { ...mockCustomer };
       customerRepository.findOne.mockResolvedValue(existingCustomer);
-      customerRepository.save.mockImplementation(async (cust: any) => ({ ...cust }));
+      customerRepository.save.mockImplementation(async (cust: any) => ({
+        ...cust,
+      }));
 
       const maliciousDto = {
         name: 'Carlos Actualizado',
@@ -287,7 +292,10 @@ describe('CustomersService - getMyProfile', () => {
         getResolvedName: () => 'Carlos Actualizado',
       };
 
-      const result = await service.updateMyProfile(mockCustomer.id, maliciousDto as any);
+      const result = await service.updateMyProfile(
+        mockCustomer.id,
+        maliciousDto,
+      );
 
       expect(customerRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -377,4 +385,3 @@ describe('CustomersService - getMyProfile', () => {
     });
   });
 });
-

@@ -1,4 +1,11 @@
-import { Controller, Post, Body, Req, Headers, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Headers,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
@@ -13,7 +20,8 @@ export class EcommerceCheckoutController {
   @Post('preview')
   @ApiOperation({
     summary: 'Obtener previsualización del checkout sin efectos secundarios',
-    description: 'Calcula productos, variantes, stock, descuentos, costo de envío y total final. Admite compras directas (BUY_NOW) o mediante carrito (CART) para clientes autenticados o compradores invitados. Retorna montos formateados como string decimal con dos posiciones.',
+    description:
+      'Calcula productos, variantes, stock, descuentos, costo de envío y total final. Admite compras directas (BUY_NOW) o mediante carrito (CART) para clientes autenticados o compradores invitados. Retorna montos formateados como string decimal con dos posiciones.',
   })
   @ApiHeader({
     name: 'x-cart-token',
@@ -42,7 +50,8 @@ export class EcommerceCheckoutController {
   })
   @ApiResponse({
     status: 409,
-    description: 'ConflictException debido a cambio de precios durante el checkout',
+    description:
+      'ConflictException debido a cambio de precios durante el checkout',
     schema: {
       type: 'object',
       properties: {
@@ -51,7 +60,10 @@ export class EcommerceCheckoutController {
           type: 'object',
           properties: {
             code: { type: 'string', example: 'PRICE_CHANGED' },
-            message: { type: 'string', example: 'Uno o más productos cambiaron de precio' },
+            message: {
+              type: 'string',
+              example: 'Uno o más productos cambiaron de precio',
+            },
             details: { type: 'object' },
           },
         },
@@ -60,11 +72,15 @@ export class EcommerceCheckoutController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Error en validaciones geográficas, combinaciones prohibidas o stock insuficiente',
+    description:
+      'Error en validaciones geográficas, combinaciones prohibidas o stock insuficiente',
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'Stock insuficiente para el producto' },
+        message: {
+          type: 'string',
+          example: 'Stock insuficiente para el producto',
+        },
         code: { type: 'string', example: 'INSUFFICIENT_STOCK' },
       },
     },
@@ -78,4 +94,3 @@ export class EcommerceCheckoutController {
     return this.ordersService.checkoutPreview(checkoutDto, userId, xCartToken);
   }
 }
-

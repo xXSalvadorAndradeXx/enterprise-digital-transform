@@ -24,7 +24,9 @@ describe('PermissionsService', () => {
     }).compile();
 
     service = module.get<PermissionsService>(PermissionsService);
-    repository = module.get<Repository<Permission>>(getRepositoryToken(Permission));
+    repository = module.get<Repository<Permission>>(
+      getRepositoryToken(Permission),
+    );
 
     jest.clearAllMocks();
   });

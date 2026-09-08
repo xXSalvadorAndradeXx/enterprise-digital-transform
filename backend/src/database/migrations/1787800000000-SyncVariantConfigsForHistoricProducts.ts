@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class SyncVariantConfigsForHistoricProducts1787800000000
-  implements MigrationInterface
-{
+export class SyncVariantConfigsForHistoricProducts1787800000000 implements MigrationInterface {
   name = 'SyncVariantConfigsForHistoricProducts1787800000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -17,7 +17,10 @@ describe('HashService', () => {
     const isMatch = await hashService.comparePassword(rawPassword, hash);
     expect(isMatch).toBe(true);
 
-    const isInvalidMatch = await hashService.comparePassword('WrongPassword', hash);
+    const isInvalidMatch = await hashService.comparePassword(
+      'WrongPassword',
+      hash,
+    );
     expect(isInvalidMatch).toBe(false);
   });
 });

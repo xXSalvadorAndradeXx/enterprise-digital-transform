@@ -5,7 +5,8 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 export class FavoritesQueryDto {
   @ApiPropertyOptional({
     example: 1,
-    description: 'Número de página para paginación de favoritos (por defecto: 1)',
+    description:
+      'Número de página para paginación de favoritos (por defecto: 1)',
     default: 1,
   })
   @IsOptional()
@@ -16,7 +17,8 @@ export class FavoritesQueryDto {
 
   @ApiPropertyOptional({
     example: 10,
-    description: 'Cantidad de elementos por página (por defecto: 10, máximo: 100)',
+    description:
+      'Cantidad de elementos por página (por defecto: 10, máximo: 100)',
     default: 10,
   })
   @IsOptional()

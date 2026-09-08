@@ -13,5 +13,7 @@ export const PERMISSIONS_KEY = 'permissions';
  * Uso: @Permissions('products:create')
  *      @Permissions('purchases:read', 'purchases:approve')
  */
-export const Permissions = (...permissions: string[]): MethodDecorator & ClassDecorator =>
+export const Permissions = (
+  ...permissions: string[]
+): MethodDecorator & ClassDecorator =>
   SetMetadata(PERMISSIONS_KEY, permissions);

@@ -1,8 +1,13 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrdersController } from './orders.controller';
 import { EcommerceCheckoutController } from './ecommerce-checkout.controller';
+import { AdminOrdersController } from './admin-orders.controller';
+import { CustomerOrdersController } from './controllers/customer-orders.controller';
+
 import { OrdersService } from './orders.service';
+import { CustomerOrdersService } from './services/customer-orders.service';
+
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { OrderDelivery } from './entities/order-delivery.entity';
@@ -19,11 +24,9 @@ import { InventoryReservation } from '../inventory/entities/inventory-reservatio
 import { InventoryMovement } from '../inventory/entities/inventory-movement.entity';
 import { ProductVariantConfig } from '../products/entities/product-variant-config.entity';
 
-import { AdminOrdersController } from './admin-orders.controller';
-
 @Module({
   imports: [
-    CustomersModule,
+    forwardRef(() => CustomersModule),
     TypeOrmModule.forFeature([
       Order,
       OrderItem,
@@ -41,11 +44,13 @@ import { AdminOrdersController } from './admin-orders.controller';
       ProductVariantConfig,
     ]),
   ],
-  controllers: [OrdersController, EcommerceCheckoutController, AdminOrdersController],
-  providers: [OrdersService],
-  exports: [OrdersService],
+  controllers: [
+    OrdersController,
+    EcommerceCheckoutController,
+    AdminOrdersController,
+    CustomerOrdersController,
+  ],
+  providers: [OrdersService, CustomerOrdersService],
+  exports: [OrdersService, CustomerOrdersService],
 })
 export class OrdersModule {}
-
-
-

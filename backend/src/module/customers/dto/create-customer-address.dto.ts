@@ -1,5 +1,12 @@
 // src/module/customers/dto/create-customer-address.dto.ts
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, Length, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  Length,
+  MaxLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -8,7 +15,9 @@ export class CreateCustomerAddressDto {
     description: 'Identificador del departamento de la dirección',
     example: '1',
   })
-  @IsString({ message: 'El ID del departamento debe ser una cadena de texto o ID válido' })
+  @IsString({
+    message: 'El ID del departamento debe ser una cadena de texto o ID válido',
+  })
   @IsNotEmpty({ message: 'El departamento es obligatorio' })
   departmentId!: string;
 
@@ -16,7 +25,9 @@ export class CreateCustomerAddressDto {
     description: 'Identificador del distrito de la dirección',
     example: '187',
   })
-  @IsString({ message: 'El ID del distrito debe ser una cadena de texto o ID válido' })
+  @IsString({
+    message: 'El ID del distrito debe ser una cadena de texto o ID válido',
+  })
   @IsNotEmpty({ message: 'El distrito es obligatorio' })
   districtId!: string;
 
@@ -28,7 +39,7 @@ export class CreateCustomerAddressDto {
   @IsOptional()
   @IsString({ message: 'La ciudad debe ser una cadena de texto' })
   @MaxLength(100, { message: 'La ciudad no puede exceder los 100 caracteres' })
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   city?: string;
 
   @ApiProperty({
@@ -39,8 +50,10 @@ export class CreateCustomerAddressDto {
   })
   @IsString({ message: 'La dirección detallada debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'La dirección detallada es obligatoria' })
-  @Length(5, 500, { message: 'La dirección detallada debe tener entre 5 y 500 caracteres' })
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Length(5, 500, {
+    message: 'La dirección detallada debe tener entre 5 y 500 caracteres',
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   addressLine!: string;
 
   @ApiProperty({
@@ -52,7 +65,7 @@ export class CreateCustomerAddressDto {
   @IsString({ message: 'La etiqueta debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'La etiqueta es obligatoria' })
   @Length(2, 50, { message: 'La etiqueta debe tener entre 2 y 50 caracteres' })
-  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   label!: string;
 
   @ApiPropertyOptional({

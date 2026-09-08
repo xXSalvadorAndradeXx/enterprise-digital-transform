@@ -1,7 +1,9 @@
 // src/common/guards/permissions.guard.ts
 import {
-  Injectable, CanActivate,
-  ExecutionContext, ForbiddenException,
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
@@ -26,7 +28,11 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // Si el usuario posee rol ADMIN o SUPERADMIN, conceder acceso total automáticamente
-    if (user.roles?.includes('ADMIN') || user.roles?.includes('SUPERADMIN') || user.rol === 'ADMIN') {
+    if (
+      user.roles?.includes('ADMIN') ||
+      user.roles?.includes('SUPERADMIN') ||
+      user.rol === 'ADMIN'
+    ) {
       return true;
     }
 

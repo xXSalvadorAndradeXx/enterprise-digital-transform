@@ -53,8 +53,12 @@ describe('Customer Profile & Session Flow (e2e)', () => {
     configService = app.get(ConfigService);
 
     // Asegurar que existe al menos un departamento y distrito activos para la dirección
-    const departmentRepo: Repository<Department> = app.get(getRepositoryToken(Department));
-    const districtRepo: Repository<District> = app.get(getRepositoryToken(District));
+    const departmentRepo: Repository<Department> = app.get(
+      getRepositoryToken(Department),
+    );
+    const districtRepo: Repository<District> = app.get(
+      getRepositoryToken(District),
+    );
 
     let department = await departmentRepo.findOne({ where: { code: 'SS' } });
     if (!department) {
@@ -67,7 +71,9 @@ describe('Customer Profile & Session Flow (e2e)', () => {
       );
     }
 
-    let district = await districtRepo.findOne({ where: { departmentId: department.id } });
+    let district = await districtRepo.findOne({
+      where: { departmentId: department.id },
+    });
     if (!district) {
       district = await districtRepo.save(
         districtRepo.create({
@@ -90,7 +96,8 @@ describe('Customer Profile & Session Flow (e2e)', () => {
       expect(departments.length).toBeGreaterThan(0);
       const departmentId = departments[0].id;
 
-      const districts = await locationsService.findDistrictsByDepartment(departmentId);
+      const districts =
+        await locationsService.findDistrictsByDepartment(departmentId);
       expect(districts.length).toBeGreaterThan(0);
       const districtId = districts[0].id;
 
@@ -120,9 +127,13 @@ describe('Customer Profile & Session Flow (e2e)', () => {
       customerId = response.body.data.customer.id;
 
       // Extraer cookie HttpOnly de la respuesta
-      const cookies = response.headers['set-cookie'] as unknown as string[] | undefined;
+      const cookies = response.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
       expect(cookies).toBeDefined();
-      const refreshCookieHeader = Array.isArray(cookies) ? cookies.find((c) => c.startsWith('refreshToken=')) : undefined;
+      const refreshCookieHeader = Array.isArray(cookies)
+        ? cookies.find((c) => c.startsWith('refreshToken='))
+        : undefined;
       expect(refreshCookieHeader).toBeDefined();
       refreshCookie = refreshCookieHeader!.split(';')[0];
     });
@@ -273,9 +284,13 @@ describe('Customer Profile & Session Flow (e2e)', () => {
       expect(meResponse.body.data.id).toBe(customerId);
 
       // Actualizar la cookie con la nueva devuelta por la rotación
-      const setCookie = response.headers['set-cookie'] as unknown as string[] | undefined;
+      const setCookie = response.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
       expect(setCookie).toBeDefined();
-      const newCookie = Array.isArray(setCookie) ? setCookie.find((c) => c.startsWith('refreshToken=')) : undefined;
+      const newCookie = Array.isArray(setCookie)
+        ? setCookie.find((c) => c.startsWith('refreshToken='))
+        : undefined;
       expect(newCookie).toBeDefined();
       refreshCookie = newCookie!.split(';')[0];
     });
@@ -301,7 +316,9 @@ describe('Customer Profile & Session Flow (e2e)', () => {
       expect(response.body.message).toBe('Sesión cerrada correctamente.');
 
       // Verificar que se emitió cookie con fecha expirada (Max-Age=0 o Expires en el pasado)
-      const setCookie = response.headers['set-cookie'] as unknown as string[] | undefined;
+      const setCookie = response.headers['set-cookie'] as unknown as
+        | string[]
+        | undefined;
       expect(setCookie).toBeDefined();
     });
 
@@ -326,7 +343,8 @@ describe('Customer Profile & Session Flow (e2e)', () => {
 
     it('las rutas /customers/me deben responder 401 TOKEN_EXPIRED ante un access token expirado', async () => {
       // Generar token JWT expirado
-      const secret = configService.get<string>('JWT_SECRET') || 'default_secret';
+      const secret =
+        configService.get<string>('JWT_SECRET') || 'default_secret';
       const expiredToken = await jwtService.signAsync(
         {
           sub: customerId,

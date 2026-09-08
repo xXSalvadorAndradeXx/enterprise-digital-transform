@@ -183,6 +183,7 @@ describe('InventoryService', () => {
     });
 
     it('debe lanzar InternalServerErrorException si el repositorio falla', async () => {
+      jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
       inventoryRepository.findAllPaginated!.mockRejectedValue(
         new Error('DB Connection error'),
       );
@@ -424,7 +425,9 @@ describe('InventoryService', () => {
         save: jest.fn().mockResolvedValue({}),
         createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
         find: jest.fn().mockResolvedValue([]),
-        findOne: jest.fn().mockResolvedValue({ id: 'inv-1', stock: 10, status: 'ACTIVE' }),
+        findOne: jest
+          .fn()
+          .mockResolvedValue({ id: 'inv-1', stock: 10, status: 'ACTIVE' }),
       };
     });
 
@@ -858,7 +861,12 @@ describe('InventoryService', () => {
 
     it('adjust debe actualizar stock de variante y recalcular stock del inventario principal', async () => {
       const mockInventory = { id: 'inv-1', stock: 10 };
-      const mockDetail = { id: 'detail-1', sku: 'SKU-1', stock: 4, inventoryId: 'inv-1' };
+      const mockDetail = {
+        id: 'detail-1',
+        sku: 'SKU-1',
+        stock: 4,
+        inventoryId: 'inv-1',
+      };
       const mockQb = {
         setLock: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -877,7 +885,9 @@ describe('InventoryService', () => {
         save: jest.fn().mockImplementation(async (entityClass, data) => data),
         create: jest.fn().mockImplementation((entityClass, data) => data),
         find: jest.fn().mockResolvedValue([mockDetail]),
-        findOne: jest.fn().mockImplementation(async (entityClass, options) => mockInventory),
+        findOne: jest
+          .fn()
+          .mockImplementation(async (entityClass, options) => mockInventory),
       };
 
       dataSource.transaction.mockImplementation(async (cb: any) =>
@@ -1003,12 +1013,18 @@ describe('InventoryService', () => {
       expect(mockManager.createQueryBuilder).toHaveBeenCalled();
       expect(mockUpdateQb.update).toHaveBeenCalledWith(Product);
       expect(mockUpdateQb.set).toHaveBeenCalledWith({ status: 'PAUSED' });
-      expect(mockUpdateQb.where).toHaveBeenCalledWith('inventory_id = :inventoryId', {
-        inventoryId: 'inv-uuid-1',
-      });
-      expect(mockUpdateQb.andWhere).toHaveBeenCalledWith('status = :activeStatus', {
-        activeStatus: 'ACTIVE',
-      });
+      expect(mockUpdateQb.where).toHaveBeenCalledWith(
+        'inventory_id = :inventoryId',
+        {
+          inventoryId: 'inv-uuid-1',
+        },
+      );
+      expect(mockUpdateQb.andWhere).toHaveBeenCalledWith(
+        'status = :activeStatus',
+        {
+          activeStatus: 'ACTIVE',
+        },
+      );
       expect(mockUpdateQb.andWhere).toHaveBeenCalledWith('deleted_at IS NULL');
       expect(logSpy).toHaveBeenCalledWith(
         'Productos pausados por OUT_OF_STOCK en inventario inv-uuid-1',
@@ -1030,4 +1046,3 @@ describe('InventoryService', () => {
     });
   });
 });
-

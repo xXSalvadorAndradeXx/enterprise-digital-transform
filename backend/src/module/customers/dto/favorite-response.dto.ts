@@ -4,23 +4,32 @@ import { PublicProductResponseDto } from '../../products/dto/public-product-resp
 export class FavoriteProductSummaryDto extends PublicProductResponseDto {
   @ApiPropertyOptional({
     example: 'http://localhost:3000/uploads/products/front-01.webp',
-    description: 'URL resoluble de la imagen principal del producto para la tarjeta e-commerce',
+    description:
+      'URL resoluble de la imagen principal del producto para la tarjeta e-commerce',
     nullable: true,
   })
   imageUrl!: string | null;
 
   @ApiProperty({
     example: true,
-    description: 'Indica si el producto cuenta con un descuento activo y vigente actualmente',
+    description:
+      'Indica si el producto cuenta con un descuento activo y vigente actualmente',
   })
   hasDiscount!: boolean;
 
-  static fromPublicDto(publicDto: PublicProductResponseDto): FavoriteProductSummaryDto {
+  static fromPublicDto(
+    publicDto: PublicProductResponseDto,
+  ): FavoriteProductSummaryDto {
     const summary = Object.assign(new FavoriteProductSummaryDto(), publicDto);
-    summary.imageUrl = publicDto.primaryImage ?? (publicDto.images?.length ? publicDto.images[0] : null);
-    
-    const isDiscountObj = publicDto.discount && typeof publicDto.discount === 'object';
-    summary.hasDiscount = Boolean(isDiscountObj && (publicDto.discount as any).isActive);
+    summary.imageUrl =
+      publicDto.primaryImage ??
+      (publicDto.images?.length ? publicDto.images[0] : null);
+
+    const isDiscountObj =
+      publicDto.discount && typeof publicDto.discount === 'object';
+    summary.hasDiscount = Boolean(
+      isDiscountObj && (publicDto.discount as any).isActive,
+    );
 
     if (!publicDto.isPublished) {
       summary.availability = 'UNAVAILABLE';
@@ -29,7 +38,7 @@ export class FavoriteProductSummaryDto extends PublicProductResponseDto {
       summary.availability = 'OUT_OF_STOCK';
       summary.inStock = false;
     }
-    
+
     return summary;
   }
 }
@@ -49,7 +58,8 @@ export class FavoriteResponseDto {
 
   @ApiProperty({
     type: FavoriteProductSummaryDto,
-    description: 'Resumen comercial del producto compatible con la tarjeta de e-commerce Frontend',
+    description:
+      'Resumen comercial del producto compatible con la tarjeta de e-commerce Frontend',
   })
   product!: FavoriteProductSummaryDto;
 }

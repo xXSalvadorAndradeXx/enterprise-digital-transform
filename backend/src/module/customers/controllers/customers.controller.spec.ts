@@ -13,7 +13,8 @@ describe('CustomersController - Profile Endpoints', () => {
   let controller: CustomersController;
   let service: any;
 
-  const mockCustomerPayload: CurrentCustomerPayload = createMockCustomerPayload();
+  const mockCustomerPayload: CurrentCustomerPayload =
+    createMockCustomerPayload();
   const mockProfileResponse = createMockProfileResponse();
 
   beforeEach(async () => {
@@ -68,7 +69,10 @@ describe('CustomersController - Profile Endpoints', () => {
         getResolvedName: () => 'Carlos Actualizado',
       };
 
-      const response = await controller.updateMyProfile(mockCustomerPayload, dto);
+      const response = await controller.updateMyProfile(
+        mockCustomerPayload,
+        dto,
+      );
 
       expect(service.updateMyProfile).toHaveBeenCalledWith(
         mockCustomerPayload.id,

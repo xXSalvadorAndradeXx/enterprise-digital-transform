@@ -32,7 +32,10 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       this.authService.checkLockout(user);
 
       // 2. Comparar la contraseña
-      const isPasswordMatching = await bcrypt.compare(password, user.passwordHash);
+      const isPasswordMatching = await bcrypt.compare(
+        password,
+        user.passwordHash,
+      );
       if (isPasswordMatching) {
         const { passwordHash: _, ...result } = user;
         return result;

@@ -28,7 +28,8 @@ export class EcommerceCategoriesController {
 
   @Get(':id')
   @ApiOperation({
-    summary: 'Obtener detalle público de una categoría por ID entero con conteo de productos publicados',
+    summary:
+      'Obtener detalle público de una categoría por ID entero con conteo de productos publicados',
   })
   @ApiResponse({
     status: 200,
@@ -37,7 +38,8 @@ export class EcommerceCategoriesController {
   })
   @ApiResponse({
     status: 400,
-    description: 'ID de categoría no válido (debe ser un número entero positivo)',
+    description:
+      'ID de categoría no válido (debe ser un número entero positivo)',
   })
   @ApiResponse({
     status: 404,

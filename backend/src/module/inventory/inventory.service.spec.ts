@@ -32,7 +32,9 @@ describe('InventoryService — RN-I-003 & updateStock', () => {
         .fn()
         .mockImplementation((entityClass, entity) => Promise.resolve(entity)),
       find: jest.fn().mockResolvedValue([]),
-      findOne: jest.fn().mockResolvedValue({ id: 'inv-1', stock: 10, status: 'ACTIVE' }),
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ id: 'inv-1', stock: 10, status: 'ACTIVE' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

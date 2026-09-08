@@ -1,4 +1,9 @@
-import { Injectable, ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { Role } from './entities/role.entity';
@@ -14,7 +19,8 @@ export class RolesService {
   ) {}
 
   async findAll(): Promise<Role[]> {
-    return this.roleRepository.createQueryBuilder('role')
+    return this.roleRepository
+      .createQueryBuilder('role')
       .leftJoinAndSelect('role.permissions', 'permissions')
       .loadRelationCountAndMap('role.userCount', 'role.users')
       .loadRelationCountAndMap('role.permissionCount', 'role.permissions')
@@ -23,7 +29,8 @@ export class RolesService {
 
   async findOneWithCounts(id: string, manager?: any): Promise<Role> {
     const repo = manager ? manager.getRepository(Role) : this.roleRepository;
-    const role = await repo.createQueryBuilder('role')
+    const role = await repo
+      .createQueryBuilder('role')
       .leftJoinAndSelect('role.permissions', 'permissions')
       .loadRelationCountAndMap('role.userCount', 'role.users')
       .loadRelationCountAndMap('role.permissionCount', 'role.permissions')
@@ -45,17 +52,28 @@ export class RolesService {
       const permissionRepo = manager.getRepository(Permission);
 
       // 1. Verificar si el rol ya existe
-      const existing = await roleRepo.findOne({ where: { name: normalizedName } });
+      const existing = await roleRepo.findOne({
+        where: { name: normalizedName },
+      });
       if (existing) {
-        throw new ConflictException(`El rol con nombre "${normalizedName}" ya existe`);
+        throw new ConflictException(
+          `El rol con nombre "${normalizedName}" ya existe`,
+        );
       }
 
       // 2. Buscar y validar los permisos si se especificaron
       let permissions: Permission[] = [];
-      if (createRoleDto.permissionIds && createRoleDto.permissionIds.length > 0) {
-        permissions = await permissionRepo.findBy({ id: In(createRoleDto.permissionIds) });
+      if (
+        createRoleDto.permissionIds &&
+        createRoleDto.permissionIds.length > 0
+      ) {
+        permissions = await permissionRepo.findBy({
+          id: In(createRoleDto.permissionIds),
+        });
         if (permissions.length !== createRoleDto.permissionIds.length) {
-          throw new NotFoundException('Uno o más permisos especificados no fueron encontrados');
+          throw new NotFoundException(
+            'Uno o más permisos especificados no fueron encontrados',
+          );
         }
       }
 
@@ -89,16 +107,22 @@ export class RolesService {
 
       // 2. Bloquear edición si es un rol de sistema (isSystem === true)
       if (role.isSystem) {
-        throw new ForbiddenException('Los roles de sistema no pueden ser editados');
+        throw new ForbiddenException(
+          'Los roles de sistema no pueden ser editados',
+        );
       }
 
       // 3. Validar unicidad del nombre si se va a actualizar
       if (updateRoleDto.name) {
         const normalizedName = updateRoleDto.name.trim().toUpperCase();
         if (normalizedName !== role.name) {
-          const existing = await roleRepo.findOne({ where: { name: normalizedName } });
+          const existing = await roleRepo.findOne({
+            where: { name: normalizedName },
+          });
           if (existing) {
-            throw new ConflictException(`El rol con nombre "${normalizedName}" ya existe`);
+            throw new ConflictException(
+              `El rol con nombre "${normalizedName}" ya existe`,
+            );
           }
           role.name = normalizedName;
         }
@@ -111,9 +135,13 @@ export class RolesService {
 
       // 5. Actualizar relación de permisos
       if (updateRoleDto.permissionIds) {
-        const permissions = await permissionRepo.findBy({ id: In(updateRoleDto.permissionIds) });
+        const permissions = await permissionRepo.findBy({
+          id: In(updateRoleDto.permissionIds),
+        });
         if (permissions.length !== updateRoleDto.permissionIds.length) {
-          throw new NotFoundException('Uno o más permisos especificados no fueron encontrados');
+          throw new NotFoundException(
+            'Uno o más permisos especificados no fueron encontrados',
+          );
         }
         role.permissions = permissions;
       }
@@ -144,7 +172,9 @@ export class RolesService {
 
       // 3. Bloquear eliminación si el rol tiene usuarios asignados
       if (role.users && role.users.length > 0) {
-        throw new ConflictException('No se puede eliminar un rol que tiene usuarios asignados');
+        throw new ConflictException(
+          'No se puede eliminar un rol que tiene usuarios asignados',
+        );
       }
 
       // 4. Aplicar soft delete

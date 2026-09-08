@@ -66,9 +66,15 @@ describe('CustomerFavoritesController', () => {
       };
       jest.spyOn(service, 'findAll').mockResolvedValue(paginatedMock);
 
-      const res = await controller.getMyFavorites(mockReq, { page: 1, limit: 10 });
+      const res = await controller.getMyFavorites(mockReq, {
+        page: 1,
+        limit: 10,
+      });
 
-      expect(service.findAll).toHaveBeenCalledWith('cust-uuid-1', { page: 1, limit: 10 });
+      expect(service.findAll).toHaveBeenCalledWith('cust-uuid-1', {
+        page: 1,
+        limit: 10,
+      });
       expect(res.success).toBe(true);
       expect(res.data.items.length).toBe(1);
     });
@@ -95,9 +101,15 @@ describe('CustomerFavoritesController', () => {
         isFavorite: true,
       });
 
-      const res = await controller.checkIsFavoriteStatus(mockReq, 'prod-uuid-1');
+      const res = await controller.checkIsFavoriteStatus(
+        mockReq,
+        'prod-uuid-1',
+      );
 
-      expect(service.isFavorite).toHaveBeenCalledWith('cust-uuid-1', 'prod-uuid-1');
+      expect(service.isFavorite).toHaveBeenCalledWith(
+        'cust-uuid-1',
+        'prod-uuid-1',
+      );
       expect(res.success).toBe(true);
       expect(res.data.isFavorite).toBe(true);
     });

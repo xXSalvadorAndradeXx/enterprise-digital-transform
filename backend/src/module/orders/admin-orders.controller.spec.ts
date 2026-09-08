@@ -15,9 +15,7 @@ describe('AdminOrdersController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AdminOrdersController],
-      providers: [
-        { provide: OrdersService, useValue: ordersService },
-      ],
+      providers: [{ provide: OrdersService, useValue: ordersService }],
     }).compile();
 
     controller = module.get<AdminOrdersController>(AdminOrdersController);
@@ -32,16 +30,24 @@ describe('AdminOrdersController', () => {
       const updateDto: UpdateOrderStatusDto = {
         status: OrderStatus.READY_FOR_PICKUP,
         notes: 'Orden lista para retiro en tienda',
-      } as any;
+      };
 
       const req = { user: { id: 'admin-uuid-123' } };
-      const mockResult = { id: 'order-1', orderNumber: 'A7K29P4Q', status: OrderStatus.READY_FOR_PICKUP };
+      const mockResult = {
+        id: 'order-1',
+        orderNumber: 'A7K29P4Q',
+        status: OrderStatus.READY_FOR_PICKUP,
+      };
 
       ordersService.updateStatusByOrderNumber.mockResolvedValue(mockResult);
 
       const result = await controller.updateStatus('A7K29P4Q', updateDto, req);
 
-      expect(ordersService.updateStatusByOrderNumber).toHaveBeenCalledWith('A7K29P4Q', updateDto, 'admin-uuid-123');
+      expect(ordersService.updateStatusByOrderNumber).toHaveBeenCalledWith(
+        'A7K29P4Q',
+        updateDto,
+        'admin-uuid-123',
+      );
       expect(result).toEqual(mockResult);
     });
   });

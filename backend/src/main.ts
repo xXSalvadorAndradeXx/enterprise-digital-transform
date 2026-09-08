@@ -16,7 +16,6 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
-
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
@@ -58,7 +57,9 @@ async function bootstrap() {
       errorHttpStatusCode: HttpStatus.BAD_REQUEST,
       exceptionFactory: (errors) => {
         const formattedErrors = errors.map((error) => {
-          const constraints = error.constraints ? Object.values(error.constraints) : [];
+          const constraints = error.constraints
+            ? Object.values(error.constraints)
+            : [];
           return {
             field: error.property,
             errors: constraints,

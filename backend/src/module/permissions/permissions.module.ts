@@ -7,11 +7,7 @@ import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Permission]),
-    AuthModule,
-    UsersModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Permission]), AuthModule, UsersModule],
   controllers: [PermissionsController],
   providers: [PermissionsService],
   exports: [PermissionsService],

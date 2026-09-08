@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { InventoryStatus } from '../../enums/inventory-status.enum';
-import { ProductGender }   from '../../../purchases/enums/product-gender.enum';
+import { ProductGender } from '../../../purchases/enums/product-gender.enum';
 import { CreateInventoryDetailInternalDto } from './create-inventory-detail-internal.dto';
 
 /**

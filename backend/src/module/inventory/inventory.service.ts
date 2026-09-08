@@ -10,30 +10,30 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { isUUID } from 'class-validator';
-import { Inventory }        from './entities/inventory.entity';
-import { InventoryDetail }  from './entities/inventory-detail.entity';
+import { Inventory } from './entities/inventory.entity';
+import { InventoryDetail } from './entities/inventory-detail.entity';
 import { InventoryMovement } from './entities/inventory-movement.entity';
 import { InventoryReservation } from './entities/inventory-reservation.entity';
 import { ReservationStatus } from './enums/reservation-status.enum';
-import { Product }           from '../products/entities/product.entity';
-import { ProductStatus }     from '../products/enums/product-status.enum';
-import { InventoryStatus }   from './enums/inventory-status.enum';
-import { AdjustStockDto }    from './dto/adjust-stock.dto';
+import { Product } from '../products/entities/product.entity';
+import { ProductStatus } from '../products/enums/product-status.enum';
+import { InventoryStatus } from './enums/inventory-status.enum';
+import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { QueryMovementsDto } from './dto/query-inventory.dto';
-import { MovementType }      from './enums/movement-type.enum';
-import { MovementChannel }   from './enums/movement-channel.enum';
-import { InventoryRepository }       from './repositories/inventory.repository';
+import { MovementType } from './enums/movement-type.enum';
+import { MovementChannel } from './enums/movement-channel.enum';
+import { InventoryRepository } from './repositories/inventory.repository';
 import { InventoryDetailRepository } from './repositories/inventory-detail.repository';
-import { InventoryQueryDto }              from './dto/inventory-query.dto';
-import { PaginatedInventoryResponseDto }  from './dto/paginated-inventory-response.dto';
+import { InventoryQueryDto } from './dto/inventory-query.dto';
+import { PaginatedInventoryResponseDto } from './dto/paginated-inventory-response.dto';
 import { InventoryWithDetailsResponseDto } from './dto/inventory-with-details-response.dto';
-import { InventoryDetailDto }             from './dto/inventory-detail.dto';
-import { LowStockResponseDto }            from './dto/low-stock-response.dto';
-import { CreateInventoryInternalDto }       from './dto/internal/create-inventory-internal.dto';
+import { InventoryDetailDto } from './dto/inventory-detail.dto';
+import { LowStockResponseDto } from './dto/low-stock-response.dto';
+import { CreateInventoryInternalDto } from './dto/internal/create-inventory-internal.dto';
 import { CreateInventoryDetailInternalDto } from './dto/internal/create-inventory-detail-internal.dto';
-import { calculateStockStatus }  from './helpers/stock.helper';
+import { calculateStockStatus } from './helpers/stock.helper';
 import { PaginatedMovementsResponseDto } from './dto/paginated-movements-response.dto';
-import { MovementResponseDto }           from './dto/movement-response.dto';
+import { MovementResponseDto } from './dto/movement-response.dto';
 
 @Injectable()
 export class InventoryService {
@@ -64,7 +64,9 @@ export class InventoryService {
         .update(Product)
         .set({ status: ProductStatus.PAUSED })
         .where('inventory_id = :inventoryId', { inventoryId })
-        .andWhere('status = :activeStatus', { activeStatus: ProductStatus.ACTIVE })
+        .andWhere('status = :activeStatus', {
+          activeStatus: ProductStatus.ACTIVE,
+        })
         .andWhere('deleted_at IS NULL')
         .execute();
 
@@ -78,31 +80,40 @@ export class InventoryService {
 
   // ── Listado paginado ─────────────────────────────────────────────────────
 
-  async findAll(query: InventoryQueryDto = {}): Promise<PaginatedInventoryResponseDto> {
+  async findAll(
+    query: InventoryQueryDto = {},
+  ): Promise<PaginatedInventoryResponseDto> {
     try {
-      const page  = query.page  ?? 1;
+      const page = query.page ?? 1;
       const limit = query.limit ?? 20;
 
-      query.page  = page;
+      query.page = page;
       query.limit = limit;
 
       this.logger.log(`findAll query: ${JSON.stringify(query)}`);
 
-      const [inventories, total] = await this.inventoryRepo.findAllPaginated(query);
+      const [inventories, total] =
+        await this.inventoryRepo.findAllPaginated(query);
       const totalPages = Math.ceil(total / limit);
 
       const data = inventories.map((inv) => ({
-        id:                inv.id,
-        productName:       inv.productName,
-        brand:             inv.brand,
-        mainImageUrl:      inv.mainImageUrl,
-        status:            inv.status,
-        totalStock:        inv.totalStock        ?? 0,
-        totalVariants:     inv.totalVariants     ?? 0,
+        id: inv.id,
+        productName: inv.productName,
+        brand: inv.brand,
+        mainImageUrl: inv.mainImageUrl,
+        status: inv.status,
+        totalStock: inv.totalStock ?? 0,
+        totalVariants: inv.totalVariants ?? 0,
         totalInventoryCost: inv.totalInventoryCost ?? 0,
-        createdAt:         inv.createdAt ? inv.createdAt.toISOString() : null,
+        createdAt: inv.createdAt ? inv.createdAt.toISOString() : null,
         category: inv.category
-          ? { id: inv.category.id, name: (inv.category as any).nombre ?? (inv.category as any).name ?? '' }
+          ? {
+              id: inv.category.id,
+              name:
+                (inv.category as any).nombre ??
+                (inv.category as any).name ??
+                '',
+            }
           : null,
         supplier: inv.supplier
           ? { id: inv.supplier.id, name: (inv.supplier as any).name ?? '' }
@@ -111,10 +122,7 @@ export class InventoryService {
 
       return { data, meta: { total, page, limit, totalPages } };
     } catch (error: any) {
-      this.logger.error(
-        `Error en findAll: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error en findAll: ${error.message}`, error.stack);
       throw new InternalServerErrorException(
         'Ocurrió un error interno al consultar el inventario',
       );
@@ -131,39 +139,50 @@ export class InventoryService {
       throw new NotFoundException(`Inventario con ID ${id} no encontrado`);
     }
 
-    const details          = inventory.details ?? [];
-    const totalStock       = details.reduce((s, d) => s + Number(d.stock), 0);
-    const totalVariants    = details.length;
+    const details = inventory.details ?? [];
+    const totalStock = details.reduce((s, d) => s + Number(d.stock), 0);
+    const totalVariants = details.length;
     const totalInventoryCost = Number(
-      details.reduce((s, d) => s + Number(d.stock) * Number(d.unitCost), 0).toFixed(2),
+      details
+        .reduce((s, d) => s + Number(d.stock) * Number(d.unitCost), 0)
+        .toFixed(2),
     );
 
     const mappedInventory = {
-      id:                inventory.id,
-      productName:       inventory.productName,
-      brand:             inventory.brand,
-      mainImageUrl:      inventory.mainImageUrl,
-      status:            inventory.status,
+      id: inventory.id,
+      productName: inventory.productName,
+      brand: inventory.brand,
+      mainImageUrl: inventory.mainImageUrl,
+      status: inventory.status,
       totalStock,
       totalVariants,
       totalInventoryCost,
       createdAt: inventory.createdAt ? inventory.createdAt.toISOString() : null,
       category: inventory.category
-        ? { id: inventory.category.id, name: (inventory.category as any).nombre ?? (inventory.category as any).name ?? '' }
+        ? {
+            id: inventory.category.id,
+            name:
+              (inventory.category as any).nombre ??
+              (inventory.category as any).name ??
+              '',
+          }
         : null,
       supplier: inventory.supplier
-        ? { id: inventory.supplier.id, name: (inventory.supplier as any).name ?? '' }
+        ? {
+            id: inventory.supplier.id,
+            name: (inventory.supplier as any).name ?? '',
+          }
         : null,
     } as any;
 
     const mappedDetails = details.map((d) => ({
-      id:          d.id,
-      sku:         d.sku,
-      size:        d.size,
-      color:       d.color,
-      stock:       d.stock,
-      unitCost:    Number(d.unitCost),
-      minStock:    d.minStock,
+      id: d.id,
+      sku: d.sku,
+      size: d.size,
+      color: d.color,
+      stock: d.stock,
+      unitCost: Number(d.unitCost),
+      minStock: d.minStock,
       stockStatus: calculateStockStatus(d.stock, d.minStock),
     }));
 
@@ -175,79 +194,109 @@ export class InventoryService {
   async findDetails(inventoryId: string): Promise<InventoryDetailDto[]> {
     this.logger.log(`findDetails inventario: ${inventoryId}`);
 
-    const inventory = await this.inventoryRepo.findOne({ where: { id: inventoryId } });
+    const inventory = await this.inventoryRepo.findOne({
+      where: { id: inventoryId },
+    });
     if (!inventory) {
-      throw new NotFoundException(`Inventario con ID ${inventoryId} no encontrado`);
+      throw new NotFoundException(
+        `Inventario con ID ${inventoryId} no encontrado`,
+      );
     }
 
     const details = await this.detailRepo.findByInventoryId(inventoryId);
 
     return details.map((d) => ({
-      id:          d.id,
-      sku:         d.sku,
-      size:        d.size,
-      color:       d.color,
-      stock:       d.stock,
-      unitCost:    Number(d.unitCost),
-      minStock:    d.minStock,
+      id: d.id,
+      sku: d.sku,
+      size: d.size,
+      color: d.color,
+      stock: d.stock,
+      unitCost: Number(d.unitCost),
+      minStock: d.minStock,
       stockStatus: calculateStockStatus(d.stock, d.minStock),
     }));
   }
 
   // ── Stock bajo ───────────────────────────────────────────────────────────
 
-  async findLowStock(page?: number, limit?: number): Promise<{
+  async findLowStock(
+    page?: number,
+    limit?: number,
+  ): Promise<{
     data: LowStockResponseDto[];
     meta: { total: number; page: number; limit: number; totalPages: number };
   }> {
-    const pageNumber  = page  ?? 1;
+    const pageNumber = page ?? 1;
     const limitNumber = limit ?? 20;
 
     this.logger.log(`findLowStock page: ${pageNumber}, limit: ${limitNumber}`);
 
-    const [details, total] = await this.detailRepo.findLowStock(pageNumber, limitNumber);
+    const [details, total] = await this.detailRepo.findLowStock(
+      pageNumber,
+      limitNumber,
+    );
     const totalPages = Math.ceil(total / limitNumber);
 
     const data: LowStockResponseDto[] = details.map((d) => ({
-      id:            d.id,
-      sku:           d.sku,
-      size:          d.size,
-      color:         d.color,
-      stock:         d.stock,
-      unitCost:      Number(d.unitCost),
-      minStock:      d.minStock,
+      id: d.id,
+      sku: d.sku,
+      size: d.size,
+      color: d.color,
+      stock: d.stock,
+      unitCost: Number(d.unitCost),
+      minStock: d.minStock,
       inventoryName: d.inventory?.productName ?? '',
-      stockStatus:   calculateStockStatus(d.stock, d.minStock),
+      stockStatus: calculateStockStatus(d.stock, d.minStock),
     }));
 
-    return { data, meta: { total, page: pageNumber, limit: limitNumber, totalPages } };
+    return {
+      data,
+      meta: { total, page: pageNumber, limit: limitNumber, totalPages },
+    };
   }
 
   async findByProduct(productId: string): Promise<Inventory> {
-    const inventory = await this.inventoryRepo.findOne({ where: { productId } });
+    const inventory = await this.inventoryRepo.findOne({
+      where: { productId },
+    });
     if (!inventory) {
-      throw new NotFoundException(`Inventario para producto ${productId} no encontrado`);
+      throw new NotFoundException(
+        `Inventario para producto ${productId} no encontrado`,
+      );
     }
     return inventory;
   }
 
   // ── Movimientos ──────────────────────────────────────────────────────────
 
-  async findMovements(query: QueryMovementsDto): Promise<PaginatedMovementsResponseDto> {
+  async findMovements(
+    query: QueryMovementsDto,
+  ): Promise<PaginatedMovementsResponseDto> {
     const {
-      search, dateFrom, dateTo, channel,
-      responsibleUserId, productId, inventoryDetailId,
-      type, page = 1, limit = 20,
+      search,
+      dateFrom,
+      dateTo,
+      channel,
+      responsibleUserId,
+      productId,
+      inventoryDetailId,
+      type,
+      page = 1,
+      limit = 20,
     } = query;
 
     if (dateFrom && dateTo) {
       const from = new Date(dateFrom);
-      const to   = new Date(dateTo);
+      const to = new Date(dateTo);
       if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-        throw new BadRequestException('Formato de fecha inválido en dateFrom o dateTo');
+        throw new BadRequestException(
+          'Formato de fecha inválido en dateFrom o dateTo',
+        );
       }
       if (from > to) {
-        throw new BadRequestException('dateFrom no puede ser posterior a dateTo');
+        throw new BadRequestException(
+          'dateFrom no puede ser posterior a dateTo',
+        );
       }
     }
 
@@ -255,9 +304,9 @@ export class InventoryService {
 
     const qb = this.movementRepo
       .createQueryBuilder('m')
-      .leftJoinAndSelect('m.product',         'product')
-      .leftJoinAndSelect('m.createdBy',        'createdBy')
-      .leftJoinAndSelect('m.inventoryDetail',  'inventoryDetail')
+      .leftJoinAndSelect('m.product', 'product')
+      .leftJoinAndSelect('m.createdBy', 'createdBy')
+      .leftJoinAndSelect('m.inventoryDetail', 'inventoryDetail')
       // FIX: join siempre presente para poder resolver productName cuando
       // product es null (compra física sin producto publicado en e-commerce).
       .leftJoinAndSelect('inventoryDetail.inventory', 'inventory')
@@ -288,11 +337,15 @@ export class InventoryService {
       qb.andWhere('m.createdAt <= :dateTo', { dateTo: to });
     }
 
-    if (channel)            qb.andWhere('m.channel = :channel',                     { channel });
-    if (responsibleUserId)  qb.andWhere('m.createdById = :responsibleUserId',        { responsibleUserId });
-    if (productId)          qb.andWhere('m.productId = :productId',                  { productId });
-    if (inventoryDetailId)  qb.andWhere('m.inventoryDetailId = :inventoryDetailId',  { inventoryDetailId });
-    if (type)               qb.andWhere('m.type = :type',                            { type });
+    if (channel) qb.andWhere('m.channel = :channel', { channel });
+    if (responsibleUserId)
+      qb.andWhere('m.createdById = :responsibleUserId', { responsibleUserId });
+    if (productId) qb.andWhere('m.productId = :productId', { productId });
+    if (inventoryDetailId)
+      qb.andWhere('m.inventoryDetailId = :inventoryDetailId', {
+        inventoryDetailId,
+      });
+    if (type) qb.andWhere('m.type = :type', { type });
 
     qb.skip(skip).take(limit);
 
@@ -303,40 +356,59 @@ export class InventoryService {
       // Regla: usar product.commercialName cuando existe la relación product;
       // si product es null, usar inventoryDetail → inventory → productName.
       // Esto garantiza que ningún movimiento de compra muestre "—" en la tabla.
-      const productName: string | null =
-        m.product
-          ? ((m.product as any).commercialName ?? null)
-          : (m.inventoryDetail?.inventory?.productName ?? null);
+      const productName: string | null = m.product
+        ? ((m.product as any).commercialName ?? null)
+        : (m.inventoryDetail?.inventory?.productName ?? null);
 
       return {
-        id:          m.id,
-        productName,                          // ← campo estable de primer nivel
-        type:        m.type,
-        quantity:    Number(m.quantity),
+        id: m.id,
+        productName, // ← campo estable de primer nivel
+        type: m.type,
+        quantity: Number(m.quantity),
         stockBefore: Number(m.stockBefore),
-        stockAfter:  Number(m.stockAfter),
-        notes:       m.notes,
+        stockAfter: Number(m.stockAfter),
+        notes: m.notes,
         referenceId: m.referenceId,
-        channel:     m.channel,
-        createdAt:   m.createdAt ? m.createdAt.toISOString() : new Date().toISOString(),
+        channel: m.channel,
+        createdAt: m.createdAt
+          ? m.createdAt.toISOString()
+          : new Date().toISOString(),
         product: m.product
-          ? { id: m.product.id, commercialName: (m.product as any).commercialName ?? '' }
+          ? {
+              id: m.product.id,
+              commercialName: (m.product as any).commercialName ?? '',
+            }
           : null,
         createdBy: m.createdBy
-          ? { id: m.createdBy.id, firstName: m.createdBy.firstName, lastName: m.createdBy.lastName }
+          ? {
+              id: m.createdBy.id,
+              firstName: m.createdBy.firstName,
+              lastName: m.createdBy.lastName,
+            }
           : null,
         inventoryDetail: m.inventoryDetail
-          ? { id: m.inventoryDetail.id, sku: m.inventoryDetail.sku, size: m.inventoryDetail.size, color: m.inventoryDetail.color }
+          ? {
+              id: m.inventoryDetail.id,
+              sku: m.inventoryDetail.sku,
+              size: m.inventoryDetail.size,
+              color: m.inventoryDetail.color,
+            }
           : null,
       };
     });
 
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    return {
+      data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   // ── Ajuste manual de stock ───────────────────────────────────────────────
 
-  async adjust(dto: AdjustStockDto, userId: string): Promise<InventoryMovement> {
+  async adjust(
+    dto: AdjustStockDto,
+    userId: string,
+  ): Promise<InventoryMovement> {
     // Se debe proporcionar al menos uno de los dos identificadores
     if (!dto.productId && !dto.inventoryDetailId) {
       throw new BadRequestException(
@@ -361,7 +433,7 @@ export class InventoryService {
           );
         }
         const stockBefore = Number(inventory.stock);
-        const stockAfter  = stockBefore + Number(dto.quantity);
+        const stockAfter = stockBefore + Number(dto.quantity);
 
         if (stockAfter < 0) {
           throw new BadRequestException(
@@ -385,7 +457,7 @@ export class InventoryService {
         }
 
         const detailBefore = Number(detail.stock);
-        const detailAfter  = detailBefore + Number(dto.quantity);
+        const detailAfter = detailBefore + Number(dto.quantity);
 
         if (detailAfter < 0) {
           throw new BadRequestException(
@@ -408,10 +480,16 @@ export class InventoryService {
       if (inventory) {
         if (dto.inventoryDetailId) {
           await this.recalcAndSaveInventoryStock(inventory.id, manager);
-          inventory = await manager.findOne(Inventory, { where: { id: inventory.id } }) ?? inventory;
+          inventory =
+            (await manager.findOne(Inventory, {
+              where: { id: inventory.id },
+            })) ?? inventory;
         } else {
           inventory.stock = Number(inventory.stock) + Number(dto.quantity);
-          inventory.status = inventory.stock <= 0 ? InventoryStatus.OUT_OF_STOCK : InventoryStatus.ACTIVE;
+          inventory.status =
+            inventory.stock <= 0
+              ? InventoryStatus.OUT_OF_STOCK
+              : InventoryStatus.ACTIVE;
           await manager.save(Inventory, inventory);
         }
 
@@ -427,15 +505,17 @@ export class InventoryService {
       // Registrar movimiento
       const movement = manager.create(InventoryMovement, {
         // ── CORREGIDO: productId es nullable ─────────────────────────────────
-        productId:         dto.productId         ?? null,
+        productId: dto.productId ?? null,
         inventoryDetailId: dto.inventoryDetailId ?? null,
-        type:              dto.type,
-        quantity:          dto.quantity,
-        stockBefore: inventory ? Number((inventory as any)._stockBeforeAdjust ?? inventory.stock) : 0,
-        stockAfter:  inventory ? Number(inventory.stock) : 0,
-        notes:       dto.notes       ?? null,
+        type: dto.type,
+        quantity: dto.quantity,
+        stockBefore: inventory
+          ? Number((inventory as any)._stockBeforeAdjust ?? inventory.stock)
+          : 0,
+        stockAfter: inventory ? Number(inventory.stock) : 0,
+        notes: dto.notes ?? null,
         referenceId: dto.referenceId ?? null,
-        channel:     dto.channel     ?? MovementChannel.TIENDA_FISICA,
+        channel: dto.channel ?? MovementChannel.TIENDA_FISICA,
         createdById: userId,
       });
 
@@ -446,7 +526,11 @@ export class InventoryService {
   // ── Recepción de compras (método legacy, mantener por compatibilidad) ─────
 
   async applyPurchaseReceipt(
-    items: { productId: string; quantity: number; inventoryDetailId?: string }[],
+    items: {
+      productId: string;
+      quantity: number;
+      inventoryDetailId?: string;
+    }[],
     purchaseId: string,
     userId: string,
   ): Promise<void> {
@@ -465,22 +549,22 @@ export class InventoryService {
         }
 
         const stockBefore = Number(inventory.stock);
-        const stockAfter  = stockBefore + Number(item.quantity);
+        const stockAfter = stockBefore + Number(item.quantity);
 
         inventory.stock = stockAfter;
         await manager.save(Inventory, inventory);
 
         const movement = manager.create(InventoryMovement, {
-          productId:         item.productId,
+          productId: item.productId,
           inventoryDetailId: item.inventoryDetailId ?? null,
           // ── CORREGIDO: tipo correcto del enum ────────────────────────────
-          type:        MovementType.IN,
-          quantity:    item.quantity,
+          type: MovementType.IN,
+          quantity: item.quantity,
           stockBefore,
           stockAfter,
-          notes:       'Recepción de orden de compra',
+          notes: 'Recepción de orden de compra',
           referenceId: purchaseId,
-          channel:     MovementChannel.TIENDA_FISICA,
+          channel: MovementChannel.TIENDA_FISICA,
           createdById: userId,
         });
 
@@ -495,7 +579,11 @@ export class InventoryService {
     const existing = await this.inventoryRepo.findOne({ where: { productId } });
     if (existing) return existing;
 
-    const inventory = this.inventoryRepo.create({ productId, stock: 0, reserved: 0 });
+    const inventory = this.inventoryRepo.create({
+      productId,
+      stock: 0,
+      reserved: 0,
+    });
     return this.inventoryRepo.save(inventory);
   }
 
@@ -531,14 +619,18 @@ export class InventoryService {
     data: CreateInventoryDetailInternalDto,
     manager: EntityManager,
   ): Promise<InventoryDetail> {
-    this.logger.log(`createInventoryDetail SKU: ${data.sku} para inventario: ${inventoryId}`);
+    this.logger.log(
+      `createInventoryDetail SKU: ${data.sku} para inventario: ${inventoryId}`,
+    );
 
     if (data.purchaseItemId && !isUUID(data.purchaseItemId)) {
       throw new BadRequestException('purchase_item_id debe ser un UUID válido');
     }
 
     // RN-I-008: unicidad de SKU
-    const existingSku = await manager.findOne(InventoryDetail, { where: { sku: data.sku } });
+    const existingSku = await manager.findOne(InventoryDetail, {
+      where: { sku: data.sku },
+    });
     if (existingSku) {
       this.logger.warn(`[RN-I-008] SKU duplicado: ${data.sku}`);
       throw new ConflictException(`El SKU ${data.sku} ya está registrado`);
@@ -560,7 +652,12 @@ export class InventoryService {
   ): Promise<void> {
     if (delta > 0) {
       this.logger.log(`+${delta} stock para variante ${inventoryDetailId}`);
-      await manager.increment(InventoryDetail, { id: inventoryDetailId }, 'stock', delta);
+      await manager.increment(
+        InventoryDetail,
+        { id: inventoryDetailId },
+        'stock',
+        delta,
+      );
       return;
     }
 
@@ -586,7 +683,9 @@ export class InventoryService {
         this.logger.warn(
           `[RN-I-003] Stock insuficiente para variante ${inventoryDetailId}. Actual: ${detail.stock}, delta: ${delta}`,
         );
-        throw new ConflictException('Stock insuficiente para ejecutar esta operación');
+        throw new ConflictException(
+          'Stock insuficiente para ejecutar esta operación',
+        );
       }
 
       detail.stock = newStock;
@@ -594,7 +693,9 @@ export class InventoryService {
 
       // Recalcular y pausar si queda sin stock
       await this.recalcAndSaveInventoryStock(detail.inventoryId, manager);
-      const inventory = await manager.findOne(Inventory, { where: { id: detail.inventoryId } });
+      const inventory = await manager.findOne(Inventory, {
+        where: { id: detail.inventoryId },
+      });
       if (inventory?.status === InventoryStatus.OUT_OF_STOCK) {
         await this.checkAndPauseProductsOnOutOfStock(
           inventory.id,
@@ -615,21 +716,23 @@ export class InventoryService {
     inventoryId: string,
     manager: EntityManager,
   ): Promise<void> {
-    const allDetails = await manager.find(InventoryDetail, { where: { inventoryId } });
+    const allDetails = await manager.find(InventoryDetail, {
+      where: { inventoryId },
+    });
     const totalStock = allDetails.reduce((s, d) => s + Number(d.stock), 0);
 
-    const inventory = await manager.findOne(Inventory, { where: { id: inventoryId } });
+    const inventory = await manager.findOne(Inventory, {
+      where: { id: inventoryId },
+    });
     if (!inventory) return;
 
-    inventory.stock  = totalStock;
-    inventory.status = totalStock <= 0
-      ? InventoryStatus.OUT_OF_STOCK
-      : InventoryStatus.ACTIVE;
+    inventory.stock = totalStock;
+    inventory.status =
+      totalStock <= 0 ? InventoryStatus.OUT_OF_STOCK : InventoryStatus.ACTIVE;
 
     await manager.save(Inventory, inventory);
   }
 
-  
   async releaseOrderReservations(
     orderId: string,
     manager?: EntityManager,

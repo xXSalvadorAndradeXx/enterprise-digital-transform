@@ -45,7 +45,12 @@ describe('JwtStrategy', () => {
       roles: [{ name: 'admin', permissions: [{ code: 'read:all' }] }],
     });
 
-    const payload = { sub: 'user-uuid-1', email: 'user@example.com', rol: 'admin', tokenVersion: 1 };
+    const payload = {
+      sub: 'user-uuid-1',
+      email: 'user@example.com',
+      rol: 'admin',
+      tokenVersion: 1,
+    };
     const result = await strategy.validate(payload);
     expect(result).toEqual({
       id: 'user-uuid-1',

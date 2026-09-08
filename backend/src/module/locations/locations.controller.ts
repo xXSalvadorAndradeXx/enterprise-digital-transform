@@ -50,15 +50,18 @@ export class LocationsController {
   })
   @ApiParam({
     name: 'departmentId',
-    description: 'Identificador del departamento del cual se desean obtener los distritos',
+    description:
+      'Identificador del departamento del cual se desean obtener los distritos',
     example: '1',
   })
   @ApiOkResponse({
-    description: 'Listado de distritos activos del departamento obtenido exitosamente.',
+    description:
+      'Listado de distritos activos del departamento obtenido exitosamente.',
     type: [DistrictResponseDto],
   })
   @ApiNotFoundResponse({
-    description: 'El departamento solicitado no existe o no está activo (DEPARTMENT_NOT_FOUND).',
+    description:
+      'El departamento solicitado no existe o no está activo (DEPARTMENT_NOT_FOUND).',
   })
   async getDistrictsByDepartment(
     @Param('departmentId') departmentId: string,

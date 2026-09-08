@@ -29,7 +29,8 @@ const ALLOWED_PUBLIC_SORT_FIELDS = ['createdAt', 'salePrice', 'commercialName'];
 
 export class PublicProductFilterDto {
   @ApiPropertyOptional({
-    description: 'Búsqueda parcial en nombre comercial o descripción del producto',
+    description:
+      'Búsqueda parcial en nombre comercial o descripción del producto',
     example: 'camisa',
   })
   @IsOptional()
@@ -62,7 +63,8 @@ export class PublicProductFilterDto {
   })
   @IsOptional()
   @IsEnum(PublicGender, {
-    message: 'gender debe ser uno de los siguientes valores: MEN, WOMEN, UNISEX, KIDS',
+    message:
+      'gender debe ser uno de los siguientes valores: MEN, WOMEN, UNISEX, KIDS',
   })
   gender?: PublicGender;
 
@@ -75,7 +77,8 @@ export class PublicProductFilterDto {
   size?: string;
 
   @ApiPropertyOptional({
-    description: 'Precio efectivo mínimo (aplicado sobre el precio final al cliente)',
+    description:
+      'Precio efectivo mínimo (aplicado sobre el precio final al cliente)',
     example: 20.0,
     type: Number,
   })
@@ -86,7 +89,8 @@ export class PublicProductFilterDto {
   minPrice?: number;
 
   @ApiPropertyOptional({
-    description: 'Precio efectivo máximo (aplicado sobre el precio final al cliente)',
+    description:
+      'Precio efectivo máximo (aplicado sobre el precio final al cliente)',
     example: 80.0,
     type: Number,
   })
@@ -146,7 +150,11 @@ export class PublicProductFilterDto {
   })
   order?: SortOrder;
 
-  @ApiPropertyOptional({ description: 'Número de página', default: 1, type: Number })
+  @ApiPropertyOptional({
+    description: 'Número de página',
+    default: 1,
+    type: Number,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

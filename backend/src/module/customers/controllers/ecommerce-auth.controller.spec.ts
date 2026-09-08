@@ -50,7 +50,9 @@ describe('EcommerceAuthController - Logout & Identity', () => {
 
       const result = await controller.logout(mockReq, mockRes);
 
-      expect(service.revokeSession).toHaveBeenCalledWith('valid_refresh_cookie_value');
+      expect(service.revokeSession).toHaveBeenCalledWith(
+        'valid_refresh_cookie_value',
+      );
       expect(service.clearRefreshTokenCookie).toHaveBeenCalledWith(mockRes);
       expect(result).toEqual({
         success: true,
@@ -69,7 +71,9 @@ describe('EcommerceAuthController - Logout & Identity', () => {
 
       const result = await controller.logout(mockReq, mockRes);
 
-      expect(service.revokeSession).toHaveBeenCalledWith('body_refresh_token_value');
+      expect(service.revokeSession).toHaveBeenCalledWith(
+        'body_refresh_token_value',
+      );
       expect(service.clearRefreshTokenCookie).toHaveBeenCalledWith(mockRes);
       expect(result.success).toBe(true);
     });
@@ -104,7 +108,10 @@ describe('EcommerceAuthController - Logout & Identity', () => {
 
       const result = await controller.me(mockCustomer);
 
-      expect(service.getMyProfile).toHaveBeenCalledWith(mockCustomer.id, mockCustomer);
+      expect(service.getMyProfile).toHaveBeenCalledWith(
+        mockCustomer.id,
+        mockCustomer,
+      );
       expect(result.success).toBe(true);
       expect(result.data.name).toBe('Carlos Eduardo Gómez');
     });
@@ -134,7 +141,10 @@ describe('EcommerceAuthController - Logout & Identity', () => {
 
       const result = await controller.refresh(mockReq, mockRes);
 
-      expect(service.rotateRefreshToken).toHaveBeenCalledWith('valid_refresh_cookie_value', true);
+      expect(service.rotateRefreshToken).toHaveBeenCalledWith(
+        'valid_refresh_cookie_value',
+        true,
+      );
       expect(service.findOne).toHaveBeenCalledWith('cust-123');
       expect(service.generateAccessToken).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'cust-123', isActive: true }),
@@ -176,11 +186,16 @@ describe('EcommerceAuthController - Logout & Identity', () => {
         id: 'cust-123',
         isActive: true,
       });
-      service.generateAccessToken.mockResolvedValue('access_token_body_fallback');
+      service.generateAccessToken.mockResolvedValue(
+        'access_token_body_fallback',
+      );
 
       const result = await controller.refresh(mockReq, mockRes, mockReq.body);
 
-      expect(service.rotateRefreshToken).toHaveBeenCalledWith('body_refresh_token_value', true);
+      expect(service.rotateRefreshToken).toHaveBeenCalledWith(
+        'body_refresh_token_value',
+        true,
+      );
       expect(result.data.accessToken).toBe('access_token_body_fallback');
     });
 
@@ -206,10 +221,11 @@ describe('EcommerceAuthController - Logout & Identity', () => {
       } as any;
       const mockRes = {} as any;
 
-      const sessionExpiredError = new (require('@nestjs/common').UnauthorizedException)({
-        code: 'SESSION_EXPIRED_OR_REVOKED',
-        message: 'La sesión ha expirado o ya no es válida',
-      });
+      const sessionExpiredError =
+        new (require('@nestjs/common').UnauthorizedException)({
+          code: 'SESSION_EXPIRED_OR_REVOKED',
+          message: 'La sesión ha expirado o ya no es válida',
+        });
       service.rotateRefreshToken.mockRejectedValue(sessionExpiredError);
 
       try {

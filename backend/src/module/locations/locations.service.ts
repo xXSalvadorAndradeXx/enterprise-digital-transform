@@ -41,7 +41,9 @@ export class LocationsService {
    * Valida que el departamento exista y esté activo antes de consultar distritos.
    * @throws NotFoundException con código DEPARTMENT_NOT_FOUND si el departamento no existe o está inactivo.
    */
-  async findDistrictsByDepartment(departmentId: string | number): Promise<DistrictResponseDto[]> {
+  async findDistrictsByDepartment(
+    departmentId: string | number,
+  ): Promise<DistrictResponseDto[]> {
     const department = await this.departmentRepository.findOne({
       where: { id: departmentId as any, isActive: true },
     });
@@ -118,7 +120,8 @@ export class LocationsService {
     if (String(district.departmentId) !== String(departmentId)) {
       throw new UnprocessableEntityException({
         code: LOCATION_ERRORS.INVALID_LOCATION,
-        message: 'El distrito seleccionado no pertenece al departamento indicado',
+        message:
+          'El distrito seleccionado no pertenece al departamento indicado',
         details: { departmentId, districtId },
       });
     }

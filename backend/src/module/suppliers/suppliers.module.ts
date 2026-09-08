@@ -4,11 +4,11 @@ import { Supplier } from './entities/supplier.entity';
 import { SupplierPurchase } from './entities/supplier-purchase.entity';
 import { SuppliersService } from './suppliers.service';
 import { SuppliersController } from './suppliers.controller';
-import { UsersModule } from '../users/users.module'; 
+import { UsersModule } from '../users/users.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Supplier, SupplierPurchase]),
-    UsersModule, 
+    UsersModule,
   ],
   controllers: [SuppliersController],
   providers: [SuppliersService],

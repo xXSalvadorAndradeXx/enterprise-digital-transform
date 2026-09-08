@@ -8,9 +8,7 @@ import {
   TableUnique,
 } from 'typeorm';
 
-export class CreateCartAndCartItemsTables1786500000000
-  implements MigrationInterface
-{
+export class CreateCartAndCartItemsTables1786500000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Eliminar las tablas previas si existían con esquema entero
     await queryRunner.query(`DROP TABLE IF EXISTS "cart_items" CASCADE`);

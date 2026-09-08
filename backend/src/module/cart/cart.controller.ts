@@ -31,7 +31,8 @@ import { CustomerJwtAuthGuard } from '../customers/guards/customer-jwt-auth.guar
 @ApiTags('Carrito de Compras')
 @ApiHeader({
   name: 'X-Cart-Token',
-  description: 'Token de visitante para carritos de invitado. Se establece automáticamente en el primer POST si no está autenticado.',
+  description:
+    'Token de visitante para carritos de invitado. Se establece automáticamente en el primer POST si no está autenticado.',
   required: false,
 })
 @Controller('cart')
@@ -41,16 +42,33 @@ export class CartController {
   @Get()
   @UseGuards(OptionalCustomerJwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Obtener el carrito activo del usuario autenticado o del visitante (X-Cart-Token)' })
-  @ApiResponse({ status: 200, description: 'Carrito obtenido exitosamente', type: CartResponseDto })
-  @ApiResponse({ status: 400, description: 'Token del carrito no válido (si visitante sin token) ' })
-  @ApiResponse({ status: 404, description: 'Carrito no encontrado (si autenticado sin carrito)' })
+  @ApiOperation({
+    summary:
+      'Obtener el carrito activo del usuario autenticado o del visitante (X-Cart-Token)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Carrito obtenido exitosamente',
+    type: CartResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Token del carrito no válido (si visitante sin token) ',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Carrito no encontrado (si autenticado sin carrito)',
+  })
   async getCart(
     @Req() req: Request,
     @Headers('x-cart-token') xCartToken: string,
   ): Promise<CartResponseDto> {
     const userId = (req as any).user?.userId || (req as any).user?.id || null;
-    const { cart } = await this.cartService.resolveCart(userId, xCartToken, Boolean(userId));
+    const { cart } = await this.cartService.resolveCart(
+      userId,
+      xCartToken,
+      Boolean(userId),
+    );
     return CartResponseDto.fromEntity(cart);
   }
 
@@ -58,10 +76,19 @@ export class CartController {
   @UseGuards(OptionalCustomerJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Agregar un ítem al carrito (crea el carrito si no existe). Si es visitante, devuelve X-Cart-Token en header.',
+    summary:
+      'Agregar un ítem al carrito (crea el carrito si no existe). Si es visitante, devuelve X-Cart-Token en header.',
   })
-  @ApiResponse({ status: 201, description: 'Ítem agregado exitosamente', type: CartResponseDto })
-  @ApiResponse({ status: 400, description: 'Producto no disponible, variante no encontrada o stock insuficiente' })
+  @ApiResponse({
+    status: 201,
+    description: 'Ítem agregado exitosamente',
+    type: CartResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Producto no disponible, variante no encontrada o stock insuficiente',
+  })
   async addItem(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -69,7 +96,11 @@ export class CartController {
     @Body() dto: AddCartItemDto,
   ): Promise<CartResponseDto> {
     const userId = (req as any).user?.userId || (req as any).user?.id || null;
-    const { cart, createdGuestToken } = await this.cartService.resolveCart(userId, xCartToken, true);
+    const { cart, createdGuestToken } = await this.cartService.resolveCart(
+      userId,
+      xCartToken,
+      true,
+    );
 
     if (createdGuestToken) {
       res.setHeader('X-Cart-Token', createdGuestToken);
@@ -81,9 +112,18 @@ export class CartController {
   @Patch('items/:itemId')
   @UseGuards(OptionalCustomerJwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Actualizar la cantidad de un ítem existente en el carrito' })
-  @ApiResponse({ status: 200, description: 'Cantidad actualizada exitosamente', type: CartResponseDto })
-  @ApiResponse({ status: 400, description: 'Carrito inactivo o cantidad inválida' })
+  @ApiOperation({
+    summary: 'Actualizar la cantidad de un ítem existente en el carrito',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cantidad actualizada exitosamente',
+    type: CartResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Carrito inactivo o cantidad inválida',
+  })
   @ApiResponse({ status: 404, description: 'Carrito o ítem no encontrado' })
   async updateItem(
     @Req() req: Request,
@@ -92,7 +132,11 @@ export class CartController {
     @Body() dto: UpdateCartItemDto,
   ): Promise<CartResponseDto> {
     const userId = (req as any).user?.userId || (req as any).user?.id || null;
-    const { cart } = await this.cartService.resolveCart(userId, xCartToken, false);
+    const { cart } = await this.cartService.resolveCart(
+      userId,
+      xCartToken,
+      false,
+    );
     return this.cartService.updateItemQuantity(cart.id, itemId, dto.quantity);
   }
 
@@ -100,7 +144,11 @@ export class CartController {
   @UseGuards(OptionalCustomerJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Eliminar un ítem del carrito' })
-  @ApiResponse({ status: 200, description: 'Ítem eliminado exitosamente', type: CartResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Ítem eliminado exitosamente',
+    type: CartResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Carrito o ítem no encontrado' })
   async removeItem(
     @Req() req: Request,
@@ -108,7 +156,11 @@ export class CartController {
     @Param('itemId', ParseUUIDPipe) itemId: string,
   ): Promise<CartResponseDto> {
     const userId = (req as any).user?.userId || (req as any).user?.id || null;
-    const { cart } = await this.cartService.resolveCart(userId, xCartToken, false);
+    const { cart } = await this.cartService.resolveCart(
+      userId,
+      xCartToken,
+      false,
+    );
     return this.cartService.removeItem(cart.id, itemId);
   }
 
@@ -116,14 +168,22 @@ export class CartController {
   @UseGuards(OptionalCustomerJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Vaciar todos los ítems del carrito' })
-  @ApiResponse({ status: 200, description: 'Carrito vaciado exitosamente', type: CartResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Carrito vaciado exitosamente',
+    type: CartResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Carrito no encontrado' })
   async clearCart(
     @Req() req: Request,
     @Headers('x-cart-token') xCartToken: string,
   ): Promise<CartResponseDto> {
     const userId = (req as any).user?.userId || (req as any).user?.id || null;
-    const { cart } = await this.cartService.resolveCart(userId, xCartToken, false);
+    const { cart } = await this.cartService.resolveCart(
+      userId,
+      xCartToken,
+      false,
+    );
     return this.cartService.clearCart(cart.id);
   }
 
@@ -131,10 +191,19 @@ export class CartController {
   @UseGuards(CustomerJwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Fusionar carrito de visitante con el carrito del usuario autenticado (usar después del login)',
+    summary:
+      'Fusionar carrito de visitante con el carrito del usuario autenticado (usar después del login)',
   })
-  @ApiResponse({ status: 200, description: 'Carrito fusionado exitosamente', type: CartResponseDto })
-  @ApiResponse({ status: 400, description: 'Token del carrito no válido o stock insuficiente en la fusión' })
+  @ApiResponse({
+    status: 200,
+    description: 'Carrito fusionado exitosamente',
+    type: CartResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Token del carrito no válido o stock insuficiente en la fusión',
+  })
   async mergeCart(
     @Req() req: Request,
     @Headers('x-cart-token') xCartToken: string,

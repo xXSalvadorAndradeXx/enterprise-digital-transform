@@ -1,7 +1,12 @@
 // src/purchases/dto/create-purchase-variant.dto.ts
 import {
-  IsString, MinLength, MaxLength,
-  Matches, IsInt, IsNumber, Min,
+  IsString,
+  MinLength,
+  MaxLength,
+  Matches,
+  IsInt,
+  IsNumber,
+  Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -14,7 +19,10 @@ export class CreatePurchaseVariantDto {
   size!: string;
 
   /** RN-004 */
-  @ApiProperty({ example: '#FFFFFF', description: 'Color en formato hexadecimal #RRGGBB' })
+  @ApiProperty({
+    example: '#FFFFFF',
+    description: 'Color en formato hexadecimal #RRGGBB',
+  })
   @IsString()
   @Matches(/^#[0-9A-Fa-f]{6}$/, {
     message: 'color debe ser un código hexadecimal válido (#RRGGBB)',
@@ -28,7 +36,7 @@ export class CreatePurchaseVariantDto {
   quantity!: number;
 
   /** RN-009 */
-  @ApiProperty({ example: 20.00 })
+  @ApiProperty({ example: 20.0 })
   @IsNumber()
   @Min(0)
   unitCost!: number;

@@ -2,36 +2,70 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Branch } from '../entities/branch.entity';
 
 export class PublicTerritoryDto {
-  @ApiProperty({ example: 1, description: 'Identificador único numérico (integer)' })
+  @ApiProperty({
+    example: 1,
+    description: 'Identificador único numérico (integer)',
+  })
   id!: number;
 
-  @ApiProperty({ example: 'San Salvador', description: 'Nombre del territorio' })
+  @ApiProperty({
+    example: 'San Salvador',
+    description: 'Nombre del territorio',
+  })
   name!: string;
 }
 
 export class PublicBranchResponseDto {
-  @ApiProperty({ example: 'a1b2c3d4-e5f6-4000-a000-ef1234567890', description: 'ID de la sucursal' })
+  @ApiProperty({
+    example: 'a1b2c3d4-e5f6-4000-a000-ef1234567890',
+    description: 'ID de la sucursal',
+  })
   id!: string;
 
-  @ApiProperty({ example: 'SUC-001', description: 'Código único funcional de la sucursal' })
+  @ApiProperty({
+    example: 'SUC-001',
+    description: 'Código único funcional de la sucursal',
+  })
   code!: string;
 
-  @ApiProperty({ example: 'Sucursal Central Escalón', description: 'Nombre de la sucursal' })
+  @ApiProperty({
+    example: 'Sucursal Central Escalón',
+    description: 'Nombre de la sucursal',
+  })
   name!: string;
 
-  @ApiPropertyOptional({ example: 'Paseo General Escalón #1234', description: 'Dirección física', nullable: true })
+  @ApiPropertyOptional({
+    example: 'Paseo General Escalón #1234',
+    description: 'Dirección física',
+    nullable: true,
+  })
   address!: string | null;
 
-  @ApiPropertyOptional({ example: '2222-0000', description: 'Teléfono de contacto', nullable: true })
+  @ApiPropertyOptional({
+    example: '2222-0000',
+    description: 'Teléfono de contacto',
+    nullable: true,
+  })
   phone!: string | null;
 
-  @ApiProperty({ example: true, description: 'Indica si la sucursal permite retiro en tienda' })
+  @ApiProperty({
+    example: true,
+    description: 'Indica si la sucursal permite retiro en tienda',
+  })
   allowsPickup!: boolean;
 
-  @ApiPropertyOptional({ type: PublicTerritoryDto, description: 'Departamento asociado', nullable: true })
+  @ApiPropertyOptional({
+    type: PublicTerritoryDto,
+    description: 'Departamento asociado',
+    nullable: true,
+  })
   department!: PublicTerritoryDto | null;
 
-  @ApiPropertyOptional({ type: PublicTerritoryDto, description: 'Distrito asociado', nullable: true })
+  @ApiPropertyOptional({
+    type: PublicTerritoryDto,
+    description: 'Distrito asociado',
+    nullable: true,
+  })
   district!: PublicTerritoryDto | null;
 
   static fromEntity(entity: Branch): PublicBranchResponseDto {

@@ -15,14 +15,16 @@ export class CustomerProfileResponseDto {
   id!: string;
 
   @ApiProperty({
-    description: 'Nombre del cliente para visualización en la interfaz de Cuenta',
+    description:
+      'Nombre del cliente para visualización en la interfaz de Cuenta',
     example: 'Carlos Eduardo Gómez',
   })
   @Expose()
   name!: string;
 
   @ApiPropertyOptional({
-    description: 'Nombre completo registrado (alias para compatibilidad directa con contratos que esperan fullName)',
+    description:
+      'Nombre completo registrado (alias para compatibilidad directa con contratos que esperan fullName)',
     example: 'Carlos Eduardo Gómez',
   })
   @Expose()
@@ -43,7 +45,8 @@ export class CustomerProfileResponseDto {
   phone!: string;
 
   @ApiPropertyOptional({
-    description: 'Documento Único de Identidad (DUI) salvadoreño (XXXXXXXX-X), o null si no fue provisto',
+    description:
+      'Documento Único de Identidad (DUI) salvadoreño (XXXXXXXX-X), o null si no fue provisto',
     example: '01234567-8',
     nullable: true,
   })
@@ -58,7 +61,8 @@ export class CustomerProfileResponseDto {
   role?: string;
 
   @ApiPropertyOptional({
-    description: 'Fecha de registro de la cuenta en formato ISO 8601, o null si no está disponible',
+    description:
+      'Fecha de registro de la cuenta en formato ISO 8601, o null si no está disponible',
     example: '2026-08-26T19:53:00.000Z',
     nullable: true,
   })
