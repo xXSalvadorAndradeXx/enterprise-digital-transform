@@ -13,6 +13,7 @@ import type { CustomerAddress } from "@/types/addresses/address.types";
 import type { Department, District } from "@/types/locations/location.types";
 
 export type AddressModalMode = "create" | "edit";
+type CatalogStatus = "idle" | "loading" | "success" | "error";
 
 export interface AddressModalSubmitValues {
   label: string;
@@ -73,24 +74,50 @@ function ErrorText({ message }: { message?: string }) {
   ) : null;
 }
 
-function validateValues(values: AddressModalSubmitValues): AddressFormErrors {
+function validateValues(
+  values: AddressModalSubmitValues,
+  departments: Department[],
+  districts: District[],
+): AddressFormErrors {
   const errors: AddressFormErrors = {};
   const phoneDigits = values.phone.replace(/\D/g, "");
 
   if (!values.label.trim()) {
     errors.label = "Ingresa una etiqueta.";
+  } else if (values.label.trim().length < 2) {
+    errors.label = "La etiqueta debe tener al menos 2 caracteres.";
+  } else if (values.label.trim().length > 50) {
+    errors.label = "La etiqueta debe tener máximo 50 caracteres.";
   }
 
   if (!values.departmentId) {
     errors.departmentId = "Selecciona un departamento.";
+  } else if (
+    departments.length > 0 &&
+    !departments.some(
+      (department) => String(department.id) === values.departmentId,
+    )
+  ) {
+    errors.departmentId = "Selecciona un departamento válido.";
   }
 
   if (!values.districtId) {
     errors.districtId = "Selecciona un distrito.";
+  } else if (
+    districts.length > 0 &&
+    !districts.some((district) => String(district.id) === values.districtId)
+  ) {
+    errors.districtId = "Selecciona un distrito válido.";
+  }
+
+  if (values.city.trim().length > 100) {
+    errors.city = "La ciudad debe tener máximo 100 caracteres.";
   }
 
   if (values.addressLine.trim().length < 5) {
     errors.addressLine = "Ingresa una dirección exacta.";
+  } else if (values.addressLine.trim().length > 500) {
+    errors.addressLine = "La dirección debe tener máximo 500 caracteres.";
   }
 
   if (values.phone.trim() && phoneDigits.length < 8) {
@@ -113,10 +140,16 @@ export default function AddressModal({
   );
   const [errors, setErrors] = useState<AddressFormErrors>({});
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentsStatus, setDepartmentsStatus] = useState<CatalogStatus>(
+    () => (open ? "loading" : "idle"),
+  );
   const [districtCatalog, setDistrictCatalog] = useState<{
     departmentId: number;
     items: District[];
   } | null>(null);
+  const [districtsStatus, setDistrictsStatus] = useState<CatalogStatus>(() =>
+    open && getInitialValues(initialAddress).departmentId ? "loading" : "idle",
+  );
   const [catalogError, setCatalogError] = useState("");
 
   const title = mode === "edit" ? "Editar dirección" : "Nueva dirección";
@@ -134,6 +167,11 @@ export default function AddressModal({
     districtCatalog?.departmentId === selectedDepartmentId
       ? districtCatalog.items
       : [];
+  const isLoadingDepartments = departmentsStatus === "loading";
+  const isLoadingDistricts =
+    Boolean(selectedDepartmentId) && districtsStatus === "loading";
+  const isSaveDisabled =
+    isSubmitting || isLoadingDepartments || isLoadingDistricts;
 
   useEffect(() => {
     if (!open) {
@@ -142,14 +180,22 @@ export default function AddressModal({
 
     const controller = new AbortController();
 
+    Promise.resolve().then(() => {
+      if (!controller.signal.aborted) {
+        setDepartmentsStatus("loading");
+      }
+    });
+
     locationsService
       .getDepartments(controller.signal)
       .then((items) => {
         setDepartments(items);
+        setDepartmentsStatus("success");
         setCatalogError("");
       })
       .catch(() => {
         if (!controller.signal.aborted) {
+          setDepartmentsStatus("error");
           setCatalogError("No pudimos cargar los departamentos.");
         }
       });
@@ -164,6 +210,12 @@ export default function AddressModal({
 
     const controller = new AbortController();
 
+    Promise.resolve().then(() => {
+      if (!controller.signal.aborted) {
+        setDistrictsStatus("loading");
+      }
+    });
+
     locationsService
       .getDistricts(selectedDepartmentId, controller.signal)
       .then((items) => {
@@ -171,10 +223,12 @@ export default function AddressModal({
           departmentId: selectedDepartmentId,
           items,
         });
+        setDistrictsStatus("success");
         setCatalogError("");
       })
       .catch(() => {
         if (!controller.signal.aborted) {
+          setDistrictsStatus("error");
           setCatalogError("No pudimos cargar los distritos.");
         }
       });
@@ -212,6 +266,11 @@ export default function AddressModal({
       ...(field === "departmentId" ? { districtId: "" } : {}),
     }));
 
+    if (field === "departmentId") {
+      setDistrictCatalog(null);
+      setDistrictsStatus(value ? "loading" : "idle");
+    }
+
     setErrors((currentErrors) => ({
       ...currentErrors,
       [field]: undefined,
@@ -222,7 +281,7 @@ export default function AddressModal({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (isSubmitting) {
+    if (isSaveDisabled) {
       return;
     }
 
@@ -235,7 +294,11 @@ export default function AddressModal({
       phone: values.phone.trim(),
     };
 
-    const nextErrors = validateValues(nextValues);
+    const nextErrors = validateValues(
+      nextValues,
+      departments,
+      districtOptions,
+    );
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -356,9 +419,13 @@ export default function AddressModal({
                 }
                 className={inputClassName}
                 aria-invalid={Boolean(errors.departmentId)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoadingDepartments}
               >
-                <option value="">Selecciona un departamento</option>
+                <option value="">
+                  {isLoadingDepartments
+                    ? "Cargando departamentos..."
+                    : "Selecciona un departamento"}
+                </option>
 
                 {departments.map((department) => (
                   <option key={department.id} value={department.id}>
@@ -386,9 +453,16 @@ export default function AddressModal({
                 }
                 className={inputClassName}
                 aria-invalid={Boolean(errors.districtId)}
-                disabled={isSubmitting || !values.departmentId}
+                disabled={
+                  isSubmitting || isLoadingDistricts || !values.departmentId
+                }
+                aria-busy={isLoadingDistricts}
               >
-                <option value="">Selecciona un distrito</option>
+                <option value="">
+                  {isLoadingDistricts
+                    ? "Cargando distritos..."
+                    : "Selecciona un distrito"}
+                </option>
 
                 {districtOptions.map((district) => (
                   <option key={district.id} value={district.id}>
@@ -415,8 +489,11 @@ export default function AddressModal({
                 className={inputClassName}
                 placeholder="Ciudad"
                 autoComplete="address-level2"
+                aria-invalid={Boolean(errors.city)}
                 disabled={isSubmitting}
               />
+
+              <ErrorText message={errors.city} />
             </div>
 
             <div className="sm:col-span-2">
@@ -465,7 +542,7 @@ export default function AddressModal({
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSaveDisabled}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#003791] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#005BFF] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSubmitting ? (
