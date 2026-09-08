@@ -4,9 +4,14 @@ import {
   CheckCircle2,
   MapPin,
   Pencil,
+  Plus,
   Trash2,
 } from "lucide-react";
+import { useState } from "react";
 
+import AddressModal, {
+  type AddressModalMode,
+} from "@/components/addresses/AddressModal";
 import { useAddresses } from "@/hooks/addresses/useAddresses";
 import type { CustomerAddress } from "@/types/addresses/address.types";
 
@@ -36,7 +41,13 @@ function formatLocation(address: CustomerAddress) {
   ].filter(Boolean);
 }
 
-function AddressCard({ address }: { address: CustomerAddress }) {
+function AddressCard({
+  address,
+  onEdit,
+}: {
+  address: CustomerAddress;
+  onEdit: (address: CustomerAddress) => void;
+}) {
   const locationParts = formatLocation(address);
 
   return (
@@ -61,6 +72,7 @@ function AddressCard({ address }: { address: CustomerAddress }) {
         <div className="flex shrink-0 gap-2">
           <button
             type="button"
+            onClick={() => onEdit(address)}
             aria-label={`Editar dirección ${address.label}`}
             className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#d9dde5] text-[#1822d9] transition hover:bg-[#EEF3FF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1822d9]"
           >
@@ -100,6 +112,14 @@ function AddressCard({ address }: { address: CustomerAddress }) {
 }
 
 export default function AddressesPage() {
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [addressModalMode, setAddressModalMode] =
+    useState<AddressModalMode>("create");
+  const [selectedAddress, setSelectedAddress] =
+    useState<CustomerAddress | null>(null);
+  const [addressModalKey, setAddressModalKey] = useState(0);
+  const [isSubmittingAddress, setIsSubmittingAddress] = useState(false);
+
   const {
     addresses,
     isLoading,
@@ -109,16 +129,57 @@ export default function AddressesPage() {
 
   const hasAddresses = addresses.length > 0;
 
+  const openCreateAddressModal = () => {
+    setAddressModalMode("create");
+    setSelectedAddress(null);
+    setAddressModalKey((currentKey) => currentKey + 1);
+    setIsAddressModalOpen(true);
+  };
+
+  const openEditAddressModal = (address: CustomerAddress) => {
+    setAddressModalMode("edit");
+    setSelectedAddress(address);
+    setAddressModalKey((currentKey) => currentKey + 1);
+    setIsAddressModalOpen(true);
+  };
+
+  const closeAddressModal = () => {
+    if (isSubmittingAddress) {
+      return;
+    }
+
+    setIsAddressModalOpen(false);
+    setSelectedAddress(null);
+  };
+
+  const handleAddressModalSubmit = async () => {
+    setIsSubmittingAddress(true);
+    setIsAddressModalOpen(false);
+    setSelectedAddress(null);
+    setIsSubmittingAddress(false);
+  };
+
   return (
     <section className="min-h-[calc(100vh-10rem)] text-[#111111]">
-      <header className="border-b border-[#d9dde5] pb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-black sm:text-4xl">
-          Direcciones
-        </h1>
+      <header className="flex flex-col gap-4 border-b border-[#d9dde5] pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-black sm:text-4xl">
+            Direcciones
+          </h1>
 
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4A4A4A]">
-          Administra las direcciones que usas para recibir tus pedidos.
-        </p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4A4A4A]">
+            Administra las direcciones que usas para recibir tus pedidos.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={openCreateAddressModal}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-sm bg-[#1822d9] px-5 text-sm font-semibold text-white transition hover:bg-[#1118b8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1822d9]"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Nueva dirección
+        </button>
       </header>
 
       <div className="mt-8">
@@ -154,11 +215,25 @@ export default function AddressesPage() {
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {addresses.map((address) => (
-              <AddressCard key={address.id} address={address} />
+              <AddressCard
+                key={address.id}
+                address={address}
+                onEdit={openEditAddressModal}
+              />
             ))}
           </div>
         )}
       </div>
+
+      <AddressModal
+        key={addressModalKey}
+        open={isAddressModalOpen}
+        mode={addressModalMode}
+        initialAddress={selectedAddress}
+        isSubmitting={isSubmittingAddress}
+        onClose={closeAddressModal}
+        onSubmit={handleAddressModalSubmit}
+      />
     </section>
   );
 }
