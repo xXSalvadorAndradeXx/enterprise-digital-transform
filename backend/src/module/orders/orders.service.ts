@@ -962,7 +962,11 @@ export class OrdersService {
 
         let shippingTotal = '0.00';
         if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
-          shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
+          shippingTotal = (
+            calculatedSubtotal >= CHECKOUT_CONFIG.FREE_SHIPPING_THRESHOLD
+              ? 0
+              : CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE
+          ).toFixed(2);
         }
 
         const total = calculatedSubtotal + Number(shippingTotal);
@@ -1851,14 +1855,19 @@ export class OrdersService {
 
     // 7. Calcular costo de envío y envío gratis
     let shippingTotal = '0.00';
-    let freeShippingApplied = deliveryMethod === DeliveryMethod.PICKUP;
+    let freeShippingApplied = false;
 
     if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
-      shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
-      freeShippingApplied = false;
+      if (totalEffective >= CHECKOUT_CONFIG.FREE_SHIPPING_THRESHOLD) {
+        shippingTotal = '0.00';
+        freeShippingApplied = true;
+      } else {
+        shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
+        freeShippingApplied = false;
+      }
     } else {
       shippingTotal = '0.00';
-      freeShippingApplied = true;
+      freeShippingApplied = false;
     }
 
     const total = totalEffective + Number(shippingTotal);

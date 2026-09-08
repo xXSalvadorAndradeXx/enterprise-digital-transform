@@ -35,6 +35,7 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
   let mockGuestCustomerRepo: any;
   let mockBranchRepo: any;
   let mockProductRepo: any;
+  let mockVariantConfigRepo: any;
   let mockIdempotencyRepo: any;
 
   beforeEach(async () => {
@@ -67,6 +68,26 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       findOne: jest.fn(),
     };
 
+    mockVariantConfigRepo = {
+      findOne: jest.fn().mockImplementation(async (options: any) => {
+        const prod = (await mockProductRepo.findOne(options)) || {
+          id: options?.where?.id || 'prod-uuid-1',
+          status: ProductStatus.ACTIVE,
+          isActive: true,
+          isPublished: true,
+          deletedAt: null,
+          commercialName: 'Producto 1',
+          salePrice: 10.0,
+          inventory: { stock: 100 },
+        };
+        return {
+          id: options?.where?.id || 'prod-uuid-1',
+          product: prod,
+          inventoryDetail: { id: 'inv-detail-1', stock: 100, inventory: { stock: 100 } },
+        };
+      }),
+    };
+
     mockIdempotencyRepo = {
       createQueryBuilder: jest.fn().mockReturnValue({
         delete: jest.fn().mockReturnThis(),
@@ -84,7 +105,7 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         { provide: getRepositoryToken(GuestCustomer), useValue: mockGuestCustomerRepo },
         { provide: getRepositoryToken(Branch), useValue: mockBranchRepo },
         { provide: getRepositoryToken(Product), useValue: mockProductRepo },
-        { provide: getRepositoryToken(ProductVariantConfig), useValue: {} },
+        { provide: getRepositoryToken(ProductVariantConfig), useValue: mockVariantConfigRepo },
         { provide: getRepositoryToken(CheckoutIdempotency), useValue: mockIdempotencyRepo },
       ],
     }).compile();
@@ -196,7 +217,18 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
 
       mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
         const fakeTx: any = {
-          getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }),
+          getRepository: jest.fn().mockImplementation((entity: any) => {
+            if (entity === ProductVariantConfig) {
+              return {
+                findOne: jest.fn().mockResolvedValue({
+                  id: 'prod-uuid-1',
+                  product: mockProduct,
+                  inventoryDetail: { id: 'inv-1', stock: 10, inventory: mockInventory },
+                }),
+              };
+            }
+            return { findOne: jest.fn().mockResolvedValue(null) };
+          }),
           createQueryBuilder: jest.fn().mockReturnValue({
             insert: jest.fn().mockReturnThis(),
             into: jest.fn().mockReturnThis(),
@@ -207,9 +239,15 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
             getOne: jest.fn().mockResolvedValue(mockInventory),
           }),
           findOne: jest.fn().mockImplementation((entityClass: any, options: any) => {
-            if (entityClass === Customer || options.where?.id === 'user-uuid-123') return Promise.resolve(mockUser);
-            if (options.where?.id === 'branch-1') return Promise.resolve(mockBranch);
-            if (options.where?.id === 'prod-uuid-1') return Promise.resolve(mockProduct);
+            if (entityClass === Customer || options?.where?.id === 'user-uuid-123') return Promise.resolve(mockUser);
+            if (options?.where?.id === 'branch-1') return Promise.resolve(mockBranch);
+            if (entityClass === ProductVariantConfig || options?.where?.id === 'prod-uuid-1') {
+              return Promise.resolve({
+                id: 'prod-uuid-1',
+                product: mockProduct,
+                inventoryDetail: { id: 'inv-1', inventoryId: 'inv-1', stock: 10, inventory: mockInventory },
+              });
+            }
             return Promise.resolve(null);
           }),
           create: jest.fn().mockImplementation((cls: any, dto: any) => ({ id: 'uuid-gen', ...dto })),
