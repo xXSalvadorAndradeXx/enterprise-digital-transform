@@ -88,7 +88,6 @@ describe('InventoryService', () => {
     }).compile();
 
     service = module.get<InventoryService>(InventoryService);
-    jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
   });
 
   it('debe estar definido e inicializado correctamente', () => {

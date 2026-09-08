@@ -26,6 +26,6 @@ export class District {
   @JoinColumn({ name: 'department_id' })
   department!: Department;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 }

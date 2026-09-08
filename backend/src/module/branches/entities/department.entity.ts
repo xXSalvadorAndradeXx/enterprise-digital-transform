@@ -12,7 +12,7 @@ export class Department {
   @Column({ type: 'varchar', length: 10, nullable: false, unique: true })
   code!: string;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 
   @OneToMany(() => District, (district) => district.department)

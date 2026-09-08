@@ -6,9 +6,19 @@ import { AuthGuard } from '@nestjs/passport';
 export class CustomerJwtAuthGuard extends AuthGuard('customer-jwt') {
   handleRequest(err: any, user: any, info: any) {
     if (err || !user) {
-      throw err || new UnauthorizedException({
+      if (err) {
+        throw err;
+      }
+      const isExpired =
+        info?.name === 'TokenExpiredError' ||
+        (typeof info?.message === 'string' && info.message.toLowerCase().includes('expired'));
+
+      throw new UnauthorizedException({
         statusCode: 401,
-        message: 'Acceso no autorizado. Token inválido o inexistente.',
+        code: isExpired ? 'TOKEN_EXPIRED' : 'UNAUTHORIZED',
+        message: isExpired
+          ? 'El token de acceso ha expirado.'
+          : 'Acceso no autorizado. Token inválido o inexistente.',
         error: 'Unauthorized',
       });
     }

@@ -11,10 +11,14 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { HashService } from '../auth/services/hash.service';
 import { EcommerceRegisterDto } from './dto/ecommerce-register.dto';
+import { CustomerProfileResponseDto } from './dto/customer-profile-response.dto';
+import { UpdateCustomerProfileDto } from './dto/update-customer-profile.dto';
+import { plainToInstance } from 'class-transformer';
 import {
   SESSION_ABSOLUTE_MAX_TTL_SECONDS,
   COOKIE_TTL_SHORT,
   COOKIE_TTL_LONG_SECONDS,
+  REFRESH_TOKEN_COOKIE_PATH,
   REFRESH_TOKEN_COOKIE_NAME,
   buildRefreshTokenCookieOptions,
   hashToken,
@@ -304,6 +308,152 @@ export class CustomersService {
       });
     }
     return customer;
+  }
+
+  async getMyProfile(
+    customerId: string,
+    cachedUser?: Partial<Customer> & { customerId?: string; fullName?: string },
+  ): Promise<CustomerProfileResponseDto> {
+    if (!customerId) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Identificador de cliente no provisto en el token de acceso.',
+      });
+    }
+
+    // 1. Optimización: Si la estrategia Auth ya cargó los campos requeridos en la misma petición,
+    // evitamos hacer una consulta adicional a la base de datos.
+    if (
+      cachedUser &&
+      (cachedUser.id === customerId || cachedUser.customerId === customerId) &&
+      cachedUser.email &&
+      cachedUser.phone
+    ) {
+      const dto = new CustomerProfileResponseDto();
+      dto.id = cachedUser.id ?? customerId;
+      dto.name = cachedUser.fullName ?? '';
+      dto.fullName = cachedUser.fullName;
+      dto.email = cachedUser.email;
+      dto.phone = cachedUser.phone;
+      dto.dui = cachedUser.dui ?? null;
+      dto.role = 'cliente';
+      dto.createdAt = cachedUser.createdAt ?? null;
+
+      return plainToInstance(CustomerProfileResponseDto, dto, {
+        excludeExtraneousValues: false,
+      });
+    }
+
+    // 2. Consulta con proyección mínima en caso de que falten campos en memoria
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId, deletedAt: IsNull() },
+      select: ['id', 'fullName', 'email', 'phone', 'dui', 'isActive', 'createdAt'],
+    });
+
+    if (!customer) {
+      throw new NotFoundException({
+        code: 'CUSTOMER_NOT_FOUND',
+        message: 'No se encontró la cuenta del cliente asociada al token.',
+      });
+    }
+
+    if (!customer.isActive) {
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_DISABLED',
+        message: 'La cuenta del cliente se encuentra inactiva o deshabilitada.',
+      });
+    }
+
+    const dto = new CustomerProfileResponseDto();
+    dto.id = customer.id;
+    dto.name = customer.fullName;
+    dto.fullName = customer.fullName;
+    dto.email = customer.email;
+    dto.phone = customer.phone;
+    dto.dui = customer.dui ?? null;
+    dto.role = 'cliente';
+    dto.createdAt = customer.createdAt;
+
+    return plainToInstance(CustomerProfileResponseDto, dto, {
+      excludeExtraneousValues: false,
+    });
+  }
+
+  async updateMyProfile(
+    customerId: string,
+    dto: UpdateCustomerProfileDto,
+  ): Promise<CustomerProfileResponseDto> {
+    if (!customerId) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Identificador de cliente no provisto en el token de acceso.',
+      });
+    }
+
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId, deletedAt: IsNull() },
+    });
+
+    if (!customer) {
+      throw new NotFoundException({
+        code: 'CUSTOMER_NOT_FOUND',
+        message: 'No se encontró la cuenta de cliente a actualizar.',
+      });
+    }
+
+    if (!customer.isActive) {
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_DISABLED',
+        message: 'La cuenta del cliente se encuentra inactiva o deshabilitada.',
+      });
+    }
+
+    let hasChanges = false;
+
+    // 1. Actualización de nombre (resuelto desde dto.name o dto.fullName)
+    const newName = dto.getResolvedName ? dto.getResolvedName() : (dto.name ?? dto.fullName);
+    if (newName !== undefined && newName !== null) {
+      const normalizedName = newName.trim();
+      if (normalizedName.length > 0 && normalizedName !== customer.fullName) {
+        customer.fullName = normalizedName;
+        hasChanges = true;
+      }
+    }
+
+    // 2. Actualización de teléfono salvadoreño
+    if (dto.phone !== undefined && dto.phone !== null) {
+      let normalizedPhone = dto.phone.trim();
+      const cleanedDigits = normalizedPhone.replace(/[^\d+]/g, '');
+      if (/^\d{8}$/.test(cleanedDigits)) {
+        normalizedPhone = `+503${cleanedDigits}`;
+      } else {
+        normalizedPhone = cleanedDigits;
+      }
+
+      if (normalizedPhone !== customer.phone) {
+        customer.phone = normalizedPhone;
+        hasChanges = true;
+      }
+    }
+
+    let savedCustomer = customer;
+    if (hasChanges) {
+      savedCustomer = await this.customerRepository.save(customer);
+    }
+
+    const responseDto = new CustomerProfileResponseDto();
+    responseDto.id = savedCustomer.id;
+    responseDto.name = savedCustomer.fullName;
+    responseDto.fullName = savedCustomer.fullName;
+    responseDto.email = savedCustomer.email;
+    responseDto.phone = savedCustomer.phone;
+    responseDto.dui = savedCustomer.dui ?? null;
+    responseDto.role = 'cliente';
+    responseDto.createdAt = savedCustomer.createdAt;
+
+    return plainToInstance(CustomerProfileResponseDto, responseDto, {
+      excludeExtraneousValues: false,
+    });
   }
 
   /**
@@ -649,6 +799,9 @@ export class CustomersService {
    * Útil para logout o invalidación por compromiso de seguridad.
    */
   async revokeSession(refreshToken: string): Promise<void> {
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      return;
+    }
     const tokenHash = hashToken(refreshToken);
     const session = await this.sessionRepository.findOne({
       where: { refreshTokenHash: tokenHash, revokedAt: IsNull() },
@@ -681,15 +834,22 @@ export class CustomersService {
   }
 
   /**
-   * Limpia la cookie del refresh token (útil para logout).
+   * Limpia la cookie HttpOnly del refresh token utilizando la misma configuración
+   * (Path, SameSite, Secure) con la que fue emitida, garantizando logout en el cliente.
    */
   clearRefreshTokenCookie(res: Response): void {
     const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
+    const clearOptions = {
       httpOnly: true,
-      sameSite: 'lax',
-      path: '/api/v1/ecommerce/auth',
+      sameSite: 'lax' as const,
+      path: REFRESH_TOKEN_COOKIE_PATH,
       secure: isProduction,
+    };
+   
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, clearOptions);
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
+      ...clearOptions,
+      path: '/',
     });
   }
 

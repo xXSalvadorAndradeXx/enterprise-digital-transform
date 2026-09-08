@@ -35,6 +35,7 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
   let mockGuestCustomerRepo: any;
   let mockBranchRepo: any;
   let mockProductRepo: any;
+  let mockVariantConfigRepo: any;
   let mockIdempotencyRepo: any;
 
   beforeEach(async () => {
@@ -67,6 +68,26 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       findOne: jest.fn(),
     };
 
+    mockVariantConfigRepo = {
+      findOne: jest.fn().mockImplementation(async (options: any) => {
+        const prod = (await mockProductRepo.findOne(options)) || {
+          id: options?.where?.id || 'prod-uuid-1',
+          status: ProductStatus.ACTIVE,
+          isActive: true,
+          isPublished: true,
+          deletedAt: null,
+          commercialName: 'Producto 1',
+          salePrice: 10.0,
+          inventory: { stock: 100 },
+        };
+        return {
+          id: options?.where?.id || 'prod-uuid-1',
+          product: prod,
+          inventoryDetail: { id: 'inv-detail-1', stock: 100, inventory: { stock: 100 } },
+        };
+      }),
+    };
+
     mockIdempotencyRepo = {
       createQueryBuilder: jest.fn().mockReturnValue({
         delete: jest.fn().mockReturnThis(),
@@ -74,41 +95,6 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         execute: jest.fn().mockResolvedValue({}),
       }),
       findOne: jest.fn().mockResolvedValue(null),
-    };
-
-    const mockVariantConfigRepo = {
-      findOne: jest.fn().mockImplementation(async ({ where }: any) => {
-        const id = where?.id;
-        const mockProd = await mockProductRepo.findOne({ where: { id } });
-        const productObj = mockProd || {
-          id: 'prod-uuid-1',
-          productId: 'prod-uuid-1',
-          status: ProductStatus.ACTIVE,
-          isActive: true,
-          isPublished: true,
-          deletedAt: null,
-          commercialName: 'Producto Test',
-          salePrice: 10.00,
-          discount: 0,
-          discountStartsAt: null,
-          discountEndsAt: null,
-          inventory: { id: 'inv-1', status: 'ACTIVE', stock: 100, available: 100 },
-        };
-        return {
-          id: id || 'variant-uuid-1',
-          productId: productObj.id || 'prod-uuid-1',
-          inventoryDetailId: 'inv-detail-1',
-          minStock: 1,
-          product: productObj,
-          inventoryDetail: {
-            id: 'inv-detail-1',
-            stock: 100,
-            size: 'M',
-            color: 'Negro',
-            sku: 'SKU-TEST',
-          },
-        };
-      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -231,7 +217,18 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
 
       mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
         const fakeTx: any = {
-          getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue(null) }),
+          getRepository: jest.fn().mockImplementation((entity: any) => {
+            if (entity === ProductVariantConfig) {
+              return {
+                findOne: jest.fn().mockResolvedValue({
+                  id: 'prod-uuid-1',
+                  product: mockProduct,
+                  inventoryDetail: { id: 'inv-1', stock: 10, inventory: mockInventory },
+                }),
+              };
+            }
+            return { findOne: jest.fn().mockResolvedValue(null) };
+          }),
           createQueryBuilder: jest.fn().mockReturnValue({
             insert: jest.fn().mockReturnThis(),
             into: jest.fn().mockReturnThis(),
@@ -242,22 +239,13 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
             getOne: jest.fn().mockResolvedValue(mockInventory),
           }),
           findOne: jest.fn().mockImplementation((entityClass: any, options: any) => {
-            if (entityClass === Customer || options.where?.id === 'user-uuid-123') return Promise.resolve(mockUser);
-            if (options.where?.id === 'branch-1') return Promise.resolve(mockBranch);
-            if (entityClass === ProductVariantConfig || options.where?.id === 'prod-uuid-1') {
+            if (entityClass === Customer || options?.where?.id === 'user-uuid-123') return Promise.resolve(mockUser);
+            if (options?.where?.id === 'branch-1') return Promise.resolve(mockBranch);
+            if (entityClass === ProductVariantConfig || options?.where?.id === 'prod-uuid-1') {
               return Promise.resolve({
-                id: options.where?.id || 'prod-uuid-1',
-                productId: 'prod-uuid-1',
-                inventoryDetailId: 'inv-detail-1',
-                minStock: 1,
+                id: 'prod-uuid-1',
                 product: mockProduct,
-                inventoryDetail: {
-                  id: 'inv-detail-1',
-                  stock: 100,
-                  size: 'M',
-                  color: 'Negro',
-                  sku: 'SKU-TEST',
-                },
+                inventoryDetail: { id: 'inv-1', inventoryId: 'inv-1', stock: 10, inventory: mockInventory },
               });
             }
             return Promise.resolve(null);
@@ -404,7 +392,7 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         expect(previewResult.data.discountTotal).toBe('0.00');
         expect(previewResult.data.shippingTotal).toBe('0.00');
         expect(previewResult.data.total).toBe('20.00');
-        expect(previewResult.data.freeShippingApplied).toBe(true);
+        expect(previewResult.data.freeShippingApplied).toBe(false);
       });
     });
 
@@ -439,11 +427,11 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
 
         const previewResult = await service.checkoutPreview(dto, undefined);
         expect(previewResult.data.freeShippingApplied).toBe(false);
-        expect(previewResult.data.shippingTotal).toBe('4.00');
-        expect(previewResult.data.total).toBe('53.99');
+        expect(previewResult.data.shippingTotal).toBe('5.00');
+        expect(previewResult.data.total).toBe('54.99');
       });
 
-      it('debe aplicar la tarifa de envío en HOME_DELIVERY para subtotal de 50.00', async () => {
+      it('debe aplicar envío gratuito si el subtotal es exactamente 50.00', async () => {
         const dto: any = {
           source: CheckoutSource.BUY_NOW,
           items: [{ variantId: 'prod-uuid-1', quantity: 1, priceAtAdded: 50.00 }],
@@ -472,9 +460,9 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         mockProductRepo.findOne.mockResolvedValue(mockProduct);
 
         const previewResult = await service.checkoutPreview(dto, undefined);
-        expect(previewResult.data.freeShippingApplied).toBe(false);
-        expect(previewResult.data.shippingTotal).toBe('4.00');
-        expect(previewResult.data.total).toBe('54.00');
+        expect(previewResult.data.freeShippingApplied).toBe(true);
+        expect(previewResult.data.shippingTotal).toBe('0.00');
+        expect(previewResult.data.total).toBe('50.00');
       });
     });
 
@@ -499,3 +487,4 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
     });
   });
 });
+

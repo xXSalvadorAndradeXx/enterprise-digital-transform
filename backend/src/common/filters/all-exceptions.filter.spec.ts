@@ -10,7 +10,6 @@ describe('AllExceptionsFilter', () => {
 
   beforeEach(() => {
     filter = new AllExceptionsFilter();
-    jest.spyOn((filter as any).logger, 'error').mockImplementation(() => {});
 
     mockResponse = {
       status: jest.fn().mockReturnThis(),
