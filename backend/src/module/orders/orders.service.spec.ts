@@ -411,6 +411,94 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         expect(res.error.code).toBe('INVALID_STATUS_TRANSITION');
       }
     });
+
+    describe('BE-ADM-NOT-03: updateStatusByOrderNumber e Idempotencia', () => {
+      it('debe realizar No-Op sin guardar en BD ni generar evento si previousStatus === newStatus', async () => {
+        const existingOrder = {
+          id: 'order-uuid-1',
+          orderNumber: 'A7K29P4Q',
+          status: OrderStatus.PENDING,
+          deliveryMethod: DeliveryMethod.HOME_DELIVERY,
+        };
+
+        const fakeSave = jest.fn();
+        const fakeCreate = jest.fn();
+
+        mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+          const fakeTx: any = {
+            findOne: jest.fn().mockResolvedValue(existingOrder),
+            save: fakeSave,
+            create: fakeCreate,
+          };
+          return cb(fakeTx);
+        });
+
+        const result = await service.updateStatusByOrderNumber('A7K29P4Q', {
+          status: OrderStatus.PENDING,
+        });
+
+        expect(result.status).toBe(OrderStatus.PENDING);
+        expect(fakeSave).not.toHaveBeenCalled();
+        expect(fakeCreate).not.toHaveBeenCalled();
+        expect((result as any).domainEvent).toBeUndefined();
+      });
+
+      it('debe lanzar NotFoundException con ORDER_NOT_FOUND si la orden no existe', async () => {
+        mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+          const fakeTx: any = {
+            findOne: jest.fn().mockResolvedValue(null),
+          };
+          return cb(fakeTx);
+        });
+
+        try {
+          await service.updateStatusByOrderNumber('INEXISTENT', {
+            status: OrderStatus.ON_ROUTE,
+          });
+          fail('Debería haber lanzado NotFoundException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NotFoundException);
+          const res = error.getResponse();
+          expect(res.error.code).toBe('ORDER_NOT_FOUND');
+        }
+      });
+
+      it('debe realizar la transición persistiendo en BD y adjuntando OrderStatusChangedEvent en éxito', async () => {
+        const existingOrder = {
+          id: 'order-uuid-99',
+          orderNumber: 'A7K29P4Q',
+          customerId: 'customer-uuid-88',
+          status: OrderStatus.PENDING,
+          deliveryMethod: DeliveryMethod.HOME_DELIVERY,
+        };
+
+        const fakeSave = jest.fn().mockImplementation((cls, entity) => Promise.resolve(entity));
+        const fakeCreate = jest.fn().mockImplementation((cls, data) => data);
+
+        mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+          const fakeTx: any = {
+            findOne: jest.fn().mockResolvedValue(existingOrder),
+            save: fakeSave,
+            create: fakeCreate,
+          };
+          return cb(fakeTx);
+        });
+
+        const result = await service.updateStatusByOrderNumber(
+          'A7K29P4Q',
+          { status: OrderStatus.ON_ROUTE },
+          'admin-user-id',
+        );
+
+        expect(result.status).toBe(OrderStatus.ON_ROUTE);
+        expect(fakeSave).toHaveBeenCalled();
+        expect(result.domainEvent).toBeDefined();
+        expect(result.domainEvent?.previousStatus).toBe(OrderStatus.PENDING);
+        expect(result.domainEvent?.newStatus).toBe(OrderStatus.ON_ROUTE);
+        expect(result.domainEvent?.orderNumber).toBe('A7K29P4Q');
+        expect(result.domainEvent?.customerId).toBe('customer-uuid-88');
+      });
+    });
   });
 
   describe('Pruebas Unitarias de Lógica de Negocio y Reglas de Checkout', () => {

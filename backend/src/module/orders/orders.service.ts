@@ -24,6 +24,7 @@ import { Product } from '../products/entities/product.entity';
 import { ProductStatus } from '../products/enums/product-status.enum';
 import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { OrderStatusChangedEvent } from './events/order-status-changed.event';
 import { CheckoutSource } from './enums/checkout-source.enum';
 import { CheckoutDto } from './dto/checkout.dto';
 import { DeliveryType } from './enums/delivery-type.enum';
@@ -1641,68 +1642,94 @@ export class OrdersService {
     orderNumber: string,
     updateStatusDto: UpdateOrderStatusDto,
     changedById?: string,
-  ): Promise<Order> {
+  ): Promise<Order & { domainEvent?: OrderStatusChangedEvent }> {
     const { status: newStatus, notes } = updateStatusDto;
+    const actorId = changedById || updateStatusDto.changedById || null;
 
-    return await this.orderRepository.manager.transaction(async (tx) => {
-      const order = await tx.findOne(Order, {
-        where: { orderNumber },
-        relations: ['statusHistory'],
-      });
+    let domainEvent: OrderStatusChangedEvent | undefined;
 
-      if (!order) {
-        throw new NotFoundException({
-          success: false,
-          error: {
-            code: 'ORDER_NOT_FOUND',
-            message: 'El pedido solicitado no existe',
-          },
+    const updatedOrder = await this.orderRepository.manager.transaction(
+      async (tx) => {
+        const order = await tx.findOne(Order, {
+          where: { orderNumber },
+          relations: ['statusHistory'],
         });
-      }
 
-      const oldStatus = order.status;
-      if (oldStatus === newStatus) {
-        return order;
-      }
-
-      if (!this.isValidTransition(oldStatus, newStatus, order.deliveryMethod)) {
-        throw new BadRequestException({
-          success: false,
-          error: {
-            code: 'INVALID_STATUS_TRANSITION',
-            message: 'La transición de estado solicitada no está permitida',
-            details: {
-              currentStatus: oldStatus,
-              requestedStatus: newStatus,
+        if (!order) {
+          throw new NotFoundException({
+            success: false,
+            error: {
+              code: 'ORDER_NOT_FOUND',
+              message: 'El pedido solicitado no existe',
             },
-          },
+          });
+        }
+
+        const oldStatus = order.status;
+
+        // Idempotencia / No-Op: Si el estado actual es igual al nuevo estado solicitado, no realizar cambios ni eventos
+        if (oldStatus === newStatus) {
+          return order;
+        }
+
+        // Validar transición con reglas de máquina de estados canónica
+        if (
+          !this.isValidTransition(oldStatus, newStatus, order.deliveryMethod)
+        ) {
+          throw new BadRequestException({
+            success: false,
+            error: {
+              code: 'INVALID_STATUS_TRANSITION',
+              message: 'La transición de estado solicitada no está permitida',
+              details: {
+                currentStatus: oldStatus,
+                requestedStatus: newStatus,
+              },
+            },
+          });
+        }
+
+        if (newStatus === OrderStatus.CANCELLED) {
+          await this.releaseOrderReservations(order.id, tx);
+          await tx.update(
+            Payment,
+            { orderId: order.id, status: PaymentStatus.PENDING },
+            { status: PaymentStatus.CANCELLED },
+          );
+        }
+
+        order.status = newStatus;
+
+        const historyEntry = tx.create(OrderStatusHistory, {
+          order,
+          statusBefore: oldStatus,
+          statusAfter: newStatus,
+          changedById: actorId,
+          notes: notes || null,
         });
-      }
 
-      if (newStatus === OrderStatus.CANCELLED) {
-        await this.releaseOrderReservations(order.id, tx);
-        await tx.update(
-          Payment,
-          { orderId: order.id, status: PaymentStatus.PENDING },
-          { status: PaymentStatus.CANCELLED },
-        );
-      }
+        await tx.save(Order, order);
+        await tx.save(OrderStatusHistory, historyEntry);
 
-      order.status = newStatus;
+        // Generar evento de dominio solo tras persisitir la transición atómica exitosamente
+        domainEvent = new OrderStatusChangedEvent({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          customerId: order.customerId ?? null,
+          previousStatus: oldStatus,
+          newStatus: newStatus,
+          changedById: actorId,
+        });
 
-      const historyEntry = tx.create(OrderStatusHistory, {
-        order,
-        statusBefore: oldStatus,
-        statusAfter: newStatus,
-        changedById: changedById || updateStatusDto.changedById || null,
-        notes: notes || null,
-      });
+        return order;
+      },
+    );
 
-      await tx.save(Order, order);
-      await tx.save(OrderStatusHistory, historyEntry);
+    if (domainEvent) {
+      Object.assign(updatedOrder, { domainEvent });
+    }
 
-      return order;
-    });
+    return updatedOrder;
   }
 
   /**
