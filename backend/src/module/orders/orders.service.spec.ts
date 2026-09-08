@@ -498,6 +498,40 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         expect(result.domainEvent?.orderNumber).toBe('A7K29P4Q');
         expect(result.domainEvent?.customerId).toBe('customer-uuid-88');
       });
+
+      it('BE-ADM-NOT-04: no debe emitir evento ni notificar si la transacción de BD sufre un rollback', async () => {
+        const existingOrder = {
+          id: 'order-uuid-rollback',
+          orderNumber: 'RB123456',
+          status: OrderStatus.PENDING,
+          deliveryMethod: DeliveryMethod.HOME_DELIVERY,
+        };
+
+        let eventEmittedOrReturned = false;
+
+        mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
+          const fakeTx: any = {
+            findOne: jest.fn().mockResolvedValue(existingOrder),
+            save: jest.fn().mockRejectedValue(new Error('DB_CONSTRAINT_ERROR')),
+            create: jest.fn().mockImplementation((cls, data) => data),
+          };
+          return await cb(fakeTx);
+        });
+
+        try {
+          const result = await service.updateStatusByOrderNumber('RB123456', {
+            status: OrderStatus.ON_ROUTE,
+          });
+          if ((result as any).domainEvent) {
+            eventEmittedOrReturned = true;
+          }
+          fail('Debería haber abortado por el error de base de datos');
+        } catch (error: any) {
+          expect(error.message).toBe('DB_CONSTRAINT_ERROR');
+        }
+
+        expect(eventEmittedOrReturned).toBe(false);
+      });
     });
   });
 
