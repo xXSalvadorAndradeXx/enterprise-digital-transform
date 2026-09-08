@@ -271,9 +271,13 @@ export class EcommerceAuthController {
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
+    @Body() body?: { refreshToken?: string },
   ) {
-    const currentRefreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE_NAME];
+    const currentRefreshToken =
+      req.cookies?.[REFRESH_TOKEN_COOKIE_NAME] || body?.refreshToken;
+
     if (!currentRefreshToken) {
+      this.customersService.clearRefreshTokenCookie(res);
       throw new UnauthorizedException({
         code: 'SESSION_EXPIRED_OR_REVOKED',
         message: 'La sesión ha expirado o ya no es válida',
@@ -287,6 +291,13 @@ export class EcommerceAuthController {
       );
 
       const customer = await this.customersService.findOne(customerId);
+      if (!customer || !customer.isActive) {
+        this.customersService.clearRefreshTokenCookie(res);
+        throw new UnauthorizedException({
+          code: 'ACCOUNT_DISABLED',
+          message: 'La cuenta del cliente se encuentra inactiva o deshabilitada.',
+        });
+      }
 
       const accessToken = await this.customersService.generateAccessToken(customer);
 
