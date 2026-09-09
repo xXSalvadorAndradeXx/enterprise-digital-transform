@@ -7,6 +7,7 @@ import { CustomerOrdersController } from './controllers/customer-orders.controll
 
 import { OrdersService } from './orders.service';
 import { CustomerOrdersService } from './services/customer-orders.service';
+import { OrderEventsPublisherService } from './services/order-events-publisher.service';
 
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
@@ -50,7 +51,7 @@ import { ProductVariantConfig } from '../products/entities/product-variant-confi
     AdminOrdersController,
     CustomerOrdersController,
   ],
-  providers: [OrdersService, CustomerOrdersService],
-  exports: [OrdersService, CustomerOrdersService],
+  providers: [OrdersService, CustomerOrdersService, OrderEventsPublisherService],
+  exports: [OrdersService, CustomerOrdersService, OrderEventsPublisherService],
 })
 export class OrdersModule {}

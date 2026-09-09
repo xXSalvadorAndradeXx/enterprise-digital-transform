@@ -7,6 +7,7 @@ import {
   UnprocessableEntityException,
   ForbiddenException,
   UnauthorizedException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, EntityManager, IsNull, Brackets } from 'typeorm';
@@ -25,6 +26,7 @@ import { ProductStatus } from '../products/enums/product-status.enum';
 import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrderStatusChangedEvent } from './events/order-status-changed.event';
+import { OrderEventsPublisherService } from './services/order-events-publisher.service';
 import { CheckoutSource } from './enums/checkout-source.enum';
 import { CheckoutDto } from './dto/checkout.dto';
 import { DeliveryType } from './enums/delivery-type.enum';
@@ -67,6 +69,8 @@ export class OrdersService {
     private readonly variantConfigRepository: Repository<ProductVariantConfig>,
     @InjectRepository(CheckoutIdempotency)
     private readonly idempotencyRepository: Repository<CheckoutIdempotency>,
+    @Optional()
+    private readonly eventsPublisher?: OrderEventsPublisherService,
   ) {}
 
   async findAllForAdmin(query: FindAdminOrdersQueryDto) {
@@ -1727,6 +1731,7 @@ export class OrdersService {
 
     if (domainEvent) {
       Object.assign(updatedOrder, { domainEvent });
+      this.eventsPublisher?.publishOrderStatusChanged(domainEvent);
     }
 
     return updatedOrder;
