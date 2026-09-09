@@ -57,16 +57,16 @@ export class NotificationsQueryDto {
   page?: number = 1;
 
   @ApiPropertyOptional({
-    description: 'Cantidad de elementos por página (mínimo 1, máximo 50)',
-    example: 20,
-    default: 20,
+    description: 'Cantidad de elementos por página (mínimo 1, máximo 100)',
+    example: 10,
+    default: 10,
     minimum: 1,
-    maximum: 50,
+    maximum: 100,
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'El límite debe ser un número entero' })
   @Min(1, { message: 'El límite debe ser mayor o igual a 1' })
-  @Max(50, { message: 'El límite no puede exceder los 50 registros' })
-  limit?: number = 20;
+  @Max(100, { message: 'El límite no puede exceder los 100 registros' })
+  limit?: number = 10;
 }

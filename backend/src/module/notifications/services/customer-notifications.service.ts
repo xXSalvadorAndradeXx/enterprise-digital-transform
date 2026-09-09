@@ -64,7 +64,7 @@ export class CustomerNotificationsService {
     meta: NotificationsPaginationMetaDto;
   }> {
     const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
     const skip = (page - 1) * limit;
 
     const qb = this.notificationRepo
@@ -100,11 +100,12 @@ export class CustomerNotificationsService {
       where: { customerId, isRead: false },
     });
 
-    const totalPages = Math.ceil(total / limit) || 1;
+    const totalPages = Math.ceil(total / limit) || 0;
 
-    const notifications = entities.map((entity) =>
-      this.mapToItemResponseDto(entity),
-    );
+    const notifications =
+      entities && entities.length > 0
+        ? entities.map((entity) => this.mapToItemResponseDto(entity))
+        : [];
 
     return {
       notifications,

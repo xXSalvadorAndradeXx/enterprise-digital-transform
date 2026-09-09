@@ -51,8 +51,17 @@ describe('CustomerNotificationsService', () => {
       createQueryBuilder: jest.fn().mockReturnValue(createMockQueryBuilder()),
       count: jest.fn().mockResolvedValue(1),
       findOne: jest.fn(),
-      save: jest.fn().mockImplementation((entity) => Promise.resolve({ ...entity, id: entity.id || 'new-id' })),
-      create: jest.fn().mockImplementation((dto) => ({ ...dto, id: 'gen-id', createdAt: new Date(), updatedAt: new Date() })),
+      save: jest
+        .fn()
+        .mockImplementation((entity) =>
+          Promise.resolve({ ...entity, id: entity.id || 'new-id' }),
+        ),
+      create: jest.fn().mockImplementation((dto) => ({
+        ...dto,
+        id: 'gen-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })),
       update: jest.fn().mockResolvedValue({ affected: 3 }),
     };
 
@@ -66,7 +75,9 @@ describe('CustomerNotificationsService', () => {
       ],
     }).compile();
 
-    service = module.get<CustomerNotificationsService>(CustomerNotificationsService);
+    service = module.get<CustomerNotificationsService>(
+      CustomerNotificationsService,
+    );
   });
 
   it('debe estar definido', () => {
@@ -82,10 +93,9 @@ describe('CustomerNotificationsService', () => {
         type: NotificationType.ORDER_STATUS_CHANGED,
       });
 
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        'notification.type = :type',
-        { type: NotificationType.ORDER_STATUS_CHANGED },
-      );
+      expect(qb.andWhere).toHaveBeenCalledWith('notification.type = :type', {
+        type: NotificationType.ORDER_STATUS_CHANGED,
+      });
       expect(result.notifications[0].orderRef).toEqual({
         id: 'ord-uuid-1234',
         orderNumber: 'A7K29P4Q',
@@ -114,7 +124,9 @@ describe('CustomerNotificationsService', () => {
       );
       expect(result.notifications).toHaveLength(1);
       expect(result.notifications[0].tab).toBe(NotificationTab.ORDERS);
-      expect(result.notifications[0].type).toBe(NotificationType.ORDER_STATUS_CHANGED);
+      expect(result.notifications[0].type).toBe(
+        NotificationType.ORDER_STATUS_CHANGED,
+      );
       expect(result.meta.total).toBe(1);
       expect(result.meta.unreadCount).toBe(1);
       expect(result.meta.page).toBe(1);
@@ -132,6 +144,46 @@ describe('CustomerNotificationsService', () => {
         expect.stringContaining('notification.type'),
         expect.anything(),
       );
+    });
+
+    it('debe filtrar por FAVORITE_PRICE_DROPPED para la pestaña Ofertas', async () => {
+      const qb = createMockQueryBuilder([], 0);
+      mockNotificationRepo.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll(mockCustomerId, {
+        type: NotificationType.FAVORITE_PRICE_DROPPED,
+      });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('notification.type = :type', {
+        type: NotificationType.FAVORITE_PRICE_DROPPED,
+      });
+    });
+
+    it('debe devolver un arreglo vacío estable y totalPages 0 cuando no existan notificaciones (Empty State)', async () => {
+      const qb = createMockQueryBuilder([], 0);
+      mockNotificationRepo.createQueryBuilder.mockReturnValue(qb);
+      mockNotificationRepo.count.mockResolvedValue(0);
+
+      const result = await service.findAll(mockCustomerId, {});
+
+      expect(result.notifications).toEqual([]);
+      expect(result.meta.total).toBe(0);
+      expect(result.meta.totalPages).toBe(0);
+      expect(result.meta.unreadCount).toBe(0);
+      expect(result.meta.limit).toBe(10); // default limit 10
+    });
+
+    it('debe aplicar paginación default de 10 y limitar como máximo a 100', async () => {
+      const qb = createMockQueryBuilder([], 0);
+      mockNotificationRepo.createQueryBuilder.mockReturnValue(qb);
+
+      // Sin query: default limit 10
+      await service.findAll(mockCustomerId, {});
+      expect(qb.take).toHaveBeenCalledWith(10);
+
+      // Con limit > 100: acota a 100
+      await service.findAll(mockCustomerId, { limit: 150 });
+      expect(qb.take).toHaveBeenCalledWith(100);
     });
 
     it('debe filtrar por isRead cuando se envía en la consulta', async () => {
@@ -184,7 +236,10 @@ describe('CustomerNotificationsService', () => {
       const entity = { ...mockNotificationEntity, isRead: false, readAt: null };
       mockNotificationRepo.findOne.mockResolvedValue(entity);
 
-      const result = await service.markAsRead(mockCustomerId, mockNotificationId);
+      const result = await service.markAsRead(
+        mockCustomerId,
+        mockNotificationId,
+      );
 
       expect(mockNotificationRepo.findOne).toHaveBeenCalledWith({
         where: { id: mockNotificationId, customerId: mockCustomerId },
@@ -197,10 +252,17 @@ describe('CustomerNotificationsService', () => {
 
     it('no debe re-guardar si la notificación ya estaba leída (idempotencia)', async () => {
       const readDate = new Date('2026-09-08T10:00:00.000Z');
-      const entity = { ...mockNotificationEntity, isRead: true, readAt: readDate };
+      const entity = {
+        ...mockNotificationEntity,
+        isRead: true,
+        readAt: readDate,
+      };
       mockNotificationRepo.findOne.mockResolvedValue(entity);
 
-      const result = await service.markAsRead(mockCustomerId, mockNotificationId);
+      const result = await service.markAsRead(
+        mockCustomerId,
+        mockNotificationId,
+      );
 
       expect(mockNotificationRepo.save).not.toHaveBeenCalled();
       expect(result.isRead).toBe(true);
