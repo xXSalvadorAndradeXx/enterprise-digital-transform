@@ -77,7 +77,8 @@ export class NotificationResponseDto {
   orderRef?: OrderRefDto | null;
 
   @ApiPropertyOptional({
-    description: 'Referencia mínima normalizada del producto asociado si aplica',
+    description:
+      'Referencia mínima normalizada del producto asociado si aplica',
     type: ProductRefDto,
     nullable: true,
   })
@@ -119,7 +120,10 @@ export class NotificationResponseDto {
 }
 
 export class NotificationsPaginationMetaDto {
-  @ApiProperty({ description: 'Total de notificaciones encontradas', example: 42 })
+  @ApiProperty({
+    description: 'Total de notificaciones encontradas',
+    example: 42,
+  })
   total!: number;
 
   @ApiProperty({ description: 'Página actual', example: 1 })

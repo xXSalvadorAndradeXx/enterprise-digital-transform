@@ -50,7 +50,8 @@ export class CustomerNotificationsController {
     type: PaginatedCustomerNotificationsResponseDto,
   })
   @ApiUnauthorizedResponse({
-    description: 'No autorizado: Token de cliente ausente, inválido o expirado.',
+    description:
+      'No autorizado: Token de cliente ausente, inválido o expirado.',
   })
   async getMyNotifications(
     @CurrentCustomer() customer: CurrentCustomerPayload,

@@ -1,3 +1,4 @@
+import { getMetadataArgsStorage } from 'typeorm';
 import { CustomerNotification } from './customer-notification.entity';
 import { NotificationType } from '../enums/notification-type.enum';
 
@@ -43,7 +44,8 @@ describe('CustomerNotification Entity', () => {
     notification.productId = mockProductId;
     notification.type = NotificationType.FAVORITE_PRICE_DROPPED;
     notification.title = '¡Bajó de precio un favorito!';
-    notification.message = 'Taladro Percutor 1/2 Pulgada bajó de $85.00 a $70.00';
+    notification.message =
+      'Taladro Percutor 1/2 Pulgada bajó de $85.00 a $70.00';
     notification.metadata = {
       productId: mockProductId,
       commercialName: 'Taladro Percutor 1/2 Pulgada',
@@ -72,7 +74,8 @@ describe('CustomerNotification Entity', () => {
     notification.productId = null;
     notification.type = NotificationType.SYSTEM_ANNOUNCEMENT;
     notification.title = 'Mantenimiento programado de la plataforma';
-    notification.message = 'El sistema estará en mantenimiento el domingo a las 02:00 AM.';
+    notification.message =
+      'El sistema estará en mantenimiento el domingo a las 02:00 AM.';
     notification.metadata = { maintenanceWindow: '2h' };
     notification.actionUrl = '/cuenta/notificaciones';
     notification.isRead = false;
@@ -111,12 +114,11 @@ describe('CustomerNotification Entity', () => {
   });
 
   it('debe tener configurados los índices compuestos y de filtrado en los metadatos de TypeORM', () => {
-    const { getMetadataArgsStorage } = require('typeorm');
     const indices = getMetadataArgsStorage().indices.filter(
-      (idx: any) => idx.target === CustomerNotification,
+      (idx) => idx.target === CustomerNotification,
     );
 
-    const indexNames = indices.map((idx: any) => idx.name);
+    const indexNames = indices.map((idx) => idx.name);
 
     // Verificamos presencia de los índices requeridos para listado y filtros
     expect(indexNames).toContain('IDX_customer_notifications_customer_created');
@@ -129,15 +131,16 @@ describe('CustomerNotification Entity', () => {
 
     // Validamos las columnas indexadas del índice de pestañas
     const tabIndex = indices.find(
-      (idx: any) =>
-        idx.name === 'IDX_customer_notifications_customer_type_created',
+      (idx) => idx.name === 'IDX_customer_notifications_customer_type_created',
     );
-    expect(tabIndex.columns).toEqual(['customerId', 'type', 'createdAt']);
+    expect(tabIndex).toBeDefined();
+    expect(tabIndex?.columns).toEqual(['customerId', 'type', 'createdAt']);
 
     // Validamos las columnas del índice de estado de lectura
     const readIndex = indices.find(
-      (idx: any) => idx.name === 'IDX_customer_notifications_customer_is_read',
+      (idx) => idx.name === 'IDX_customer_notifications_customer_is_read',
     );
-    expect(readIndex.columns).toEqual(['customerId', 'isRead']);
+    expect(readIndex).toBeDefined();
+    expect(readIndex?.columns).toEqual(['customerId', 'isRead']);
   });
 });

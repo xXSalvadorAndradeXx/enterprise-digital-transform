@@ -71,9 +71,15 @@ describe('CustomerNotificationsController', () => {
       });
 
       const query = { tab: NotificationTab.ORDERS, page: 1, limit: 20 };
-      const response = await controller.getMyNotifications(mockCustomerPayload, query);
+      const response = await controller.getMyNotifications(
+        mockCustomerPayload,
+        query,
+      );
 
-      expect(service.findAll).toHaveBeenCalledWith(mockCustomerPayload.id, query);
+      expect(service.findAll).toHaveBeenCalledWith(
+        mockCustomerPayload.id,
+        query,
+      );
       expect(response.success).toBe(true);
       expect(response.data.notifications).toHaveLength(1);
       expect(response.data.meta.unreadCount).toBe(1);
@@ -86,7 +92,9 @@ describe('CustomerNotificationsController', () => {
 
       const response = await controller.getUnreadCount(mockCustomerPayload);
 
-      expect(service.getUnreadCount).toHaveBeenCalledWith(mockCustomerPayload.id);
+      expect(service.getUnreadCount).toHaveBeenCalledWith(
+        mockCustomerPayload.id,
+      );
       expect(response).toEqual({
         success: true,
         data: { unreadCount: 3 },
@@ -103,7 +111,10 @@ describe('CustomerNotificationsController', () => {
       });
 
       const notifId = '550e8400-e29b-41d4-a716-446655440000';
-      const response = await controller.markAsRead(mockCustomerPayload, notifId);
+      const response = await controller.markAsRead(
+        mockCustomerPayload,
+        notifId,
+      );
 
       expect(service.markAsRead).toHaveBeenCalledWith(
         mockCustomerPayload.id,
@@ -120,7 +131,9 @@ describe('CustomerNotificationsController', () => {
 
       const response = await controller.markAllAsRead(mockCustomerPayload);
 
-      expect(service.markAllAsRead).toHaveBeenCalledWith(mockCustomerPayload.id);
+      expect(service.markAllAsRead).toHaveBeenCalledWith(
+        mockCustomerPayload.id,
+      );
       expect(response).toEqual({
         success: true,
         data: { updatedCount: 4 },

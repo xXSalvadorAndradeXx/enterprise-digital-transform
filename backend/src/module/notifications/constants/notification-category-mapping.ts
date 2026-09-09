@@ -53,10 +53,13 @@ export function getNotificationTab(
 export function getNotificationTypesForTab(
   tab?: NotificationTab | string | null,
 ): NotificationType[] | null {
-  if (!tab || tab === NotificationTab.ALL) {
+  if (!tab || tab === 'ALL') {
     return null;
   }
 
-  const tabKey = tab as Exclude<NotificationTab, NotificationTab.ALL>;
-  return NOTIFICATION_TAB_TO_TYPES[tabKey] ?? null;
+  return (
+    NOTIFICATION_TAB_TO_TYPES[
+      tab as Exclude<NotificationTab, NotificationTab.ALL>
+    ] ?? null
+  );
 }

@@ -2,13 +2,15 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UnreadCountBreakdownDto {
   @ApiPropertyOptional({
-    description: 'Cantidad de notificaciones no leídas de actualización de pedidos',
+    description:
+      'Cantidad de notificaciones no leídas de actualización de pedidos',
     example: 2,
   })
   ORDER_STATUS_CHANGED?: number;
 
   @ApiPropertyOptional({
-    description: 'Cantidad de notificaciones no leídas de alertas de precios en favoritos',
+    description:
+      'Cantidad de notificaciones no leídas de alertas de precios en favoritos',
     example: 1,
   })
   FAVORITE_PRICE_DROPPED?: number;
@@ -48,13 +50,15 @@ export class UnreadCountDataDto {
   unreadCount!: number;
 
   @ApiPropertyOptional({
-    description: 'Desglose granular de notificaciones no leídas por tipo de evento',
+    description:
+      'Desglose granular de notificaciones no leídas por tipo de evento',
     type: UnreadCountBreakdownDto,
   })
   breakdown?: UnreadCountBreakdownDto;
 
   @ApiPropertyOptional({
-    description: 'Desglose de notificaciones no leídas por pestaña de interfaz de usuario',
+    description:
+      'Desglose de notificaciones no leídas por pestaña de interfaz de usuario',
     type: UnreadCountTabBreakdownDto,
   })
   tabBreakdown?: UnreadCountTabBreakdownDto;

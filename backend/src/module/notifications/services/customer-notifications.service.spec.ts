@@ -203,7 +203,29 @@ describe('CustomerNotificationsService', () => {
   });
 
   describe('getUnreadCount', () => {
-    it('debe retornar el contador total y el desglose (breakdown) por tipo y pestaña', async () => {
+    it('debe cortocircuitar y retornar ceros sin consultar GROUP BY cuando unreadCount es 0', async () => {
+      mockNotificationRepo.count.mockResolvedValue(0);
+
+      const result = await service.getUnreadCount(mockCustomerId);
+
+      expect(mockNotificationRepo.count).toHaveBeenCalledWith({
+        where: { customerId: mockCustomerId, isRead: false },
+      });
+      expect(mockNotificationRepo.createQueryBuilder).not.toHaveBeenCalled();
+      expect(result.unreadCount).toBe(0);
+      expect(result.breakdown).toEqual({
+        [NotificationType.ORDER_STATUS_CHANGED]: 0,
+        [NotificationType.FAVORITE_PRICE_DROPPED]: 0,
+        [NotificationType.SYSTEM_ANNOUNCEMENT]: 0,
+      });
+      expect(result.tabBreakdown).toEqual({
+        [NotificationTab.ORDERS]: 0,
+        [NotificationTab.OFFERS]: 0,
+        [NotificationTab.SYSTEM]: 0,
+      });
+    });
+
+    it('debe retornar el contador total y el desglose (breakdown) por tipo y pestaña cuando unreadCount > 0', async () => {
       mockNotificationRepo.count.mockResolvedValue(4);
       const rawBreakdown = [
         { type: NotificationType.ORDER_STATUS_CHANGED, count: '3' },
@@ -217,6 +239,14 @@ describe('CustomerNotificationsService', () => {
       expect(mockNotificationRepo.count).toHaveBeenCalledWith({
         where: { customerId: mockCustomerId, isRead: false },
       });
+      expect(mockNotificationRepo.createQueryBuilder).toHaveBeenCalledWith(
+        'notification',
+      );
+      expect(qb.where).toHaveBeenCalledWith(
+        'notification.customer_id = :customerId AND notification.is_read = false',
+        { customerId: mockCustomerId },
+      );
+      expect(qb.groupBy).toHaveBeenCalledWith('notification.type');
       expect(result.unreadCount).toBe(4);
       expect(result.breakdown).toEqual({
         [NotificationType.ORDER_STATUS_CHANGED]: 3,
@@ -228,6 +258,25 @@ describe('CustomerNotificationsService', () => {
         [NotificationTab.OFFERS]: 1,
         [NotificationTab.SYSTEM]: 0,
       });
+    });
+
+    it('debe mantener aislamiento estricto y no filtrar notificaciones de otros clientes ni leídas', async () => {
+      mockNotificationRepo.count.mockResolvedValue(1);
+      const qb = createMockQueryBuilder([], 0, [
+        { type: NotificationType.ORDER_STATUS_CHANGED, count: '1' },
+      ]);
+      mockNotificationRepo.createQueryBuilder.mockReturnValue(qb);
+
+      const specificCustomerId = 'customer-tenant-xyz';
+      await service.getUnreadCount(specificCustomerId);
+
+      expect(mockNotificationRepo.count).toHaveBeenCalledWith({
+        where: { customerId: specificCustomerId, isRead: false },
+      });
+      expect(qb.where).toHaveBeenCalledWith(
+        'notification.customer_id = :customerId AND notification.is_read = false',
+        { customerId: specificCustomerId },
+      );
     });
   });
 

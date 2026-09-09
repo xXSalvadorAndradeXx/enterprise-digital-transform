@@ -1,4 +1,11 @@
-import { IsOptional, IsInt, Min, Max, IsEnum, IsBoolean } from 'class-validator';
+import {
+  IsOptional,
+  IsInt,
+  Min,
+  Max,
+  IsEnum,
+  IsBoolean,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { NotificationType } from '../enums/notification-type.enum';
@@ -27,12 +34,14 @@ export class NotificationsQueryDto {
   })
   @IsOptional()
   @IsEnum(NotificationTab, {
-    message: 'La pestaña especificada no es válida (ALL, ORDERS, OFFERS, SYSTEM)',
+    message:
+      'La pestaña especificada no es válida (ALL, ORDERS, OFFERS, SYSTEM)',
   })
   tab?: NotificationTab = NotificationTab.ALL;
 
   @ApiPropertyOptional({
-    description: 'Filtrar por estado de lectura (true: leídas, false: no leídas)',
+    description:
+      'Filtrar por estado de lectura (true: leídas, false: no leídas)',
     example: false,
   })
   @IsOptional()

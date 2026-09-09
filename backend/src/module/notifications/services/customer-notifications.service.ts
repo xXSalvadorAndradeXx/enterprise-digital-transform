@@ -89,9 +89,7 @@ export class CustomerNotificationsService {
     }
 
     // Ordenamiento cronológico descendente y paginación
-    qb.orderBy('notification.created_at', 'DESC')
-      .skip(skip)
-      .take(limit);
+    qb.orderBy('notification.created_at', 'DESC').skip(skip).take(limit);
 
     const [entities, total] = await qb.getManyAndCount();
 
@@ -124,29 +122,50 @@ export class CustomerNotificationsService {
    * incluyendo opcionalmente el desglose por tipo y por pestaña para UI badges.
    */
   async getUnreadCount(customerId: string): Promise<UnreadCountDataDto> {
+    // 1. Conteo escalar eficiente en O(1) vía COUNT(*) sobre índice parcial
     const unreadCount = await this.notificationRepo.count({
       where: { customerId, isRead: false },
     });
 
-    // Desglose por type para pestañas Frontend
-    const rawBreakdown = await this.notificationRepo
-      .createQueryBuilder('notification')
-      .select('notification.type', 'type')
-      .addSelect('COUNT(*)', 'count')
-      .where('notification.customer_id = :customerId', { customerId })
-      .andWhere('notification.is_read = false')
-      .groupBy('notification.type')
-      .getRawMany();
-
-    const breakdown = {
+    const emptyBreakdown = {
       [NotificationType.ORDER_STATUS_CHANGED]: 0,
       [NotificationType.FAVORITE_PRICE_DROPPED]: 0,
       [NotificationType.SYSTEM_ANNOUNCEMENT]: 0,
     };
 
+    const emptyTabBreakdown = {
+      [NotificationTab.ORDERS]: 0,
+      [NotificationTab.OFFERS]: 0,
+      [NotificationTab.SYSTEM]: 0,
+    };
+
+    // 2. Optimización de cortocircuito: si no hay no leídas, evitar consulta secundaria GROUP BY
+    if (unreadCount === 0) {
+      return {
+        unreadCount: 0,
+        breakdown: emptyBreakdown,
+        tabBreakdown: emptyTabBreakdown,
+      };
+    }
+
+    // 3. Desglose agregado por type sin cargar filas en memoria
+    const rawBreakdown = await this.notificationRepo
+      .createQueryBuilder('notification')
+      .select('notification.type', 'type')
+      .addSelect('COUNT(*)', 'count')
+      .where(
+        'notification.customer_id = :customerId AND notification.is_read = false',
+        { customerId },
+      )
+      .groupBy('notification.type')
+      .getRawMany();
+
+    const breakdown = { ...emptyBreakdown };
+
     for (const row of rawBreakdown) {
       if (row.type in breakdown) {
-        breakdown[row.type as NotificationType] = parseInt(row.count, 10);
+        breakdown[row.type as NotificationType] =
+          parseInt(String(row.count), 10) || 0;
       }
     }
 
@@ -210,7 +229,12 @@ export class CustomerNotificationsService {
   async createOrderStatusNotification(
     params: CreateOrderStatusNotificationParams,
   ): Promise<CustomerNotification> {
-    if (!params.customerId || !params.orderId || !params.orderNumber || !params.newStatus) {
+    if (
+      !params.customerId ||
+      !params.orderId ||
+      !params.orderNumber ||
+      !params.newStatus
+    ) {
       throw new BadRequestException(
         'Datos incompletos para crear notificación de cambio de estado de orden',
       );

@@ -51,14 +51,22 @@ export class CustomerNotificationItemResponseDto {
 
   @ApiPropertyOptional({
     description: 'Referencia mínima normalizada de la orden asociada si aplica',
-    example: { id: 'd8c23d4e-b5f7-4c07-96a8-a28efbc2e541', orderNumber: 'A7K29P4Q' },
+    example: {
+      id: 'd8c23d4e-b5f7-4c07-96a8-a28efbc2e541',
+      orderNumber: 'A7K29P4Q',
+    },
     nullable: true,
   })
   orderRef?: { id?: string; orderNumber?: string } | null;
 
   @ApiPropertyOptional({
-    description: 'Referencia mínima normalizada del producto asociado si aplica',
-    example: { id: 'f5262ea1-7703-474c-90be-e6d896a822c5', commercialName: 'Taladro Percutor', price: 70.0 },
+    description:
+      'Referencia mínima normalizada del producto asociado si aplica',
+    example: {
+      id: 'f5262ea1-7703-474c-90be-e6d896a822c5',
+      commercialName: 'Taladro Percutor',
+      price: 70.0,
+    },
     nullable: true,
   })
   productRef?: { id?: string; commercialName?: string; price?: number } | null;
@@ -99,7 +107,10 @@ export class CustomerNotificationItemResponseDto {
 }
 
 export class CustomerNotificationsPaginationMetaDto {
-  @ApiProperty({ description: 'Total de notificaciones encontradas', example: 42 })
+  @ApiProperty({
+    description: 'Total de notificaciones encontradas',
+    example: 42,
+  })
   total!: number;
 
   @ApiProperty({ description: 'Página actual', example: 1 })
