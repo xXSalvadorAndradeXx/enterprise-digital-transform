@@ -11,9 +11,14 @@ import { useState } from "react";
 
 import AddressModal, {
   type AddressModalMode,
+  type AddressModalSubmitValues,
 } from "@/components/addresses/AddressModal";
 import { useAddresses } from "@/hooks/addresses/useAddresses";
-import type { CustomerAddress } from "@/types/addresses/address.types";
+import type {
+  CreateAddressRequest,
+  CustomerAddress,
+  UpdateAddressRequest,
+} from "@/types/addresses/address.types";
 
 function AddressCardSkeleton() {
   return (
@@ -49,6 +54,23 @@ function getAddressLocationLines(address: CustomerAddress) {
     districtLine:
       districtLine.length > 0 ? districtLine.join(" / ") : null,
   };
+}
+
+function toAddressPayload(
+  values: AddressModalSubmitValues,
+): CreateAddressRequest {
+  const payload: CreateAddressRequest = {
+    label: values.label,
+    departmentId: values.departmentId,
+    districtId: values.districtId,
+    addressLine: values.addressLine,
+  };
+
+  if (values.city) {
+    payload.city = values.city;
+  }
+
+  return payload;
 }
 
 function AddressCard({
@@ -146,16 +168,37 @@ export default function AddressesPage() {
   const [selectedAddress, setSelectedAddress] =
     useState<CustomerAddress | null>(null);
   const [addressModalKey, setAddressModalKey] = useState(0);
-  const [isSubmittingAddress, setIsSubmittingAddress] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [hasSubmitFailure, setHasSubmitFailure] = useState(false);
 
-  const { addresses, isLoading, error, loadAddresses } =
-    useAddresses();
+  const {
+    addresses,
+    isLoading,
+    error,
+    operation,
+    operationAddressId,
+    isMutating,
+    loadAddresses,
+    createAddress,
+    updateAddress,
+  } = useAddresses();
 
   const hasAddresses = addresses.length > 0;
+  const isAddressSaveOperation =
+    operation === "create" ||
+    (operation === "update" &&
+      (!selectedAddress || operationAddressId === selectedAddress.id));
+  const isSubmittingAddress = isMutating && isAddressSaveOperation;
+  const addressSubmitError =
+    isAddressModalOpen && hasSubmitFailure
+      ? error?.message ?? submitError
+      : submitError;
 
   const openCreateAddressModal = () => {
     setAddressModalMode("create");
     setSelectedAddress(null);
+    setSubmitError("");
+    setHasSubmitFailure(false);
     setAddressModalKey((currentKey) => currentKey + 1);
     setIsAddressModalOpen(true);
   };
@@ -163,6 +206,8 @@ export default function AddressesPage() {
   const openEditAddressModal = (address: CustomerAddress) => {
     setAddressModalMode("edit");
     setSelectedAddress(address);
+    setSubmitError("");
+    setHasSubmitFailure(false);
     setAddressModalKey((currentKey) => currentKey + 1);
     setIsAddressModalOpen(true);
   };
@@ -174,13 +219,45 @@ export default function AddressesPage() {
 
     setIsAddressModalOpen(false);
     setSelectedAddress(null);
+    setSubmitError("");
+    setHasSubmitFailure(false);
   };
 
-  const handleAddressModalSubmit = async () => {
-    setIsSubmittingAddress(true);
+  const handleAddressModalSubmit = async (
+    values: AddressModalSubmitValues,
+  ) => {
+    setSubmitError("");
+    setHasSubmitFailure(false);
+
+    const payload = toAddressPayload(values);
+    const savedAddress =
+      addressModalMode === "edit"
+        ? await (async () => {
+            if (!selectedAddress) {
+              return null;
+            }
+
+            const updatePayload: UpdateAddressRequest = payload;
+
+            return updateAddress(selectedAddress.id, updatePayload);
+          })()
+        : await createAddress(payload);
+
+    if (!savedAddress) {
+      setHasSubmitFailure(true);
+      setSubmitError(
+        selectedAddress
+          ? "No pudimos guardar los cambios de la direccion."
+          : "No pudimos guardar la direccion.",
+      );
+
+      return;
+    }
+
     setIsAddressModalOpen(false);
     setSelectedAddress(null);
-    setIsSubmittingAddress(false);
+    setSubmitError("");
+    setHasSubmitFailure(false);
   };
 
   return (
@@ -249,6 +326,7 @@ export default function AddressesPage() {
         mode={addressModalMode}
         initialAddress={selectedAddress}
         isSubmitting={isSubmittingAddress}
+        submitError={addressSubmitError}
         onClose={closeAddressModal}
         onSubmit={handleAddressModalSubmit}
       />

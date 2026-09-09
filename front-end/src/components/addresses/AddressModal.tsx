@@ -29,6 +29,7 @@ interface AddressModalProps {
   mode: AddressModalMode;
   initialAddress?: CustomerAddress | null;
   isSubmitting?: boolean;
+  submitError?: string;
   onClose: () => void;
   onSubmit: (values: AddressModalSubmitValues) => void | Promise<void>;
 }
@@ -132,6 +133,7 @@ export default function AddressModal({
   mode,
   initialAddress = null,
   isSubmitting = false,
+  submitError = "",
   onClose,
   onSubmit,
 }: AddressModalProps) {
@@ -530,6 +532,15 @@ export default function AddressModal({
             </p>
           ) : null}
 
+          {submitError ? (
+            <p
+              role="alert"
+              className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700"
+            >
+              {submitError}
+            </p>
+          ) : null}
+
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <button
               type="button"
@@ -549,7 +560,7 @@ export default function AddressModal({
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
 
-              {submitLabel}
+              {isSubmitting ? "Guardando..." : submitLabel}
             </button>
           </div>
         </form>
