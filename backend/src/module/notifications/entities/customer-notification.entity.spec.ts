@@ -109,4 +109,35 @@ describe('CustomerNotification Entity', () => {
     expect((notification.metadata as any).cvv).toBeUndefined();
     expect((notification.metadata as any).passwordHash).toBeUndefined();
   });
+
+  it('debe tener configurados los índices compuestos y de filtrado en los metadatos de TypeORM', () => {
+    const { getMetadataArgsStorage } = require('typeorm');
+    const indices = getMetadataArgsStorage().indices.filter(
+      (idx: any) => idx.target === CustomerNotification,
+    );
+
+    const indexNames = indices.map((idx: any) => idx.name);
+
+    // Verificamos presencia de los índices requeridos para listado y filtros
+    expect(indexNames).toContain('IDX_customer_notifications_customer_created');
+    expect(indexNames).toContain(
+      'IDX_customer_notifications_customer_type_created',
+    );
+    expect(indexNames).toContain('IDX_customer_notifications_customer_is_read');
+    expect(indexNames).toContain('IDX_customer_notifications_order_id');
+    expect(indexNames).toContain('IDX_customer_notifications_product_id');
+
+    // Validamos las columnas indexadas del índice de pestañas
+    const tabIndex = indices.find(
+      (idx: any) =>
+        idx.name === 'IDX_customer_notifications_customer_type_created',
+    );
+    expect(tabIndex.columns).toEqual(['customerId', 'type', 'createdAt']);
+
+    // Validamos las columnas del índice de estado de lectura
+    const readIndex = indices.find(
+      (idx: any) => idx.name === 'IDX_customer_notifications_customer_is_read',
+    );
+    expect(readIndex.columns).toEqual(['customerId', 'isRead']);
+  });
 });

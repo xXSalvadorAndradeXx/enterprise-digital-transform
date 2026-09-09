@@ -40,15 +40,25 @@ export class CreateCustomerNotificationsTable1788400000000
       );
     `);
 
-    // 3. Índices de optimización
+    // 3. Índices de optimización para filtros, pestañas y badge unread count
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "IDX_customer_notifications_customer_created"
       ON "customer_notifications" ("customer_id", "created_at" DESC);
     `);
 
     await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_customer_notifications_customer_type_created"
+      ON "customer_notifications" ("customer_id", "type", "created_at" DESC);
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_customer_notifications_customer_is_read"
+      ON "customer_notifications" ("customer_id", "is_read");
+    `);
+
+    await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "IDX_customer_notifications_customer_unread"
-      ON "customer_notifications" ("customer_id", "is_read")
+      ON "customer_notifications" ("customer_id")
       WHERE "is_read" = false;
     `);
 
@@ -65,7 +75,31 @@ export class CreateCustomerNotificationsTable1788400000000
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      DROP TABLE IF EXISTS "customer_notifications";
+      DROP INDEX IF EXISTS "IDX_customer_notifications_product_id";
+    `);
+
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "IDX_customer_notifications_order_id";
+    `);
+
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "IDX_customer_notifications_customer_unread";
+    `);
+
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "IDX_customer_notifications_customer_is_read";
+    `);
+
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "IDX_customer_notifications_customer_type_created";
+    `);
+
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "IDX_customer_notifications_customer_created";
+    `);
+
+    await queryRunner.query(`
+      DROP TABLE IF EXISTS "customer_notifications" CASCADE;
     `);
 
     await queryRunner.query(`

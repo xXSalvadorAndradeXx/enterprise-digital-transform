@@ -23,7 +23,15 @@ import { NotificationType } from '../enums/notification-type.enum';
   'customerId',
   'createdAt',
 ])
-@Index('IDX_customer_notifications_customer_unread', ['customerId', 'isRead'])
+@Index('IDX_customer_notifications_customer_type_created', [
+  'customerId',
+  'type',
+  'createdAt',
+])
+@Index('IDX_customer_notifications_customer_is_read', [
+  'customerId',
+  'isRead',
+])
 @Index('IDX_customer_notifications_order_id', ['orderId'])
 @Index('IDX_customer_notifications_product_id', ['productId'])
 export class CustomerNotification {
