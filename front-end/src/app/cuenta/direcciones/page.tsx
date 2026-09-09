@@ -2,6 +2,7 @@
 
 import {
   CheckCircle2,
+  Loader2,
   MapPin,
   Pencil,
   Plus,
@@ -75,10 +76,14 @@ function toAddressPayload(
 
 function AddressCard({
   address,
+  isActionDisabled,
   onEdit,
+  onDelete,
 }: {
   address: CustomerAddress;
+  isActionDisabled: boolean;
   onEdit: (address: CustomerAddress) => void;
+  onDelete: (address: CustomerAddress) => void;
 }) {
   const { city, districtLine } = getAddressLocationLines(address);
 
@@ -135,8 +140,9 @@ function AddressCard({
         <button
           type="button"
           onClick={() => onEdit(address)}
+          disabled={isActionDisabled}
           aria-label={`Editar dirección ${address.label}`}
-          className="inline-flex h-8 w-8 items-center justify-center rounded text-[#1822d9] transition hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1822d9]"
+          className="inline-flex h-8 w-8 items-center justify-center rounded text-[#1822d9] transition hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1822d9] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Pencil
             className="h-4 w-4"
@@ -147,8 +153,10 @@ function AddressCard({
 
         <button
           type="button"
+          onClick={() => onDelete(address)}
+          disabled={isActionDisabled}
           aria-label={`Eliminar dirección ${address.label}`}
-          className="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 transition hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+          className="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 transition hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Trash2
             className="h-4 w-4"
@@ -161,6 +169,88 @@ function AddressCard({
   );
 }
 
+function DeleteAddressConfirmationDialog({
+  address,
+  isDeleting,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  address: CustomerAddress;
+  isDeleting: boolean;
+  error: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const message = address.isDefault
+    ? "Esta es tu dirección principal. ¿Deseas eliminarla?"
+    : "¿Estás seguro de que deseas eliminar esta dirección?";
+
+  return (
+    <div
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-[#111111]/45 px-4 py-6 backdrop-blur-sm"
+      role="presentation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !isDeleting) {
+          onCancel();
+        }
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-address-title"
+        className="w-full max-w-md rounded-2xl border border-[#D9E2EC] bg-white px-5 py-5 shadow-[0_24px_70px_rgba(17,17,17,0.22)] sm:px-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2
+          id="delete-address-title"
+          className="text-xl font-extrabold text-[#111111]"
+        >
+          Eliminar dirección
+        </h2>
+
+        <p className="mt-3 text-sm leading-6 text-[#4A4A4A]">
+          {message}
+        </p>
+
+        {error ? (
+          <p
+            role="alert"
+            className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700"
+          >
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-[#D9E2EC] bg-white px-4 text-sm font-bold text-[#003791] transition hover:bg-[#EAF3FF] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isDeleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : null}
+
+            {isDeleting ? "Eliminando..." : "Eliminar"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function AddressesPage() {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [addressModalMode, setAddressModalMode] =
@@ -170,6 +260,10 @@ export default function AddressesPage() {
   const [addressModalKey, setAddressModalKey] = useState(0);
   const [submitError, setSubmitError] = useState("");
   const [hasSubmitFailure, setHasSubmitFailure] = useState(false);
+  const [addressToDelete, setAddressToDelete] =
+    useState<CustomerAddress | null>(null);
+  const [deleteSubmitError, setDeleteSubmitError] = useState("");
+  const [hasDeleteFailure, setHasDeleteFailure] = useState(false);
 
   const {
     addresses,
@@ -181,6 +275,7 @@ export default function AddressesPage() {
     loadAddresses,
     createAddress,
     updateAddress,
+    deleteAddress,
   } = useAddresses();
 
   const hasAddresses = addresses.length > 0;
@@ -193,6 +288,18 @@ export default function AddressesPage() {
     isAddressModalOpen && hasSubmitFailure
       ? error?.message ?? submitError
       : submitError;
+  const isDeleteOperation =
+    operation === "delete" &&
+    addressToDelete?.id === operationAddressId;
+  const isDeletingAddress = isMutating && isDeleteOperation;
+  const deleteConfirmationError =
+    addressToDelete && hasDeleteFailure
+      ? error?.message ?? deleteSubmitError
+      : deleteSubmitError;
+  const pageError =
+    error && !addressSubmitError && !deleteConfirmationError
+      ? error
+      : null;
 
   const openCreateAddressModal = () => {
     setAddressModalMode("create");
@@ -221,6 +328,26 @@ export default function AddressesPage() {
     setSelectedAddress(null);
     setSubmitError("");
     setHasSubmitFailure(false);
+  };
+
+  const openDeleteAddressDialog = (address: CustomerAddress) => {
+    if (isMutating) {
+      return;
+    }
+
+    setAddressToDelete(address);
+    setDeleteSubmitError("");
+    setHasDeleteFailure(false);
+  };
+
+  const closeDeleteAddressDialog = () => {
+    if (isDeletingAddress) {
+      return;
+    }
+
+    setAddressToDelete(null);
+    setDeleteSubmitError("");
+    setHasDeleteFailure(false);
   };
 
   const handleAddressModalSubmit = async (
@@ -260,6 +387,32 @@ export default function AddressesPage() {
     setHasSubmitFailure(false);
   };
 
+  const handleConfirmDeleteAddress = async () => {
+    if (!addressToDelete || isDeletingAddress) {
+      return;
+    }
+
+    setDeleteSubmitError("");
+    setHasDeleteFailure(false);
+
+    const wasDeleted = await deleteAddress(addressToDelete.id);
+
+    if (!wasDeleted) {
+      setHasDeleteFailure(true);
+      setDeleteSubmitError(
+        addressToDelete.isDefault
+          ? "No pudimos eliminar la direccion principal."
+          : "No pudimos eliminar la direccion.",
+      );
+
+      return;
+    }
+
+    setAddressToDelete(null);
+    setDeleteSubmitError("");
+    setHasDeleteFailure(false);
+  };
+
   return (
     <section className="min-h-[calc(100vh-10rem)] text-[#111111]">
       <header className="flex flex-col gap-4 border-b border-[#d9dde5] pb-5 sm:flex-row sm:items-center sm:justify-between">
@@ -278,12 +431,12 @@ export default function AddressesPage() {
       </header>
 
       <div className="mt-8">
-        {error ? (
+        {pageError ? (
           <div
             role="alert"
             className="mb-5 rounded-lg border border-red-100 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700"
           >
-            <p>{error.message}</p>
+            <p>{pageError.message}</p>
 
             <button
               type="button"
@@ -313,7 +466,9 @@ export default function AddressesPage() {
               <AddressCard
                 key={address.id}
                 address={address}
+                isActionDisabled={isMutating}
                 onEdit={openEditAddressModal}
+                onDelete={openDeleteAddressDialog}
               />
             ))}
           </div>
@@ -330,6 +485,16 @@ export default function AddressesPage() {
         onClose={closeAddressModal}
         onSubmit={handleAddressModalSubmit}
       />
+
+      {addressToDelete ? (
+        <DeleteAddressConfirmationDialog
+          address={addressToDelete}
+          isDeleting={isDeletingAddress}
+          error={deleteConfirmationError}
+          onCancel={closeDeleteAddressDialog}
+          onConfirm={handleConfirmDeleteAddress}
+        />
+      ) : null}
     </section>
   );
 }
