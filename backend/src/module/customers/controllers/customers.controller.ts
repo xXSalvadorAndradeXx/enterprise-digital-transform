@@ -16,6 +16,8 @@ import {
   ApiBody,
   ApiBearerAuth,
   ApiOkResponse,
+  ApiCreatedResponse,
+  ApiParam,
   ApiUnauthorizedResponse,
   ApiBadRequestResponse,
   ApiNotFoundResponse,
@@ -25,6 +27,7 @@ import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
 import { CreateCustomerAddressDto } from '../dto/create-customer-address.dto';
 import { UpdateCustomerAddressDto } from '../dto/update-customer-address.dto';
 import { CustomerProfileResponseDto } from '../dto/customer-profile-response.dto';
+import { CustomerAddressResponseDto } from '../dto/customer-address-response.dto';
 import { UpdateCustomerProfileDto } from '../dto/update-customer-profile.dto';
 import { CurrentCustomer } from '../decorators/current-customer.decorator';
 import type { CurrentCustomerPayload } from '../decorators/current-customer.decorator';
@@ -304,6 +307,17 @@ export class CustomersController {
 
   @ApiOperation({
     summary: 'Obtener las direcciones registradas del cliente autenticado',
+    description:
+      'Devuelve la lista de direcciones activas del cliente, ordenadas colocando primero ' +
+      'la dirección predeterminada (isDefault = true). Incluye alias, IDs y objetos de ubicación ' +
+      'para facilitar la precarga de formularios en Frontend.',
+  })
+  @ApiOkResponse({
+    description: 'Listado de direcciones obtenido exitosamente',
+    type: [CustomerAddressResponseDto],
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token de autenticación inválido o expirado',
   })
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
@@ -311,36 +325,31 @@ export class CustomersController {
   async getMyAddresses(@CurrentCustomer() customer: CurrentCustomerPayload) {
     const addresses = await this.customersService.getAddresses(customer.id);
 
-    const formattedAddresses = addresses.map((addr) => ({
-      id: addr.id,
-      department: addr.department
-        ? {
-            id: addr.department.id,
-            name: addr.department.name,
-          }
-        : null,
-      district: addr.district
-        ? {
-            id: addr.district.id,
-            name: addr.district.name,
-          }
-        : null,
-      city: addr.city,
-      addressLine: addr.addressLine,
-      label: addr.label,
-      isDefault: addr.isDefault,
-    }));
-
     return {
       success: true,
-      data: formattedAddresses,
+      data: addresses.map(CustomerAddressResponseDto.fromEntity),
     };
   }
 
   @ApiOperation({
     summary: 'Registrar una nueva dirección para el cliente autenticado',
+    description:
+      'Crea una nueva dirección para el cliente. Valida que el par departamento-distrito ' +
+      'esté activo y sea consistente. Si es la primera dirección o se solicita isDefault = true, ' +
+      'se establece como principal desmarcando la anterior atómicamente.',
   })
   @ApiBody({ type: CreateCustomerAddressDto })
+  @ApiCreatedResponse({
+    description: 'Dirección registrada exitosamente',
+    type: CustomerAddressResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Datos inválidos en el cuerpo de la petición o par departamento-distrito inconsistente (VALIDATION_ERROR)',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token de autenticación inválido o expirado',
+  })
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
   @Post('me/addresses')
@@ -350,36 +359,39 @@ export class CustomersController {
   ) {
     const address = await this.customersService.createAddress(customer.id, dto);
 
-    const formattedAddress = {
-      id: address.id,
-      department: address.department
-        ? {
-            id: address.department.id,
-            name: address.department.name,
-          }
-        : null,
-      district: address.district
-        ? {
-            id: address.district.id,
-            name: address.district.name,
-          }
-        : null,
-      city: address.city,
-      addressLine: address.addressLine,
-      label: address.label,
-      isDefault: address.isDefault,
-    };
-
     return {
       success: true,
-      data: formattedAddress,
+      message: 'Dirección registrada correctamente.',
+      data: CustomerAddressResponseDto.fromEntity(address),
     };
   }
 
   @ApiOperation({
     summary: 'Actualizar una dirección existente del cliente autenticado',
+    description:
+      'Actualiza parcialmente los datos de una dirección del cliente. ' +
+      'Revalida departamento-distrito si se modifican. Respeta el aislamiento por cliente.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Identificador UUID v4 de la dirección a actualizar',
+    example: '7b2e8a1d-5c43-4f2e-9d8a-1b2c3d4e5f60',
   })
   @ApiBody({ type: UpdateCustomerAddressDto })
+  @ApiOkResponse({
+    description: 'Dirección actualizada exitosamente',
+    type: CustomerAddressResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'El ID no es un UUID v4 o los datos enviados no son válidos',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'La dirección no existe o no pertenece al cliente autenticado (ADDRESS_NOT_FOUND)',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token de autenticación inválido o expirado',
+  })
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
   @Patch('me/addresses/:id')
@@ -406,34 +418,46 @@ export class CustomersController {
       dto,
     );
 
-    const formattedAddress = {
-      id: address.id,
-      department: address.department
-        ? {
-            id: address.department.id,
-            name: address.department.name,
-          }
-        : null,
-      district: address.district
-        ? {
-            id: address.district.id,
-            name: address.district.name,
-          }
-        : null,
-      city: address.city,
-      addressLine: address.addressLine,
-      label: address.label,
-      isDefault: address.isDefault,
-    };
-
     return {
       success: true,
-      data: formattedAddress,
+      message: 'Dirección actualizada correctamente.',
+      data: CustomerAddressResponseDto.fromEntity(address),
     };
   }
 
   @ApiOperation({
     summary: 'Eliminar una dirección del cliente autenticado',
+    description:
+      'Realiza un borrado lógico (soft delete) de la dirección. Si la dirección borrada ' +
+      'era la principal, el sistema reasigna automáticamente otra dirección activa como principal.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Identificador UUID v4 de la dirección a eliminar',
+    example: '7b2e8a1d-5c43-4f2e-9d8a-1b2c3d4e5f60',
+  })
+  @ApiOkResponse({
+    description: 'Dirección eliminada correctamente',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: {
+          type: 'string',
+          example: 'Dirección eliminada correctamente.',
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'El ID proporcionado no es un UUID versión 4 válido',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'La dirección no existe o no pertenece al cliente autenticado (ADDRESS_NOT_FOUND)',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token de autenticación inválido o expirado',
   })
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
@@ -464,6 +488,28 @@ export class CustomersController {
   @ApiOperation({
     summary:
       'Establecer una dirección como principal para el cliente autenticado',
+    description:
+      'Marca la dirección indicada como predeterminada (isDefault = true) y ' +
+      'desmarca cualquier otra dirección principal previa de forma atómica.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Identificador UUID v4 de la dirección a marcar como principal',
+    example: '7b2e8a1d-5c43-4f2e-9d8a-1b2c3d4e5f60',
+  })
+  @ApiOkResponse({
+    description: 'Dirección establecida como principal exitosamente',
+    type: CustomerAddressResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'El ID proporcionado no es un UUID versión 4 válido',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'La dirección no existe o no pertenece al cliente autenticado (ADDRESS_NOT_FOUND)',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Token de autenticación inválido o expirado',
   })
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
@@ -489,29 +535,11 @@ export class CustomersController {
       id,
     );
 
-    const formattedAddress = {
-      id: address.id,
-      department: address.department
-        ? {
-            id: address.department.id,
-            name: address.department.name,
-          }
-        : null,
-      district: address.district
-        ? {
-            id: address.district.id,
-            name: address.district.name,
-          }
-        : null,
-      city: address.city,
-      addressLine: address.addressLine,
-      label: address.label,
-      isDefault: address.isDefault,
-    };
-
     return {
       success: true,
-      data: formattedAddress,
+      message: 'Dirección predeterminada actualizada correctamente.',
+      data: CustomerAddressResponseDto.fromEntity(address),
     };
   }
 }
+

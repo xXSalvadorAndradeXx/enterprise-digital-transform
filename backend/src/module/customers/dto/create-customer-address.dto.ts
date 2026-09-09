@@ -6,6 +6,8 @@ import {
   IsBoolean,
   Length,
   MaxLength,
+  ValidateIf,
+  Matches,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -32,6 +34,74 @@ export class CreateCustomerAddressDto {
   districtId!: string;
 
   @ApiPropertyOptional({
+    description:
+      'Alias amigable para identificar la dirección (ej: Casa, Oficina). Sinónimo de label.',
+    example: 'Casa',
+    minLength: 2,
+    maxLength: 50,
+  })
+  @ValidateIf((o) => !o.label || o.alias !== undefined)
+  @IsNotEmpty({
+    message: 'Debe ingresar un alias o label para identificar la dirección',
+  })
+  @IsString({ message: 'El alias debe ser una cadena de texto' })
+  @Length(2, 50, { message: 'El alias debe tener entre 2 y 50 caracteres' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  alias?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Etiqueta amigable de identificación (ej: Casa, Trabajo). Sinónimo de alias.',
+    example: 'Casa',
+    minLength: 2,
+    maxLength: 50,
+  })
+  @ValidateIf((o) => !o.alias || o.label !== undefined)
+  @IsNotEmpty({
+    message: 'Debe ingresar un alias o label para identificar la dirección',
+  })
+  @IsString({ message: 'La etiqueta debe ser una cadena de texto' })
+  @Length(2, 50, { message: 'La etiqueta debe tener entre 2 y 50 caracteres' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  label?: string;
+
+  @ApiPropertyOptional({
+    description: 'Nombre de la persona que recibe el paquete en esta dirección',
+    example: 'Carlos Gómez',
+    maxLength: 150,
+  })
+  @IsOptional()
+  @IsString({
+    message: 'El nombre del destinatario debe ser una cadena de texto',
+  })
+  @MaxLength(150, {
+    message: 'El nombre del destinatario no puede exceder los 150 caracteres',
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  recipientName?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Teléfono de contacto para la entrega. Acepta formato internacional (+503XXXXXXXX) o nacional de 8 dígitos iniciando en 2, 6 o 7.',
+    example: '+50371234567',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const cleaned = value.replace(/[^\d+]/g, '');
+    if (/^\d{8}$/.test(cleaned)) {
+      return `+503${cleaned}`;
+    }
+    return cleaned;
+  })
+  @IsString({ message: 'El teléfono debe ser una cadena de texto' })
+  @Matches(/^\+503[267]\d{7}$/, {
+    message:
+      'El teléfono debe ser un número válido de El Salvador (+503XXXXXXXX donde el primer dígito es 2, 6 o 7)',
+  })
+  phone?: string;
+
+  @ApiPropertyOptional({
     description: 'Ciudad de la dirección',
     example: 'San Salvador',
     maxLength: 100,
@@ -56,17 +126,19 @@ export class CreateCustomerAddressDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   addressLine!: string;
 
-  @ApiProperty({
-    description: 'Etiqueta amigable de identificación para la dirección',
-    example: 'Casa',
-    minLength: 2,
-    maxLength: 50,
+  @ApiPropertyOptional({
+    description:
+      'Punto de referencia adicional para facilitar la entrega (ej: Frente al parque, portón negro)',
+    example: 'Frente al parque comunal, casa con portón negro',
+    maxLength: 255,
   })
-  @IsString({ message: 'La etiqueta debe ser una cadena de texto' })
-  @IsNotEmpty({ message: 'La etiqueta es obligatoria' })
-  @Length(2, 50, { message: 'La etiqueta debe tener entre 2 y 50 caracteres' })
+  @IsOptional()
+  @IsString({ message: 'La referencia debe ser una cadena de texto' })
+  @MaxLength(255, {
+    message: 'La referencia no puede exceder los 255 caracteres',
+  })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  label!: string;
+  reference?: string;
 
   @ApiPropertyOptional({
     description: 'Define si es la dirección predeterminada del cliente',
@@ -81,4 +153,12 @@ export class CreateCustomerAddressDto {
     return value;
   })
   isDefault: boolean = false;
+
+  /**
+   * Helper que retorna el nombre o alias resuelto de la dirección,
+   * priorizando alias sobre label si ambos fueran provistos.
+   */
+  getResolvedLabel(): string {
+    return (this.alias || this.label || '').trim();
+  }
 }

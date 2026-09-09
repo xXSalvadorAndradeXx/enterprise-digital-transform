@@ -19,6 +19,8 @@ import { HashService } from '../auth/services/hash.service';
 import { EcommerceRegisterDto } from './dto/ecommerce-register.dto';
 import { CustomerProfileResponseDto } from './dto/customer-profile-response.dto';
 import { UpdateCustomerProfileDto } from './dto/update-customer-profile.dto';
+import { CreateCustomerAddressDto } from './dto/create-customer-address.dto';
+import { UpdateCustomerAddressDto } from './dto/update-customer-address.dto';
 import { plainToInstance } from 'class-transformer';
 import {
   SESSION_ABSOLUTE_MAX_TTL_SECONDS,
@@ -518,7 +520,7 @@ export class CustomersService {
    */
   async createAddress(
     customerId: string,
-    data: Partial<CustomerAddress>,
+    data: CreateCustomerAddressDto | any,
   ): Promise<CustomerAddress> {
     const customer = await this.findOne(customerId);
 
@@ -531,6 +533,11 @@ export class CustomersService {
       data.departmentId,
       data.districtId,
     );
+
+    const resolvedLabel =
+      typeof data.getResolvedLabel === 'function'
+        ? data.getResolvedLabel()
+        : data.alias || data.label || 'Principal';
 
     return await this.customerRepository.manager.transaction(
       async (manager) => {
@@ -548,7 +555,14 @@ export class CustomersService {
         }
 
         const address = manager.create(CustomerAddress, {
-          ...data,
+          departmentId: data.departmentId,
+          districtId: data.districtId,
+          city: data.city,
+          addressLine: data.addressLine,
+          label: resolvedLabel,
+          recipientName: data.recipientName ?? null,
+          phone: data.phone ?? null,
+          reference: data.reference ?? null,
           customerId: customer.id,
           isDefault,
         });
@@ -570,7 +584,7 @@ export class CustomersService {
   async updateAddress(
     customerId: string,
     addressId: string,
-    data: Partial<CustomerAddress>,
+    data: UpdateCustomerAddressDto | any,
   ): Promise<CustomerAddress> {
     const address = await this.addressRepository.findOne({
       where: { id: addressId, customerId },
@@ -602,7 +616,25 @@ export class CustomersService {
           await this.clearDefaultAddress(manager, customerId);
         }
 
-        Object.assign(address, data);
+        if (data.departmentId !== undefined) address.departmentId = data.departmentId;
+        if (data.districtId !== undefined) address.districtId = data.districtId;
+        if (data.city !== undefined) address.city = data.city;
+        if (data.addressLine !== undefined) address.addressLine = data.addressLine;
+        if (data.isDefault !== undefined) address.isDefault = data.isDefault;
+        if (data.recipientName !== undefined) address.recipientName = data.recipientName;
+        if (data.phone !== undefined) address.phone = data.phone;
+        if (data.reference !== undefined) address.reference = data.reference;
+
+        const resolvedLabel =
+          typeof data.getResolvedLabel === 'function'
+            ? data.getResolvedLabel()
+            : data.alias !== undefined
+              ? data.alias
+              : data.label;
+        if (resolvedLabel !== undefined) {
+          address.label = resolvedLabel;
+        }
+
         const saved = await manager.save(CustomerAddress, address);
 
         return (await manager.findOne(CustomerAddress, {
