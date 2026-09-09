@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -82,8 +81,8 @@ export class CustomerOrdersService {
     const statusFilter = query?.status;
     const sortOrder = query?.sortOrder || 'DESC';
 
-    // Validar existencia del cliente
-    const customerExists = await this.customerRepository.findOne({
+    // Validar existencia del cliente de forma óptima (SELECT 1 ... LIMIT 1)
+    const customerExists = await this.customerRepository.exists({
       where: { id: customerId },
     });
     if (!customerExists) {
@@ -112,6 +111,7 @@ export class CustomerOrdersService {
     queryBuilder
       .orderBy('order.createdAt', sortOrder)
       .addOrderBy('order.id', 'ASC')
+      .addOrderBy('images.sortOrder', 'ASC')
       .skip(skip)
       .take(limit);
 
@@ -160,7 +160,9 @@ export class CustomerOrdersService {
         createdAt: o.createdAt,
         paymentMethod: 'CREDIT_CARD', // Default per checkout specification
         deliveryType:
-          o.deliveryMethod || o.delivery?.deliveryType || 'HOME_DELIVERY',
+          o.delivery?.deliveryType ||
+          (o.deliveryMethod === 'PICKUP' ? 'STORE_PICKUP' : o.deliveryMethod) ||
+          'HOME_DELIVERY',
         total: Number(o.totalAmount || 0).toFixed(2),
         itemsCount,
         items: itemsSummary,
@@ -201,14 +203,35 @@ export class CustomerOrdersService {
   }
 
   /**
-   * Obtiene los detalles completos de una orden para el cliente autenticado.
+   * Obtiene los detalles completos de una orden para el cliente autenticado de forma segura.
+   * Consulta orderNumber + customerId en la misma sentencia SQL para mitigar riesgos de
+   * enumeración de pedidos (anti-IDOR) y retorna 404 ORDER_NOT_FOUND tanto si la orden
+   * no existe como si pertenece a otro cliente.
+   *
+   * Admite inversión de parámetros (orderNumber, customerId) por flexibilidad de invocación.
    */
-  async findOneForCustomer(
-    customerId: string,
-    orderNumber: string,
+  async findOneByOrderNumber(
+    customerIdOrOrderNumber: string,
+    orderNumberOrCustomerId: string,
   ): Promise<CustomerOrderDetailResponseDto> {
+    const isFirstParamOrderNumber =
+      /^[A-Za-z0-9]{8}$/.test(customerIdOrOrderNumber) &&
+      customerIdOrOrderNumber.length === 8 &&
+      !customerIdOrOrderNumber.includes('-');
+
+    const customerId = isFirstParamOrderNumber
+      ? orderNumberOrCustomerId
+      : customerIdOrOrderNumber;
+    const rawOrderNumber = isFirstParamOrderNumber
+      ? customerIdOrOrderNumber
+      : orderNumberOrCustomerId;
+    const normalizedOrderNumber = (rawOrderNumber || '').trim().toUpperCase();
+
     const order = await this.orderRepository.findOne({
-      where: { orderNumber },
+      where: {
+        orderNumber: normalizedOrderNumber,
+        customerId,
+      },
       relations: [
         'items',
         'items.product',
@@ -222,14 +245,7 @@ export class CustomerOrdersService {
     if (!order) {
       throw new NotFoundException({
         code: 'ORDER_NOT_FOUND',
-        message: `No se encontró la orden con número ${orderNumber}`,
-      });
-    }
-
-    if (order.customerId !== customerId) {
-      throw new ForbiddenException({
-        code: 'ORDER_FORBIDDEN',
-        message: 'No tienes autorización para acceder a esta orden',
+        message: `No se encontró la orden con número ${normalizedOrderNumber}`,
       });
     }
 
@@ -256,11 +272,13 @@ export class CustomerOrdersService {
 
         return {
           id: item.id,
-          productId: item.product?.id || null,
+          productId: isAvailable && item.product ? item.product.id : null,
           variantId: null,
           isAvailable,
           canRepurchase: isAvailable,
-          commercialName: item.product?.commercialName || 'Producto',
+          commercialName:
+            item.product?.commercialName ||
+            (item.sku ? `Producto (${item.sku})` : 'Producto no disponible'),
           variantTitle:
             [item.color, item.size].filter(Boolean).join(' / ') || null,
           sku: item.sku || null,
@@ -280,7 +298,9 @@ export class CustomerOrdersService {
       ? {
           deliveryType:
             order.delivery.deliveryType ||
-            order.deliveryMethod ||
+            (order.deliveryMethod === 'PICKUP'
+              ? 'STORE_PICKUP'
+              : order.deliveryMethod) ||
             'HOME_DELIVERY',
           recipientName: order.customerName || null,
           recipientPhone: order.customerPhone || null,
@@ -319,7 +339,11 @@ export class CustomerOrdersService {
       status: this.mapHistoricalStatus(order.status),
       paymentMethod: 'CREDIT_CARD', // Default per checkout specification
       deliveryType:
-        order.deliveryMethod || order.delivery?.deliveryType || 'HOME_DELIVERY',
+        order.delivery?.deliveryType ||
+        (order.deliveryMethod === 'PICKUP'
+          ? 'STORE_PICKUP'
+          : order.deliveryMethod) ||
+        'HOME_DELIVERY',
       subtotal: Number(order.subtotal || 0).toFixed(2),
       discountTotal: Number(order.discountTotal || 0).toFixed(2),
       shippingTotal: Number(
@@ -335,5 +359,15 @@ export class CustomerOrdersService {
     return plainToInstance(CustomerOrderDetailResponseDto, rawMapped, {
       excludeExtraneousValues: true,
     });
+  }
+
+  /**
+   * Alias de compatibilidad hacia findOneByOrderNumber
+   */
+  async findOneForCustomer(
+    customerId: string,
+    orderNumber: string,
+  ): Promise<CustomerOrderDetailResponseDto> {
+    return this.findOneByOrderNumber(customerId, orderNumber);
   }
 }

@@ -5,11 +5,13 @@ import {
   ManyToOne,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { Order } from './order.entity';
 import { Product } from '../../products/entities/product.entity';
 
 @Entity({ name: 'order_items' })
+@Index('IDX_order_items_order_id', ['order'])
 export class OrderItem {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
