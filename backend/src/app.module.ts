@@ -3,23 +3,23 @@ import { ConfigModule, ConfigService } from '@nestjs/config'; // Importa ConfigS
 import { TypeOrmModule } from '@nestjs/typeorm'; // Importa TypeOrmModule
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { UsersModule } from '../src/module/users/users.module';
-import { ProductsModule } from '../src/module/products/products.module';
-import { CartModule } from '../src/module/cart/cart.module';
-import { AuthModule } from '../src/module/auth/auth.module';
-import { CategoriesModule } from '../src/module/categories/categories.module';
-import { RolesModule } from '../src/module/roles/roles.module';
-import { PermissionsModule } from '../src/module/permissions/permissions.module';
+import { UsersModule } from './module/users/users.module';
+import { ProductsModule } from './module/products/products.module';
+import { CartModule } from './module/cart/cart.module';
+import { AuthModule } from './module/auth/auth.module';
+import { CategoriesModule } from './module/categories/categories.module';
+import { RolesModule } from './module/roles/roles.module';
+import { PermissionsModule } from './module/permissions/permissions.module';
 import { validate } from './env.validation';
-import { SuppliersModule } from '../src/module/suppliers/suppliers.module';
-import { InventoryModule } from '../src/module/inventory/inventory.module';
-import { PurchasesModule } from '../src/module/purchases/purchases.module';
-import { BranchesModule } from '../src/module/branches/branches.module';
-import { OrdersModule } from '../src/module/orders/orders.module';
-import { PaymentsModule } from '../src/module/payments/payments.module';
-import { LocationsModule } from '../src/module/locations/locations.module';
-import { CustomersModule } from '../src/module/customers/customers.module';
-import { NotificationsModule } from '../src/module/notifications/notifications.module';
+import { SuppliersModule } from './module/suppliers/suppliers.module';
+import { InventoryModule } from './module/inventory/inventory.module';
+import { PurchasesModule } from './module/purchases/purchases.module';
+import { BranchesModule } from './module/branches/branches.module';
+import { OrdersModule } from './module/orders/orders.module';
+import { PaymentsModule } from './module/payments/payments.module';
+import { LocationsModule } from './module/locations/locations.module';
+import { CustomersModule } from './module/customers/customers.module';
+import { NotificationsModule } from './module/notifications/notifications.module';
 
 @Module({
   imports: [

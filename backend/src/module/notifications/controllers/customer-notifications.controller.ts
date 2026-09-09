@@ -87,15 +87,13 @@ export class CustomerNotificationsController {
   async getUnreadCount(
     @CurrentCustomer() customer: CurrentCustomerPayload,
   ): Promise<UnreadCountResponseDto> {
-    const { unreadCount } = await this.notificationsService.getUnreadCount(
+    const unreadData = await this.notificationsService.getUnreadCount(
       customer.id,
     );
 
     return {
       success: true,
-      data: {
-        unreadCount,
-      },
+      data: unreadData,
     };
   }
 

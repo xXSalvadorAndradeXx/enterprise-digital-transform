@@ -29,18 +29,26 @@ describe('CustomerNotificationsService', () => {
     updatedAt: new Date('2026-09-08T12:00:00.000Z'),
   };
 
-  const createMockQueryBuilder = (entities: any[] = [], total = 0) => ({
+  const createMockQueryBuilder = (
+    entities: any[] = [],
+    total = 0,
+    rawMany: any[] = [],
+  ) => ({
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
     getManyAndCount: jest.fn().mockResolvedValue([entities, total]),
+    getRawMany: jest.fn().mockResolvedValue(rawMany),
   });
 
   beforeEach(async () => {
     mockNotificationRepo = {
-      createQueryBuilder: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(createMockQueryBuilder()),
       count: jest.fn().mockResolvedValue(1),
       findOne: jest.fn(),
       save: jest.fn().mockImplementation((entity) => Promise.resolve({ ...entity, id: entity.id || 'new-id' })),
@@ -66,7 +74,26 @@ describe('CustomerNotificationsService', () => {
   });
 
   describe('findAll', () => {
-    it('debe retornar lista paginada con DTOs enriquecidos con la pestaña tab=ORDERS', async () => {
+    it('debe filtrar prioritariamente por type cuando se especifica en la consulta', async () => {
+      const qb = createMockQueryBuilder([mockNotificationEntity], 1);
+      mockNotificationRepo.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await service.findAll(mockCustomerId, {
+        type: NotificationType.ORDER_STATUS_CHANGED,
+      });
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'notification.type = :type',
+        { type: NotificationType.ORDER_STATUS_CHANGED },
+      );
+      expect(result.notifications[0].orderRef).toEqual({
+        id: 'ord-uuid-1234',
+        orderNumber: 'A7K29P4Q',
+      });
+      expect(result.notifications[0].productRef).toBeNull();
+    });
+
+    it('debe retornar lista paginada con DTOs enriquecidos con la pestaña tab=ORDERS cuando no se envía type', async () => {
       const qb = createMockQueryBuilder([mockNotificationEntity], 1);
       mockNotificationRepo.createQueryBuilder.mockReturnValue(qb);
       mockNotificationRepo.count.mockResolvedValue(1);
@@ -93,6 +120,20 @@ describe('CustomerNotificationsService', () => {
       expect(result.meta.page).toBe(1);
     });
 
+    it('no debe restringir por tipo cuando no se envía type y tab es ALL', async () => {
+      const qb = createMockQueryBuilder([], 0);
+      mockNotificationRepo.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll(mockCustomerId, {
+        tab: NotificationTab.ALL,
+      });
+
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        expect.stringContaining('notification.type'),
+        expect.anything(),
+      );
+    });
+
     it('debe filtrar por isRead cuando se envía en la consulta', async () => {
       const qb = createMockQueryBuilder([], 0);
       mockNotificationRepo.createQueryBuilder.mockReturnValue(qb);
@@ -110,15 +151,31 @@ describe('CustomerNotificationsService', () => {
   });
 
   describe('getUnreadCount', () => {
-    it('debe retornar el contador de notificaciones no leídas para el cliente', async () => {
+    it('debe retornar el contador total y el desglose (breakdown) por tipo y pestaña', async () => {
       mockNotificationRepo.count.mockResolvedValue(4);
+      const rawBreakdown = [
+        { type: NotificationType.ORDER_STATUS_CHANGED, count: '3' },
+        { type: NotificationType.FAVORITE_PRICE_DROPPED, count: '1' },
+      ];
+      const qb = createMockQueryBuilder([], 0, rawBreakdown);
+      mockNotificationRepo.createQueryBuilder.mockReturnValue(qb);
 
       const result = await service.getUnreadCount(mockCustomerId);
 
       expect(mockNotificationRepo.count).toHaveBeenCalledWith({
         where: { customerId: mockCustomerId, isRead: false },
       });
-      expect(result).toEqual({ unreadCount: 4 });
+      expect(result.unreadCount).toBe(4);
+      expect(result.breakdown).toEqual({
+        [NotificationType.ORDER_STATUS_CHANGED]: 3,
+        [NotificationType.FAVORITE_PRICE_DROPPED]: 1,
+        [NotificationType.SYSTEM_ANNOUNCEMENT]: 0,
+      });
+      expect(result.tabBreakdown).toEqual({
+        [NotificationTab.ORDERS]: 3,
+        [NotificationTab.OFFERS]: 1,
+        [NotificationTab.SYSTEM]: 0,
+      });
     });
   });
 

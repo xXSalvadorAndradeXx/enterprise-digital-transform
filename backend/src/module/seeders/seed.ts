@@ -1,12 +1,12 @@
 import { DataSource } from 'typeorm';
 import { Product } from '../products/entities/product.entity';
 import { Category } from '../categories/entities/category.entity';
-import typeOrmConfig from '../../../typeorm.config';
 import { ProductStatus } from '../products/enums/product-status.enum';
+import dataSource from '../../database/data-source';
 
 async function runSeeder() {
   console.log('Iniciando seeder...');
-  const dataSource = await typeOrmConfig.initialize();
+  await dataSource.initialize();
 
   const categoryRepo = dataSource.getRepository(Category);
   const productRepo = dataSource.getRepository(Product);

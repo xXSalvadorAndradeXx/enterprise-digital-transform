@@ -2,7 +2,41 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { NotificationType } from '../enums/notification-type.enum';
 import { NotificationTab } from '../enums/notification-tab.enum';
 
-export class CustomerNotificationItemResponseDto {
+export class OrderRefDto {
+  @ApiPropertyOptional({
+    description: 'Identificador único de la orden (UUID)',
+    example: 'd8c23d4e-b5f7-4c07-96a8-a28efbc2e541',
+  })
+  id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Número amigable de la orden (ej. A7K29P4Q)',
+    example: 'A7K29P4Q',
+  })
+  orderNumber?: string;
+}
+
+export class ProductRefDto {
+  @ApiPropertyOptional({
+    description: 'Identificador único del producto (UUID)',
+    example: 'f5262ea1-7703-474c-90be-e6d896a822c5',
+  })
+  id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Nombre comercial del producto',
+    example: 'Taladro Percutor 1/2 Pulgada',
+  })
+  commercialName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Precio actual o nuevo del producto',
+    example: 70.0,
+  })
+  price?: number;
+}
+
+export class NotificationResponseDto {
   @ApiProperty({
     description: 'Identificador único de la notificación (UUID)',
     example: '550e8400-e29b-41d4-a716-446655440000',
@@ -10,7 +44,7 @@ export class CustomerNotificationItemResponseDto {
   id!: string;
 
   @ApiProperty({
-    description: 'Tipo de evento de notificación',
+    description: 'Tipo de evento canónico de notificación',
     enum: NotificationType,
     example: NotificationType.ORDER_STATUS_CHANGED,
   })
@@ -36,36 +70,22 @@ export class CustomerNotificationItemResponseDto {
   message!: string;
 
   @ApiPropertyOptional({
-    description: 'Identificador de la orden asociada si aplica',
-    example: 'd8c23d4e-b5f7-4c07-96a8-a28efbc2e541',
-    nullable: true,
-  })
-  orderId?: string | null;
-
-  @ApiPropertyOptional({
-    description: 'Identificador del producto asociado si aplica',
-    example: 'f5262ea1-7703-474c-90be-e6d896a822c5',
-    nullable: true,
-  })
-  productId?: string | null;
-
-  @ApiPropertyOptional({
     description: 'Referencia mínima normalizada de la orden asociada si aplica',
-    example: { id: 'd8c23d4e-b5f7-4c07-96a8-a28efbc2e541', orderNumber: 'A7K29P4Q' },
+    type: OrderRefDto,
     nullable: true,
   })
-  orderRef?: { id?: string; orderNumber?: string } | null;
+  orderRef?: OrderRefDto | null;
 
   @ApiPropertyOptional({
     description: 'Referencia mínima normalizada del producto asociado si aplica',
-    example: { id: 'f5262ea1-7703-474c-90be-e6d896a822c5', commercialName: 'Taladro Percutor', price: 70.0 },
+    type: ProductRefDto,
     nullable: true,
   })
-  productRef?: { id?: string; commercialName?: string; price?: number } | null;
+  productRef?: ProductRefDto | null;
 
   @ApiPropertyOptional({
     description:
-      'Metadatos no sensibles estructurados de la notificación (número de orden, precios, etc.)',
+      'Metadatos estructurados no sensibles del evento para extensibilidad',
     example: { orderNumber: 'A7K29P4Q', newStatus: 'ON_ROUTE' },
     nullable: true,
   })
@@ -98,7 +118,7 @@ export class CustomerNotificationItemResponseDto {
   createdAt!: Date;
 }
 
-export class CustomerNotificationsPaginationMetaDto {
+export class NotificationsPaginationMetaDto {
   @ApiProperty({ description: 'Total de notificaciones encontradas', example: 42 })
   total!: number;
 
@@ -118,53 +138,32 @@ export class CustomerNotificationsPaginationMetaDto {
   unreadCount!: number;
 }
 
-export class PaginatedCustomerNotificationsDataDto {
+export class PaginatedNotificationsDataDto {
   @ApiProperty({
     description: 'Lista de notificaciones del cliente',
-    type: [CustomerNotificationItemResponseDto],
+    type: [NotificationResponseDto],
   })
-  notifications!: CustomerNotificationItemResponseDto[];
+  notifications!: NotificationResponseDto[];
 
   @ApiProperty({
     description: 'Metadatos de paginación y conteo',
-    type: CustomerNotificationsPaginationMetaDto,
+    type: NotificationsPaginationMetaDto,
   })
-  meta!: CustomerNotificationsPaginationMetaDto;
+  meta!: NotificationsPaginationMetaDto;
 }
 
-export class PaginatedCustomerNotificationsResponseDto {
+export class PaginatedNotificationsResponseDto {
   @ApiProperty({ example: true })
   success!: boolean;
 
-  @ApiProperty({ type: PaginatedCustomerNotificationsDataDto })
-  data!: PaginatedCustomerNotificationsDataDto;
+  @ApiProperty({ type: PaginatedNotificationsDataDto })
+  data!: PaginatedNotificationsDataDto;
 }
 
-export class CustomerNotificationWrappedResponseDto {
+export class NotificationWrappedResponseDto {
   @ApiProperty({ example: true })
   success!: boolean;
 
-  @ApiProperty({ type: CustomerNotificationItemResponseDto })
-  data!: CustomerNotificationItemResponseDto;
-}
-
-export {
-  UnreadCountDataDto,
-  UnreadCountResponseDto,
-} from './unread-count-response.dto';
-
-export class MarkAllAsReadDataDto {
-  @ApiProperty({
-    description: 'Cantidad de notificaciones actualizadas a leídas',
-    example: 7,
-  })
-  updatedCount!: number;
-}
-
-export class MarkAllAsReadResponseDto {
-  @ApiProperty({ example: true })
-  success!: boolean;
-
-  @ApiProperty({ type: MarkAllAsReadDataDto })
-  data!: MarkAllAsReadDataDto;
+  @ApiProperty({ type: NotificationResponseDto })
+  data!: NotificationResponseDto;
 }

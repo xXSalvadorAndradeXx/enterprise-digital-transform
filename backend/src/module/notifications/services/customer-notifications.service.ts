@@ -13,11 +13,12 @@ import {
   getNotificationTab,
   getNotificationTypesForTab,
 } from '../constants/notification-category-mapping';
-import { CustomerNotificationsQueryDto } from '../dto/customer-notifications-query.dto';
+import { NotificationsQueryDto } from '../dto/notifications-query.dto';
 import {
-  CustomerNotificationItemResponseDto,
-  CustomerNotificationsPaginationMetaDto,
-} from '../dto/customer-notification-response.dto';
+  NotificationResponseDto,
+  NotificationsPaginationMetaDto,
+} from '../dto/notification-response.dto';
+import { UnreadCountDataDto } from '../dto/unread-count-response.dto';
 
 export interface CreateOrderStatusNotificationParams {
   customerId: string;
@@ -51,13 +52,16 @@ export class CustomerNotificationsService {
   /**
    * Obtiene la lista paginada de notificaciones para el cliente autenticado,
    * aplicando filtros por pestaña (ORDERS, OFFERS, SYSTEM, ALL) y estado de lectura.
+  /**
+   * Obtiene la lista paginada de notificaciones para el cliente autenticado,
+   * aplicando filtros por type opcional, por pestaña (ORDERS, OFFERS, SYSTEM, ALL) y estado de lectura.
    */
   async findAll(
     customerId: string,
-    query: CustomerNotificationsQueryDto = {},
+    query: NotificationsQueryDto = {},
   ): Promise<{
-    notifications: CustomerNotificationItemResponseDto[];
-    meta: CustomerNotificationsPaginationMetaDto;
+    notifications: NotificationResponseDto[];
+    meta: NotificationsPaginationMetaDto;
   }> {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
@@ -67,10 +71,16 @@ export class CustomerNotificationsService {
       .createQueryBuilder('notification')
       .where('notification.customer_id = :customerId', { customerId });
 
-    // Filtrado por pestaña si no es ALL
-    const typesForTab = getNotificationTypesForTab(query.tab);
-    if (typesForTab && typesForTab.length > 0) {
-      qb.andWhere('notification.type IN (:...typesForTab)', { typesForTab });
+    // 1. Prioridad: Filtrado por type específico si fue provisto
+    if (query.type) {
+      qb.andWhere('notification.type = :type', { type: query.type });
+    } else {
+      // 2. Si no hay type, filtrar por pestaña si no es ALL
+      const typesForTab = getNotificationTypesForTab(query.tab);
+      if (typesForTab && typesForTab.length > 0) {
+        qb.andWhere('notification.type IN (:...typesForTab)', { typesForTab });
+      }
+      // 3. Si no hay type y tab es ALL o undefined, NO se restringe por tipo (trae todas)
     }
 
     // Filtrado por estado de lectura si fue provisto
@@ -109,14 +119,50 @@ export class CustomerNotificationsService {
   }
 
   /**
-   * Obtiene el contador total de notificaciones no leídas para insignias (Badge Count).
-   * Se ejecuta en O(1) gracias al índice parcial IDX_customer_notifications_customer_unread.
+   * Obtiene el contador total de notificaciones no leídas para insignias (Badge Count),
+   * incluyendo opcionalmente el desglose por tipo y por pestaña para UI badges.
    */
-  async getUnreadCount(customerId: string): Promise<{ unreadCount: number }> {
+  async getUnreadCount(customerId: string): Promise<UnreadCountDataDto> {
     const unreadCount = await this.notificationRepo.count({
       where: { customerId, isRead: false },
     });
-    return { unreadCount };
+
+    // Desglose por type para pestañas Frontend
+    const rawBreakdown = await this.notificationRepo
+      .createQueryBuilder('notification')
+      .select('notification.type', 'type')
+      .addSelect('COUNT(*)', 'count')
+      .where('notification.customer_id = :customerId', { customerId })
+      .andWhere('notification.is_read = false')
+      .groupBy('notification.type')
+      .getRawMany();
+
+    const breakdown = {
+      [NotificationType.ORDER_STATUS_CHANGED]: 0,
+      [NotificationType.FAVORITE_PRICE_DROPPED]: 0,
+      [NotificationType.SYSTEM_ANNOUNCEMENT]: 0,
+    };
+
+    for (const row of rawBreakdown) {
+      if (row.type in breakdown) {
+        breakdown[row.type as NotificationType] = parseInt(row.count, 10);
+      }
+    }
+
+    const tabBreakdown = {
+      [NotificationTab.ORDERS]:
+        breakdown[NotificationType.ORDER_STATUS_CHANGED] || 0,
+      [NotificationTab.OFFERS]:
+        breakdown[NotificationType.FAVORITE_PRICE_DROPPED] || 0,
+      [NotificationTab.SYSTEM]:
+        breakdown[NotificationType.SYSTEM_ANNOUNCEMENT] || 0,
+    };
+
+    return {
+      unreadCount,
+      breakdown,
+      tabBreakdown,
+    };
   }
 
   /**
@@ -126,7 +172,7 @@ export class CustomerNotificationsService {
   async markAsRead(
     customerId: string,
     notificationId: string,
-  ): Promise<CustomerNotificationItemResponseDto> {
+  ): Promise<NotificationResponseDto> {
     const notification = await this.notificationRepo.findOne({
       where: { id: notificationId, customerId },
     });
@@ -267,15 +313,35 @@ export class CustomerNotificationsService {
    */
   private mapToItemResponseDto(
     entity: CustomerNotification,
-  ): CustomerNotificationItemResponseDto {
+  ): NotificationResponseDto {
+    const orderRef =
+      entity.orderId || entity.metadata?.orderNumber
+        ? {
+            id: entity.orderId ?? undefined,
+            orderNumber: entity.metadata?.orderNumber ?? undefined,
+          }
+        : null;
+
+    const productRef =
+      entity.productId || entity.metadata?.commercialName
+        ? {
+            id: entity.productId ?? undefined,
+            commercialName: entity.metadata?.commercialName ?? undefined,
+            price:
+              entity.metadata?.newPrice !== undefined
+                ? Number(entity.metadata.newPrice)
+                : undefined,
+          }
+        : null;
+
     return {
       id: entity.id,
       type: entity.type,
       tab: getNotificationTab(entity.type),
       title: entity.title,
       message: entity.message,
-      orderId: entity.orderId ?? null,
-      productId: entity.productId ?? null,
+      orderRef,
+      productRef,
       metadata: entity.metadata ?? null,
       actionUrl: entity.actionUrl ?? null,
       isRead: entity.isRead,
