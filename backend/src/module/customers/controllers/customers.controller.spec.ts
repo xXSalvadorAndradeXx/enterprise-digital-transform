@@ -3,6 +3,7 @@ import { CustomersController } from './customers.controller';
 import { CustomersService } from '../customers.service';
 import { CurrentCustomerPayload } from '../decorators/current-customer.decorator';
 import { UpdateCustomerProfileDto } from '../dto/update-customer-profile.dto';
+import { CreateCustomerAddressDto } from '../dto/create-customer-address.dto';
 
 import {
   createMockCustomerPayload,
@@ -132,6 +133,63 @@ describe('CustomersController - Profile Endpoints', () => {
       expect(response).toEqual({
         success: true,
         data: [],
+      });
+    });
+  });
+
+  describe('POST /customers/me/addresses', () => {
+    it('debe registrar una dirección usando el customerId del JWT y retornar 201 Created con el DTO formateado', async () => {
+      const dto: CreateCustomerAddressDto = {
+        departmentId: '1',
+        districtId: '187',
+        alias: 'Casa',
+        recipientName: 'Carlos Gómez',
+        phone: '+50371234567',
+        addressLine: 'Residencial San Francisco #14',
+        reference: 'Frente al parque',
+        isDefault: true,
+        getResolvedLabel: () => 'Casa',
+      };
+
+      const mockSavedAddress = {
+        id: 'addr-uuid-created-1',
+        label: 'Casa',
+        recipientName: 'Carlos Gómez',
+        phone: '+50371234567',
+        departmentId: 1,
+        districtId: 187,
+        department: { id: 1, name: 'San Salvador', code: 'SS' },
+        district: { id: 187, name: 'Mejicanos', departmentId: 1 },
+        city: 'San Salvador',
+        addressLine: 'Residencial San Francisco #14',
+        reference: 'Frente al parque',
+        isDefault: true,
+        createdAt: new Date('2026-09-08T12:00:00Z'),
+        updatedAt: new Date('2026-09-08T12:00:00Z'),
+      };
+
+      service.createAddress.mockResolvedValue(mockSavedAddress);
+
+      const response = await controller.createAddress(dto, mockCustomerPayload);
+
+      expect(service.createAddress).toHaveBeenCalledWith(
+        mockCustomerPayload.id,
+        dto,
+      );
+      expect(response).toEqual({
+        success: true,
+        message: 'Dirección registrada correctamente.',
+        data: expect.objectContaining({
+          id: 'addr-uuid-created-1',
+          alias: 'Casa',
+          label: 'Casa',
+          recipientName: 'Carlos Gómez',
+          phone: '+50371234567',
+          departmentId: 1,
+          districtId: 187,
+          isDefault: true,
+          addressLine: 'Residencial San Francisco #14',
+        }),
       });
     });
   });

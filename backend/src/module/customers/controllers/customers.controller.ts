@@ -9,6 +9,8 @@ import {
   UseGuards,
   ParseUUIDPipe,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -354,6 +356,7 @@ export class CustomersController {
   @ApiBearerAuth()
   @UseGuards(CustomerJwtAuthGuard)
   @Post('me/addresses')
+  @HttpCode(HttpStatus.CREATED)
   async createAddress(
     @Body() dto: CreateCustomerAddressDto,
     @CurrentCustomer() customer: CurrentCustomerPayload,

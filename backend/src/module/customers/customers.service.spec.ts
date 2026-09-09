@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  NotFoundException,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { Customer } from './entities/customer.entity';
 import { CustomerAddress } from './entities/customer-address.entity';
@@ -15,6 +19,7 @@ describe('CustomersService - getMyProfile', () => {
   let customerRepository: any;
   let addressRepository: any;
   let sessionRepository: any;
+  let locationsService: any;
   let configService: any;
 
   const mockCustomer = {
@@ -38,6 +43,13 @@ describe('CustomersService - getMyProfile', () => {
       find: jest.fn(),
       save: jest.fn(),
       createQueryBuilder: jest.fn(),
+      manager: {
+        transaction: jest.fn(),
+      },
+    };
+
+    locationsService = {
+      validateDepartmentDistrict: jest.fn().mockResolvedValue(true),
     };
 
     addressRepository = {
@@ -81,7 +93,7 @@ describe('CustomersService - getMyProfile', () => {
         },
         {
           provide: LocationsService,
-          useValue: {},
+          useValue: locationsService,
         },
         {
           provide: JwtService,
@@ -455,6 +467,168 @@ describe('CustomersService - getMyProfile', () => {
 
       expect(result).toEqual([]);
       expect(addressRepository.find).toHaveBeenCalled();
+    });
+  });
+
+  describe('createAddress', () => {
+    let mockManager: any;
+    let mockQueryBuilder: any;
+
+    beforeEach(() => {
+      mockQueryBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+
+      mockManager = {
+        count: jest.fn(),
+        create: jest.fn().mockImplementation((entityClass, data) => ({
+          ...data,
+          id: 'new-address-id',
+        })),
+        save: jest.fn().mockImplementation((entityClass, data) => Promise.resolve(data)),
+        findOne: jest.fn(),
+        createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+      };
+
+      customerRepository.findOne.mockResolvedValue(mockCustomer);
+      customerRepository.manager.transaction.mockImplementation((cb: any) =>
+        cb(mockManager),
+      );
+      locationsService.validateDepartmentDistrict.mockResolvedValue(true);
+    });
+
+    it('debe crear la primera dirección y marcarla como isDefault = true automáticamente aunque en el DTO venga isDefault = false', async () => {
+      mockManager.count.mockResolvedValue(0); // Primera dirección del cliente
+      mockManager.findOne.mockResolvedValue({
+        id: 'new-address-id',
+        label: 'Casa',
+        departmentId: 1,
+        districtId: 187,
+        isDefault: true,
+        department: { id: 1, name: 'San Salvador' },
+        district: { id: 187, name: 'Mejicanos' },
+      });
+
+      const dto = {
+        departmentId: '1',
+        districtId: '187',
+        alias: 'Casa',
+        addressLine: 'Colonia Escalón #123',
+        isDefault: false, // Cliente envía false, pero al ser la primera DEBE ser default
+      };
+
+      const result = await service.createAddress(mockCustomer.id, dto as any);
+
+      expect(locationsService.validateDepartmentDistrict).toHaveBeenCalledWith('1', '187');
+      expect(mockManager.count).toHaveBeenCalledWith(CustomerAddress, {
+        where: { customerId: mockCustomer.id, deletedAt: expect.anything() },
+      });
+      expect(mockManager.create).toHaveBeenCalledWith(
+        CustomerAddress,
+        expect.objectContaining({
+          customerId: mockCustomer.id,
+          isDefault: true, // Forzado por la regla de primera dirección
+          label: 'Casa',
+        }),
+      );
+      expect(result.isDefault).toBe(true);
+    });
+
+    it('debe crear una segunda dirección con isDefault = false sin desmarcar la dirección principal existente', async () => {
+      mockManager.count.mockResolvedValue(1); // Ya posee 1 dirección activa
+      mockManager.findOne.mockResolvedValue({
+        id: 'second-address-id',
+        label: 'Trabajo',
+        departmentId: 1,
+        districtId: 190,
+        isDefault: false,
+      });
+
+      const dto = {
+        departmentId: '1',
+        districtId: '190',
+        alias: 'Trabajo',
+        addressLine: 'Centro Financiero #45',
+        isDefault: false,
+      };
+
+      const result = await service.createAddress(mockCustomer.id, dto as any);
+
+      expect(mockManager.createQueryBuilder).not.toHaveBeenCalled();
+      expect(mockManager.create).toHaveBeenCalledWith(
+        CustomerAddress,
+        expect.objectContaining({
+          customerId: mockCustomer.id,
+          isDefault: false,
+        }),
+      );
+      expect(result.isDefault).toBe(false);
+    });
+
+    it('debe desmarcar en transacción la principal anterior si se crea una nueva dirección con isDefault = true', async () => {
+      mockManager.count.mockResolvedValue(1); // Ya posee direcciones activas
+      mockManager.findOne.mockResolvedValue({
+        id: 'new-default-address-id',
+        label: 'Oficina Central',
+        departmentId: 1,
+        districtId: 190,
+        isDefault: true,
+      });
+
+      const dto = {
+        departmentId: '1',
+        districtId: '190',
+        alias: 'Oficina Central',
+        addressLine: 'Alameda Roosevelt #500',
+        isDefault: true,
+      };
+
+      const result = await service.createAddress(mockCustomer.id, dto as any);
+
+      // clearDefaultAddress invocado dentro de la misma transacción
+      expect(mockManager.createQueryBuilder).toHaveBeenCalled();
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(CustomerAddress);
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith({ isDefault: false });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'customer_id = :customerId AND is_default = true AND deleted_at IS NULL',
+        { customerId: mockCustomer.id },
+      );
+      expect(mockManager.create).toHaveBeenCalledWith(
+        CustomerAddress,
+        expect.objectContaining({
+          customerId: mockCustomer.id,
+          isDefault: true,
+        }),
+      );
+      expect(result.isDefault).toBe(true);
+    });
+
+    it('debe lanzar BadRequestException si falta departmentId o districtId', async () => {
+      await expect(
+        service.createAddress(mockCustomer.id, { departmentId: '1' } as any),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        service.createAddress(mockCustomer.id, { districtId: '187' } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debe propagar el error si locationsService.validateDepartmentDistrict falla', async () => {
+      locationsService.validateDepartmentDistrict.mockRejectedValue(
+        new BadRequestException('El distrito no pertenece al departamento'),
+      );
+
+      await expect(
+        service.createAddress(mockCustomer.id, {
+          departmentId: '1',
+          districtId: '999',
+          alias: 'Casa',
+          addressLine: 'Calle Falsa 123',
+        } as any),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

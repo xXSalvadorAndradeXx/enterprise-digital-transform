@@ -519,11 +519,15 @@ export class CustomersService {
     manager: EntityManager,
     customerId: string,
   ): Promise<void> {
-    await manager.update(
-      CustomerAddress,
-      { customerId, isDefault: true, deletedAt: IsNull() },
-      { isDefault: false },
-    );
+    await manager
+      .createQueryBuilder()
+      .update(CustomerAddress)
+      .set({ isDefault: false })
+      .where(
+        'customer_id = :customerId AND is_default = true AND deleted_at IS NULL',
+        { customerId },
+      )
+      .execute();
   }
 
   /**
@@ -581,10 +585,12 @@ export class CustomersService {
         const savedAddress = await manager.save(CustomerAddress, address);
 
         // Recargar con relaciones
-        return (await manager.findOne(CustomerAddress, {
+        const reloaded = await manager.findOne(CustomerAddress, {
           where: { id: savedAddress.id },
           relations: ['department', 'district'],
-        }))!;
+        });
+
+        return reloaded || savedAddress;
       },
     );
   }
