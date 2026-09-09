@@ -77,13 +77,17 @@ function toAddressPayload(
 function AddressCard({
   address,
   isActionDisabled,
+  isSettingPrimary,
   onEdit,
   onDelete,
+  onSetPrimary,
 }: {
   address: CustomerAddress;
   isActionDisabled: boolean;
+  isSettingPrimary: boolean;
   onEdit: (address: CustomerAddress) => void;
   onDelete: (address: CustomerAddress) => void;
+  onSetPrimary: (address: CustomerAddress) => void;
 }) {
   const { city, districtLine } = getAddressLocationLines(address);
 
@@ -133,6 +137,34 @@ function AddressCard({
           <p className="mt-1 break-words text-[#333333]">
             {address.addressLine}
           </p>
+
+          {!address.isDefault ? (
+            <button
+              type="button"
+              onClick={() => onSetPrimary(address)}
+              disabled={isActionDisabled}
+              aria-label={`Establecer ${address.label} como dirección principal`}
+              className="mt-2 inline-flex h-8 w-fit items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-[#1822d9]/60 bg-white px-2.5 text-[11px] font-semibold text-[#1822d9] transition hover:bg-[#EAF3FF] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSettingPrimary ? (
+                <>
+                  <Loader2
+                    className="h-3.5 w-3.5 animate-spin"
+                    aria-hidden="true"
+                  />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  />
+                  Hacer principal
+                </>
+              )}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -276,6 +308,7 @@ export default function AddressesPage() {
     createAddress,
     updateAddress,
     deleteAddress,
+    setPrimaryAddress,
   } = useAddresses();
 
   const hasAddresses = addresses.length > 0;
@@ -292,6 +325,7 @@ export default function AddressesPage() {
     operation === "delete" &&
     addressToDelete?.id === operationAddressId;
   const isDeletingAddress = isMutating && isDeleteOperation;
+  const isSettingPrimaryOperation = operation === "set-primary";
   const deleteConfirmationError =
     addressToDelete && hasDeleteFailure
       ? error?.message ?? deleteSubmitError
@@ -413,6 +447,18 @@ export default function AddressesPage() {
     setHasDeleteFailure(false);
   };
 
+  const handleSetPrimaryAddress = async (address: CustomerAddress) => {
+    if (address.isDefault || isMutating) {
+      return;
+    }
+
+    const primaryAddress = await setPrimaryAddress(address.id);
+
+    if (!primaryAddress) {
+      return;
+    }
+  };
+
   return (
     <section className="min-h-[calc(100vh-10rem)] text-[#111111]">
       <header className="flex flex-col gap-4 border-b border-[#d9dde5] pb-5 sm:flex-row sm:items-center sm:justify-between">
@@ -467,8 +513,13 @@ export default function AddressesPage() {
                 key={address.id}
                 address={address}
                 isActionDisabled={isMutating}
+                isSettingPrimary={
+                  isSettingPrimaryOperation &&
+                  operationAddressId === address.id
+                }
                 onEdit={openEditAddressModal}
                 onDelete={openDeleteAddressDialog}
+                onSetPrimary={handleSetPrimaryAddress}
               />
             ))}
           </div>
