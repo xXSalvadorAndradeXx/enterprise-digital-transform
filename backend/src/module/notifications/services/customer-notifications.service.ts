@@ -1,0 +1,286 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { CustomerNotification } from '../entities/customer-notification.entity';
+import { NotificationType } from '../enums/notification-type.enum';
+import { NotificationTab } from '../enums/notification-tab.enum';
+import {
+  getNotificationTab,
+  getNotificationTypesForTab,
+} from '../constants/notification-category-mapping';
+import { CustomerNotificationsQueryDto } from '../dto/customer-notifications-query.dto';
+import {
+  CustomerNotificationItemResponseDto,
+  CustomerNotificationsPaginationMetaDto,
+} from '../dto/customer-notification-response.dto';
+
+export interface CreateOrderStatusNotificationParams {
+  customerId: string;
+  orderId: string;
+  orderNumber: string;
+  oldStatus?: string;
+  newStatus: string;
+  customMessage?: string;
+  actionUrl?: string;
+}
+
+export interface CreateFavoritePriceDropNotificationParams {
+  customerId: string;
+  productId: string;
+  commercialName: string;
+  oldPrice: number;
+  newPrice: number;
+  customMessage?: string;
+  actionUrl?: string;
+}
+
+@Injectable()
+export class CustomerNotificationsService {
+  private readonly logger = new Logger(CustomerNotificationsService.name);
+
+  constructor(
+    @InjectRepository(CustomerNotification)
+    private readonly notificationRepo: Repository<CustomerNotification>,
+  ) {}
+
+  /**
+   * Obtiene la lista paginada de notificaciones para el cliente autenticado,
+   * aplicando filtros por pestaña (ORDERS, OFFERS, SYSTEM, ALL) y estado de lectura.
+   */
+  async findAll(
+    customerId: string,
+    query: CustomerNotificationsQueryDto = {},
+  ): Promise<{
+    notifications: CustomerNotificationItemResponseDto[];
+    meta: CustomerNotificationsPaginationMetaDto;
+  }> {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const qb = this.notificationRepo
+      .createQueryBuilder('notification')
+      .where('notification.customer_id = :customerId', { customerId });
+
+    // Filtrado por pestaña si no es ALL
+    const typesForTab = getNotificationTypesForTab(query.tab);
+    if (typesForTab && typesForTab.length > 0) {
+      qb.andWhere('notification.type IN (:...typesForTab)', { typesForTab });
+    }
+
+    // Filtrado por estado de lectura si fue provisto
+    if (query.isRead !== undefined) {
+      qb.andWhere('notification.is_read = :isRead', { isRead: query.isRead });
+    }
+
+    // Ordenamiento cronológico descendente y paginación
+    qb.orderBy('notification.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    const [entities, total] = await qb.getManyAndCount();
+
+    // Contador global de no leídas para insignias
+    const unreadCount = await this.notificationRepo.count({
+      where: { customerId, isRead: false },
+    });
+
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    const notifications = entities.map((entity) =>
+      this.mapToItemResponseDto(entity),
+    );
+
+    return {
+      notifications,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        unreadCount,
+      },
+    };
+  }
+
+  /**
+   * Obtiene el contador total de notificaciones no leídas para insignias (Badge Count).
+   * Se ejecuta en O(1) gracias al índice parcial IDX_customer_notifications_customer_unread.
+   */
+  async getUnreadCount(customerId: string): Promise<{ unreadCount: number }> {
+    const unreadCount = await this.notificationRepo.count({
+      where: { customerId, isRead: false },
+    });
+    return { unreadCount };
+  }
+
+  /**
+   * Marca una notificación individual como leída.
+   * Valida estrictamente que pertenezca al cliente autenticado para evitar IDOR.
+   */
+  async markAsRead(
+    customerId: string,
+    notificationId: string,
+  ): Promise<CustomerNotificationItemResponseDto> {
+    const notification = await this.notificationRepo.findOne({
+      where: { id: notificationId, customerId },
+    });
+
+    if (!notification) {
+      throw new NotFoundException('NOTIFICATION_NOT_FOUND');
+    }
+
+    if (!notification.isRead) {
+      notification.isRead = true;
+      notification.readAt = new Date();
+      await this.notificationRepo.save(notification);
+    }
+
+    return this.mapToItemResponseDto(notification);
+  }
+
+  /**
+   * Marca todas las notificaciones pendientes del cliente autenticado como leídas en lote.
+   */
+  async markAllAsRead(customerId: string): Promise<{ updatedCount: number }> {
+    const result = await this.notificationRepo.update(
+      { customerId, isRead: false },
+      { isRead: true, readAt: new Date() },
+    );
+
+    return { updatedCount: result.affected ?? 0 };
+  }
+
+  /**
+   * MÉTODO INTERNO: Crea y persiste una notificación de cambio de estado de orden.
+   * Invocado por listeners o casos de uso de Orders, nunca expuesto por POST público.
+   */
+  async createOrderStatusNotification(
+    params: CreateOrderStatusNotificationParams,
+  ): Promise<CustomerNotification> {
+    if (!params.customerId || !params.orderId || !params.orderNumber || !params.newStatus) {
+      throw new BadRequestException(
+        'Datos incompletos para crear notificación de cambio de estado de orden',
+      );
+    }
+
+    const title = `Actualización de pedido #${params.orderNumber}`;
+    const message =
+      params.customMessage ||
+      `Tu pedido #${params.orderNumber} ahora se encuentra en estado ${params.newStatus}.`;
+    const actionUrl =
+      params.actionUrl || `/cuenta/pedidos/${params.orderNumber}`;
+
+    const metadata: Record<string, any> = {
+      orderNumber: params.orderNumber,
+      newStatus: params.newStatus,
+    };
+    if (params.oldStatus) {
+      metadata.oldStatus = params.oldStatus;
+    }
+
+    const notification = this.notificationRepo.create({
+      customerId: params.customerId,
+      orderId: params.orderId,
+      productId: null,
+      type: NotificationType.ORDER_STATUS_CHANGED,
+      title,
+      message,
+      metadata,
+      actionUrl,
+      isRead: false,
+      readAt: null,
+    });
+
+    const saved = await this.notificationRepo.save(notification);
+    this.logger.log(
+      `Notificación de orden creada: id=${saved.id}, customerId=${params.customerId}, order=${params.orderNumber}`,
+    );
+    return saved;
+  }
+
+  /**
+   * MÉTODO INTERNO: Crea y persiste una notificación de reducción de precio en un favorito.
+   * Invocado por listeners de catálogo / promociones, nunca expuesto por POST público.
+   */
+  async createFavoritePriceDropNotification(
+    params: CreateFavoritePriceDropNotificationParams,
+  ): Promise<CustomerNotification> {
+    if (
+      !params.customerId ||
+      !params.productId ||
+      !params.commercialName ||
+      params.oldPrice === undefined ||
+      params.newPrice === undefined
+    ) {
+      throw new BadRequestException(
+        'Datos incompletos para crear notificación de oferta en producto favorito',
+      );
+    }
+
+    const discountPercentage = Math.max(
+      0,
+      Math.round(((params.oldPrice - params.newPrice) / params.oldPrice) * 100),
+    );
+
+    const title = '¡Bajó de precio un favorito!';
+    const message =
+      params.customMessage ||
+      `"${params.commercialName}" bajó de precio a $${Number(params.newPrice).toFixed(2)} (antes $${Number(params.oldPrice).toFixed(2)}).`;
+    const actionUrl = params.actionUrl || `/productos/${params.productId}`;
+
+    const metadata: Record<string, any> = {
+      productId: params.productId,
+      commercialName: params.commercialName,
+      oldPrice: Number(params.oldPrice),
+      newPrice: Number(params.newPrice),
+      discountPercentage,
+    };
+
+    const notification = this.notificationRepo.create({
+      customerId: params.customerId,
+      orderId: null,
+      productId: params.productId,
+      type: NotificationType.FAVORITE_PRICE_DROPPED,
+      title,
+      message,
+      metadata,
+      actionUrl,
+      isRead: false,
+      readAt: null,
+    });
+
+    const saved = await this.notificationRepo.save(notification);
+    this.logger.log(
+      `Notificación de precio favorito creada: id=${saved.id}, customerId=${params.customerId}, product=${params.productId}`,
+    );
+    return saved;
+  }
+
+  /**
+   * Mapea la entidad CustomerNotification a su DTO enriquecido de respuesta.
+   */
+  private mapToItemResponseDto(
+    entity: CustomerNotification,
+  ): CustomerNotificationItemResponseDto {
+    return {
+      id: entity.id,
+      type: entity.type,
+      tab: getNotificationTab(entity.type),
+      title: entity.title,
+      message: entity.message,
+      orderId: entity.orderId ?? null,
+      productId: entity.productId ?? null,
+      metadata: entity.metadata ?? null,
+      actionUrl: entity.actionUrl ?? null,
+      isRead: entity.isRead,
+      readAt: entity.readAt ?? null,
+      createdAt: entity.createdAt,
+    };
+  }
+}
