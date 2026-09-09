@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Building2, MapPin, Phone, Store, Truck } from "lucide-react";
+import { useAddresses } from "@/hooks/addresses/useAddresses";
+import { hasActiveSession } from "@/lib/auth-session";
 import {
   getDepartments,
   getDistricts,
@@ -36,11 +43,18 @@ interface SavedShippingInfo {
 
 const STORAGE_KEY = "woden_checkout_shipping";
 
+function toCheckoutId(value: number | string | null | undefined): string {
+  return value === undefined || value === null ? "" : String(value);
+}
+
 export default function CheckoutShipping({
   deliveryType,
   onDeliveryTypeChange,
   onDataChange,
 }: CheckoutShippingProps) {
+  const hasUserEditedShippingRef = useRef(false);
+  const hasPrefilledPrimaryAddressRef = useRef(false);
+
   const [departmentId, setDepartmentId] = useState("");
   const [districtId, setDistrictId] = useState("");
   const [addressLine, setAddressLine] = useState("");
@@ -51,31 +65,76 @@ export default function CheckoutShipping({
   const [districts, setDistricts] = useState<CheckoutCatalogOption[]>([]);
   const [branches, setBranches] = useState<CheckoutBranchOption[]>([]);
   const [catalogError, setCatalogError] = useState("");
+  const [canLoadAddresses, setCanLoadAddresses] = useState(false);
+
+  const { addresses, error: addressesError } = useAddresses({
+    autoLoad: canLoadAddresses,
+  });
+
+  const primaryAddress = useMemo(
+    () => addresses.find((address) => address.isDefault) ?? null,
+    [addresses],
+  );
 
   useEffect(() => {
+    let isActive = true;
+
     void Promise.all([getDepartments(), getPickupBranches()]).then(
       ([departmentOptions, branchOptions]) => {
+        if (!isActive) {
+          return;
+        }
+
         setDepartments(departmentOptions);
         setBranches(branchOptions);
         setCatalogError("");
       },
-      () => setCatalogError("No se pudieron cargar las opciones de entrega."),
+      () => {
+        if (isActive) {
+          setCatalogError("No se pudieron cargar las opciones de entrega.");
+        }
+      },
     );
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   useEffect(() => {
+    let isActive = true;
+
     if (!departmentId) {
-      setDistricts([]);
-      return;
+      Promise.resolve().then(() => {
+        if (isActive) {
+          setDistricts([]);
+        }
+      });
+
+      return () => {
+        isActive = false;
+      };
     }
 
     void getDistricts(departmentId).then(
       (options) => {
+        if (!isActive) {
+          return;
+        }
+
         setDistricts(options);
         setCatalogError("");
       },
-      () => setCatalogError("No se pudieron cargar los distritos."),
+      () => {
+        if (isActive) {
+          setCatalogError("No se pudieron cargar los distritos.");
+        }
+      },
     );
+
+    return () => {
+      isActive = false;
+    };
   }, [departmentId]);
 
   useEffect(() => {
@@ -94,24 +153,94 @@ export default function CheckoutShipping({
    * para el usuario invitado.
    */
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+    let isActive = true;
 
-      if (!saved) return;
+    Promise.resolve().then(() => {
+      if (!isActive || hasUserEditedShippingRef.current) {
+        return;
+      }
 
-      const parsed = JSON.parse(saved) as SavedShippingInfo;
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
 
-      setDepartmentId(parsed.departmentId ?? "");
-      setDistrictId(parsed.districtId ?? "");
-      setAddressLine(parsed.addressLine ?? "");
-      setCity(parsed.city ?? "");
-    } catch (error) {
-      console.error(
-        "No se pudo cargar la información guardada:",
-        error,
-      );
-    }
+        if (!saved) return;
+
+        const parsed = JSON.parse(saved) as SavedShippingInfo;
+
+        setDepartmentId(parsed.departmentId ?? "");
+        setDistrictId(parsed.districtId ?? "");
+        setAddressLine(parsed.addressLine ?? "");
+        setCity(parsed.city ?? "");
+      } catch (error) {
+        console.error(
+          "No se pudo cargar la información guardada:",
+          error,
+        );
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    Promise.resolve().then(() => {
+      if (isActive) {
+        setCanLoadAddresses(hasActiveSession());
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      deliveryType !== "HOME_DELIVERY" ||
+      !primaryAddress ||
+      hasPrefilledPrimaryAddressRef.current ||
+      hasUserEditedShippingRef.current
+    ) {
+      return undefined;
+    }
+
+    const nextDepartmentId = toCheckoutId(primaryAddress.department?.id);
+    const nextDistrictId = toCheckoutId(primaryAddress.district?.id);
+    const nextCity = primaryAddress.city?.trim() ?? "";
+    const nextAddressLine = primaryAddress.addressLine.trim();
+
+    if (
+      !nextDepartmentId &&
+      !nextDistrictId &&
+      !nextCity &&
+      !nextAddressLine
+    ) {
+      return undefined;
+    }
+
+    let isActive = true;
+
+    hasPrefilledPrimaryAddressRef.current = true;
+
+    Promise.resolve().then(() => {
+      if (!isActive || hasUserEditedShippingRef.current) {
+        return;
+      }
+
+      setDepartmentId(nextDepartmentId);
+      setDistrictId(nextDistrictId);
+      setCity(nextCity);
+      setAddressLine(nextAddressLine);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [deliveryType, primaryAddress]);
 
   /*
    * Guardar información cuando el usuario
@@ -153,6 +282,7 @@ export default function CheckoutShipping({
   const handleSaveInfoChange = (
     checked: boolean,
   ) => {
+    hasUserEditedShippingRef.current = true;
     setSaveInfo(checked);
 
     if (!checked) {
@@ -163,10 +293,46 @@ export default function CheckoutShipping({
   const handleDepartmentChange = (
     value: string,
   ) => {
+    hasUserEditedShippingRef.current = true;
     setDepartmentId(value);
 
     // Al cambiar departamento se limpia el distrito.
     setDistrictId("");
+  };
+
+  const handleDistrictChange = (
+    value: string,
+  ) => {
+    hasUserEditedShippingRef.current = true;
+    setDistrictId(value);
+  };
+
+  const handleAddressLineChange = (
+    value: string,
+  ) => {
+    hasUserEditedShippingRef.current = true;
+    setAddressLine(value);
+  };
+
+  const handleCityChange = (
+    value: string,
+  ) => {
+    hasUserEditedShippingRef.current = true;
+    setCity(value);
+  };
+
+  const handleBranchChange = (
+    value: string,
+  ) => {
+    hasUserEditedShippingRef.current = true;
+    setBranchId(value);
+  };
+
+  const handleDeliveryTypeChange = (
+    value: DeliveryType,
+  ) => {
+    hasUserEditedShippingRef.current = true;
+    onDeliveryTypeChange(value);
   };
 
   const selectedBranch = branches.find(
@@ -178,13 +344,20 @@ export default function CheckoutShipping({
       {catalogError && (
         <p role="alert" className="text-sm text-red-600">{catalogError}</p>
       )}
+
+      {canLoadAddresses && addressesError ? (
+        <p role="alert" className="text-sm text-amber-700">
+          No pudimos precargar tu dirección principal. Puedes completar los
+          datos manualmente.
+        </p>
+      ) : null}
       {/* OPCIONES DE ENTREGA */}
 
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
           onClick={() =>
-            onDeliveryTypeChange(
+            handleDeliveryTypeChange(
               "HOME_DELIVERY",
             )
           }
@@ -201,7 +374,7 @@ export default function CheckoutShipping({
         <button
           type="button"
           onClick={() =>
-            onDeliveryTypeChange(
+            handleDeliveryTypeChange(
               "STORE_PICKUP",
             )
           }
@@ -270,7 +443,7 @@ export default function CheckoutShipping({
                 name="districtId"
                 value={districtId}
                 onChange={(e) =>
-                  setDistrictId(
+                  handleDistrictChange(
                     e.target.value,
                   )
                 }
@@ -309,7 +482,7 @@ export default function CheckoutShipping({
                 type="text"
                 value={addressLine}
                 onChange={(e) =>
-                  setAddressLine(
+                  handleAddressLineChange(
                     e.target.value,
                   )
                 }
@@ -332,7 +505,7 @@ export default function CheckoutShipping({
                 type="text"
                 value={city}
                 onChange={(e) =>
-                  setCity(e.target.value)
+                  handleCityChange(e.target.value)
                 }
                 placeholder="Ciudad"
                 className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
@@ -383,7 +556,7 @@ export default function CheckoutShipping({
               id="branchId"
               name="branchId"
               value={branchId}
-              onChange={(event) => setBranchId(event.target.value)}
+              onChange={(event) => handleBranchChange(event.target.value)}
               className="w-full appearance-none rounded-md border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-700 outline-none focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
             >
               <option value="">
