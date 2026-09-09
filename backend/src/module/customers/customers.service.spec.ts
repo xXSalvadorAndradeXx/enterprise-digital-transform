@@ -13,6 +13,7 @@ import { HashService } from '../auth/services/hash.service';
 describe('CustomersService - getMyProfile', () => {
   let service: CustomersService;
   let customerRepository: any;
+  let addressRepository: any;
   let sessionRepository: any;
   let configService: any;
 
@@ -39,6 +40,16 @@ describe('CustomersService - getMyProfile', () => {
       createQueryBuilder: jest.fn(),
     };
 
+    addressRepository = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      count: jest.fn(),
+      update: jest.fn(),
+      softDelete: jest.fn(),
+    };
+
     sessionRepository = {
       findOne: jest.fn(),
       save: jest.fn(),
@@ -62,7 +73,7 @@ describe('CustomersService - getMyProfile', () => {
         },
         {
           provide: getRepositoryToken(CustomerAddress),
-          useValue: {},
+          useValue: addressRepository,
         },
         {
           provide: getRepositoryToken(EcommerceAuthSession),
@@ -382,6 +393,68 @@ describe('CustomersService - getMyProfile', () => {
           path: '/',
         }),
       );
+    });
+  });
+
+  describe('findAllByCustomer', () => {
+    it('debe retornar las direcciones del cliente ordenadas con la principal primero', async () => {
+      const mockAddresses = [
+        {
+          id: 'addr-1',
+          label: 'Casa',
+          departmentId: 1,
+          districtId: 187,
+          isDefault: true,
+          createdAt: new Date('2026-09-01T10:00:00Z'),
+          department: { id: 1, name: 'San Salvador', code: 'SS' },
+          district: { id: 187, name: 'Mejicanos', departmentId: 1 },
+        },
+        {
+          id: 'addr-2',
+          label: 'Trabajo',
+          departmentId: 1,
+          districtId: 190,
+          isDefault: false,
+          createdAt: new Date('2026-09-02T10:00:00Z'),
+          department: { id: 1, name: 'San Salvador', code: 'SS' },
+          district: { id: 190, name: 'San Salvador', departmentId: 1 },
+        },
+      ];
+
+      addressRepository.find.mockResolvedValue(mockAddresses);
+
+      const result = await service.findAllByCustomer(mockCustomer.id);
+
+      expect(addressRepository.find).toHaveBeenCalledWith({
+        where: { customerId: mockCustomer.id, deletedAt: expect.anything() },
+        relations: ['department', 'district'],
+        order: {
+          isDefault: 'DESC',
+          createdAt: 'DESC',
+          id: 'ASC',
+        },
+      });
+      expect(result).toHaveLength(2);
+      expect(result[0].isDefault).toBe(true);
+      expect(result[0].id).toBe('addr-1');
+    });
+
+    it('debe retornar un arreglo vacío [] cuando el cliente no tiene direcciones registradas', async () => {
+      addressRepository.find.mockResolvedValue([]);
+
+      const result = await service.findAllByCustomer(mockCustomer.id);
+
+      expect(result).toEqual([]);
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    it('getAddresses debe delegar idénticamente a findAllByCustomer', async () => {
+      addressRepository.find.mockResolvedValue([]);
+
+      const result = await service.getAddresses(mockCustomer.id);
+
+      expect(result).toEqual([]);
+      expect(addressRepository.find).toHaveBeenCalled();
     });
   });
 });

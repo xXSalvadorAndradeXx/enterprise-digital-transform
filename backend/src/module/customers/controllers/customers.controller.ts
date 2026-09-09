@@ -323,11 +323,12 @@ export class CustomersController {
   @UseGuards(CustomerJwtAuthGuard)
   @Get('me/addresses')
   async getMyAddresses(@CurrentCustomer() customer: CurrentCustomerPayload) {
-    const addresses = await this.customersService.getAddresses(customer.id);
+    const addresses =
+      await this.customersService.findAllByCustomer(customer.id);
 
     return {
       success: true,
-      data: addresses.map(CustomerAddressResponseDto.fromEntity),
+      data: (addresses || []).map(CustomerAddressResponseDto.fromEntity),
     };
   }
 

@@ -488,17 +488,28 @@ export class CustomersService {
   }
 
   /**
-   * Obtiene todas las direcciones de un cliente, ordenadas de forma consistente (predeterminada primero).
+   * Obtiene todas las direcciones activas del cliente autenticado,
+   * ordenadas con la dirección predeterminada primero (isDefault: DESC) y luego
+   * por fecha de creación más reciente (createdAt: DESC) para máxima estabilidad.
+   * Retorna [] si no existen direcciones registradas.
    */
-  async getAddresses(customerId: string): Promise<CustomerAddress[]> {
+  async findAllByCustomer(customerId: string): Promise<CustomerAddress[]> {
     return await this.addressRepository.find({
-      where: { customerId },
+      where: { customerId, deletedAt: IsNull() },
       relations: ['department', 'district'],
       order: {
         isDefault: 'DESC',
-        createdAt: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
       },
     });
+  }
+
+  /**
+   * Alias de findAllByCustomer para compatibilidad con código existente.
+   */
+  async getAddresses(customerId: string): Promise<CustomerAddress[]> {
+    return await this.findAllByCustomer(customerId);
   }
 
   /**
