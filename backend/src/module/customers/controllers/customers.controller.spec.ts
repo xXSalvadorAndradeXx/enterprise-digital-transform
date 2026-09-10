@@ -292,4 +292,55 @@ describe('CustomersController - Profile Endpoints', () => {
       });
     });
   });
+
+  describe('DELETE /customers/me/addresses/:id', () => {
+    it('debe delegar a customersService.removeAddress con id de dirección y customerId del JWT, retornando deletedAddressId y newDefaultAddress', async () => {
+      const addressId = '7b2e8a1d-5c43-4f2e-9d8a-1b2c3d4e5f60';
+
+      const mockReallocatedAddress = {
+        id: 'new-default-addr-id',
+        label: 'Trabajo',
+        recipientName: 'Carlos Gómez',
+        phone: '+50371234567',
+        departmentId: 1,
+        districtId: 187,
+        department: { id: 1, name: 'San Salvador', code: 'SS' },
+        district: { id: 187, name: 'Mejicanos', departmentId: 1 },
+        city: 'San Salvador',
+        addressLine: 'Boulevard de los Héroes #123',
+        reference: 'Torre Roble',
+        isDefault: true,
+        createdAt: new Date('2026-09-08T12:00:00Z'),
+        updatedAt: new Date('2026-09-09T12:00:00Z'),
+      };
+
+      service.removeAddress.mockResolvedValue({
+        deletedAddressId: addressId,
+        newDefaultAddress: mockReallocatedAddress,
+      });
+
+      const response = await controller.removeAddress(
+        addressId,
+        mockCustomerPayload,
+      );
+
+      expect(service.removeAddress).toHaveBeenCalledWith(
+        mockCustomerPayload.id,
+        addressId,
+      );
+      expect(response).toEqual({
+        success: true,
+        message: 'Dirección eliminada correctamente.',
+        data: {
+          deletedAddressId: addressId,
+          newDefaultAddress: expect.objectContaining({
+            id: 'new-default-addr-id',
+            alias: 'Trabajo',
+            label: 'Trabajo',
+            isDefault: true,
+          }),
+        },
+      });
+    });
+  });
 });

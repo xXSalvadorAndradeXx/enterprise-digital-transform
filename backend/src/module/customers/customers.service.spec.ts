@@ -869,4 +869,113 @@ describe('CustomersService - getMyProfile', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('removeAddress', () => {
+    let mockManager: any;
+    const addressId = 'addr-uuid-to-delete-1';
+
+    beforeEach(() => {
+      mockManager = {
+        softDelete: jest.fn().mockResolvedValue({ affected: 1 }),
+        findOne: jest.fn(),
+        save: jest.fn().mockImplementation((entityClass, data) => Promise.resolve(data)),
+      };
+
+      customerRepository.manager.transaction.mockImplementation((cb: any) =>
+        cb(mockManager),
+      );
+    });
+
+    it('debe eliminar una dirección que NO es default sin modificar otras direcciones (newDefaultAddress = null)', async () => {
+      const nonDefaultAddress = {
+        id: addressId,
+        customerId: mockCustomer.id,
+        isDefault: false,
+      };
+
+      addressRepository.findOne.mockResolvedValue(nonDefaultAddress);
+
+      const result = await service.removeAddress(mockCustomer.id, addressId);
+
+      expect(addressRepository.findOne).toHaveBeenCalledWith({
+        where: { id: addressId, customerId: mockCustomer.id },
+      });
+      expect(mockManager.softDelete).toHaveBeenCalledWith(CustomerAddress, addressId);
+      // Como no era default, no busca ninguna otra para reasignar
+      expect(mockManager.findOne).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        deletedAddressId: addressId,
+        newDefaultAddress: null,
+      });
+    });
+
+    it('debe reasignar determinísticamente como default la dirección más reciente restante si la eliminada era default', async () => {
+      const defaultAddress = {
+        id: addressId,
+        customerId: mockCustomer.id,
+        isDefault: true,
+      };
+
+      const remainingAddress = {
+        id: 'addr-uuid-remaining-2',
+        customerId: mockCustomer.id,
+        isDefault: false,
+        createdAt: new Date('2026-09-08T15:00:00Z'),
+        department: { id: 1, name: 'San Salvador' },
+        district: { id: 187, name: 'Mejicanos' },
+      };
+
+      addressRepository.findOne.mockResolvedValue(defaultAddress);
+      mockManager.findOne.mockResolvedValue(remainingAddress);
+
+      const result = await service.removeAddress(mockCustomer.id, addressId);
+
+      expect(mockManager.softDelete).toHaveBeenCalledWith(CustomerAddress, addressId);
+      // Criterio determinístico: más reciente (createdAt DESC, id ASC)
+      expect(mockManager.findOne).toHaveBeenCalledWith(CustomerAddress, {
+        where: { customerId: mockCustomer.id, deletedAt: expect.anything() },
+        relations: ['department', 'district'],
+        order: { createdAt: 'DESC', id: 'ASC' },
+      });
+      expect(mockManager.save).toHaveBeenCalledWith(
+        CustomerAddress,
+        expect.objectContaining({
+          id: 'addr-uuid-remaining-2',
+          isDefault: true,
+        }),
+      );
+      expect(result.deletedAddressId).toBe(addressId);
+      expect(result.newDefaultAddress?.id).toBe('addr-uuid-remaining-2');
+      expect(result.newDefaultAddress?.isDefault).toBe(true);
+    });
+
+    it('debe permitir cero defaults si la eliminada era default y no quedan más direcciones del cliente', async () => {
+      const defaultAddress = {
+        id: addressId,
+        customerId: mockCustomer.id,
+        isDefault: true,
+      };
+
+      addressRepository.findOne.mockResolvedValue(defaultAddress);
+      mockManager.findOne.mockResolvedValue(null); // No quedan direcciones activas
+
+      const result = await service.removeAddress(mockCustomer.id, addressId);
+
+      expect(mockManager.softDelete).toHaveBeenCalledWith(CustomerAddress, addressId);
+      expect(mockManager.findOne).toHaveBeenCalled();
+      expect(mockManager.save).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        deletedAddressId: addressId,
+        newDefaultAddress: null,
+      });
+    });
+
+    it('debe lanzar NotFoundException con código ADDRESS_NOT_FOUND si la dirección no existe o pertenece a otro cliente', async () => {
+      addressRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.removeAddress(mockCustomer.id, 'unknown-or-alien-id'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
 });

@@ -482,10 +482,16 @@ export class CustomersController {
     id: string,
     @CurrentCustomer() customer: CurrentCustomerPayload,
   ) {
-    await this.customersService.removeAddress(customer.id, id);
+    const result = await this.customersService.removeAddress(customer.id, id);
     return {
       success: true,
       message: 'Dirección eliminada correctamente.',
+      data: {
+        deletedAddressId: result.deletedAddressId,
+        newDefaultAddress: result.newDefaultAddress
+          ? CustomerAddressResponseDto.fromEntity(result.newDefaultAddress)
+          : null,
+      },
     };
   }
 

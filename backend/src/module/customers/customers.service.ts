@@ -727,9 +727,16 @@ export class CustomersService {
 
   /**
    * Elimina una dirección utilizando soft delete. Si era la dirección principal,
-   * reasigna automáticamente otra dirección activa del cliente como principal.
+   * reasigna automáticamente otra dirección activa del cliente como principal con
+   * criterio determinístico (la más reciente: createdAt DESC, id ASC) en la misma transacción.
    */
-  async removeAddress(customerId: string, addressId: string): Promise<void> {
+  async removeAddress(
+    customerId: string,
+    addressId: string,
+  ): Promise<{
+    deletedAddressId: string;
+    newDefaultAddress: CustomerAddress | null;
+  }> {
     // 1. Validar que la dirección pertenezca al cliente solicitado antes de eliminarla.
     const address = await this.addressRepository.findOne({
       where: { id: addressId, customerId },
@@ -743,29 +750,37 @@ export class CustomersService {
     }
 
     // 2. Ejecutar la operación dentro de una transacción.
-    await this.customerRepository.manager.transaction(
+    return await this.customerRepository.manager.transaction(
       async (transactionalEntityManager) => {
         // Marcar la dirección como eliminada (soft delete)
         await transactionalEntityManager.softDelete(CustomerAddress, addressId);
 
-        // Si la dirección eliminada era la principal, reasignar otra dirección activa
+        let newDefaultAddress: CustomerAddress | null = null;
+
+        // Si la dirección eliminada era la principal, reasignar otra dirección activa con criterio determinístico
         if (address.isDefault) {
           const remainingAddress = await transactionalEntityManager.findOne(
             CustomerAddress,
             {
-              where: { customerId }, // TypeORM aplica el filtro WHERE deleted_at IS NULL automáticamente
-              order: { createdAt: 'ASC' },
+              where: { customerId, deletedAt: IsNull() },
+              relations: ['department', 'district'],
+              order: { createdAt: 'DESC', id: 'ASC' },
             },
           );
 
           if (remainingAddress) {
             remainingAddress.isDefault = true;
-            await transactionalEntityManager.save(
+            newDefaultAddress = await transactionalEntityManager.save(
               CustomerAddress,
               remainingAddress,
             );
           }
         }
+
+        return {
+          deletedAddressId: addressId,
+          newDefaultAddress,
+        };
       },
     );
   }
