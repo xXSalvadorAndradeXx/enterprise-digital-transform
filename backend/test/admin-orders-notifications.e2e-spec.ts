@@ -10,19 +10,21 @@ import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Customer } from '../src/module/customers/entities/customer.entity';
+import { CustomerNotification } from '../src/module/notifications/entities/customer-notification.entity';
 import { Order } from '../src/module/orders/entities/order.entity';
 import { User } from '../src/module/users/entities/user.entity';
 import { Role } from '../src/module/roles/entities/role.entity';
 import { Permission } from '../src/module/permissions/entities/permission.entity';
 import { OrderStatus } from '../src/module/orders/enums/order-status.enum';
 import { DeliveryMethod } from '../src/module/orders/enums/delivery-method.enum';
-import { ORDER_STATUS_CHANGED } from '../src/module/orders/constants/order-events.constants';
+import { NotificationType } from '../src/module/notifications/enums/notification-type.enum';
 
 describe('BE-ADM-NOT-10: E2E Integration Admin Orders -> Customer Notifications', () => {
   let app: INestApplication;
   let jwtService: JwtService;
   let configService: ConfigService;
   let customerRepo: Repository<Customer>;
+  let notificationRepo: Repository<CustomerNotification>;
   let orderRepo: Repository<Order>;
   let userRepo: Repository<User>;
   let roleRepo: Repository<Role>;
@@ -57,15 +59,12 @@ describe('BE-ADM-NOT-10: E2E Integration Admin Orders -> Customer Notifications'
     customerRepo = moduleFixture.get<Repository<Customer>>(
       getRepositoryToken(Customer),
     );
-    orderRepo = moduleFixture.get<Repository<Order>>(
-      getRepositoryToken(Order),
+    notificationRepo = moduleFixture.get<Repository<CustomerNotification>>(
+      getRepositoryToken(CustomerNotification),
     );
-    userRepo = moduleFixture.get<Repository<User>>(
-      getRepositoryToken(User),
-    );
-    roleRepo = moduleFixture.get<Repository<Role>>(
-      getRepositoryToken(Role),
-    );
+    orderRepo = moduleFixture.get<Repository<Order>>(getRepositoryToken(Order));
+    userRepo = moduleFixture.get<Repository<User>>(getRepositoryToken(User));
+    roleRepo = moduleFixture.get<Repository<Role>>(getRepositoryToken(Role));
     permissionRepo = moduleFixture.get<Repository<Permission>>(
       getRepositoryToken(Permission),
     );
@@ -84,8 +83,7 @@ describe('BE-ADM-NOT-10: E2E Integration Admin Orders -> Customer Notifications'
       }),
     );
 
-    const secret =
-      configService.get<string>('JWT_SECRET') || 'default_secret';
+    const secret = configService.get<string>('JWT_SECRET') || 'default_secret';
     testCustomerToken = jwtService.sign(
       {
         sub: testCustomer.id,
@@ -176,6 +174,9 @@ describe('BE-ADM-NOT-10: E2E Integration Admin Orders -> Customer Notifications'
   });
 
   afterAll(async () => {
+    if (testCustomer) {
+      await notificationRepo.delete({ customerId: testCustomer.id });
+    }
     if (testOrderNumber) {
       await orderRepo.delete({ orderNumber: testOrderNumber });
     }
@@ -209,27 +210,39 @@ describe('BE-ADM-NOT-10: E2E Integration Admin Orders -> Customer Notifications'
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     const res = await request(app.getHttpServer())
-      .get(`/api/v1/customers/me/notifications?type=${ORDER_STATUS_CHANGED}`)
+      .get(
+        `/api/v1/customers/me/notifications?type=${NotificationType.ORDER_STATUS_CHANGED}`,
+      )
       .set('Authorization', `Bearer ${testCustomerToken}`)
       .expect(200);
 
     expect(res.body.success).toBe(true);
-    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    const notifications = res.body.data.notifications || res.body.data;
+    expect(notifications.length).toBeGreaterThanOrEqual(1);
 
-    const notification = res.body.data[0];
-    expect(notification.orderNumber).toBe(testOrderNumber);
-    expect(notification.title).toBe('Actualización de tu pedido');
+    const notification = notifications[0];
+    const orderNumber =
+      notification.orderRef?.orderNumber ||
+      notification.metadata?.orderNumber ||
+      notification.orderNumber;
+    expect(orderNumber).toBe(testOrderNumber);
+    expect(notification.title).toContain(testOrderNumber);
+    expect(notification.title).toContain('en camino');
     expect(notification.message).toContain(testOrderNumber);
-    expect(notification.message).toContain('camino a tu dirección');
+    expect(notification.message).toContain('dirección de entrega');
   });
 
   it('3. Idempotencia No-Op: Repetir el mismo estado ON_ROUTE no duplica el contador ni notificaciones', async () => {
     const initialRes = await request(app.getHttpServer())
-      .get(`/api/v1/customers/me/notifications?type=${ORDER_STATUS_CHANGED}`)
+      .get(
+        `/api/v1/customers/me/notifications?type=${NotificationType.ORDER_STATUS_CHANGED}`,
+      )
       .set('Authorization', `Bearer ${testCustomerToken}`)
       .expect(200);
 
-    const countBefore = initialRes.body.data.length;
+    const initialNotifications =
+      initialRes.body.data.notifications || initialRes.body.data;
+    const countBefore = initialNotifications.length;
 
     await request(app.getHttpServer())
       .patch(`/api/v1/admin/orders/${testOrderNumber}/status`)
@@ -240,11 +253,15 @@ describe('BE-ADM-NOT-10: E2E Integration Admin Orders -> Customer Notifications'
     await new Promise((resolve) => setTimeout(resolve, 200));
 
     const secondRes = await request(app.getHttpServer())
-      .get(`/api/v1/customers/me/notifications?type=${ORDER_STATUS_CHANGED}`)
+      .get(
+        `/api/v1/customers/me/notifications?type=${NotificationType.ORDER_STATUS_CHANGED}`,
+      )
       .set('Authorization', `Bearer ${testCustomerToken}`)
       .expect(200);
 
-    const countAfter = secondRes.body.data.length;
+    const secondNotifications =
+      secondRes.body.data.notifications || secondRes.body.data;
+    const countAfter = secondNotifications.length;
 
     expect(countAfter).toBe(countBefore);
   });

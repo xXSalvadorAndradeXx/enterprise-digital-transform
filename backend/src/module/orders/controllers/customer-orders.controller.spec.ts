@@ -17,6 +17,7 @@ describe('CustomerOrdersController', () => {
       findAllByCustomer: jest.fn(),
       findOrdersForCustomer: jest.fn(),
       findOneForCustomer: jest.fn(),
+      findOneByOrderNumber: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -56,7 +57,7 @@ describe('CustomerOrdersController', () => {
 
   it('debería retornar el detalle de la orden del cliente autenticado con wrapper', async () => {
     const mockDetail = { id: 'ord-1', orderNumber: 'A7K29P4Q', total: '95.00' };
-    service.findOneForCustomer.mockResolvedValue(mockDetail);
+    service.findOneByOrderNumber.mockResolvedValue(mockDetail);
 
     const result = await controller.getMyOrderDetail(
       mockCustomer as any,
@@ -65,34 +66,40 @@ describe('CustomerOrdersController', () => {
 
     expect(result.success).toBe(true);
     expect(result.data).toEqual(mockDetail);
-    expect(service.findOneForCustomer).toHaveBeenCalledWith(
+    expect(service.findOneByOrderNumber).toHaveBeenCalledWith(
       'cust-uuid-123',
       'A7K29P4Q',
     );
   });
 
-  it('debería lanzar BadRequestException si el orderNumber es inválido o contiene caracteres prohibidos', async () => {
+  it('debería lanzar BadRequestException si el orderNumber es inválido o no cumple 8 caracteres alfanuméricos', async () => {
     await expect(
       controller.getMyOrderDetail(mockCustomer as any, '??$$%%'),
     ).rejects.toThrow();
     await expect(
       controller.getMyOrderDetail(mockCustomer as any, ''),
     ).rejects.toThrow();
+    await expect(
+      controller.getMyOrderDetail(mockCustomer as any, 'SHORT'),
+    ).rejects.toThrow();
+    await expect(
+      controller.getMyOrderDetail(mockCustomer as any, 'TOOLONGNUMBER'),
+    ).rejects.toThrow();
   });
 
   it('debería propagar NotFoundException cuando la orden no existe', async () => {
-    service.findOneForCustomer.mockRejectedValue(new Error('ORDER_NOT_FOUND'));
+    service.findOneByOrderNumber.mockRejectedValue(new Error('ORDER_NOT_FOUND'));
 
     await expect(
-      controller.getMyOrderDetail(mockCustomer as any, 'NONEXISTENT'),
+      controller.getMyOrderDetail(mockCustomer as any, 'NONEXIST'),
     ).rejects.toThrow('ORDER_NOT_FOUND');
   });
 
-  it('debería propagar ForbiddenException si la orden pertenece a otro cliente (garantía de ownership)', async () => {
-    service.findOneForCustomer.mockRejectedValue(new Error('ORDER_FORBIDDEN'));
+  it('debería responder con 404 ORDER_NOT_FOUND (anti-enumeración) si la orden pertenece a otro cliente', async () => {
+    service.findOneByOrderNumber.mockRejectedValue(new Error('ORDER_NOT_FOUND'));
 
     await expect(
-      controller.getMyOrderDetail(mockCustomer as any, 'OTHERCUST'),
-    ).rejects.toThrow('ORDER_FORBIDDEN');
+      controller.getMyOrderDetail(mockCustomer as any, 'OTHERCUS'),
+    ).rejects.toThrow('ORDER_NOT_FOUND');
   });
 });

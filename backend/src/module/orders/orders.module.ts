@@ -18,6 +18,7 @@ import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { CustomerAddress } from '../customers/entities/customer-address.entity';
 import { CustomersModule } from '../customers/customers.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { Branch } from '../branches/entities/branch.entity';
 import { Product } from '../products/entities/product.entity';
 import { CheckoutIdempotency } from './entities/checkout-idempotency.entity';
@@ -29,6 +30,7 @@ import { ProductVariantConfig } from '../products/entities/product-variant-confi
 @Module({
   imports: [
     forwardRef(() => CustomersModule),
+    NotificationsModule,
     TypeOrmModule.forFeature([
       Order,
       OrderItem,

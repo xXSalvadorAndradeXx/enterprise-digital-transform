@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Subscription } from 'rxjs';
 import { OrderEventsPublisherService } from '../services/order-events-publisher.service';
-import { CustomerNotificationsService } from '../../customers/services/customer-notifications.service';
+import { CustomerNotificationsService } from '../../notifications/services/customer-notifications.service';
 import { OrderStatusChangedEvent } from '../events/order-status-changed.event';
 
 /**
@@ -69,10 +69,14 @@ export class OrderStatusNotificationListener
     }
 
     try {
-      // 2. Invocar createOrderStatusNotification (Sin repetir la máquina de estados)
-      await this.customerNotificationsService.createOrderStatusNotification(
-        event,
-      );
+      // 2. Invocar createOrderStatusNotification pasando parámetros estructurados a NotificationsModule
+      await this.customerNotificationsService.createOrderStatusNotification({
+        customerId: event.customerId,
+        orderId: event.orderId,
+        orderNumber: event.orderNumber,
+        newStatus: event.newStatus,
+        oldStatus: event.previousStatus,
+      });
       return true;
     } catch (error: any) {
       // 3. Manejo aislado de fallos: No bloquea ni altera la respuesta de la orden

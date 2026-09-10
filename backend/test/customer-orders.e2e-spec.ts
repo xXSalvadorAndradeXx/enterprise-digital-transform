@@ -187,7 +187,7 @@ describe('Customer Orders REST Endpoints (e2e)', () => {
         totalAmount: '85.00',
         deliveryCost: '0.00',
         discountTotal: '0.00',
-        deliveryMethod: DeliveryMethod.STORE_PICKUP,
+        deliveryMethod: DeliveryMethod.PICKUP,
       }),
     );
 
@@ -279,13 +279,13 @@ describe('Customer Orders REST Endpoints (e2e)', () => {
       expect(orders[0].orderNumber).toBe(orderB1Number);
     });
 
-    it('Cliente A intentando acceder a la orden de Cliente B debe recibir 403 Forbidden (garantía de ownership)', async () => {
+    it('Cliente A intentando acceder a la orden de Cliente B debe recibir 404 Not Found (anti-enumeración e IDOR)', async () => {
       const response = await request(app.getHttpServer())
         .get(`/api/v1/customers/me/orders/${orderB1Number}`)
         .set('Authorization', `Bearer ${tokenCustomerA}`)
-        .expect(403);
+        .expect(404);
 
-      expect(response.body.error.code).toBe('ORDER_FORBIDDEN');
+      expect(response.body.error.code).toBe('ORDER_NOT_FOUND');
     });
   });
 
@@ -398,7 +398,7 @@ describe('Customer Orders REST Endpoints (e2e)', () => {
 
     it('debe responder 404 Not Found cuando el orderNumber no existe', async () => {
       const response = await request(app.getHttpServer())
-        .get('/api/v1/customers/me/orders/NOEXISTE99')
+        .get('/api/v1/customers/me/orders/NOEXIST8')
         .set('Authorization', `Bearer ${tokenCustomerA}`)
         .expect(404);
 

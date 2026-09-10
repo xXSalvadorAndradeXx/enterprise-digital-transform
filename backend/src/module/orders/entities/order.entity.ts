@@ -9,6 +9,7 @@ import {
   JoinColumn,
   ManyToOne,
   Check,
+  Index,
 } from 'typeorm';
 import { OrderItem } from './order-item.entity';
 import { OrderDelivery } from './order-delivery.entity';
@@ -19,6 +20,8 @@ import { Customer } from '../../customers/entities/customer.entity';
 import { DeliveryMethod } from '../enums/delivery-method.enum';
 
 @Entity({ name: 'orders' })
+@Index('IDX_orders_customer_created_at', ['customerId', 'createdAt'])
+@Index('IDX_orders_order_number', ['orderNumber'], { unique: true })
 @Check(
   'orders_totals_non_negative',
   '"subtotal" >= 0 AND "discount_total" >= 0 AND "delivery_cost" >= 0 AND "total_amount" >= 0',

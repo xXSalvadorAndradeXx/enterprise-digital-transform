@@ -1,23 +1,29 @@
+import { Logger } from '@nestjs/common';
 import { OrderStatusNotificationListener } from './order-status-notification.listener';
 import { OrderEventsPublisherService } from '../services/order-events-publisher.service';
-import { CustomerNotificationsService } from '../../customers/services/customer-notifications.service';
+import {
+  CustomerNotificationsService,
+  CreateOrderStatusNotificationParams,
+} from '../../notifications/services/customer-notifications.service';
 import { OrderStatusChangedEvent } from '../events/order-status-changed.event';
 import { OrderStatus } from '../enums/order-status.enum';
 
 describe('OrderStatusNotificationListener - BE-ADM-NOT-06', () => {
   let listener: OrderStatusNotificationListener;
-  let mockPublisher: any;
-  let mockCustomerNotificationsService: any;
+  let mockPublisher: OrderEventsPublisherService;
+  let mockCustomerNotificationsService: {
+    createOrderStatusNotification: jest.Mock;
+  };
 
   beforeEach(() => {
     mockPublisher = new OrderEventsPublisherService();
     mockCustomerNotificationsService = {
-      createOrderStatusNotification: jest.fn().mockResolvedValue(true),
+      createOrderStatusNotification: jest.fn().mockResolvedValue(null),
     };
 
     listener = new OrderStatusNotificationListener(
       mockPublisher,
-      mockCustomerNotificationsService,
+      mockCustomerNotificationsService as unknown as CustomerNotificationsService,
     );
   });
 
@@ -47,7 +53,7 @@ describe('OrderStatusNotificationListener - BE-ADM-NOT-06', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it('Caso Cliente Autenticado: debe invocar createOrderStatusNotification con el evento de dominio', async () => {
+    it('Caso Cliente Autenticado: debe invocar createOrderStatusNotification con el payload estructurado', async () => {
       const customerEvent = new OrderStatusChangedEvent({
         orderId: 'ord-cust-1',
         orderNumber: 'CST99999',
@@ -61,10 +67,20 @@ describe('OrderStatusNotificationListener - BE-ADM-NOT-06', () => {
       expect(result).toBe(true);
       expect(
         mockCustomerNotificationsService.createOrderStatusNotification,
-      ).toHaveBeenCalledWith(customerEvent);
+      ).toHaveBeenCalledWith({
+        customerId: 'customer-uuid-123',
+        orderId: 'ord-cust-1',
+        orderNumber: 'CST99999',
+        newStatus: OrderStatus.ON_ROUTE,
+        oldStatus: OrderStatus.PENDING,
+      });
     });
 
     it('Manejo Aislado de Fallos: debe capturar errores y retornar false sin relanzar la excepción', async () => {
+      const loggerSpy = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
+
       mockCustomerNotificationsService.createOrderStatusNotification.mockRejectedValue(
         new Error('SMTP_CONNECTION_TIMEOUT'),
       );
@@ -82,7 +98,15 @@ describe('OrderStatusNotificationListener - BE-ADM-NOT-06', () => {
       expect(result).toBe(false);
       expect(
         mockCustomerNotificationsService.createOrderStatusNotification,
-      ).toHaveBeenCalledWith(customerEvent);
+      ).toHaveBeenCalledWith({
+        customerId: 'customer-uuid-456',
+        orderId: 'ord-cust-err',
+        orderNumber: 'ERR12345',
+        newStatus: OrderStatus.DELIVERED,
+        oldStatus: OrderStatus.PENDING,
+      });
+
+      loggerSpy.mockRestore();
     });
   });
 
@@ -100,11 +124,11 @@ describe('OrderStatusNotificationListener - BE-ADM-NOT-06', () => {
       });
 
       mockCustomerNotificationsService.createOrderStatusNotification.mockImplementation(
-        (evt: OrderStatusChangedEvent) => {
-          expect(evt.orderNumber).toBe('E2E77777');
-          expect(evt.customerId).toBe('customer-uuid-777');
+        (params: CreateOrderStatusNotificationParams) => {
+          expect(params.orderNumber).toBe('E2E77777');
+          expect(params.customerId).toBe('customer-uuid-777');
           done();
-          return Promise.resolve(true);
+          return Promise.resolve(null);
         },
       );
 

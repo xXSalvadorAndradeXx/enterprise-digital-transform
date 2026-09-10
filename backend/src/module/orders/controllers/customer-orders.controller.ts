@@ -14,7 +14,6 @@ import {
   ApiBadRequestResponse,
   ApiUnauthorizedResponse,
   ApiNotFoundResponse,
-  ApiForbiddenResponse,
   ApiParam,
 } from '@nestjs/swagger';
 
@@ -84,12 +83,12 @@ export class CustomerOrdersController {
   @ApiOperation({
     summary: 'Obtener el detalle de una orden del cliente por número de orden',
     description:
-      'Retorna la información completa de la orden solo si pertenece al cliente autenticado.',
+      'Retorna la información completa de la orden solo si pertenece al cliente autenticado. Para prevenir ataques de enumeración (IDOR), si la orden no existe o pertenece a otro cliente se retorna 404 ORDER_NOT_FOUND.',
   })
   @ApiParam({
     name: 'orderNumber',
     description:
-      'Número público legible único de la orden (alfanumérico, ej. A7K29P4Q)',
+      'Número público legible único de la orden (8 caracteres alfanuméricos, ej. A7K29P4Q)',
     example: 'A7K29P4Q',
   })
   @ApiOkResponse({
@@ -106,30 +105,27 @@ export class CustomerOrdersController {
       'No autorizado: Token de cliente ausente, inválido o expirado.',
     type: CustomerOrderErrorResponseDto,
   })
-  @ApiForbiddenResponse({
-    description:
-      'Acceso denegado: La orden no pertenece al cliente autenticado.',
-    type: CustomerOrderErrorResponseDto,
-  })
   @ApiNotFoundResponse({
-    description: 'No se encontró la orden solicitada con el número indicado.',
+    description:
+      'No se encontró la orden solicitada (orden inexistente o no perteneciente al cliente autenticado para mitigar vectores de enumeración).',
     type: CustomerOrderErrorResponseDto,
   })
   async getMyOrderDetail(
     @CurrentCustomer() customer: CurrentCustomerPayload,
     @Param('orderNumber') orderNumber: string,
   ) {
-    if (!orderNumber || !/^[A-Za-z0-9_-]{4,32}$/.test(orderNumber.trim())) {
+    const trimmedOrderNumber = (orderNumber || '').trim().toUpperCase();
+    if (!/^[A-Z0-9]{8}$/.test(trimmedOrderNumber)) {
       throw new BadRequestException({
         code: 'INVALID_ORDER_NUMBER',
         message:
-          'El número de orden provisto es inválido o no cumple el formato esperado',
+          'El número de orden provisto es inválido o no cumple el formato esperado (8 caracteres alfanuméricos)',
       });
     }
 
-    const orderDetail = await this.customerOrdersService.findOneForCustomer(
+    const orderDetail = await this.customerOrdersService.findOneByOrderNumber(
       customer.id,
-      orderNumber.trim(),
+      trimmedOrderNumber,
     );
 
     return {

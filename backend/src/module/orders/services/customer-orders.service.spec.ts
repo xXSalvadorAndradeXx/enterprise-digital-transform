@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { CustomerOrdersService } from './customer-orders.service';
 import { Order } from '../entities/order.entity';
 import { Customer } from '../../customers/entities/customer.entity';
@@ -34,6 +34,7 @@ describe('CustomerOrdersService', () => {
 
     customerRepository = {
       findOne: jest.fn(),
+      exists: jest.fn().mockResolvedValue(true),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -58,16 +59,19 @@ describe('CustomerOrdersService', () => {
   });
 
   describe('findAllByCustomer', () => {
-    it('debería lanzar NotFoundException si el cliente no existe', async () => {
-      customerRepository.findOne.mockResolvedValue(null);
+    it('debería lanzar NotFoundException si el cliente no existe validando con exists()', async () => {
+      customerRepository.exists.mockResolvedValue(false);
 
       await expect(service.findAllByCustomer(mockCustomerId)).rejects.toThrow(
         NotFoundException,
       );
+      expect(customerRepository.exists).toHaveBeenCalledWith({
+        where: { id: mockCustomerId },
+      });
     });
 
     it('debería retornar lista paginada de órdenes del cliente con items resumen y orden DESC por defecto', async () => {
-      customerRepository.findOne.mockResolvedValue({ id: mockCustomerId });
+      customerRepository.exists.mockResolvedValue(true);
       const mockOrders = [
         {
           id: 'ord-1',
@@ -245,6 +249,121 @@ describe('CustomerOrdersService', () => {
       expect(mockQueryBuilder.skip).toHaveBeenCalledWith(20);
       expect(mockQueryBuilder.take).toHaveBeenCalledWith(20);
     });
+
+    it('debería calcular count correcto con joins y paginación ante cliente con múltiples órdenes y múltiples artículos sin N+1', async () => {
+      customerRepository.exists.mockResolvedValue(true);
+
+      const mockOrder1 = {
+        id: 'ord-multi-1',
+        orderNumber: 'ORD00001',
+        status: 'PENDING',
+        createdAt: new Date('2026-09-08T10:00:00Z'),
+        totalAmount: '120.00',
+        items: [
+          {
+            quantity: 2,
+            unitPrice: '20.00',
+            subtotal: '40.00',
+            product: {
+              id: 'p1',
+              commercialName: 'Item 1',
+              isPublished: true,
+              status: ProductStatus.ACTIVE,
+              images: [],
+            },
+          },
+          {
+            quantity: 1,
+            unitPrice: '30.00',
+            subtotal: '30.00',
+            product: {
+              id: 'p2',
+              commercialName: 'Item 2',
+              isPublished: true,
+              status: ProductStatus.ACTIVE,
+              images: [],
+            },
+          },
+          {
+            quantity: 1,
+            unitPrice: '50.00',
+            subtotal: '50.00',
+            product: {
+              id: 'p3',
+              commercialName: 'Item 3',
+              isPublished: true,
+              status: ProductStatus.ACTIVE,
+              images: [],
+            },
+          },
+        ],
+      };
+
+      const mockOrder2 = {
+        id: 'ord-multi-2',
+        orderNumber: 'ORD00002',
+        status: 'DELIVERED',
+        createdAt: new Date('2026-09-07T10:00:00Z'),
+        totalAmount: '150.00',
+        items: [
+          {
+            quantity: 3,
+            unitPrice: '25.00',
+            subtotal: '75.00',
+            product: {
+              id: 'p4',
+              commercialName: 'Item 4',
+              isPublished: true,
+              status: ProductStatus.ACTIVE,
+              images: [],
+            },
+          },
+          {
+            quantity: 2,
+            unitPrice: '37.50',
+            subtotal: '75.00',
+            product: {
+              id: 'p5',
+              commercialName: 'Item 5',
+              isPublished: true,
+              status: ProductStatus.ACTIVE,
+              images: [],
+            },
+          },
+        ],
+      };
+
+      // TypeORM getManyAndCount retorna las 2 entidades paginadas y el TOTAL de órdenes únicas (3, no 8 items)
+      mockQueryBuilder.getManyAndCount.mockResolvedValue([
+        [mockOrder1, mockOrder2],
+        3,
+      ]);
+
+      const result = await service.findAllByCustomer(mockCustomerId, {
+        page: 1,
+        limit: 2,
+      });
+
+      // Validar metadata de conteo
+      expect(result.meta.total).toBe(3);
+      expect(result.meta.totalPages).toBe(2);
+      expect(result.meta.hasNextPage).toBe(true);
+      expect(result.meta.hasPreviousPage).toBe(false);
+      expect(result.orders.length).toBe(2);
+
+      // Validar agregaciones por orden (itemsCount suma piezas correctamente)
+      expect(result.orders[0].id).toBe('ord-multi-1');
+      expect(result.orders[0].itemsCount).toBe(4);
+      expect(result.orders[0].items.length).toBe(3);
+
+      expect(result.orders[1].id).toBe('ord-multi-2');
+      expect(result.orders[1].itemsCount).toBe(5);
+      expect(result.orders[1].items.length).toBe(2);
+
+      // Evidencia de No N+1: exactamente 1 llamada a createQueryBuilder
+      expect(orderRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
+      expect(mockQueryBuilder.getManyAndCount).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('findOrdersForCustomer (alias de compatibilidad)', () => {
@@ -273,25 +392,72 @@ describe('CustomerOrdersService', () => {
     });
   });
 
-  describe('findOneForCustomer', () => {
-    it('debería lanzar NotFoundException si la orden no existe', async () => {
+  describe('findOneByOrderNumber (y alias findOneForCustomer)', () => {
+    it('debería consultar orderNumber y customerId en la misma query atómica', async () => {
       orderRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        service.findOneForCustomer(mockCustomerId, 'INVALID'),
+        service.findOneByOrderNumber(mockCustomerId, mockOrderNumber),
       ).rejects.toThrow(NotFoundException);
+
+      expect(orderRepository.findOne).toHaveBeenCalledWith({
+        where: {
+          orderNumber: mockOrderNumber,
+          customerId: mockCustomerId,
+        },
+        relations: [
+          'items',
+          'items.product',
+          'items.product.images',
+          'delivery',
+          'delivery.branch',
+          'statusHistory',
+        ],
+      });
     });
 
-    it('debería lanzar ForbiddenException si la orden no pertenece al cliente', async () => {
-      orderRepository.findOne.mockResolvedValue({
-        id: 'ord-1',
-        orderNumber: mockOrderNumber,
-        customerId: 'other-cust-id',
-      });
+    it('debería lanzar NotFoundException con código ORDER_NOT_FOUND si la orden no existe', async () => {
+      orderRepository.findOne.mockResolvedValue(null);
+
+      try {
+        await service.findOneByOrderNumber(mockCustomerId, 'NOTFOUND');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(NotFoundException);
+        expect(err.getResponse()).toEqual({
+          code: 'ORDER_NOT_FOUND',
+          message: 'No se encontró la orden con número NOTFOUND',
+        });
+      }
+    });
+
+    it('debería retornar 404 ORDER_NOT_FOUND si la orden pertenece a otro cliente (anti-enumeración e IDOR)', async () => {
+      // Al filtrar en BD por { orderNumber, customerId: mockCustomerId },
+      // si la orden pertenece a 'other-cust', la base de datos retorna null
+      orderRepository.findOne.mockResolvedValue(null);
+
+      try {
+        await service.findOneByOrderNumber(mockCustomerId, 'OTHERORD');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(NotFoundException);
+        expect(err.getResponse().code).toBe('ORDER_NOT_FOUND');
+      }
+    });
+
+    it('debería admitir inversión en los argumentos (orderNumber, customerId)', async () => {
+      orderRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        service.findOneForCustomer(mockCustomerId, mockOrderNumber),
-      ).rejects.toThrow(ForbiddenException);
+        service.findOneByOrderNumber(mockOrderNumber, mockCustomerId),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(orderRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            orderNumber: mockOrderNumber,
+            customerId: mockCustomerId,
+          },
+        }),
+      );
     });
 
     it('debería retornar el detalle histórico completo si la orden pertenece al cliente', async () => {
@@ -352,7 +518,7 @@ describe('CustomerOrdersService', () => {
 
       orderRepository.findOne.mockResolvedValue(mockOrder);
 
-      const result = await service.findOneForCustomer(
+      const result = await service.findOneByOrderNumber(
         mockCustomerId,
         mockOrderNumber,
       );
@@ -360,6 +526,7 @@ describe('CustomerOrdersService', () => {
       expect(result.orderNumber).toBe(mockOrderNumber);
       expect(result.itemsCount).toBe(2);
       expect(result.items.length).toBe(1);
+      expect(result.items[0].productId).toBe('prod-1');
       expect(result.items[0].commercialName).toBe('Producto Test');
       expect(result.items[0].imageUrl).toBe('https://cdn.example.com/img0.jpg');
       expect(result.items[0].variantTitle).toBe('Blanco / Grande');
@@ -373,6 +540,63 @@ describe('CustomerOrdersService', () => {
       expect(result.timeline[0].status).toBe('NEW');
       expect((result.timeline[0] as any).notes).toBeUndefined();
       expect(result.total).toBe('95.00');
+    });
+
+    it('debería retornar productId null y estado adecuado cuando el producto original ya no está disponible o fue eliminado', async () => {
+      const mockOrderWithUnavailableProduct = {
+        id: 'ord-2',
+        orderNumber: mockOrderNumber,
+        customerId: mockCustomerId,
+        status: 'DELIVERED',
+        totalAmount: '45.00',
+        items: [
+          {
+            id: 'item-inactive',
+            quantity: 1,
+            unitPrice: '20.00',
+            subtotal: '20.00',
+            sku: 'SKU-INACT',
+            product: {
+              id: 'prod-inactive',
+              commercialName: 'Producto Inactivo',
+              isPublished: false,
+              status: ProductStatus.PAUSED,
+              images: [],
+            },
+          },
+          {
+            id: 'item-deleted',
+            quantity: 1,
+            unitPrice: '25.00',
+            subtotal: '25.00',
+            sku: 'SKU-DEL',
+            product: null,
+          },
+        ],
+        delivery: null,
+        statusHistory: [],
+      };
+
+      orderRepository.findOne.mockResolvedValue(
+        mockOrderWithUnavailableProduct,
+      );
+
+      const result = await service.findOneForCustomer(
+        mockCustomerId,
+        mockOrderNumber,
+      );
+
+      // Ítem 1: Producto despublicado / inactivo
+      expect(result.items[0].productId).toBeNull();
+      expect(result.items[0].isAvailable).toBe(false);
+      expect(result.items[0].canRepurchase).toBe(false);
+      expect(result.items[0].commercialName).toBe('Producto Inactivo');
+
+      // Ítem 2: Producto eliminado físicamente (null)
+      expect(result.items[1].productId).toBeNull();
+      expect(result.items[1].isAvailable).toBe(false);
+      expect(result.items[1].canRepurchase).toBe(false);
+      expect(result.items[1].commercialName).toBe('Producto (SKU-DEL)');
     });
   });
 });
