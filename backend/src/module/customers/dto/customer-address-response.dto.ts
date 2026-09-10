@@ -84,7 +84,9 @@ export class CustomerAddressResponseDto {
   reference?: string | null;
 
   @ApiProperty({
-    description: 'Indica si es la dirección predeterminada del cliente',
+    description:
+      'Indica si es la dirección predeterminada del cliente. En listados, la dirección con isDefault=true ' +
+      'siempre se ubica al principio del arreglo para autocompletado en Checkout y marcado con check azul en la libreta de direcciones.',
     example: true,
   })
   isDefault!: boolean;
@@ -134,4 +136,74 @@ export class CustomerAddressResponseDto {
       updatedAt: address.updatedAt,
     };
   }
+}
+
+/**
+ * Wrapper de respuesta para el listado de direcciones del cliente autenticado.
+ */
+export class CustomerAddressListResponseDto {
+  @ApiProperty({ example: true, description: 'Indica si la operación fue exitosa' })
+  success!: boolean;
+
+  @ApiProperty({
+    type: [CustomerAddressResponseDto],
+    description:
+      'Listado de direcciones activas del cliente ordenadas con la principal (isDefault=true) primero. ' +
+      'Checkout puede consumir directamente este listado y autocompletar con la dirección isDefault=true (o índice 0).',
+  })
+  data!: CustomerAddressResponseDto[];
+}
+
+/**
+ * Wrapper de respuesta para operaciones individuales sobre una dirección (Crear, Actualizar, Set Default).
+ */
+export class SingleCustomerAddressResponseDto {
+  @ApiProperty({ example: true, description: 'Indica si la operación fue exitosa' })
+  success!: boolean;
+
+  @ApiProperty({
+    example: 'Operación realizada correctamente.',
+    description: 'Mensaje descriptivo del resultado',
+  })
+  message!: string;
+
+  @ApiProperty({
+    type: CustomerAddressResponseDto,
+    description: 'Datos completos de la dirección resultante con relaciones y estado principal',
+  })
+  data!: CustomerAddressResponseDto;
+}
+
+/**
+ * Objeto con datos de la dirección eliminada y la nueva principal reasignada.
+ */
+export class DeleteCustomerAddressDataDto {
+  @ApiProperty({
+    description: 'Identificador UUID v4 de la dirección eliminada mediante soft delete',
+    example: '7b2e8a1d-5c43-4f2e-9d8a-1b2c3d4e5f60',
+  })
+  deletedAddressId!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Datos de la nueva dirección principal reasignada automáticamente con criterio determinístico (la más reciente) ' +
+      'si la dirección eliminada era la principal. Retorna null si la dirección eliminada no era principal o si ya no quedan más direcciones.',
+    type: CustomerAddressResponseDto,
+    nullable: true,
+  })
+  newDefaultAddress?: CustomerAddressResponseDto | null;
+}
+
+/**
+ * Wrapper de respuesta para la eliminación lógica de una dirección.
+ */
+export class DeleteCustomerAddressResponseDto {
+  @ApiProperty({ example: true, description: 'Indica si la operación fue exitosa' })
+  success!: boolean;
+
+  @ApiProperty({ example: 'Dirección eliminada correctamente.' })
+  message!: string;
+
+  @ApiProperty({ type: DeleteCustomerAddressDataDto })
+  data!: DeleteCustomerAddressDataDto;
 }
