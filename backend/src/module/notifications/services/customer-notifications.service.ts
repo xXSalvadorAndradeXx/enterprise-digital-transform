@@ -13,6 +13,8 @@ import {
   getNotificationTab,
   getNotificationTypesForTab,
 } from '../constants/notification-category-mapping';
+import { getOrderStatusNotificationText } from '../constants/order-status-notification-mapping';
+import { OrderStatus } from '../../orders/enums/order-status.enum';
 import { NotificationsQueryDto } from '../dto/notifications-query.dto';
 import {
   NotificationResponseDto,
@@ -24,8 +26,9 @@ export interface CreateOrderStatusNotificationParams {
   customerId: string;
   orderId: string;
   orderNumber: string;
-  oldStatus?: string;
-  newStatus: string;
+  oldStatus?: OrderStatus | string;
+  newStatus: OrderStatus | string;
+  customTitle?: string;
   customMessage?: string;
   actionUrl?: string;
 }
@@ -233,7 +236,7 @@ export class CustomerNotificationsService {
    */
   async createOrderStatusNotification(
     params: CreateOrderStatusNotificationParams,
-  ): Promise<CustomerNotification> {
+  ): Promise<CustomerNotification | null> {
     if (
       !params.customerId ||
       !params.orderId ||
@@ -245,10 +248,19 @@ export class CustomerNotificationsService {
       );
     }
 
-    const title = `Actualización de pedido #${params.orderNumber}`;
-    const message =
-      params.customMessage ||
-      `Tu pedido #${params.orderNumber} ahora se encuentra en estado ${params.newStatus}.`;
+    // Supresión de notificaciones redundantes si el estado no cambió
+    if (params.oldStatus && params.oldStatus === params.newStatus) {
+      this.logger.debug(
+        `Notificación de orden omitida: el estado no cambió para orderNumber=${params.orderNumber} (${params.newStatus})`,
+      );
+      return null;
+    }
+
+    const { title: defaultTitle, message: defaultMessage } =
+      getOrderStatusNotificationText(params.orderNumber, params.newStatus);
+
+    const title = params.customTitle || defaultTitle;
+    const message = params.customMessage || defaultMessage;
     const actionUrl =
       params.actionUrl || `/cuenta/pedidos/${params.orderNumber}`;
 

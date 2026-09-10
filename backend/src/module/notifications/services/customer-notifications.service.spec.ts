@@ -401,7 +401,7 @@ describe('CustomerNotificationsService', () => {
   });
 
   describe('createOrderStatusNotification (Método Interno)', () => {
-    it('debe validar parámetros y persistir notificación ORDER_STATUS_CHANGED', async () => {
+    it('debe validar parámetros y persistir notificación ORDER_STATUS_CHANGED utilizando el mapper de estados', async () => {
       const params = {
         customerId: mockCustomerId,
         orderId: 'ord-uuid-1',
@@ -418,7 +418,9 @@ describe('CustomerNotificationsService', () => {
           orderId: 'ord-uuid-1',
           productId: null,
           type: NotificationType.ORDER_STATUS_CHANGED,
-          title: 'Actualización de pedido #A7K29P4Q',
+          title: '¡Tu pedido #A7K29P4Q está en camino!',
+          message:
+            'Tu pedido #A7K29P4Q ha salido hacia tu dirección de entrega.',
           actionUrl: '/cuenta/pedidos/A7K29P4Q',
           metadata: {
             orderNumber: 'A7K29P4Q',
@@ -426,10 +428,50 @@ describe('CustomerNotificationsService', () => {
             newStatus: 'ON_ROUTE',
           },
           isRead: false,
+          readAt: null,
         }),
       );
       expect(mockNotificationRepo.save).toHaveBeenCalled();
-      expect(result.type).toBe(NotificationType.ORDER_STATUS_CHANGED);
+      expect(result).not.toBeNull();
+      expect(result?.type).toBe(NotificationType.ORDER_STATUS_CHANGED);
+    });
+
+    it('debe suprimir la creación y retornar null si el estado no cambió (oldStatus === newStatus)', async () => {
+      const params = {
+        customerId: mockCustomerId,
+        orderId: 'ord-uuid-1',
+        orderNumber: 'A7K29P4Q',
+        oldStatus: 'DELIVERED',
+        newStatus: 'DELIVERED',
+      };
+
+      const result = await service.createOrderStatusNotification(params);
+
+      expect(result).toBeNull();
+      expect(mockNotificationRepo.create).not.toHaveBeenCalled();
+      expect(mockNotificationRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('debe respetar customTitle y customMessage si se suministran explícitamente', async () => {
+      const params = {
+        customerId: mockCustomerId,
+        orderId: 'ord-uuid-1',
+        orderNumber: 'A7K29P4Q',
+        oldStatus: 'PENDING',
+        newStatus: 'ON_ROUTE',
+        customTitle: 'Título Personalizado #A7K29P4Q',
+        customMessage: 'Mensaje especial para el cliente.',
+      };
+
+      const result = await service.createOrderStatusNotification(params);
+
+      expect(mockNotificationRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Título Personalizado #A7K29P4Q',
+          message: 'Mensaje especial para el cliente.',
+        }),
+      );
+      expect(result).not.toBeNull();
     });
 
     it('debe lanzar BadRequestException ante parámetros requeridos faltantes', async () => {
