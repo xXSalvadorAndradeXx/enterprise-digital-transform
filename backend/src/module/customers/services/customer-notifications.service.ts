@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OrderStatusChangedEvent } from '../../orders/events/order-status-changed.event';
+import { OrderStatusMessageMapper } from '../../orders/mappers/order-status-message.mapper';
 
 /**
  * Servicio encargado de la gestión e ingesta de notificaciones para los clientes.
- * BE-ADM-NOT-06: Listener hacia CustomerNotificationsService
+ * BE-ADM-NOT-06 / BE-ADM-NOT-07
  */
 @Injectable()
 export class CustomerNotificationsService {
@@ -13,22 +14,31 @@ export class CustomerNotificationsService {
    * Crea una notificación de cambio de estado de orden para un cliente registrado.
    *
    * @param event Evento de dominio OrderStatusChangedEvent
-   * @returns Promise<boolean> true si se creó la notificación, false si el cliente es Guest
+   * @returns Promise<{ success: boolean; title?: string; message?: string }> Resultado de la ingesta
    */
   async createOrderStatusNotification(
     event: OrderStatusChangedEvent,
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; title?: string; message?: string }> {
     if (!event.customerId) {
       this.logger.debug(
         `[CustomerNotificationsService] Notificación omitida: El pedido ${event.orderNumber} fue realizado como cliente invitado (Guest).`,
       );
-      return false;
+      return { success: false };
     }
 
-    this.logger.log(
-      `[CustomerNotificationsService] Notificación creada para cliente ${event.customerId}: Pedido ${event.orderNumber} ha cambiado a ${event.newStatus}.`,
+    const { title, message } = OrderStatusMessageMapper.mapStatusToNotification(
+      event.newStatus,
+      event.orderNumber,
     );
 
-    return true;
+    this.logger.log(
+      `[CustomerNotificationsService] Notificación creada para cliente ${event.customerId}: [${title}] ${message}`,
+    );
+
+    return {
+      success: true,
+      title,
+      message,
+    };
   }
 }
