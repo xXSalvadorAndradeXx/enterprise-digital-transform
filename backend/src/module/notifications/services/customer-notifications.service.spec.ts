@@ -3,12 +3,14 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { CustomerNotificationsService } from './customer-notifications.service';
 import { CustomerNotification } from '../entities/customer-notification.entity';
+import { CustomerFavorite } from '../../customers/entities/customer-favorite.entity';
 import { NotificationType } from '../enums/notification-type.enum';
 import { NotificationTab } from '../enums/notification-tab.enum';
 
 describe('CustomerNotificationsService', () => {
   let service: CustomerNotificationsService;
   let mockNotificationRepo: any;
+  let mockFavoriteRepo: any;
 
   const mockCustomerId = 'cust-uuid-1111-2222-3333';
   const mockNotificationId = 'notif-uuid-4444-5555-6666';
@@ -33,6 +35,7 @@ describe('CustomerNotificationsService', () => {
     entities: any[] = [],
     total = 0,
     rawMany: any[] = [],
+    one: any = null,
   ) => ({
     select: jest.fn().mockReturnThis(),
     addSelect: jest.fn().mockReturnThis(),
@@ -44,6 +47,7 @@ describe('CustomerNotificationsService', () => {
     take: jest.fn().mockReturnThis(),
     getManyAndCount: jest.fn().mockResolvedValue([entities, total]),
     getRawMany: jest.fn().mockResolvedValue(rawMany),
+    getOne: jest.fn().mockResolvedValue(one),
   });
 
   beforeEach(async () => {
@@ -65,12 +69,20 @@ describe('CustomerNotificationsService', () => {
       update: jest.fn().mockResolvedValue({ affected: 3 }),
     };
 
+    mockFavoriteRepo = {
+      count: jest.fn().mockResolvedValue(1),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CustomerNotificationsService,
         {
           provide: getRepositoryToken(CustomerNotification),
           useValue: mockNotificationRepo,
+        },
+        {
+          provide: getRepositoryToken(CustomerFavorite),
+          useValue: mockFavoriteRepo,
         },
       ],
     }).compile();
@@ -487,7 +499,7 @@ describe('CustomerNotificationsService', () => {
   });
 
   describe('createFavoritePriceDropNotification (Método Interno)', () => {
-    it('debe calcular descuento y persistir notificación FAVORITE_PRICE_DROPPED', async () => {
+    it('debe calcular descuento y persistir notificación FAVORITE_PRICE_DROPPED cuando el producto está en favoritos', async () => {
       const params = {
         customerId: mockCustomerId,
         productId: 'prod-uuid-99',
@@ -498,6 +510,9 @@ describe('CustomerNotificationsService', () => {
 
       const result = await service.createFavoritePriceDropNotification(params);
 
+      expect(mockFavoriteRepo.count).toHaveBeenCalledWith({
+        where: { customerId: mockCustomerId, productId: 'prod-uuid-99' },
+      });
       expect(mockNotificationRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           customerId: mockCustomerId,
@@ -505,6 +520,8 @@ describe('CustomerNotificationsService', () => {
           productId: 'prod-uuid-99',
           type: NotificationType.FAVORITE_PRICE_DROPPED,
           title: '¡Bajó de precio un favorito!',
+          message:
+            '"Taladro Percutor 1/2" bajó a $75.00 (25% de descuento, antes $100.00).',
           actionUrl: '/productos/prod-uuid-99',
           metadata: {
             productId: 'prod-uuid-99',
@@ -514,10 +531,107 @@ describe('CustomerNotificationsService', () => {
             discountPercentage: 25,
           },
           isRead: false,
+          readAt: null,
         }),
       );
       expect(mockNotificationRepo.save).toHaveBeenCalled();
-      expect(result.type).toBe(NotificationType.FAVORITE_PRICE_DROPPED);
+      expect(result).not.toBeNull();
+      expect(result?.type).toBe(NotificationType.FAVORITE_PRICE_DROPPED);
+    });
+
+    it('debe suprimir la creación y retornar null si el cliente ya no tiene el producto en favoritos', async () => {
+      mockFavoriteRepo.count.mockResolvedValue(0);
+
+      const params = {
+        customerId: mockCustomerId,
+        productId: 'prod-uuid-removed',
+        commercialName: 'Lijadora Orbital',
+        oldPrice: 80,
+        newPrice: 60,
+      };
+
+      const result = await service.createFavoritePriceDropNotification(params);
+
+      expect(mockFavoriteRepo.count).toHaveBeenCalledWith({
+        where: {
+          customerId: mockCustomerId,
+          productId: 'prod-uuid-removed',
+        },
+      });
+      expect(result).toBeNull();
+      expect(mockNotificationRepo.create).not.toHaveBeenCalled();
+      expect(mockNotificationRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('debe suprimir la creación si ya existe una notificación para el mismo eventId (idempotencia)', async () => {
+      const qb = createMockQueryBuilder(
+        [],
+        0,
+        [],
+        mockNotificationEntity, // Simula que getOne() encuentra una notificación previa con ese eventId
+      );
+      mockNotificationRepo.createQueryBuilder.mockReturnValue(qb);
+
+      const params = {
+        customerId: mockCustomerId,
+        productId: 'prod-uuid-99',
+        commercialName: 'Taladro Percutor 1/2',
+        oldPrice: 100,
+        newPrice: 75,
+        eventId: 'evt-price-drop-2026-001',
+      };
+
+      const result = await service.createFavoritePriceDropNotification(params);
+
+      expect(result).toBeNull();
+      expect(mockNotificationRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('debe persistir con mensaje de precio especial cuando oldPrice no está definido o es igual a newPrice', async () => {
+      const params = {
+        customerId: mockCustomerId,
+        productId: 'prod-uuid-99',
+        commercialName: 'Taladro Percutor 1/2',
+        oldPrice: null,
+        newPrice: 59.99,
+      };
+
+      const result = await service.createFavoritePriceDropNotification(params);
+
+      expect(mockNotificationRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: '¡Tu favorito tiene precio especial!',
+          message:
+            '"Taladro Percutor 1/2" ahora está disponible por $59.99. ¡Aprovecha la oportunidad!',
+          metadata: {
+            productId: 'prod-uuid-99',
+            commercialName: 'Taladro Percutor 1/2',
+            newPrice: 59.99,
+          },
+        }),
+      );
+      expect(result).not.toBeNull();
+    });
+
+    it('debe respetar customTitle y customMessage si se suministran explícitamente', async () => {
+      const params = {
+        customerId: mockCustomerId,
+        productId: 'prod-uuid-99',
+        commercialName: 'Taladro Percutor 1/2',
+        newPrice: 75,
+        customTitle: '¡Gran Oferta Flash!',
+        customMessage: 'Aprovecha este descuento solo por hoy.',
+      };
+
+      const result = await service.createFavoritePriceDropNotification(params);
+
+      expect(mockNotificationRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: '¡Gran Oferta Flash!',
+          message: 'Aprovecha este descuento solo por hoy.',
+        }),
+      );
+      expect(result).not.toBeNull();
     });
 
     it('debe lanzar BadRequestException ante parámetros requeridos faltantes', async () => {
@@ -526,7 +640,6 @@ describe('CustomerNotificationsService', () => {
           customerId: '',
           productId: '',
           commercialName: '',
-          oldPrice: undefined as any,
           newPrice: undefined as any,
         }),
       ).rejects.toThrow(BadRequestException);

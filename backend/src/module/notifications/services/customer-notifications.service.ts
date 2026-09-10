@@ -3,10 +3,12 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CustomerNotification } from '../entities/customer-notification.entity';
+import { CustomerFavorite } from '../../customers/entities/customer-favorite.entity';
 import { NotificationType } from '../enums/notification-type.enum';
 import { NotificationTab } from '../enums/notification-tab.enum';
 import {
@@ -14,6 +16,7 @@ import {
   getNotificationTypesForTab,
 } from '../constants/notification-category-mapping';
 import { getOrderStatusNotificationText } from '../constants/order-status-notification-mapping';
+import { getFavoritePriceDropNotificationText } from '../constants/favorite-price-drop-notification-mapping';
 import { OrderStatus } from '../../orders/enums/order-status.enum';
 import { NotificationsQueryDto } from '../dto/notifications-query.dto';
 import {
@@ -37,10 +40,14 @@ export interface CreateFavoritePriceDropNotificationParams {
   customerId: string;
   productId: string;
   commercialName: string;
-  oldPrice: number;
+  oldPrice?: number | null;
   newPrice: number;
+  discountPercentage?: number | null;
+  eventId?: string;
+  customTitle?: string;
   customMessage?: string;
   actionUrl?: string;
+  skipFavoriteCheck?: boolean;
 }
 
 @Injectable()
@@ -50,6 +57,9 @@ export class CustomerNotificationsService {
   constructor(
     @InjectRepository(CustomerNotification)
     private readonly notificationRepo: Repository<CustomerNotification>,
+    @Optional()
+    @InjectRepository(CustomerFavorite)
+    private readonly favoriteRepo?: Repository<CustomerFavorite>,
   ) {}
 
   /**
@@ -295,40 +305,91 @@ export class CustomerNotificationsService {
   /**
    * MÉTODO INTERNO: Crea y persiste una notificación de reducción de precio en un favorito.
    * Invocado por listeners de catálogo / promociones, nunca expuesto por POST público.
+   * Garantiza idempotencia por eventId y suprime la alerta si el cliente ya no tiene el producto en favoritos.
    */
   async createFavoritePriceDropNotification(
     params: CreateFavoritePriceDropNotificationParams,
-  ): Promise<CustomerNotification> {
+  ): Promise<CustomerNotification | null> {
     if (
       !params.customerId ||
       !params.productId ||
       !params.commercialName ||
-      params.oldPrice === undefined ||
-      params.newPrice === undefined
+      params.newPrice === undefined ||
+      params.newPrice === null
     ) {
       throw new BadRequestException(
         'Datos incompletos para crear notificación de oferta en producto favorito',
       );
     }
 
-    const discountPercentage = Math.max(
-      0,
-      Math.round(((params.oldPrice - params.newPrice) / params.oldPrice) * 100),
-    );
+    // 1. Idempotencia por eventId: evitar alertas duplicadas ante reintentos de eventos
+    if (params.eventId) {
+      const existingEventNotification = await this.notificationRepo
+        .createQueryBuilder('notification')
+        .where('notification.customer_id = :customerId', {
+          customerId: params.customerId,
+        })
+        .andWhere('notification.type = :type', {
+          type: NotificationType.FAVORITE_PRICE_DROPPED,
+        })
+        .andWhere("notification.metadata ->> 'eventId' = :eventId", {
+          eventId: params.eventId,
+        })
+        .getOne();
 
-    const title = '¡Bajó de precio un favorito!';
-    const message =
-      params.customMessage ||
-      `"${params.commercialName}" bajó de precio a $${Number(params.newPrice).toFixed(2)} (antes $${Number(params.oldPrice).toFixed(2)}).`;
+      if (existingEventNotification) {
+        this.logger.debug(
+          `Notificación de favorito duplicada omitida por eventId=${params.eventId} para customerId=${params.customerId}`,
+        );
+        return null;
+      }
+    }
+
+    // 2. Verificación just-in-time de favorito activo (estrategia anti-spam si el usuario lo eliminó)
+    if (!params.skipFavoriteCheck && this.favoriteRepo) {
+      const favoriteExists = await this.favoriteRepo.count({
+        where: { customerId: params.customerId, productId: params.productId },
+      });
+
+      if (favoriteExists === 0) {
+        this.logger.debug(
+          `Notificación de rebaja omitida: el producto ${params.productId} ya no está en favoritos del cliente ${params.customerId}`,
+        );
+        return null;
+      }
+    }
+
+    // 3. Centralización y formato de textos de oferta
+    const {
+      title: defaultTitle,
+      message: defaultMessage,
+      discountPercentage,
+    } = getFavoritePriceDropNotificationText({
+      commercialName: params.commercialName,
+      oldPrice: params.oldPrice,
+      newPrice: params.newPrice,
+      discountPercentage: params.discountPercentage,
+    });
+
+    const title = params.customTitle || defaultTitle;
+    const message = params.customMessage || defaultMessage;
     const actionUrl = params.actionUrl || `/productos/${params.productId}`;
 
     const metadata: Record<string, any> = {
       productId: params.productId,
       commercialName: params.commercialName,
-      oldPrice: Number(params.oldPrice),
       newPrice: Number(params.newPrice),
-      discountPercentage,
     };
+
+    if (params.oldPrice !== undefined && params.oldPrice !== null) {
+      metadata.oldPrice = Number(params.oldPrice);
+    }
+    if (discountPercentage !== undefined) {
+      metadata.discountPercentage = discountPercentage;
+    }
+    if (params.eventId) {
+      metadata.eventId = params.eventId;
+    }
 
     const notification = this.notificationRepo.create({
       customerId: params.customerId,
