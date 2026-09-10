@@ -33,7 +33,7 @@ export const NOTIFICATION_TAB_TO_TYPES: Readonly<
  * @returns NotificationTab correspondiente
  */
 export function getNotificationTab(
-  type: string | NotificationType,
+  type?: string | NotificationType | null,
 ): NotificationTab {
   if (!type) {
     return NotificationTab.SYSTEM;

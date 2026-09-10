@@ -82,8 +82,8 @@ describe('Notification Category Mapping (Type -> Tab Contract)', () => {
 
     it('debe retornar NotificationTab.SYSTEM como fallback ante valores nulos, vacíos o desconocidos', () => {
       expect(getNotificationTab('')).toBe(NotificationTab.SYSTEM);
-      expect(getNotificationTab(null as any)).toBe(NotificationTab.SYSTEM);
-      expect(getNotificationTab(undefined as any)).toBe(NotificationTab.SYSTEM);
+      expect(getNotificationTab(null)).toBe(NotificationTab.SYSTEM);
+      expect(getNotificationTab(undefined)).toBe(NotificationTab.SYSTEM);
       expect(getNotificationTab('UNKNOWN_TYPE_XYZ')).toBe(
         NotificationTab.SYSTEM,
       );
@@ -115,7 +115,7 @@ describe('Notification Category Mapping (Type -> Tab Contract)', () => {
     });
 
     it('debe retornar null ante una pestaña inválida o desconocida', () => {
-      expect(getNotificationTypesForTab('INVALID_TAB' as any)).toBeNull();
+      expect(getNotificationTypesForTab('INVALID_TAB')).toBeNull();
     });
   });
 });
