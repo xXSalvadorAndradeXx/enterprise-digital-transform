@@ -43,7 +43,7 @@ export class CustomerNotificationsController {
   @ApiOperation({
     summary: 'Obtener el historial de notificaciones del cliente autenticado',
     description:
-      'Retorna la lista paginada de notificaciones con soporte para filtrar por pestaña (tab=ALL, ORDERS, OFFERS, SYSTEM) y por estado de lectura (isRead=true/false). Las respuestas vienen enriquecidas con la categoría canónica tab.',
+      'Retorna la lista paginada de notificaciones del cliente autenticado. Soporta filtrado por tipo específico (type=ORDER_STATUS_CHANGED, FAVORITE_PRICE_DROPPED, SYSTEM_ANNOUNCEMENT), por pestaña canónica (tab=ALL, ORDERS, OFFERS, SYSTEM) y por estado de lectura (isRead=true/false). Las respuestas vienen enriquecidas con la categoría tab y referencias mínimas seguras. Endpoint idempotente de solo lectura; seguro para refrescar o re-consultar desde el Frontend sin generar efectos secundarios ni notificaciones artificiales.',
   })
   @ApiOkResponse({
     description: 'Buzón de notificaciones paginado obtenido exitosamente.',
@@ -76,7 +76,7 @@ export class CustomerNotificationsController {
     summary:
       'Obtener contador de notificaciones no leídas para insignias (Badge Count)',
     description:
-      'Retorna el total de notificaciones pendientes de lectura del cliente autenticado en tiempo O(1).',
+      'Retorna el total de notificaciones pendientes de lectura del cliente autenticado en tiempo O(1) aprovechando el índice parcial de base de datos, junto con el desglose por tipo y por pestaña. Diseñado específicamente para polling periódico liviano desde el Frontend (ej. cada 30-60 segundos o eventos de foco de ventana/visibilidad) sin sobrecargar la infraestructura y sin generar notificaciones artificiales.',
   })
   @ApiOkResponse({
     description: 'Contador de no leídas obtenido exitosamente.',
@@ -103,7 +103,7 @@ export class CustomerNotificationsController {
   @ApiOperation({
     summary: 'Marcar todas las notificaciones del cliente como leídas',
     description:
-      'Actualiza en lote todas las notificaciones no leídas del cliente a isRead=true y readAt=now().',
+      'Actualiza en lote todas las notificaciones no leídas del cliente a isRead=true y readAt=now() mediante una única operación atómica directa en PostgreSQL. Retorna updatedCount de forma estable (0 si no había notificaciones pendientes). Es estrictamente idempotente.',
   })
   @ApiOkResponse({
     description: 'Notificaciones marcadas como leídas en lote exitosamente.',
@@ -132,7 +132,7 @@ export class CustomerNotificationsController {
   @ApiOperation({
     summary: 'Marcar una notificación individual como leída',
     description:
-      'Actualiza una notificación específica a isRead=true y registra readAt. Si la notificación no existe o pertenece a otro cliente, devuelve 404 NOTIFICATION_NOT_FOUND para evitar enumeración.',
+      'Actualiza una notificación específica a isRead=true y registra readAt. Es estrictamente idempotente (no re-guarda ni sobreescribe readAt si ya estaba leída). Si la notificación no existe o pertenece a otro cliente, devuelve 404 NOTIFICATION_NOT_FOUND para evitar enumeración IDOR.',
   })
   @ApiParam({
     name: 'id',
