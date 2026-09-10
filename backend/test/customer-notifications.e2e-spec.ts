@@ -223,8 +223,11 @@ describe('Customer Notifications REST Endpoints (e2e)', () => {
       expect(res.body.data.meta.total).toBe(3);
       expect(res.body.data.meta.unreadCount).toBe(2);
 
-      // Verificar que ninguna pertenezca al Cliente B
+      // Verificar que pertenezcan a A y ninguna a Cliente B
       const ids = res.body.data.notifications.map((n: any) => n.id);
+      expect(ids).toContain(notifA1.id);
+      expect(ids).toContain(notifA2.id);
+      expect(ids).toContain(notifA3.id);
       expect(ids).not.toContain(notifB1.id);
     });
 
@@ -252,6 +255,7 @@ describe('Customer Notifications REST Endpoints (e2e)', () => {
         .expect(200);
 
       expect(res.body.data.notifications).toHaveLength(1);
+      expect(res.body.data.notifications[0].id).toBe(notifA2.id);
       expect(res.body.data.notifications[0].type).toBe(
         NotificationType.FAVORITE_PRICE_DROPPED,
       );
