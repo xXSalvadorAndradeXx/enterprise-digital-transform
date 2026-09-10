@@ -11,7 +11,7 @@ export interface OrderStatusNotificationContent {
 /**
  * Mapper testeable encargado de mapear cada estado de la orden (OrderStatus)
  * a su correspondiente título y mensaje amigable para el cliente.
- * 
+ *
  * BE-ADM-NOT-07: Catálogo de mensajes por OrderStatus
  */
 export class OrderStatusMessageMapper {

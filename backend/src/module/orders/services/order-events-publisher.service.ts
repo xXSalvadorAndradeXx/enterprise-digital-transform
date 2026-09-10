@@ -12,7 +12,8 @@ export class OrderEventsPublisherService {
   private readonly logger = new Logger(OrderEventsPublisherService.name);
 
   // Stream RxJS para transmisión en memoria desacoplada del evento
-  private readonly statusChangedSubject = new Subject<OrderStatusChangedEvent>();
+  private readonly statusChangedSubject =
+    new Subject<OrderStatusChangedEvent>();
 
   // Caché de eventId para evitar doble emisión en reintentos internos
   private readonly processedEventIds = new Set<string>();

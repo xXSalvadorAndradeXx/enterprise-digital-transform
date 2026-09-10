@@ -424,14 +424,16 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         const fakeSave = jest.fn();
         const fakeCreate = jest.fn();
 
-        mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
-          const fakeTx: any = {
-            findOne: jest.fn().mockResolvedValue(existingOrder),
-            save: fakeSave,
-            create: fakeCreate,
-          };
-          return cb(fakeTx);
-        });
+        mockOrderRepo.manager.transaction.mockImplementation(
+          async (cb: any) => {
+            const fakeTx: any = {
+              findOne: jest.fn().mockResolvedValue(existingOrder),
+              save: fakeSave,
+              create: fakeCreate,
+            };
+            return cb(fakeTx);
+          },
+        );
 
         const result = await service.updateStatusByOrderNumber('A7K29P4Q', {
           status: OrderStatus.PENDING,
@@ -444,12 +446,14 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
       });
 
       it('debe lanzar NotFoundException con ORDER_NOT_FOUND si la orden no existe', async () => {
-        mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
-          const fakeTx: any = {
-            findOne: jest.fn().mockResolvedValue(null),
-          };
-          return cb(fakeTx);
-        });
+        mockOrderRepo.manager.transaction.mockImplementation(
+          async (cb: any) => {
+            const fakeTx: any = {
+              findOne: jest.fn().mockResolvedValue(null),
+            };
+            return cb(fakeTx);
+          },
+        );
 
         try {
           await service.updateStatusByOrderNumber('INEXISTENT', {
@@ -472,17 +476,21 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
           deliveryMethod: DeliveryMethod.HOME_DELIVERY,
         };
 
-        const fakeSave = jest.fn().mockImplementation((cls, entity) => Promise.resolve(entity));
+        const fakeSave = jest
+          .fn()
+          .mockImplementation((cls, entity) => Promise.resolve(entity));
         const fakeCreate = jest.fn().mockImplementation((cls, data) => data);
 
-        mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
-          const fakeTx: any = {
-            findOne: jest.fn().mockResolvedValue(existingOrder),
-            save: fakeSave,
-            create: fakeCreate,
-          };
-          return cb(fakeTx);
-        });
+        mockOrderRepo.manager.transaction.mockImplementation(
+          async (cb: any) => {
+            const fakeTx: any = {
+              findOne: jest.fn().mockResolvedValue(existingOrder),
+              save: fakeSave,
+              create: fakeCreate,
+            };
+            return cb(fakeTx);
+          },
+        );
 
         const result = await service.updateStatusByOrderNumber(
           'A7K29P4Q',
@@ -509,14 +517,18 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
 
         let eventEmittedOrReturned = false;
 
-        mockOrderRepo.manager.transaction.mockImplementation(async (cb: any) => {
-          const fakeTx: any = {
-            findOne: jest.fn().mockResolvedValue(existingOrder),
-            save: jest.fn().mockRejectedValue(new Error('DB_CONSTRAINT_ERROR')),
-            create: jest.fn().mockImplementation((cls, data) => data),
-          };
-          return await cb(fakeTx);
-        });
+        mockOrderRepo.manager.transaction.mockImplementation(
+          async (cb: any) => {
+            const fakeTx: any = {
+              findOne: jest.fn().mockResolvedValue(existingOrder),
+              save: jest
+                .fn()
+                .mockRejectedValue(new Error('DB_CONSTRAINT_ERROR')),
+              create: jest.fn().mockImplementation((cls, data) => data),
+            };
+            return await cb(fakeTx);
+          },
+        );
 
         try {
           const result = await service.updateStatusByOrderNumber('RB123456', {
@@ -547,7 +559,9 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         mockOrderRepo.manager.transaction.mockImplementation((cb: any) => {
           const promise = txChain.then(async () => {
             const fakeTx: any = {
-              findOne: jest.fn().mockImplementation(() => Promise.resolve({ ...mutableOrder })),
+              findOne: jest
+                .fn()
+                .mockImplementation(() => Promise.resolve({ ...mutableOrder })),
               save: jest.fn().mockImplementation((cls, entity) => {
                 if (entity.status) {
                   mutableOrder.status = entity.status;
@@ -563,11 +577,17 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
         });
 
         const [res1, res2] = await Promise.all([
-          service.updateStatusByOrderNumber('CONC1234', { status: OrderStatus.ON_ROUTE }),
-          service.updateStatusByOrderNumber('CONC1234', { status: OrderStatus.ON_ROUTE }),
+          service.updateStatusByOrderNumber('CONC1234', {
+            status: OrderStatus.ON_ROUTE,
+          }),
+          service.updateStatusByOrderNumber('CONC1234', {
+            status: OrderStatus.ON_ROUTE,
+          }),
         ]);
 
-        const eventsGenerated = [res1.domainEvent, res2.domainEvent].filter(Boolean);
+        const eventsGenerated = [res1.domainEvent, res2.domainEvent].filter(
+          Boolean,
+        );
         expect(eventsGenerated.length).toBe(1);
         expect(eventsGenerated[0]?.previousStatus).toBe(OrderStatus.PENDING);
         expect(eventsGenerated[0]?.newStatus).toBe(OrderStatus.ON_ROUTE);

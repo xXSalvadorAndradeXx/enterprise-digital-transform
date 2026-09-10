@@ -68,7 +68,9 @@ describe('AdminOrdersController', () => {
         },
       };
 
-      ordersService.updateStatusByOrderNumber.mockResolvedValue({ ...mockResultWithEvent });
+      ordersService.updateStatusByOrderNumber.mockResolvedValue({
+        ...mockResultWithEvent,
+      });
 
       const result = await controller.updateStatus('A7K29P4Q', updateDto, req);
 

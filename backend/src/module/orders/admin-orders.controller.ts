@@ -70,10 +70,12 @@ export class AdminOrdersController {
     description: 'El pedido solicitado no existe (code: ORDER_NOT_FOUND).',
   })
   @ApiUnauthorizedResponse({
-    description: 'Token de autenticación administrativo no provisto o inválido.',
+    description:
+      'Token de autenticación administrativo no provisto o inválido.',
   })
   @ApiForbiddenResponse({
-    description: 'El usuario no cuenta con el permiso administrativo orders:update.',
+    description:
+      'El usuario no cuenta con el permiso administrativo orders:update.',
   })
   async updateStatus(
     @Param('orderNumber') orderNumber: string,

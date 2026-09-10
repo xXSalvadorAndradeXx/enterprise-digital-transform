@@ -12,7 +12,7 @@ import { OrderStatusChangedEvent } from '../events/order-status-changed.event';
 /**
  * Listener que escucha los eventos ORDER_STATUS_CHANGED e invoca
  * el servicio de notificaciones de clientes desacopladamente.
- * 
+ *
  * BE-ADM-NOT-06: Listener hacia CustomerNotificationsService
  */
 @Injectable()

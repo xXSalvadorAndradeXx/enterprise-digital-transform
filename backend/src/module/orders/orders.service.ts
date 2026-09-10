@@ -1654,11 +1654,11 @@ export class OrdersService {
 
     const updatedOrder = await this.orderRepository.manager.transaction(
       async (tx) => {
-        const order = await tx.findOne(Order, {
-          where: { orderNumber },
-          relations: ['statusHistory'],
-          lock: { mode: 'pessimistic_write' },
-        });
+        const order = await tx
+          .createQueryBuilder(Order, 'order')
+          .setLock('pessimistic_write')
+          .where('order.orderNumber = :orderNumber', { orderNumber })
+          .getOne();
 
         if (!order) {
           throw new NotFoundException({
@@ -1669,6 +1669,10 @@ export class OrdersService {
             },
           });
         }
+
+        order.statusHistory = await tx.find(OrderStatusHistory, {
+          where: { order: { id: order.id } },
+        });
 
         const oldStatus = order.status;
 

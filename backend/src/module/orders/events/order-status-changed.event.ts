@@ -2,7 +2,7 @@ import { OrderStatus } from '../enums/order-status.enum';
 
 /**
  * Evento de dominio emitido cuando cambia el estado de una orden.
- * 
+ *
  * BE-ADM-NOT-02: Definir/reutilizar OrderStatusChangedEvent
  */
 export class OrderStatusChangedEvent {

@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   ParseUUIDPipe,
   BadRequestException,
@@ -19,8 +20,10 @@ import {
   ApiUnauthorizedResponse,
   ApiBadRequestResponse,
   ApiNotFoundResponse,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { CustomersService } from '../customers.service';
+import { CustomerNotificationsService } from '../services/customer-notifications.service';
 import { CustomerJwtAuthGuard } from '../guards/customer-jwt-auth.guard';
 import { CreateCustomerAddressDto } from '../dto/create-customer-address.dto';
 import { UpdateCustomerAddressDto } from '../dto/update-customer-address.dto';
@@ -32,7 +35,10 @@ import type { CurrentCustomerPayload } from '../decorators/current-customer.deco
 @ApiTags('Customers')
 @Controller('customers')
 export class CustomersController {
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly customerNotificationsService: CustomerNotificationsService,
+  ) {}
 
   @ApiOperation({
     summary: 'Obtener el perfil del cliente autenticado',
@@ -512,6 +518,34 @@ export class CustomersController {
     return {
       success: true,
       data: formattedAddress,
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Consultar notificaciones del cliente autenticado',
+    description:
+      'Retorna las notificaciones recibidas por el cliente autenticado (ej. ORDER_STATUS_CHANGED).',
+  })
+  @ApiQuery({ name: 'type', required: false, type: String })
+  @ApiBearerAuth()
+  @UseGuards(CustomerJwtAuthGuard)
+  @Get('me/notifications')
+  async getMyNotifications(
+    @CurrentCustomer() customer: CurrentCustomerPayload,
+    @Query('type') type?: string,
+  ) {
+    const result =
+      await this.customerNotificationsService.getCustomerNotifications(
+        customer.id,
+        type,
+      );
+
+    return {
+      success: true,
+      data: result.notifications,
+      meta: {
+        total: result.count,
+      },
     };
   }
 }
