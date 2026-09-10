@@ -353,7 +353,7 @@ describe('CustomerNotificationsService', () => {
   });
 
   describe('markAllAsRead', () => {
-    it('debe actualizar en lote todas las no leídas del cliente', async () => {
+    it('debe ejecutar un único UPDATE atómico por customerId e isRead=false sin cargar entidades en memoria', async () => {
       mockNotificationRepo.update.mockResolvedValue({ affected: 5 });
 
       const result = await service.markAllAsRead(mockCustomerId);
@@ -362,7 +362,41 @@ describe('CustomerNotificationsService', () => {
         { customerId: mockCustomerId, isRead: false },
         expect.objectContaining({ isRead: true, readAt: expect.any(Date) }),
       );
+      expect(mockNotificationRepo.findOne).not.toHaveBeenCalled();
+      expect(mockNotificationRepo.save).not.toHaveBeenCalled();
       expect(result).toEqual({ updatedCount: 5 });
+    });
+
+    it('debe devolver updatedCount: 0 de forma estable cuando el cliente no tiene notificaciones pendientes', async () => {
+      mockNotificationRepo.update.mockResolvedValue({ affected: 0 });
+
+      const result = await service.markAllAsRead(mockCustomerId);
+
+      expect(mockNotificationRepo.update).toHaveBeenCalledWith(
+        { customerId: mockCustomerId, isRead: false },
+        expect.objectContaining({ isRead: true, readAt: expect.any(Date) }),
+      );
+      expect(result).toEqual({ updatedCount: 0 });
+    });
+
+    it('debe garantizar aislamiento estricto por customerId y no alterar notificaciones de otros clientes', async () => {
+      mockNotificationRepo.update.mockResolvedValue({ affected: 2 });
+      const isolatedCustomerId = 'isolated-tenant-999';
+
+      await service.markAllAsRead(isolatedCustomerId);
+
+      expect(mockNotificationRepo.update).toHaveBeenCalledWith(
+        { customerId: isolatedCustomerId, isRead: false },
+        expect.objectContaining({ isRead: true, readAt: expect.any(Date) }),
+      );
+    });
+
+    it('debe manejar adecuadamente cuando affected es undefined o null devolviendo 0', async () => {
+      mockNotificationRepo.update.mockResolvedValue({ affected: undefined });
+
+      const result = await service.markAllAsRead(mockCustomerId);
+
+      expect(result).toEqual({ updatedCount: 0 });
     });
   });
 

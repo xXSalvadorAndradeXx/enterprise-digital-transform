@@ -212,6 +212,11 @@ export class CustomerNotificationsService {
 
   /**
    * Marca todas las notificaciones pendientes del cliente autenticado como leídas en lote.
+   * Ejecuta una única operación SQL UPDATE atómica sin cargar entidades en memoria Node.js O(1),
+   * garantizando aislamiento estricto por customerId y aprovechando el índice parcial unread.
+   *
+   * @param customerId - Identificador del cliente autenticado (extraído de JWT)
+   * @returns Objeto con la cantidad de notificaciones actualizadas ({ updatedCount: number })
    */
   async markAllAsRead(customerId: string): Promise<{ updatedCount: number }> {
     const result = await this.notificationRepo.update(

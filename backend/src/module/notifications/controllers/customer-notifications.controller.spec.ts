@@ -151,5 +151,19 @@ describe('CustomerNotificationsController', () => {
         data: { updatedCount: 4 },
       });
     });
+
+    it('debe retornar updatedCount: 0 si el cliente no tenía notificaciones pendientes', async () => {
+      mockService.markAllAsRead.mockResolvedValue({ updatedCount: 0 });
+
+      const response = await controller.markAllAsRead(mockCustomerPayload);
+
+      expect(service.markAllAsRead).toHaveBeenCalledWith(
+        mockCustomerPayload.id,
+      );
+      expect(response).toEqual({
+        success: true,
+        data: { updatedCount: 0 },
+      });
+    });
   });
 });
