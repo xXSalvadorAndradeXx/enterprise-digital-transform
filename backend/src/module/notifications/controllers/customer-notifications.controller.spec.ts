@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { CustomerNotificationsController } from './customer-notifications.controller';
 import { CustomerNotificationsService } from '../services/customer-notifications.service';
 import { NotificationType } from '../enums/notification-type.enum';
@@ -122,6 +123,17 @@ describe('CustomerNotificationsController', () => {
       );
       expect(response.success).toBe(true);
       expect(response.data.isRead).toBe(true);
+    });
+
+    it('debe propagar NotFoundException si la notificación no existe o es ajena', async () => {
+      mockService.markAsRead.mockRejectedValue(
+        new NotFoundException('NOTIFICATION_NOT_FOUND'),
+      );
+
+      const notifId = '550e8400-e29b-41d4-a716-446655440000';
+      await expect(
+        controller.markAsRead(mockCustomerPayload, notifId),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

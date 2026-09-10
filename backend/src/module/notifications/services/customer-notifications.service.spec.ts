@@ -281,7 +281,7 @@ describe('CustomerNotificationsService', () => {
   });
 
   describe('markAsRead', () => {
-    it('debe marcar como leída una notificación existente y retornar el DTO', async () => {
+    it('debe marcar como leída una notificación no leída y asignar readAt actual', async () => {
       const entity = { ...mockNotificationEntity, isRead: false, readAt: null };
       mockNotificationRepo.findOne.mockResolvedValue(entity);
 
@@ -293,18 +293,24 @@ describe('CustomerNotificationsService', () => {
       expect(mockNotificationRepo.findOne).toHaveBeenCalledWith({
         where: { id: mockNotificationId, customerId: mockCustomerId },
       });
-      expect(mockNotificationRepo.save).toHaveBeenCalled();
+      expect(mockNotificationRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: mockNotificationId,
+          isRead: true,
+          readAt: expect.any(Date),
+        }),
+      );
       expect(result.isRead).toBe(true);
       expect(result.readAt).toBeInstanceOf(Date);
       expect(result.tab).toBe(NotificationTab.ORDERS);
     });
 
-    it('no debe re-guardar si la notificación ya estaba leída (idempotencia)', async () => {
-      const readDate = new Date('2026-09-08T10:00:00.000Z');
+    it('debe ser estrictamente idempotente si la notificación ya fue leída: no altera readAt y no invoca repo.save', async () => {
+      const initialReadDate = new Date('2026-09-08T10:00:00.000Z');
       const entity = {
         ...mockNotificationEntity,
         isRead: true,
-        readAt: readDate,
+        readAt: initialReadDate,
       };
       mockNotificationRepo.findOne.mockResolvedValue(entity);
 
@@ -315,15 +321,34 @@ describe('CustomerNotificationsService', () => {
 
       expect(mockNotificationRepo.save).not.toHaveBeenCalled();
       expect(result.isRead).toBe(true);
-      expect(result.readAt).toBe(readDate);
+      expect(result.readAt).toEqual(initialReadDate);
     });
 
-    it('debe lanzar NotFoundException si la notificación no existe o pertenece a otro cliente', async () => {
+    it('debe lanzar NotFoundException con NOTIFICATION_NOT_FOUND si la notificación no existe', async () => {
       mockNotificationRepo.findOne.mockResolvedValue(null);
 
       await expect(
         service.markAsRead(mockCustomerId, 'non-existing-id'),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(new NotFoundException('NOTIFICATION_NOT_FOUND'));
+    });
+
+    it('debe lanzar NotFoundException con NOTIFICATION_NOT_FOUND si la notificación pertenece a otro cliente (protección anti-IDOR)', async () => {
+      // Simula que la consulta por (id, customerId) no devuelve resultados porque pertenece a otro cliente
+      mockNotificationRepo.findOne.mockImplementation(
+        ({ where }: { where: { id: string; customerId: string } }) => {
+          if (
+            where.id === mockNotificationId &&
+            where.customerId === 'different-customer-id'
+          ) {
+            return Promise.resolve(null);
+          }
+          return Promise.resolve(mockNotificationEntity);
+        },
+      );
+
+      await expect(
+        service.markAsRead('different-customer-id', mockNotificationId),
+      ).rejects.toThrow(new NotFoundException('NOTIFICATION_NOT_FOUND'));
     });
   });
 
