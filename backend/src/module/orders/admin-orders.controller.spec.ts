@@ -50,5 +50,33 @@ describe('AdminOrdersController', () => {
       );
       expect(result).toEqual(mockResult);
     });
+
+    it('BE-ADM-NOT-09: no debe exponer internals del evento (domainEvent) en la respuesta HTTP', async () => {
+      const updateDto: UpdateOrderStatusDto = {
+        status: OrderStatus.ON_ROUTE,
+      };
+
+      const req = { user: { id: 'admin-uuid-123' } };
+      const mockResultWithEvent = {
+        id: 'order-1',
+        orderNumber: 'A7K29P4Q',
+        status: OrderStatus.ON_ROUTE,
+        domainEvent: {
+          eventId: 'internal-evt-123',
+          previousStatus: OrderStatus.PENDING,
+          newStatus: OrderStatus.ON_ROUTE,
+        },
+      };
+
+      ordersService.updateStatusByOrderNumber.mockResolvedValue({
+        ...mockResultWithEvent,
+      });
+
+      const result = await controller.updateStatus('A7K29P4Q', updateDto, req);
+
+      expect(result.domainEvent).toBeUndefined();
+      expect(result.orderNumber).toBe('A7K29P4Q');
+      expect(result.status).toBe(OrderStatus.ON_ROUTE);
+    });
   });
 });

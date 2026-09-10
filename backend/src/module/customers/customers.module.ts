@@ -9,6 +9,7 @@ import { Product } from '../products/entities/product.entity';
 
 import { CustomersService } from './customers.service';
 import { CustomerFavoritesService } from './customer-favorites.service';
+import { CustomerNotificationsService } from './services/customer-notifications.service';
 import { LocationsModule } from '../locations/locations.module';
 import { CustomerJwtStrategy } from './strategies/customer-jwt.strategy';
 import { AuthModule } from '../auth/auth.module';
@@ -39,11 +40,17 @@ import { CustomerFavoritesController } from './controllers/customer-favorites.co
     CustomersAdminController,
     CustomerFavoritesController,
   ],
-  providers: [CustomersService, CustomerFavoritesService, CustomerJwtStrategy],
+  providers: [
+    CustomersService,
+    CustomerFavoritesService,
+    CustomerNotificationsService,
+    CustomerJwtStrategy,
+  ],
   exports: [
     TypeOrmModule,
     CustomersService,
     CustomerFavoritesService,
+    CustomerNotificationsService,
     CustomerJwtStrategy,
   ],
 })
