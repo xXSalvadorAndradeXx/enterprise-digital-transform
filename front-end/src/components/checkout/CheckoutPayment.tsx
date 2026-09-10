@@ -363,7 +363,7 @@ export default function CheckoutPayment({
     className={`mt-2 w-full rounded-md py-3 text-sm font-medium text-white transition ${
       isSubmitting
         ? "cursor-not-allowed bg-gray-400"
-        : "bg-[#1B21D1] hover:bg-[#1519A3]"
+        : "bg-[#B80A18] hover:bg-[#990813]"
     }`}
   >
     {isSubmitting
@@ -392,7 +392,7 @@ function MethodRow({
     <div
       className={`rounded-md border ${
         expanded
-          ? "border-[#1B21D1]"
+          ? "border-[#B80A18]"
           : "border-gray-900"
       }`}
     >
@@ -411,7 +411,7 @@ function MethodRow({
 
         {expanded ? (
           <ChevronDown
-            className="h-4 w-4 text-[#1B21D1]"
+            className="h-4 w-4 text-[#B80A18]"
             aria-hidden="true"
           />
         ) : (
@@ -468,7 +468,7 @@ function TextInput({
           } ${
             error
               ? "border-red-400 focus:border-red-400 focus:ring-red-100"
-              : "border-gray-900 focus:border-[#1B21D1] focus:ring-[#1B21D1]/15"
+              : "border-gray-900 focus:border-[#B80A18] focus:ring-[#B80A18]/15"
           }`}
         />
 

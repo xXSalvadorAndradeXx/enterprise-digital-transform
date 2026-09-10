@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
 } from "react";
 import Image from "next/image";
+import { Fredoka, Inter } from "next/font/google";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -18,7 +19,6 @@ import {
   LockKeyhole,
 } from "lucide-react";
 
-import loginIllustration from "@/assets/login/login-illustration.png";
 import AccountLockedModal from "@/components/auth/AccountLockedModal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -31,6 +31,16 @@ const INVALID_CREDENTIALS_MESSAGE =
 
 const EMPTY_FIELDS_MESSAGE =
   "Por favor, completa todos los campos para continuar";
+
+const fredoka = Fredoka({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
 /*
  * Estos errores se representan en los campos o mediante un modal.
@@ -299,12 +309,21 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-white px-6 md:px-12 lg:px-16">
-      <div className="mx-auto grid min-h-screen max-w-[1200px] gap-12 lg:grid-cols-[1fr_420px] lg:gap-16">
+    <main className={`${inter.className} flex min-h-screen items-center bg-white px-5 py-8 text-[#4A4A4A] sm:px-8 lg:px-12 lg:py-9`}>
+      <div className="mx-auto grid w-full max-w-[1160px] overflow-hidden rounded-sm bg-white lg:h-[565px] lg:grid-cols-[minmax(360px,1fr)_500px]">
         {/* Columna izquierda */}
-        <section className="flex items-center justify-center">
-          <div className="w-full min-w-0 max-w-[362px]">
-            <h1 className="text-center font-[var(--font-title)] text-[38px] font-bold leading-tight text-[#4A4A4A]">
+        <section className="flex flex-col px-3 pb-10 pt-3 sm:px-10 lg:px-16 lg:pb-16 lg:pt-16">
+          <Image
+            src="/images/auth/logo-iris.png"
+            alt="Iris Accesorios"
+            width={297}
+            height={114}
+            priority
+            className="h-auto w-[260px] object-contain"
+          />
+
+          <div className="mx-auto flex w-full max-w-[360px] flex-1 flex-col justify-center py-12 lg:py-8">
+            <h1 className={`${fredoka.className} text-center text-[34px] font-semibold leading-tight text-[#4A4A4A] sm:text-[38px]`}>
               Iniciar sesión
             </h1>
 
@@ -315,7 +334,7 @@ export default function LoginPage() {
               )}
               aria-label="Inicio de sesión"
               noValidate
-              className="mt-20 flex flex-col"
+              className="mt-10 flex flex-col sm:mt-12"
             >
               <div className="flex flex-col gap-6">
                 {/* Campo de usuario */}
@@ -413,7 +432,7 @@ export default function LoginPage() {
                         }
                         aria-pressed={isPasswordVisible}
                         onClick={handlePasswordVisibility}
-                        className="rounded-sm text-[#878A92] transition-colors hover:text-[#4A4A4A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C21D1] focus-visible:ring-offset-2"
+                      className="rounded-sm text-[#878A92] transition-colors hover:text-[#B80A18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B80A18] focus-visible:ring-offset-2"
                       >
                         {isPasswordVisible ? (
                           <EyeOff
@@ -468,12 +487,12 @@ export default function LoginPage() {
                 </p>
               )}
 
-              <div className="mt-12 flex justify-center">
+              <div className="mt-10 flex justify-center">
                 <Button
                   type="submit"
                   loading={isLoading}
                   disabled={isLoading}
-                  className="w-[296px] max-w-full"
+                  className="w-full !bg-[#B80A18] font-semibold hover:!bg-[#9E0815] active:!bg-[#870711] focus-visible:!ring-[#B80A18]"
                 >
                   Iniciar sesión
                 </Button>
@@ -483,15 +502,15 @@ export default function LoginPage() {
         </section>
 
         {/* Columna derecha */}
-        <section className="hidden lg:block">
-          <div className="relative ml-auto h-[calc(100vh-16px)] w-[420px] overflow-hidden rounded-t-full bg-[#F2F5FC]">
+        <section className="relative hidden h-[565px] lg:block">
+          <div className="absolute inset-0 overflow-hidden">
             <Image
-              src={loginIllustration}
-              alt=""
+              src="/images/auth/login-erp.png"
+              alt="Exhibición de Iris Accesorios"
+              fill
               priority
-              aria-hidden="true"
-              sizes="420px"
-              className="absolute left-1/2 top-[32%] h-auto w-[165%] max-w-none -translate-x-1/2 object-contain"
+              sizes="500px"
+              className="object-cover object-center"
             />
           </div>
         </section>

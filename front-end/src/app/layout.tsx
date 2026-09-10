@@ -1,15 +1,21 @@
 import type { Metadata } from "next";
 import {
-  Geist,
   Geist_Mono,
+  Fredoka,
+  Inter,
 } from "next/font/google";
 
 import Layout from "@/components/layout/Layout";
 
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+const fredoka = Fredoka({
+  variable: "--font-fredoka",
   subsets: ["latin"],
 });
 
@@ -19,9 +25,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Woden | Tienda en línea",
+  title: "Iris Accesorios | Tienda en línea",
   description:
-    "Descubre productos Woden y compra en línea.",
+    "Descubre los accesorios de Iris y compra en línea.",
 };
 
 export default function RootLayout({
@@ -32,7 +38,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${fredoka.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
         <Layout>{children}</Layout>

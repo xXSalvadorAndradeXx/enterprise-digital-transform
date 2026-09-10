@@ -252,7 +252,7 @@ async function getProducts(
 
 async function getCategories() {
   try {
-    const response = await fetch(`${API_BASE_URL}/categories?publishedOnly=true`, {
+    const response = await fetch(`${API_BASE_URL}/ecommerce/categories?publishedOnly=true`, {
       cache: "no-store",
     });
 
@@ -306,19 +306,11 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
   return (
     <section className="min-h-[calc(100vh-10rem)] bg-white px-4 py-6 text-[#111111] sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-[1280px]">
-        <nav className="flex items-center gap-2 bg-[#f2f5fb] px-5 py-4 text-xs text-slate-600" aria-label="Ruta de navegación">
-          <Link href="/" className="transition-colors hover:text-[#1822d9] hover:underline">Inicio</Link>
+        <nav className="flex items-center gap-2 bg-[#FDE3EE] px-5 py-4 text-xs text-[#7A2631]" aria-label="Ruta de navegación">
+          <Link href="/" className="transition-colors hover:text-[#B80A18] hover:underline">Inicio</Link>
           <span aria-hidden="true">›</span>
           <span aria-current="page" className="font-medium text-slate-900">Productos</span>
         </nav>
-        <div className="mt-6 border-b border-[#e5e7eb] pb-5">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#111111] sm:text-4xl">
-              Productos
-            </h1>
-          </div>
-        </div>
-
         <div className="mt-6 grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
           <ProductFilters key={filtersKey} categories={categories} initialFilters={filters} />
           <div className="min-w-0">
@@ -337,7 +329,7 @@ export default async function ProductosPage({ searchParams }: ProductosPageProps
           </div>
         ) : products.length === 0 && filtersAreActive ? (
           <div className="mx-auto mt-8 flex max-w-2xl flex-col items-center rounded-2xl border border-[#D9E2EC] bg-white px-5 py-8 text-center shadow-[0_16px_40px_rgba(0,55,145,0.10)] sm:px-6 sm:py-9">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#D9E2EC] bg-[#EAF3FF] text-[#003791]">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#F3BCCB] bg-[#FDE3EE] text-[#B80A18]">
               <SearchX className="h-8 w-8" aria-hidden="true" />
             </div>
             <h2 className="mt-5 text-xl font-extrabold tracking-tight text-[#111111] sm:text-2xl">

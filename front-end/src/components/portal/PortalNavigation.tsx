@@ -26,13 +26,13 @@ export function PortalNavigation({ onLogout }: Props) {
     <nav aria-label="Portal del cliente" className="space-y-2 text-sm text-[#4A4A4A]">
       {links.map(({ href, label, icon: Icon }) => (
         <Link key={href} href={href} aria-current={isActive(href) ? "page" : undefined}
-          className={`flex min-h-11 items-center gap-3 rounded-md border-l-[5px] px-4 py-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${isActive(href) ? "border-[#9BC1FF] bg-[#F2F4FD] font-medium text-black" : "border-transparent hover:bg-[#F2F4FD]"}`}>
+          className={`flex min-h-11 items-center gap-3 rounded-md border-l-[5px] px-4 py-3 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B80A18] ${isActive(href) ? "border-[#B80A18] bg-[#FDE3EE] font-medium text-[#B80A18]" : "border-transparent hover:bg-[#FFF0F5] hover:text-[#B80A18]"}`}>
           <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />{label}
         </Link>
       ))}
       <button type="button" onClick={onLogout} disabled={!onLogout}
         title={!onLogout ? "Cierre de sesión pendiente de integración" : undefined}
-        className="flex min-h-11 w-full items-center gap-3 rounded-md border-l-[5px] border-transparent px-4 py-3 text-left hover:bg-[#F2F4FD] focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:text-gray-400">
+        className="flex min-h-11 w-full items-center gap-3 rounded-md border-l-[5px] border-transparent px-4 py-3 text-left hover:bg-[#FFF0F5] hover:text-[#B80A18] focus-visible:outline-2 focus-visible:outline-[#B80A18] disabled:cursor-not-allowed disabled:text-gray-400">
         <LogOut className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />Cerrar sesión
       </button>
     </nav>

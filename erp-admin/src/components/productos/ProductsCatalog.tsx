@@ -5,6 +5,8 @@ import {
   useState,
 } from "react";
 
+import { ArrowUpDown } from "lucide-react";
+
 import {
   useRouter,
 } from "next/navigation";
@@ -217,13 +219,55 @@ export function ProductsCatalog() {
           {isLoading ? (
             <ProductsTableSkeleton />
           ) : error ? (
-            <ProductsErrorState
-              onRetry={
-                refetch
-              }
-            />
+            <div>
+              <div className="overflow-x-auto border-b border-gray-200">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="text-gray-800">
+                      <th className="px-6 py-3.5 font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          <ArrowUpDown size={14} className="text-gray-600" />
+                          Nombre
+                        </span>
+                      </th>
+                      <th className="px-6 py-3.5 font-medium">Categoria</th>
+                      <th className="px-6 py-3.5 font-medium">Precio</th>
+                      <th className="px-6 py-3.5 font-medium">Stock</th>
+                      <th className="px-6 py-3.5 font-medium">Estados</th>
+                      <th className="px-6 py-3.5 text-center font-medium">Acciones</th>
+                    </tr>
+                  </thead>
+                </table>
+              </div>
+              <ProductsErrorState
+                onRetry={
+                  refetch
+                }
+              />
+            </div>
           ) : isCatalogEmpty ? (
-            <ProductsEmptyState />
+            <div>
+              <div className="overflow-x-auto border-b border-gray-200">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="text-gray-800">
+                      <th className="px-6 py-3.5 font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          <ArrowUpDown size={14} className="text-gray-600" />
+                          Nombre
+                        </span>
+                      </th>
+                      <th className="px-6 py-3.5 font-medium">Categoria</th>
+                      <th className="px-6 py-3.5 font-medium">Precio</th>
+                      <th className="px-6 py-3.5 font-medium">Stock</th>
+                      <th className="px-6 py-3.5 font-medium">Estados</th>
+                      <th className="px-6 py-3.5 text-center font-medium">Acciones</th>
+                    </tr>
+                  </thead>
+                </table>
+              </div>
+              <ProductsEmptyState />
+            </div>
           ) : (
             <ProductsTable
               products={

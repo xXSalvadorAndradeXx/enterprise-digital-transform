@@ -19,8 +19,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Woden ERP",
-  description: "Sistema ERP",
+  title: "Iris Accesorios ERP",
+  description: "Sistema ERP de Iris Accesorios",
 };
 
 export default function RootLayout({

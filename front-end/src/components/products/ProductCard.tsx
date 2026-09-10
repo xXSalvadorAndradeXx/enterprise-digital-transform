@@ -106,7 +106,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             onError={() => setFailedImageUrl(imageUrl)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#EAF3FF] to-[#F4F7FB] px-6 text-center">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#FDE3EE] to-[#F4F7FB] px-6 text-center">
             <span className="rounded-full border border-[#D9E2EC] bg-white px-4 py-2 text-sm font-semibold text-slate-500 shadow-sm">
               Sin imagen
             </span>
@@ -126,7 +126,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           <span
             className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
               isAvailable
-                ? "border border-[#D9E2EC] bg-[#EAF3FF] text-[#003791]"
+                ? "border border-[#D9E2EC] bg-[#FDE3EE] text-[#B80A18]"
                 : "border border-[#D9E2EC] bg-[#F4F7FB] text-slate-500"
             }`}
           >
@@ -147,7 +147,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               <span className="text-green-600">●</span> {stock} unidades disponibles
             </p>
           </div>
-          <div className="grid grid-cols-[1fr_42px] gap-2"><button type="button" onClick={handleBuyNow} disabled={!isAvailable} className="inline-flex h-10 items-center justify-center rounded-lg bg-[#1822d9] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Comprar ahora</button><button type="button" onClick={()=>void handleQuickAdd()} disabled={!isAvailable||isAdding} aria-label={`Agregar ${name} al carrito`} className="flex h-10 items-center justify-center rounded-lg bg-[#dbe6ff] text-[#1822d9] disabled:cursor-not-allowed disabled:opacity-50"><ShoppingCart className="h-4 w-4"/></button></div>
+          <div className="grid grid-cols-[1fr_42px] gap-2"><button type="button" onClick={handleBuyNow} disabled={!isAvailable} className="inline-flex h-10 items-center justify-center rounded-lg bg-[#B80A18] px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Comprar ahora</button><button type="button" onClick={()=>void handleQuickAdd()} disabled={!isAvailable||isAdding} aria-label={`Agregar ${name} al carrito`} className="flex h-10 items-center justify-center rounded-lg bg-[#B80A18] text-white disabled:cursor-not-allowed disabled:opacity-50"><ShoppingCart className="h-4 w-4"/></button></div>
           {cartError&&<p role="alert" className="text-xs text-red-600">{cartError}</p>}
         </div>
       </div>

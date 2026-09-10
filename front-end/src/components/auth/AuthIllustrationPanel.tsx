@@ -7,15 +7,15 @@ interface AuthIllustrationPanelProps {
 const panelStyles = {
   login: {
     panel:
-      "relative h-full min-h-[36rem] w-full max-w-[334px] overflow-hidden rounded-t-full bg-[#f0f3fc]",
-    image: "absolute inset-x-[4%] bottom-0 h-[54%]",
-    sizes: "(min-width: 768px) 308px, 0px",
+      "relative h-full min-h-[31rem] w-full overflow-hidden bg-[#FDE3EE]",
+    image: "absolute inset-0",
+    sizes: "(min-width: 768px) 50vw, 0px",
   },
   registro: {
     panel:
-      "relative h-full min-h-[28rem] w-full max-w-[334px] overflow-hidden rounded-t-full bg-[#f0f3fc]",
-    image: "absolute inset-x-[2%] bottom-0 h-[74%]",
-    sizes: "(min-width: 768px) 320px, 0px",
+      "relative h-full min-h-[31rem] w-full overflow-hidden bg-[#FDE3EE]",
+    image: "absolute inset-0",
+    sizes: "(min-width: 768px) 50vw, 0px",
   },
 } as const;
 
@@ -28,12 +28,12 @@ export function AuthIllustrationPanel({
     <div className={styles.panel}>
       <div className={styles.image}>
         <Image
-          src="/images/auth/login-illustration.png"
-          alt=""
+          src="/images/auth/login-iris.png"
+          alt="Cliente de Iris Accesorios mostrando una compra"
           fill
           priority
           sizes={styles.sizes}
-          className="object-contain object-bottom"
+          className="object-cover object-center"
         />
       </div>
     </div>

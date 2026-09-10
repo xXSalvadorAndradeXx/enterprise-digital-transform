@@ -37,7 +37,7 @@ export function ProductPreviewPage({
 
   return (
     <main>
-      <h1 className="mb-4 text-xl font-semibold text-gray-900">
+      <h1 className="mb-6 text-2xl font-bold text-gray-900">
         Vista previa del producto
       </h1>
 

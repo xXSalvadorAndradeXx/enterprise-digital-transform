@@ -15,6 +15,8 @@ import type { Department, District } from "@/types/locations/location.types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2, Eye, EyeOff, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
@@ -38,9 +40,9 @@ const initialValues: RegisterFormValues = {
 };
 
 const inputClass =
-  "h-12 w-full rounded-lg border border-slate-200 bg-[#f7f7f8] px-4 text-sm text-[#333] outline-none transition placeholder:text-[#8d8d93] focus:border-[#2528dc] focus:bg-white focus:ring-4 focus:ring-[#2528dc]/10 aria-invalid:border-red-500";
+  "h-12 w-full rounded-lg border border-slate-200 bg-[#f7f7f8] px-4 text-sm text-[#333] outline-none transition placeholder:text-[#8d8d93] focus:border-[#B80A18] focus:bg-white focus:ring-4 focus:ring-[#B80A18]/10 aria-invalid:border-red-500";
 const buttonClass =
-  "inline-flex h-11 min-w-28 items-center justify-center rounded-md px-5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2528dc]/20 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-11 min-w-28 items-center justify-center rounded-md px-5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#B80A18]/20 disabled:cursor-not-allowed disabled:opacity-60";
 
 function formatDui(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 9);
@@ -152,24 +154,28 @@ export default function RegistroPage() {
     <section className="flex min-h-screen flex-col bg-white">
       <AuthBenefitsBar />
 
+      <div className="mx-auto w-full max-w-[1000px] flex-1 px-5 py-6 sm:px-8">
+        <Link href="/" aria-label="Ir al inicio" className="relative mb-2 block h-16 w-32 overflow-hidden"><Image src="/images/logo-iris.png" alt="Iris Accesorios" width={300} height={100} priority className="absolute left-[-35px] top-[-8px] h-[76px] w-[228px] max-w-none" /></Link>
+        <div className="grid overflow-hidden rounded-xl border border-slate-200 bg-white md:grid-cols-2">
+          <div className="min-w-0 px-5 py-8 sm:px-8">
       <nav
-        className="mx-auto w-full max-w-4xl px-5 pt-9 sm:px-8 sm:pt-12"
+        className="w-full"
         aria-label="Progreso del registro"
       >
-        <ol className="grid grid-cols-3 gap-3 sm:gap-10">
+        <ol className="grid grid-cols-3 gap-2">
           {steps.map((label, index) => (
             <li key={label}>
               <button
                 type="button"
                 onClick={() => index <= step && setStep(index)}
                 disabled={index > step}
-                className={`flex w-full items-center justify-center gap-2 border-b-2 px-1 pb-4 text-xs font-semibold transition sm:gap-3 sm:text-sm ${
+                className={`flex w-full items-center justify-center gap-2 px-1 pb-4 text-[10px] font-semibold transition sm:text-xs ${
                   index === step
-                    ? "border-[#2528dc] text-[#2528dc]"
-                    : "border-transparent text-slate-400"
+                    ? "text-[#B80A18]"
+                    : "text-slate-400"
                 }`}
               >
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs text-white ${index === step ? "bg-[#2528dc]" : "bg-slate-400"}`}>
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs text-white ${index === step ? "bg-[#B80A18]" : "bg-slate-400"}`}>
                   {index + 1}
                 </span>
                 <span className="hidden sm:block">{label}</span>
@@ -179,8 +185,7 @@ export default function RegistroPage() {
         </ol>
       </nav>
 
-      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-10 px-5 sm:px-8 md:grid-cols-[minmax(0,1fr)_360px] md:gap-16 lg:gap-24">
-        <main className="mx-auto w-full max-w-xl py-9 md:py-11">
+        <main className="mx-auto w-full max-w-xl pt-7">
 
           <form
             onSubmit={(event) => {
@@ -224,7 +229,7 @@ export default function RegistroPage() {
                 <ErrorText message={errors.email?.message} />
                 <div className="relative">
                   <input {...register("password")} className={`${inputClass} pr-12`} placeholder="Contraseña" type={showPassword ? "text" : "password"} autoComplete="new-password" />
-                  <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-0 top-0 flex h-12 w-12 items-center justify-center text-slate-500 hover:text-[#2528dc]" aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
+                  <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-0 top-0 flex h-12 w-12 items-center justify-center text-slate-500 hover:text-[#B80A18]" aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
                     {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                   </button>
                 </div>
@@ -270,20 +275,22 @@ export default function RegistroPage() {
 
             <div className="mt-8 flex justify-end gap-3">
               {step > 0 && (
-                <button type="button" onClick={() => setStep((current) => current - 1)} className={`${buttonClass} border border-[#2528dc] bg-white text-[#2528dc] hover:bg-indigo-50`}>
+                <button type="button" onClick={() => setStep((current) => current - 1)} className={`${buttonClass} border border-[#B80A18] bg-white text-[#B80A18] hover:bg-[#FDE3EE]`}>
                   Anterior
                 </button>
               )}
-              <button type="submit" disabled={isSubmitting} className={`${buttonClass} bg-[#2528dc] text-white shadow-md shadow-indigo-200 hover:bg-[#181bc2]`}>
+              <button type="submit" disabled={isSubmitting} className={`${buttonClass} bg-[#B80A18] text-white shadow-md shadow-[#F3BCCB] hover:bg-[#990813]`}>
                 {isSubmitting ? "Creando cuenta..." : step < 2 ? "Siguiente" : "Crear cuenta"}
               </button>
             </div>
           </form>
         </main>
 
-        <aside className="hidden items-start pt-8 md:flex">
+          </div>
+        <aside className="hidden min-h-[31rem] md:block">
           <AuthIllustrationPanel variant="registro" />
         </aside>
+      </div>
       </div>
     </section>
   );

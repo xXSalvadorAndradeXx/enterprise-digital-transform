@@ -126,7 +126,7 @@ export function ProductFilter({
               !current,
           )
         }
-        className="flex h-10 w-full items-center justify-between gap-3 rounded-md bg-[#1C21D1] px-3 text-sm font-medium text-white"
+        className="flex h-10 w-full items-center justify-between gap-3 rounded-md bg-[#B80A18] px-3 text-sm font-medium text-white transition-colors hover:bg-[#9E0915]"
       >
         <span className="flex min-w-0 items-center gap-2">
           <Icon

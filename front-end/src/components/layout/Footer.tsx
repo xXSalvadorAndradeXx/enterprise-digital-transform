@@ -1,4 +1,5 @@
 import { Clock3, Mail, MapPin, Phone } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 const socialLinks = [
@@ -9,13 +10,13 @@ const socialLinks = [
 ];
 
 export default function Footer() {
-  return <footer className="mt-auto bg-[#f2f5fb] text-[#111]">
+  return <footer className="mt-auto bg-[#F992C0] text-white">
     <div className="mx-auto grid max-w-[1280px] gap-10 px-6 py-14 sm:px-10 md:grid-cols-2 lg:grid-cols-[1.25fr_.8fr_.8fr_1.7fr]">
-      <div><p className="font-serif text-3xl">Woden</p><p className="mt-4 max-w-xs text-sm leading-6 text-slate-600">Creamos piezas únicas con materiales de alta calidad para acompañarte en tus mejores días.</p><div className="mt-5 flex gap-3">{socialLinks.map(social=><a key={social.label} href="#" aria-label={social.label} title={social.label} className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#1822d9] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current"><path d={social.path}/></svg></a>)}</div></div>
-      <div><h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Soporte</h2><nav className="mt-5 space-y-3 text-sm"><Link href="#" className="block">Preguntas frecuentes</Link><Link href="#" className="block">Términos y condiciones</Link><Link href="#" className="block">Política de privacidad</Link></nav></div>
-      <div><h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Empresa</h2><nav className="mt-5 text-sm"><Link href="#">Sobre nosotros</Link></nav></div>
-      <div><h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Contacto</h2><ul className="mt-5 space-y-3 text-sm text-slate-700"><li className="flex gap-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0"/>Av. Primavera 1234, San Benito, San Salvador</li><li className="flex gap-3"><Mail className="h-4 w-4 shrink-0"/>Hola@Woden.com</li><li className="flex gap-3"><Phone className="h-4 w-4 shrink-0"/>+503 7877 6562</li><li className="flex gap-3"><Clock3 className="mt-0.5 h-4 w-4 shrink-0"/><span>Lun - Vie: 8:00 A.M. - 6:00 P.M.<br/>Sáb: 9:00 A.M. - 1:00 P.M.</span></li></ul></div>
+      <div><div className="relative h-14 w-32 overflow-hidden"><Image src="/images/logo-iris.png" alt="IRIS ACCESORIOS" width={300} height={100} className="absolute left-[-36px] top-[-10px] h-20 w-60 max-w-none" /></div><p className="mt-4 max-w-xs text-sm leading-6 text-white">Creamos piezas únicas con materiales de alta calidad para acompañarte en tus mejores días.</p><div className="mt-5 flex gap-3">{socialLinks.map(social=><a key={social.label} href="#" aria-label={social.label} title={social.label} className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#F992C0] shadow-sm transition hover:-translate-y-0.5 hover:text-[#B80A18] hover:shadow-md"><svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current"><path d={social.path}/></svg></a>)}</div></div>
+      <div><h2 className="text-xs font-semibold uppercase tracking-wider text-white">Soporte</h2><nav className="mt-5 space-y-3 text-sm"><Link href="#" className="block hover:underline">Preguntas frecuentes</Link><Link href="#" className="block hover:underline">Términos y condiciones</Link><Link href="#" className="block hover:underline">Política de privacidad</Link></nav></div>
+      <div><h2 className="text-xs font-semibold uppercase tracking-wider text-white">Empresa</h2><nav className="mt-5 text-sm"><Link href="#" className="hover:underline">Sobre nosotros</Link></nav></div>
+      <div><h2 className="text-xs font-semibold uppercase tracking-wider text-white">Contacto</h2><ul className="mt-5 space-y-3 text-sm text-white"><li className="flex gap-3"><MapPin className="mt-0.5 h-4 w-4 shrink-0"/>Av. Primavera 1234, San Benito, San Salvador</li><li className="flex gap-3"><Mail className="h-4 w-4 shrink-0"/>Hola@Woden.com</li><li className="flex gap-3"><Phone className="h-4 w-4 shrink-0"/>+503 7877 6562</li><li className="flex gap-3"><Clock3 className="mt-0.5 h-4 w-4 shrink-0"/><span>Lun - Vie: 8:00 A.M. - 6:00 P.M.<br/>Sáb: 9:00 A.M. - 1:00 P.M.</span></li></ul></div>
     </div>
-    <div className="mx-auto max-w-[1280px] border-t border-[#dfe3eb] px-6 py-5 text-center text-xs text-slate-500">© 2026 Woden. Todos los derechos reservados.</div>
+    <div className="mx-auto max-w-[1280px] border-t border-white/35 px-6 py-5 text-center text-xs text-white">© 2026 IRIS ACCESORIOS. Todos los derechos reservados.</div>
   </footer>;
 }

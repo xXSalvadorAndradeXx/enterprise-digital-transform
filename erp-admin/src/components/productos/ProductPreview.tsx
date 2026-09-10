@@ -130,7 +130,7 @@ export function ProductPreview({
         -1
       }
       aria-labelledby="product-preview-title"
-      className="rounded-xl border border-gray-300 bg-white p-5 outline-none md:p-8"
+      className="rounded-xl border border-gray-200 bg-white p-6 outline-none shadow-sm sm:p-8"
     >
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
         <ProductGallery
@@ -145,16 +145,16 @@ export function ProductPreview({
         <section>
           <h2
             id="product-preview-title"
-            className="break-words text-xl font-semibold text-gray-900"
+            className="break-words text-2xl font-bold text-gray-900"
           >
             {
               product.commercialName
             }
           </h2>
 
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2.5">
             <span
-              className="inline-flex min-h-9 max-w-[180px] items-center truncate rounded-md bg-[#F2F5FC] px-3 py-2 text-xs text-gray-600"
+              className="inline-flex items-center rounded-md bg-[#F2F4F7] px-2.5 py-1 text-xs font-medium text-gray-700"
               title={
                 category
               }
@@ -163,10 +163,16 @@ export function ProductPreview({
                 category
               }
             </span>
+
+            {product.inventory && (
+              <span className="text-xs font-medium text-gray-500">
+                {product.inventory.brand || ""}
+              </span>
+            )}
           </div>
 
-          <div className="mt-6">
-            <p className="text-3xl font-semibold text-[#1C21D1]">
+          <div className="mt-4">
+            <p className="text-3xl font-bold text-gray-900">
               {formatCurrency(
                 hasDiscount
                   ? product.effectivePrice
@@ -176,7 +182,7 @@ export function ProductPreview({
           </div>
 
           <span
-            className={`mt-5 inline-flex min-h-9 items-center rounded-md px-3 py-2 text-sm font-medium ${
+            className={`mt-3 inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${
               !inventory
                 ? "bg-gray-100 text-gray-600"
                 : inventoryStatus ===
@@ -185,7 +191,7 @@ export function ProductPreview({
                   : inventoryStatus ===
                       "LOW_STOCK"
                     ? "bg-yellow-100 text-yellow-700"
-                    : "bg-[rgba(52,198,29,0.20)] text-green-700"
+                    : "bg-[#D1FADF] text-[#027A48]"
             }`}
           >
             {
@@ -193,26 +199,26 @@ export function ProductPreview({
             }
           </span>
 
-          <hr className="my-5 border-gray-300" />
+          <hr className="my-5 border-gray-200" />
 
           <section>
             <h3 className="text-sm font-semibold text-gray-900">
               Descripción
             </h3>
 
-            <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
+            <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600">
               {product.description
                 ?.trim() ||
                 "Sin descripción"}
             </p>
           </section>
 
-          <section className="mt-10">
+          <section className="mt-6">
             <h3 className="text-sm font-semibold text-gray-900">
               Etiquetas
             </h3>
 
-            <div className="mt-5">
+            <div className="mt-3">
               <ProductTags
                 tags={
                   product.tags
@@ -223,9 +229,9 @@ export function ProductPreview({
         </section>
       </div>
 
-      <div className="my-10 border-t border-gray-300" />
+      <hr className="my-8 border-gray-200" />
 
-      <div className="grid gap-8 lg:grid-cols-2 lg:divide-x lg:divide-gray-300">
+      <div className="grid gap-8 lg:grid-cols-2 lg:divide-x lg:divide-gray-200">
         <div className="lg:pr-8">
           <ProductBasicInformation
             category={
@@ -244,42 +250,27 @@ export function ProductPreview({
         </div>
 
         <div className="lg:pl-8">
-          {product.discount !==
-            null &&
-          product.discount >
-            0 ? (
-            <ProductDiscountCard
-              salePrice={
-                product.salePrice
-              }
-              discount={
-                product.discount
-              }
-              effectivePrice={
-                product.effectivePrice
-              }
-            />
-          ) : (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                Información de descuento
-              </h3>
-
-              <p className="mt-4 text-sm text-gray-500">
-                Este producto no tiene un descuento activo.
-              </p>
-            </div>
-          )}
+          <ProductDiscountCard
+            salePrice={
+              product.salePrice
+            }
+            discount={
+              product.discount ?? 0
+            }
+            effectivePrice={
+              product.effectivePrice
+            }
+          />
         </div>
       </div>
 
-      <div className="mt-10 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={
             onClose
           }
-          className="min-w-36 rounded-md border border-[#1C21D1] px-6 py-2 text-sm font-medium text-[#1C21D1] transition-colors hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-[#1C21D1] focus:ring-offset-2"
+          className="min-w-32 rounded-md border border-[#B80A18] px-6 py-2 text-sm font-medium text-[#B80A18] transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400"
         >
           Cerrar
         </button>
@@ -289,7 +280,7 @@ export function ProductPreview({
           onClick={
             onEdit
           }
-          className="min-w-36 rounded-md bg-[#1C21D1] px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] focus:outline-none focus:ring-2 focus:ring-[#1C21D1] focus:ring-offset-2"
+          className="min-w-32 rounded-md bg-[#B80A18] px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-[#9E0915] focus:outline-none focus:ring-2 focus:ring-red-400"
         >
           Editar
         </button>

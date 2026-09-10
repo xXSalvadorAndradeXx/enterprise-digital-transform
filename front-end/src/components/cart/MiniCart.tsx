@@ -378,21 +378,21 @@ export function MiniCart({
               }
               className="
                 h-11 w-full rounded-sm
-                bg-[#2222e7]
+                bg-[#B80A18]
                 text-sm font-semibold text-white
                 transition
-                hover:bg-[#1919c7]
+                hover:bg-[#990813]
                 focus-visible:outline
                 focus-visible:outline-2
                 focus-visible:outline-offset-2
-                focus-visible:outline-[#2222e7]
+                focus-visible:outline-[#B80A18]
                 disabled:cursor-not-allowed
-                disabled:bg-[#a8a8ee]
+                disabled:bg-[#E6A3AA]
                 disabled:text-white
-                disabled:hover:bg-[#a8a8ee]
+                disabled:hover:bg-[#E6A3AA]
               "
             >
-              Comprar pedido
+              Comprar
             </button>
 
             {/* Ver carrito */}

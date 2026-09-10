@@ -19,7 +19,7 @@ flex items-center gap-3 rounded-lg px-4 py-3
 text-sm font-medium transition-colors
 ${
 active
-? "bg-[#CFE2FF] text-[#4A4A4A]"
+? "bg-[#FDD8E8] text-[#4A4A4A]"
 : "text-[#4A4A4A] hover:bg-[#F2F5FC]"
 }
 `}

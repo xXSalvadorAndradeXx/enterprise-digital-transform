@@ -81,7 +81,7 @@ export default function CheckoutSummary({
           <button
             type="button"
             onClick={onContinue}
-            className="mt-4 w-full rounded-md bg-[#1B21D1] py-2.5 text-sm font-medium text-white transition hover:bg-[#1519A3]"
+            className="mt-4 w-full rounded-md bg-[#B80A18] py-2.5 text-sm font-medium text-white transition hover:bg-[#990813]"
           >
             Continuar
           </button>

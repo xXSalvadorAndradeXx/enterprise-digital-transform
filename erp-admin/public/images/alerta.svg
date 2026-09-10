@@ -1,6 +1,43 @@
-<svg width="100" height="91" viewBox="0 0 100 91" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M96.2282 74.1774L58.2585 7.34041C57.4306 5.87097 56.23 4.64873 54.7792 3.79838C53.3284 2.94803 51.6793 2.5 50.0001 2.5C48.3209 2.5 46.6718 2.94803 45.221 3.79838C43.7702 4.64873 42.5696 5.87097 41.7417 7.34041L3.77197 74.1774C2.93512 75.6352 2.49632 77.2896 2.50002 78.973C2.50373 80.6564 2.94982 82.3088 3.79307 83.7629C4.63632 85.2169 5.84676 86.4209 7.3017 87.2528C8.75665 88.0846 10.4044 88.5148 12.0778 88.4996H88.0173C89.6827 88.4979 91.3184 88.0555 92.7601 87.2167C94.2018 86.378 95.3987 85.1725 96.2307 83.7213C97.0627 82.2701 97.5004 80.6242 97.5 78.949C97.4996 77.2738 97.061 75.6282 96.2282 74.1774Z" fill="#F44336" fill-opacity="0.08"/>
-<path d="M50.0476 31.2108V50.307V31.2108Z" fill="#F44336" fill-opacity="0.08"/>
-<path d="M50.0476 69.4033H50.095H50.0476Z" fill="#F44336" fill-opacity="0.08"/>
-<path d="M50.0476 31.2108V50.307M50.0476 69.4033H50.095M96.2282 74.1774L58.2585 7.34041C57.4306 5.87097 56.23 4.64873 54.7792 3.79838C53.3284 2.94803 51.6793 2.5 50.0001 2.5C48.321 2.5 46.6718 2.94803 45.221 3.79838C43.7702 4.64873 42.5696 5.87097 41.7417 7.34041L3.77197 74.1774C2.93512 75.6352 2.49632 77.2896 2.50002 78.973C2.50373 80.6564 2.94982 82.3088 3.79307 83.7629C4.63632 85.217 5.84676 86.4209 7.3017 87.2528C8.75665 88.0846 10.4044 88.5148 12.0778 88.4996H88.0173C89.6827 88.4979 91.3184 88.0555 92.7601 87.2167C94.2018 86.378 95.3987 85.1725 96.2307 83.7213C97.0627 82.2701 97.5004 80.6242 97.5 78.949C97.4996 77.2738 97.061 75.6282 96.2282 74.1774Z" stroke="#F44336" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Ambient background bubbles -->
+  <circle cx="156" cy="50" r="7" fill="#FCE4EC" />
+  <circle cx="168" cy="62" r="4" fill="#FCE4EC" />
+  <circle cx="148" cy="38" r="3" fill="#FCE4EC" />
+  <circle cx="28" cy="58" r="3.5" fill="#FCE4EC" />
+  <circle cx="26" cy="132" r="4.5" fill="#FCE4EC" />
+  <circle cx="154" cy="126" r="3" fill="#FCE4EC" />
+
+  <!-- Main pink background circle -->
+  <circle cx="90" cy="92" r="70" fill="#FCE7F0" />
+
+  <!-- Isometric Box -->
+  <g stroke="#E07A9F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Box top flaps / opening -->
+    <path d="M88 58L62 70L88 82L114 70L88 58Z" fill="#FFF2F7" />
+    <path d="M88 82L62 70L48 76L74 88L88 82Z" fill="#FEE8F0" />
+    <path d="M88 82L114 70L128 76L102 88L88 82Z" fill="#FEE8F0" />
+    <path d="M88 58L114 70L122 62L96 50L88 58Z" fill="#FEE8F0" />
+
+    <!-- Box body -->
+    <path d="M62 70V100L88 112V82L62 70Z" fill="#FFF2F7" />
+    <path d="M88 82V112L114 100V70L88 82Z" fill="#FCE7F0" />
+
+    <!-- Tape / lines on box -->
+    <path d="M75 76V106" />
+    <path d="M68 93L70 94" />
+    <path d="M68 97L72 99" />
+  </g>
+
+  <!-- Error badge (circle with X) at bottom-left of box -->
+  <circle cx="70" cy="112" r="13" fill="#FFF2F7" stroke="#E07A9F" stroke-width="2.2" />
+  <path d="M64 106L76 118" stroke="#E07A9F" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M76 106L64 118" stroke="#E07A9F" stroke-width="2.2" stroke-linecap="round" />
+
+  <!-- Person Silhouette at bottom-right of box -->
+  <g stroke="#E07A9F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="#FFF2F7">
+    <!-- Head -->
+    <circle cx="120" cy="98" r="11" />
+    <!-- Shoulders -->
+    <path d="M98 126C98 116 107 114 120 114C133 114 142 116 142 126" />
+  </g>
 </svg>

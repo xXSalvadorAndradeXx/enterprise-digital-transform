@@ -30,11 +30,11 @@ export default function CheckoutSteps({ currentStep, onStepChange }: CheckoutSte
             onClick={() => onStepChange(step)}
             aria-expanded={isOpen}
             className={`flex w-full items-center justify-between gap-3 rounded-lg border bg-white px-5 py-4 text-left transition ${
-              isOpen ? "border-[#1B21D1]" : "border-gray-200"
+              isOpen ? "border-[#B80A18]" : "border-gray-200"
             }`}
           >
             <span className="flex items-center gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1B21D1] text-sm font-semibold text-white">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#B80A18] text-sm font-semibold text-white">
                 {i + 1}
               </span>
               <span className="font-medium text-gray-900">{STEP_TITLES[step]}</span>

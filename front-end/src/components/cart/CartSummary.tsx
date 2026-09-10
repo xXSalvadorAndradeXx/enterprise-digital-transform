@@ -92,16 +92,16 @@ export function CartSummary({
           aria-disabled={disabled || totalItems === 0}
           className="
             mx-auto block h-11 w-[90%] rounded-sm
-            bg-[#2222e7]
+            bg-[#B80A18]
             text-sm font-semibold text-white
             transition
-            hover:bg-[#1919c7]
+            hover:bg-[#990813]
             disabled:cursor-not-allowed
-            disabled:bg-[#a8a8ee]
-            disabled:hover:bg-[#a8a8ee]
+            disabled:bg-[#E6A3AA]
+            disabled:hover:bg-[#E6A3AA]
           "
         >
-          Comprar pedido
+          Comprar
         </button>
 
         <button

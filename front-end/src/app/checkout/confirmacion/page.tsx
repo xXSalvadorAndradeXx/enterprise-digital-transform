@@ -107,7 +107,7 @@ function ConfirmationContent() {
         <div className="mt-8 flex gap-4">
           <Link
             href="/productos"
-            className="rounded-md bg-[#1B21D1] px-8 py-3 text-sm font-medium text-white transition hover:bg-[#1519A3]"
+            className="rounded-md bg-[#B80A18] px-8 py-3 text-sm font-medium text-white transition hover:bg-[#990813]"
           >
             Seguir comprando
           </Link>
@@ -115,7 +115,7 @@ function ConfirmationContent() {
           {customerType !== "GUEST" && (
             <Link
               href="/cuenta/pedidos"
-              className="rounded-md border border-[#1B21D1] px-8 py-3 text-sm font-medium text-[#1B21D1] transition hover:bg-[#1B21D1]/5"
+              className="rounded-md border border-[#B80A18] px-8 py-3 text-sm font-medium text-[#B80A18] transition hover:bg-[#B80A18]/5"
             >
               Ver mis pedidos
             </Link>

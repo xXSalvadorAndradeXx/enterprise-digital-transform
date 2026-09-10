@@ -280,7 +280,7 @@ function TextField({
         className={`w-full rounded-md border bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-900 focus:outline-none focus:ring-2 ${
           error
             ? "border-red-400 focus:ring-red-100"
-            : "border-gray-900 focus:border-[#1B21D1] focus:ring-[#1B21D1]/15"
+            : "border-gray-900 focus:border-[#B80A18] focus:ring-[#B80A18]/15"
         }`}
       />
 

@@ -190,7 +190,7 @@ export default function CheckoutShipping({
           }
           className={`flex items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-medium transition ${
             deliveryType === "HOME_DELIVERY"
-              ? "border-[#1B21D1] text-[#1B21D1] ring-1 ring-[#1B21D1]"
+              ? "border-[#B80A18] text-[#B80A18] ring-1 ring-[#B80A18]"
               : "border-gray-300 text-gray-500 hover:border-gray-500"
           }`}
         >
@@ -207,7 +207,7 @@ export default function CheckoutShipping({
           }
           className={`flex items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-medium transition ${
             deliveryType === "STORE_PICKUP"
-              ? "border-[#1B21D1] text-[#1B21D1] ring-1 ring-[#1B21D1]"
+              ? "border-[#B80A18] text-[#B80A18] ring-1 ring-[#B80A18]"
               : "border-gray-300 text-gray-500 hover:border-gray-500"
           }`}
         >
@@ -238,7 +238,7 @@ export default function CheckoutShipping({
                     e.target.value,
                   )
                 }
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#B80A18] focus:ring-2 focus:ring-[#B80A18]/15"
               >
                 <option value="">
                   Selecciona un departamento
@@ -274,7 +274,7 @@ export default function CheckoutShipping({
                     e.target.value,
                   )
                 }
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#B80A18] focus:ring-2 focus:ring-[#B80A18]/15"
               >
                 <option value="">
                   Selecciona un distrito
@@ -314,7 +314,7 @@ export default function CheckoutShipping({
                   )
                 }
                 placeholder="Dirección de entrega"
-                className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
+                className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#B80A18] focus:ring-2 focus:ring-[#B80A18]/15"
               />
             </div>
 
@@ -335,7 +335,7 @@ export default function CheckoutShipping({
                   setCity(e.target.value)
                 }
                 placeholder="Ciudad"
-                className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
+                className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-gray-700 outline-none placeholder:text-gray-400 focus:border-[#B80A18] focus:ring-2 focus:ring-[#B80A18]/15"
               />
             </div>
           </div>
@@ -351,7 +351,7 @@ export default function CheckoutShipping({
                   e.target.checked,
                 )
               }
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#1B21D1] focus:ring-[#1B21D1]/30"
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#B80A18] focus:ring-[#B80A18]/30"
             />
 
             <span>
@@ -384,7 +384,7 @@ export default function CheckoutShipping({
               name="branchId"
               value={branchId}
               onChange={(event) => setBranchId(event.target.value)}
-              className="w-full appearance-none rounded-md border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-700 outline-none focus:border-[#1B21D1] focus:ring-2 focus:ring-[#1B21D1]/15"
+              className="w-full appearance-none rounded-md border border-gray-300 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-700 outline-none focus:border-[#B80A18] focus:ring-2 focus:ring-[#B80A18]/15"
             >
               <option value="">
                 Selecciona una sucursal
@@ -404,9 +404,9 @@ export default function CheckoutShipping({
           </div>
 
           {selectedBranch && (
-            <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-sm text-slate-700">
+            <div className="mt-4 rounded-lg border border-[#F3BCCB] bg-[#FDE3EE] p-4 text-sm text-slate-700">
               <div className="flex items-start gap-3">
-                <Store className="mt-0.5 h-5 w-5 shrink-0 text-[#1B21D1]" />
+                <Store className="mt-0.5 h-5 w-5 shrink-0 text-[#B80A18]" />
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-950">
                     {selectedBranch.name}
@@ -419,7 +419,7 @@ export default function CheckoutShipping({
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#1B21D1]" />
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#B80A18]" />
                   <div>
                     <p className="text-xs font-semibold uppercase text-slate-500">
                       Dirección
@@ -431,7 +431,7 @@ export default function CheckoutShipping({
                 </div>
 
                 <div className="flex items-start gap-2">
-                  <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[#1B21D1]" />
+                  <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[#B80A18]" />
                   <div>
                     <p className="text-xs font-semibold uppercase text-slate-500">
                       Teléfono
@@ -443,7 +443,7 @@ export default function CheckoutShipping({
                 </div>
 
                 <div className="flex items-start gap-2 sm:col-span-2">
-                  <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-[#1B21D1]" />
+                  <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-[#B80A18]" />
                   <div>
                     <p className="text-xs font-semibold uppercase text-slate-500">
                       Ubicación

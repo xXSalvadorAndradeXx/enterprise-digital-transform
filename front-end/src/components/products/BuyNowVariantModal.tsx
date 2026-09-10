@@ -107,7 +107,7 @@ export default function BuyNowVariantModal({
                   onClick={() => setColorHex(color.hex)}
                   className={`h-9 w-9 rounded-full border-2 ${
                     colorHex === color.hex
-                      ? "border-[#1822d9] ring-2 ring-blue-100"
+                      ? "border-[#B80A18] ring-2 ring-[#F8CBDC]"
                       : "border-slate-300"
                   }`}
                   style={{ backgroundColor: color.hex }}
@@ -130,7 +130,7 @@ export default function BuyNowVariantModal({
                 }}
                 className={`min-w-12 rounded-md border px-3 py-2 text-sm font-medium ${
                   variantId === variant.id
-                    ? "border-[#1822d9] bg-[#1822d9] text-white"
+                    ? "border-[#B80A18] bg-[#B80A18] text-white"
                     : "border-slate-300 bg-white text-slate-900"
                 }`}
               >
@@ -180,7 +180,7 @@ export default function BuyNowVariantModal({
           type="button"
           disabled={!selectedVariant}
           onClick={() => selectedVariant && onConfirm(selectedVariant, quantity)}
-          className="mt-7 h-12 w-full rounded-lg bg-[#1822d9] font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="mt-7 h-12 w-full rounded-lg bg-[#B80A18] font-semibold text-white transition-colors hover:bg-[#B80A18] disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           Ir a comprar
         </button>

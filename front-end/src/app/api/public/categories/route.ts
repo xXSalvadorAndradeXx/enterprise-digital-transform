@@ -8,7 +8,7 @@ const API_BASE_URL =
 export async function GET() {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/categories?publishedOnly=true`,
+      `${API_BASE_URL}/ecommerce/categories?publishedOnly=true`,
       { cache: "no-store" },
     );
 

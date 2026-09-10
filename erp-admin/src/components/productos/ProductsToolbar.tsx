@@ -115,7 +115,7 @@ export function ProductsToolbar({
               "/productos/publicar",
             )
           }
-          className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#1C21D1] px-4 text-sm font-medium text-white transition-colors hover:bg-[#171AAD]"
+          className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#B80A18] px-4 text-sm font-medium text-white transition-colors hover:bg-[#9E0915]"
         >
           <CirclePlus
             size={16}

@@ -39,7 +39,7 @@ export default function AccordionStep({
           className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
         >
           <span className="flex items-center gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1B21D1] text-sm font-semibold text-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#B80A18] text-sm font-semibold text-white">
               {isComplete && !isOpen ? <Check className="h-4 w-4" aria-hidden="true" /> : index}
             </span>
             <span className="font-medium text-gray-900">{title}</span>

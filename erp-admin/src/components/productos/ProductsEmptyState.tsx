@@ -16,24 +16,24 @@ export function ProductsEmptyState() {
       <Image
         src="/images/bandeja.svg"
         alt=""
-        width={64}
-        height={64}
+        width={88}
+        height={48}
         className="mb-4"
         aria-hidden="true"
       />
 
       <h2 className="text-base font-semibold text-gray-900">
-        No hay productos aún.
+        No hay productos aún
       </h2>
 
       <p className="mt-1 max-w-sm text-sm text-gray-500">
-        Agrega tu primer producto para comenzar a gestionar el catálogo.
+        Comienza agregando tu primer producto.
       </p>
 
       <button
         type="button"
         onClick={() => router.push("/productos/publicar")}
-        className="mt-5 inline-flex items-center gap-2 rounded-md bg-[#1C21D1] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#171AAD] focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+        className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-[#B80A18] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#9E0915] focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2"
       >
         <Plus
           size={16}

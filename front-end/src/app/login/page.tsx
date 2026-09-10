@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { AuthBenefitsBar } from "@/components/auth/AuthBenefitsBar";
 import { AuthIllustrationPanel } from "@/components/auth/AuthIllustrationPanel";
 import Link from "next/link";
+import Image from "next/image";
 import { CheckCircle2, LockKeyhole, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -21,9 +22,9 @@ const initialFormData: LoginRequest = {
 };
 
 const inputClassName =
-  "h-12 w-full rounded-lg border border-slate-200 bg-[#f7f7f8] px-5 pr-12 text-sm text-[#3f3f46] outline-none transition placeholder:text-[#8a8a8f] focus:border-[#2829dd] focus:bg-white focus:ring-4 focus:ring-[#2829dd]/10 aria-invalid:border-red-600 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/10";
+  "h-12 w-full rounded-lg border border-slate-200 bg-[#f7f7f8] px-5 pr-12 text-sm text-[#3f3f46] outline-none transition placeholder:text-[#8a8a8f] focus:border-[#B80A18] focus:bg-white focus:ring-4 focus:ring-[#B80A18]/10 aria-invalid:border-red-600 aria-invalid:focus:border-red-600 aria-invalid:focus:ring-red-600/10";
 const primaryButtonClassName =
-  "mx-auto flex h-12 w-full items-center justify-center rounded-md bg-[#2829dd] px-6 text-base font-bold text-white shadow-md shadow-indigo-200 transition-colors hover:bg-[#2022c7] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#2829dd]/20 disabled:cursor-not-allowed disabled:bg-[#7f81e9]";
+  "mx-auto flex h-12 w-full items-center justify-center rounded-md bg-[#B80A18] px-6 text-base font-bold text-white shadow-md shadow-[#F3BCCB] transition-colors hover:bg-[#990813] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#B80A18]/20 disabled:cursor-not-allowed disabled:bg-[#E6A3AA]";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -89,8 +90,10 @@ export default function LoginPage() {
     <section className="flex min-h-screen w-full flex-col overflow-x-hidden bg-white">
         <AuthBenefitsBar />
 
-        <div className="mx-auto grid w-full max-w-[1120px] flex-1 grid-cols-1 px-5 sm:px-8 md:grid-cols-[minmax(0,1fr)_minmax(18rem,0.85fr)] md:gap-12 lg:gap-20">
-          <div className="flex justify-center py-12 md:translate-x-4 md:items-start md:py-0 md:pt-[102px]">
+        <div className="mx-auto w-full max-w-[1000px] flex-1 px-5 py-6 sm:px-8">
+          <Link href="/" aria-label="Ir al inicio" className="relative mb-2 block h-16 w-32 overflow-hidden"><Image src="/images/logo-iris.png" alt="Iris Accesorios" width={300} height={100} priority className="absolute left-[-35px] top-[-8px] h-[76px] w-[228px] max-w-none" /></Link>
+        <div className="grid overflow-hidden rounded-xl border border-slate-200 bg-white md:grid-cols-2">
+          <div className="flex justify-center px-5 py-10 sm:px-8 md:items-start md:py-10">
             <div className="w-full max-w-[390px]">
               <h1 className="text-center text-[32px] leading-[1.08] font-bold text-[#404040] sm:text-[34px]">
                 ¡Bienvenido de
@@ -160,7 +163,7 @@ export default function LoginPage() {
                       onClick={() =>
                         setShowPassword((currentValue) => !currentValue)
                       }
-                      className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-md text-[#5f636b] transition hover:text-[#2829dd]"
+                    className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-md text-[#5f636b] transition hover:text-[#B80A18]"
                       aria-label={
                         showPassword
                           ? "Ocultar contraseña"
@@ -192,7 +195,7 @@ export default function LoginPage() {
                       id="rememberMe"
                       type="checkbox"
                       {...register("rememberMe")}
-                      className="h-3 w-3 shrink-0 rounded-[2px] border-slate-300 accent-[#2829dd]"
+                      className="h-3 w-3 shrink-0 rounded-[2px] border-slate-300 accent-[#B80A18]"
                     />
                     <label
                       htmlFor="rememberMe"
@@ -205,7 +208,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     disabled
-                    className="cursor-not-allowed whitespace-nowrap text-[10px] font-normal text-[#2829dd] disabled:opacity-100"
+                    className="cursor-not-allowed whitespace-nowrap text-[10px] font-normal text-[#B80A18] disabled:opacity-100"
                   >
                     ¿Olvidaste la contraseña?
                   </button>
@@ -245,16 +248,6 @@ export default function LoginPage() {
                   - o -
                 </p>
 
-                <p className="mt-5 text-center text-xs text-[#8b8b8b]">
-                  ¿No tienes una cuenta?{" "}
-                  <Link
-                    href="/registro"
-                    className="font-semibold text-[#111111] underline-offset-4 transition hover:text-[#2829dd] hover:underline"
-                  >
-                    Regístrate
-                  </Link>
-                </p>
-
                 <button
                   type="button"
                   disabled
@@ -285,13 +278,24 @@ export default function LoginPage() {
                   </svg>
                   <span className="sr-only">Continuar con Google</span>
                 </button>
+
+                <p className="mt-8 text-center text-xs text-[#8b8b8b]">
+                  ¿No tienes una cuenta?{" "}
+                  <Link
+                    href="/registro"
+                    className="font-semibold text-[#111111] underline-offset-4 transition hover:text-[#B80A18] hover:underline"
+                  >
+                    Regístrate
+                  </Link>
+                </p>
               </form>
             </div>
           </div>
 
-          <div className="hidden h-full items-end justify-end pt-11 md:flex md:pr-2">
+          <div className="hidden min-h-[31rem] md:block">
             <AuthIllustrationPanel />
           </div>
+        </div>
         </div>
     </section>
   );

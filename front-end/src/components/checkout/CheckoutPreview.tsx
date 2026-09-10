@@ -204,7 +204,7 @@ export function CheckoutPreview({
           onClick={() =>
             void onRetry()
           }
-          className="mx-auto mt-7 flex h-11 items-center justify-center gap-2 rounded-sm bg-[#2222e7] px-6 text-sm font-semibold text-white transition hover:bg-[#1919c7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2222e7]"
+          className="mx-auto mt-7 flex h-11 items-center justify-center gap-2 rounded-sm bg-[#B80A18] px-6 text-sm font-semibold text-white transition hover:bg-[#990813] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B80A18]"
         >
           <RefreshCcw
             className="h-4 w-4"
@@ -254,7 +254,7 @@ export function CheckoutPreview({
             onClick={() =>
               void onRetry()
             }
-            className="mt-6 flex h-11 items-center justify-center gap-2 rounded-sm bg-[#2222e7] px-6 text-sm font-semibold text-white transition hover:bg-[#1919c7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2222e7]"
+            className="mt-6 flex h-11 items-center justify-center gap-2 rounded-sm bg-[#B80A18] px-6 text-sm font-semibold text-white transition hover:bg-[#990813] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B80A18]"
           >
             <RefreshCcw
               className="h-4 w-4"

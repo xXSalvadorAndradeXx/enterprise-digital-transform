@@ -21,7 +21,7 @@ export function ProductTags({
       {tags.map((tag, index) => (
         <span
           key={`${tag}-${index}`}
-          className="inline-flex min-h-9 max-w-[180px] items-center truncate rounded-md bg-[#F2F5FC] px-3 py-2 text-xs text-gray-600"
+          className="inline-flex items-center rounded-md bg-[#F2F4F8] px-3 py-1.5 text-xs font-medium text-gray-700"
           title={tag}
         >
           {tag}

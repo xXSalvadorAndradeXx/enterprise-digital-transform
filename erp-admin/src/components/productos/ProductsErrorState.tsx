@@ -21,8 +21,8 @@ export function ProductsErrorState({
       <Image
         src="/images/alerta.svg"
         alt=""
-        width={64}
-        height={64}
+        width={140}
+        height={140}
         className="mb-4"
         aria-hidden="true"
       />
@@ -39,7 +39,8 @@ export function ProductsErrorState({
         type="button"
         onClick={onRetry}
         disabled={isRetrying}
-className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-[#FF413A] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#E93A34] focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"      >
+        className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-[#B80A18] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#9E0915] focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+      >
         <RotateCw
           size={16}
           className={isRetrying ? "animate-spin" : ""}

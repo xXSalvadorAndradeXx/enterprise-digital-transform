@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Heart, ImageIcon } from "lucide-react";
 
 import type { ProductPreviewImage } from "@/types/productos";
 
@@ -67,81 +67,90 @@ export function ProductGallery({
   return (
     <section
       aria-label={`Galería de ${productName}`}
+      className="space-y-4"
     >
-      <div className="flex min-h-[380px] items-center justify-center overflow-hidden rounded-xl">
-        <div className="relative h-[380px] w-full">
-            <Image
-            src={selectedImage.imageUrl}
-            alt={`${productName} - imagen ${selectedIndex + 1}`}
-            fill
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-contain"
-            priority
-            unoptimized
-            />
-        </div>
-        </div>
+      <div className="relative flex h-[380px] w-full items-center justify-center overflow-hidden rounded-xl bg-gray-50 border border-gray-100">
+        <Image
+          src={selectedImage.imageUrl}
+          alt={`${productName} - imagen ${selectedIndex + 1}`}
+          fill
+          sizes="(max-width: 1024px) 100vw, 50vw"
+          className="object-cover"
+          priority
+          unoptimized
+        />
+
+        {/* Favorite button */}
+        <button
+          type="button"
+          aria-label="Agregar a favoritos"
+          className="absolute right-3.5 top-3.5 z-10 flex size-9 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm transition-transform hover:scale-105"
+        >
+          <Heart
+            size={18}
+            className="text-gray-700"
+          />
+        </button>
+
+        {/* Carousel overlay arrows */}
+        {sortedImages.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={handlePrevious}
+              aria-label="Imagen anterior"
+              className="absolute left-3.5 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm transition-transform hover:scale-105"
+            >
+              <ArrowLeft
+                size={18}
+                className="text-gray-800"
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNext}
+              aria-label="Imagen siguiente"
+              className="absolute right-3.5 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm transition-transform hover:scale-105"
+            >
+              <ArrowRight
+                size={18}
+                className="text-gray-800"
+              />
+            </button>
+          </>
+        )}
+      </div>
 
       {sortedImages.length > 1 && (
-        <div className="mt-4 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handlePrevious}
-            aria-label="Imagen anterior"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-900 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#1C21D1]"
-          >
-            <ChevronLeft
-              size={24}
-              aria-hidden="true"
-            />
-          </button>
+        <div className="flex gap-3 overflow-x-auto pb-1">
+          {sortedImages.map((image, index) => {
+            const isSelected = index === selectedIndex;
 
-          <div className="flex min-w-0 flex-1 gap-3 overflow-x-auto py-1">
-            {sortedImages.map(
-              (image, index) => {
-                const isSelected =
-                  index === selectedIndex;
-
-                return (
-                  <button
-                    key={image.id}
-                    type="button"
-                    onClick={() => setSelectedIndex(index)}
-                    aria-label={`Ver imagen ${index + 1} de ${productName}`}
-                    aria-current={isSelected ? "true" : undefined}
-                    className={`h-24 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition-colors focus:outline-none ${
-                        isSelected
-                        ? "border-gray-900"
-                        : "border-transparent"
-                    }`}
-                    >
-                    <div className="relative h-full w-full">
-                        <Image
-                        src={image.imageUrl}
-                        alt=""
-                        fill
-                        sizes="80px"
-                        className="object-cover"
-                        unoptimized
-                        />
-                    </div>
-                    </button>
-                );
-              },
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={handleNext}
-            aria-label="Imagen siguiente"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-900 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#1C21D1]"
-          >
-            <ChevronRight
-              size={24}
-              aria-hidden="true"
-            />
-          </button>
+            return (
+              <button
+                key={image.id}
+                type="button"
+                onClick={() => setSelectedIndex(index)}
+                aria-label={`Ver imagen ${index + 1} de ${productName}`}
+                aria-current={isSelected ? "true" : undefined}
+                className={`relative h-20 w-24 shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
+                  isSelected
+                    ? "border-gray-900 shadow-sm"
+                    : "border-gray-200 hover:border-gray-400"
+                }`}
+              >
+                <Image
+                  src={image.imageUrl}
+                  alt=""
+                  fill
+                  sizes="96px"
+                  className="object-cover"
+                  unoptimized
+                />
+              </button>
+            );
+          })}
         </div>
       )}
     </section>
