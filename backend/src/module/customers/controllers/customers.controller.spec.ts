@@ -193,4 +193,103 @@ describe('CustomersController - Profile Endpoints', () => {
       });
     });
   });
+
+  describe('PATCH /customers/me/addresses/:id', () => {
+    it('debe delegar a customersService.updateAddress con id de dirección, customerId del JWT y el DTO', async () => {
+      const addressId = '7b2e8a1d-5c43-4f2e-9d8a-1b2c3d4e5f60';
+      const dto = {
+        alias: 'Casa de Playa',
+        phone: '+50379991122',
+      };
+
+      const mockUpdatedAddress = {
+        id: addressId,
+        label: 'Casa de Playa',
+        recipientName: 'Carlos Gómez',
+        phone: '+50379991122',
+        departmentId: 1,
+        districtId: 187,
+        department: { id: 1, name: 'San Salvador', code: 'SS' },
+        district: { id: 187, name: 'Mejicanos', departmentId: 1 },
+        city: 'San Salvador',
+        addressLine: 'Residencial San Francisco #14',
+        reference: 'Frente al parque',
+        isDefault: true,
+        createdAt: new Date('2026-09-08T12:00:00Z'),
+        updatedAt: new Date('2026-09-09T12:00:00Z'),
+      };
+
+      service.updateAddress.mockResolvedValue(mockUpdatedAddress);
+
+      const response = await controller.updateAddress(
+        addressId,
+        dto as any,
+        mockCustomerPayload,
+      );
+
+      expect(service.updateAddress).toHaveBeenCalledWith(
+        mockCustomerPayload.id,
+        addressId,
+        dto,
+      );
+      expect(response).toEqual({
+        success: true,
+        message: 'Dirección actualizada correctamente.',
+        data: expect.objectContaining({
+          id: addressId,
+          alias: 'Casa de Playa',
+          label: 'Casa de Playa',
+          phone: '+50379991122',
+          departmentId: 1,
+          districtId: 187,
+          isDefault: true,
+        }),
+      });
+    });
+  });
+
+  describe('PATCH /customers/me/addresses/:id/default', () => {
+    it('debe delegar a customersService.setDefaultAddress con customerId del JWT y el id de dirección', async () => {
+      const addressId = '7b2e8a1d-5c43-4f2e-9d8a-1b2c3d4e5f60';
+
+      const mockDefaultAddress = {
+        id: addressId,
+        label: 'Casa',
+        recipientName: 'Carlos Gómez',
+        phone: '+50371234567',
+        departmentId: 1,
+        districtId: 187,
+        department: { id: 1, name: 'San Salvador', code: 'SS' },
+        district: { id: 187, name: 'Mejicanos', departmentId: 1 },
+        city: 'San Salvador',
+        addressLine: 'Residencial San Francisco #14',
+        reference: 'Frente al parque',
+        isDefault: true,
+        createdAt: new Date('2026-09-08T12:00:00Z'),
+        updatedAt: new Date('2026-09-09T12:00:00Z'),
+      };
+
+      service.setDefaultAddress.mockResolvedValue(mockDefaultAddress);
+
+      const response = await controller.setDefaultAddress(
+        addressId,
+        mockCustomerPayload,
+      );
+
+      expect(service.setDefaultAddress).toHaveBeenCalledWith(
+        mockCustomerPayload.id,
+        addressId,
+      );
+      expect(response).toEqual({
+        success: true,
+        message: 'Dirección predeterminada actualizada correctamente.',
+        data: expect.objectContaining({
+          id: addressId,
+          alias: 'Casa',
+          label: 'Casa',
+          isDefault: true,
+        }),
+      });
+    });
+  });
 });

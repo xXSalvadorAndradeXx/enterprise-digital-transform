@@ -637,7 +637,17 @@ export class CustomersService {
         if (data.districtId !== undefined) address.districtId = data.districtId;
         if (data.city !== undefined) address.city = data.city;
         if (data.addressLine !== undefined) address.addressLine = data.addressLine;
-        if (data.isDefault !== undefined) address.isDefault = data.isDefault;
+        if (data.isDefault !== undefined) {
+          if (data.isDefault === false && address.isDefault) {
+            const activeAddressCount = await manager.count(CustomerAddress, {
+              where: { customerId, deletedAt: IsNull() },
+            });
+            // Si es la única dirección activa, no se desmarca como default
+            address.isDefault = activeAddressCount > 1 ? false : true;
+          } else {
+            address.isDefault = data.isDefault;
+          }
+        }
         if (data.recipientName !== undefined) address.recipientName = data.recipientName;
         if (data.phone !== undefined) address.phone = data.phone;
         if (data.reference !== undefined) address.reference = data.reference;
@@ -654,10 +664,12 @@ export class CustomersService {
 
         const saved = await manager.save(CustomerAddress, address);
 
-        return (await manager.findOne(CustomerAddress, {
+        const reloaded = await manager.findOne(CustomerAddress, {
           where: { id: saved.id },
           relations: ['department', 'district'],
-        }))!;
+        });
+
+        return reloaded || saved;
       },
     );
   }
@@ -672,6 +684,7 @@ export class CustomersService {
     // 1. Validar que la dirección solicitada exista, pertenezca al cliente y no esté eliminada.
     const targetAddress = await this.addressRepository.findOne({
       where: { id: addressId, customerId },
+      relations: ['department', 'district'],
     });
 
     if (!targetAddress) {
@@ -681,7 +694,12 @@ export class CustomersService {
       });
     }
 
-    // 2. Ejecutar dentro de una transacción para asegurar consistencia
+    // 2. Operación idempotente si ya era la dirección principal activa
+    if (targetAddress.isDefault) {
+      return targetAddress;
+    }
+
+    // 3. Ejecutar dentro de una transacción para asegurar consistencia
     return await this.customerRepository.manager.transaction(
       async (transactionalEntityManager) => {
         // Desmarcar la dirección principal actual
@@ -689,12 +707,20 @@ export class CustomersService {
 
         // Marcar la nueva dirección como principal
         targetAddress.isDefault = true;
-        const saved = await transactionalEntityManager.save(targetAddress);
+        const saved = await transactionalEntityManager.save(
+          CustomerAddress,
+          targetAddress,
+        );
 
-        return (await transactionalEntityManager.findOne(CustomerAddress, {
-          where: { id: saved.id },
-          relations: ['department', 'district'],
-        }))!;
+        const reloaded = await transactionalEntityManager.findOne(
+          CustomerAddress,
+          {
+            where: { id: saved.id },
+            relations: ['department', 'district'],
+          },
+        );
+
+        return reloaded || saved;
       },
     );
   }

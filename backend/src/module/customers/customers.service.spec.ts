@@ -631,4 +631,242 @@ describe('CustomersService - getMyProfile', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('updateAddress', () => {
+    let mockManager: any;
+    let mockQueryBuilder: any;
+    const addressId = 'addr-uuid-existing-1';
+
+    const existingAddress: any = {
+      id: addressId,
+      customerId: mockCustomer.id,
+      departmentId: 1,
+      districtId: 187,
+      city: 'San Salvador',
+      addressLine: 'Calle Antigua #10',
+      label: 'Casa',
+      recipientName: 'Carlos Gómez',
+      phone: '+50371234567',
+      reference: 'Frente a tienda',
+      isDefault: true,
+      createdAt: new Date('2026-09-01T10:00:00Z'),
+      updatedAt: new Date('2026-09-01T10:00:00Z'),
+    };
+
+    beforeEach(() => {
+      mockQueryBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+
+      mockManager = {
+        count: jest.fn(),
+        save: jest.fn().mockImplementation((entityClass, data) => Promise.resolve(data)),
+        findOne: jest.fn(),
+        createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+      };
+
+      customerRepository.manager.transaction.mockImplementation((cb: any) =>
+        cb(mockManager),
+      );
+      locationsService.validateDepartmentDistrict.mockResolvedValue(true);
+    });
+
+    it('debe actualizar los campos permitidos y retornar la dirección con sus relaciones', async () => {
+      addressRepository.findOne.mockResolvedValue({ ...existingAddress });
+      mockManager.findOne.mockResolvedValue({
+        ...existingAddress,
+        label: 'Casa Actualizada',
+        phone: '+50379998888',
+        department: { id: 1, name: 'San Salvador' },
+        district: { id: 187, name: 'Mejicanos' },
+      });
+
+      const dto = {
+        alias: 'Casa Actualizada',
+        phone: '+50379998888',
+        customerId: 'malicious-injected-id', // Campo protegido que debe ser ignorado
+        id: 'different-uuid', // Campo protegido que debe ser ignorado
+      };
+
+      const result = await service.updateAddress(mockCustomer.id, addressId, dto as any);
+
+      expect(addressRepository.findOne).toHaveBeenCalledWith({
+        where: { id: addressId, customerId: mockCustomer.id },
+      });
+      // No modificó departamento ni distrito, no llama a validación
+      expect(locationsService.validateDepartmentDistrict).not.toHaveBeenCalled();
+      expect(mockManager.save).toHaveBeenCalledWith(
+        CustomerAddress,
+        expect.objectContaining({
+          id: addressId,
+          customerId: mockCustomer.id,
+          label: 'Casa Actualizada',
+          phone: '+50379998888',
+        }),
+      );
+      expect(result.id).toBe(addressId);
+    });
+
+    it('debe lanzar NotFoundException con código ADDRESS_NOT_FOUND si la dirección no existe o pertenece a otro cliente', async () => {
+      addressRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateAddress(mockCustomer.id, 'unknown-id', { alias: 'Otro' } as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debe revalidar el par departamento-distrito si se modifica departmentId o districtId', async () => {
+      addressRepository.findOne.mockResolvedValue({ ...existingAddress });
+      mockManager.findOne.mockResolvedValue({
+        ...existingAddress,
+        departmentId: 2,
+        districtId: 205,
+      });
+
+      const dto = {
+        departmentId: 2,
+        districtId: 205,
+      };
+
+      await service.updateAddress(mockCustomer.id, addressId, dto as any);
+
+      expect(locationsService.validateDepartmentDistrict).toHaveBeenCalledWith(2, 205);
+    });
+
+    it('debe desmarcar en transacción la principal anterior si se actualiza con isDefault = true', async () => {
+      const nonDefaultAddress = { ...existingAddress, isDefault: false };
+      addressRepository.findOne.mockResolvedValue(nonDefaultAddress);
+      mockManager.findOne.mockResolvedValue({ ...nonDefaultAddress, isDefault: true });
+
+      const dto = { isDefault: true };
+
+      const result = await service.updateAddress(mockCustomer.id, addressId, dto as any);
+
+      expect(mockManager.createQueryBuilder).toHaveBeenCalled();
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(CustomerAddress);
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith({ isDefault: false });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'customer_id = :customerId AND is_default = true AND deleted_at IS NULL',
+        { customerId: mockCustomer.id },
+      );
+      expect(mockManager.save).toHaveBeenCalledWith(
+        CustomerAddress,
+        expect.objectContaining({ isDefault: true }),
+      );
+      expect(result.isDefault).toBe(true);
+    });
+
+    it('no debe permitir desmarcar isDefault a false si es la única dirección activa del cliente', async () => {
+      addressRepository.findOne.mockResolvedValue({ ...existingAddress, isDefault: true });
+      mockManager.count.mockResolvedValue(1); // Es la única dirección activa
+      mockManager.findOne.mockResolvedValue({ ...existingAddress, isDefault: true });
+
+      const dto = { isDefault: false };
+
+      await service.updateAddress(mockCustomer.id, addressId, dto as any);
+
+      expect(mockManager.save).toHaveBeenCalledWith(
+        CustomerAddress,
+        expect.objectContaining({ isDefault: true }),
+      );
+    });
+  });
+
+  describe('setDefaultAddress', () => {
+    let mockManager: any;
+    let mockQueryBuilder: any;
+    const addressId = 'addr-uuid-target-1';
+
+    beforeEach(() => {
+      mockQueryBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+
+      mockManager = {
+        save: jest.fn().mockImplementation((entityClass, data) => Promise.resolve(data)),
+        findOne: jest.fn(),
+        createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+      };
+
+      customerRepository.manager.transaction.mockImplementation((cb: any) =>
+        cb(mockManager),
+      );
+    });
+
+    it('debe retornar la dirección directamente sin ejecutar transacción si ya era la dirección principal (idempotente)', async () => {
+      const alreadyDefaultAddress = {
+        id: addressId,
+        customerId: mockCustomer.id,
+        isDefault: true,
+        label: 'Casa',
+        department: { id: 1, name: 'San Salvador' },
+        district: { id: 187, name: 'Mejicanos' },
+      };
+
+      addressRepository.findOne.mockResolvedValue(alreadyDefaultAddress);
+
+      const result = await service.setDefaultAddress(mockCustomer.id, addressId);
+
+      expect(addressRepository.findOne).toHaveBeenCalledWith({
+        where: { id: addressId, customerId: mockCustomer.id },
+        relations: ['department', 'district'],
+      });
+      // No ejecuta transacción de base de datos ni escrituras innecesarias
+      expect(customerRepository.manager.transaction).not.toHaveBeenCalled();
+      expect(result).toBe(alreadyDefaultAddress);
+      expect(result.isDefault).toBe(true);
+    });
+
+    it('debe desmarcar en transacción las restantes y marcar la dirección solicitada como principal si no lo era', async () => {
+      const nonDefaultAddress = {
+        id: addressId,
+        customerId: mockCustomer.id,
+        isDefault: false,
+        label: 'Trabajo',
+      };
+
+      addressRepository.findOne.mockResolvedValue(nonDefaultAddress);
+      mockManager.findOne.mockResolvedValue({
+        ...nonDefaultAddress,
+        isDefault: true,
+        department: { id: 1, name: 'San Salvador' },
+        district: { id: 187, name: 'Mejicanos' },
+      });
+
+      const result = await service.setDefaultAddress(mockCustomer.id, addressId);
+
+      expect(customerRepository.manager.transaction).toHaveBeenCalled();
+      // Desmarca cualquier otra default previa
+      expect(mockManager.createQueryBuilder).toHaveBeenCalled();
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(CustomerAddress);
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith({ isDefault: false });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'customer_id = :customerId AND is_default = true AND deleted_at IS NULL',
+        { customerId: mockCustomer.id },
+      );
+      // Guarda la dirección como principal
+      expect(mockManager.save).toHaveBeenCalledWith(
+        CustomerAddress,
+        expect.objectContaining({
+          id: addressId,
+          isDefault: true,
+        }),
+      );
+      expect(result.isDefault).toBe(true);
+    });
+
+    it('debe lanzar NotFoundException con código ADDRESS_NOT_FOUND si la dirección no existe o no pertenece al cliente', async () => {
+      addressRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.setDefaultAddress(mockCustomer.id, 'non-existent-or-alien-id'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
 });
