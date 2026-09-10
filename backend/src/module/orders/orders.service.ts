@@ -1657,6 +1657,7 @@ export class OrdersService {
         const order = await tx.findOne(Order, {
           where: { orderNumber },
           relations: ['statusHistory'],
+          lock: { mode: 'pessimistic_write' },
         });
 
         if (!order) {

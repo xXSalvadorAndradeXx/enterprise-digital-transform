@@ -532,6 +532,46 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
 
         expect(eventEmittedOrReturned).toBe(false);
       });
+
+      it('BE-ADM-NOT-08: debe manejar dos peticiones simultáneas sobre la misma orden emitiendo solo 1 evento', async () => {
+        const mutableOrder = {
+          id: 'order-uuid-conc',
+          orderNumber: 'CONC1234',
+          customerId: 'cust-123',
+          status: OrderStatus.PENDING,
+          deliveryMethod: DeliveryMethod.HOME_DELIVERY,
+        };
+
+        let txChain = Promise.resolve();
+
+        mockOrderRepo.manager.transaction.mockImplementation((cb: any) => {
+          const promise = txChain.then(async () => {
+            const fakeTx: any = {
+              findOne: jest.fn().mockImplementation(() => Promise.resolve({ ...mutableOrder })),
+              save: jest.fn().mockImplementation((cls, entity) => {
+                if (entity.status) {
+                  mutableOrder.status = entity.status;
+                }
+                return Promise.resolve(entity);
+              }),
+              create: jest.fn().mockImplementation((cls, data) => data),
+            };
+            return await cb(fakeTx);
+          });
+          txChain = promise.catch(() => {});
+          return promise;
+        });
+
+        const [res1, res2] = await Promise.all([
+          service.updateStatusByOrderNumber('CONC1234', { status: OrderStatus.ON_ROUTE }),
+          service.updateStatusByOrderNumber('CONC1234', { status: OrderStatus.ON_ROUTE }),
+        ]);
+
+        const eventsGenerated = [res1.domainEvent, res2.domainEvent].filter(Boolean);
+        expect(eventsGenerated.length).toBe(1);
+        expect(eventsGenerated[0]?.previousStatus).toBe(OrderStatus.PENDING);
+        expect(eventsGenerated[0]?.newStatus).toBe(OrderStatus.ON_ROUTE);
+      });
     });
   });
 
