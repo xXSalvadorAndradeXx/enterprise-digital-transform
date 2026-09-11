@@ -8,7 +8,10 @@ import { Repository } from 'typeorm';
 import { Customer } from '../entities/customer.entity';
 
 @Injectable()
-export class CustomerJwtStrategy extends PassportStrategy(Strategy, 'customer-jwt') {
+export class CustomerJwtStrategy extends PassportStrategy(
+  Strategy,
+  'customer-jwt',
+) {
   constructor(
     configService: ConfigService,
     @InjectRepository(Customer)
@@ -24,7 +27,10 @@ export class CustomerJwtStrategy extends PassportStrategy(Strategy, 'customer-jw
   async validate(payload: any) {
     // Validar tipo de token
     if (payload.type !== 'access') {
-      throw new UnauthorizedException('Tipo de token inválido.');
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Tipo de token inválido.',
+      });
     }
 
     const customer = await this.customerRepository.findOne({
@@ -32,11 +38,18 @@ export class CustomerJwtStrategy extends PassportStrategy(Strategy, 'customer-jw
     });
 
     if (!customer) {
-      throw new UnauthorizedException('Acceso no autorizado. Cliente no encontrado.');
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Acceso no autorizado. Cliente no encontrado.',
+      });
     }
 
     if (!customer.isActive) {
-      throw new UnauthorizedException('Acceso no autorizado. La cuenta se encuentra inactiva.');
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_DISABLED',
+        message:
+          'Acceso no autorizado. La cuenta se encuentra inactiva o deshabilitada.',
+      });
     }
 
     return {
@@ -44,6 +57,9 @@ export class CustomerJwtStrategy extends PassportStrategy(Strategy, 'customer-jw
       customerId: customer.id,
       email: customer.email,
       fullName: customer.fullName,
+      phone: customer.phone,
+      dui: customer.dui,
+      createdAt: customer.createdAt,
       type: 'CUSTOMER',
     };
   }

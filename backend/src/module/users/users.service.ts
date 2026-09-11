@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -33,9 +38,13 @@ export class UsersService {
     }
 
     // 2. Buscar los roles correspondientes a los IDs del DTO
-    const roles = await this.roleRepository.findBy({ id: In(createUserDto.roleIds) });
+    const roles = await this.roleRepository.findBy({
+      id: In(createUserDto.roleIds),
+    });
     if (roles.length !== createUserDto.roleIds.length) {
-      throw new NotFoundException('Uno o más roles especificados no fueron encontrados');
+      throw new NotFoundException(
+        'Uno o más roles especificados no fueron encontrados',
+      );
     }
 
     // 3. Generar contraseña temporal segura
@@ -64,7 +73,7 @@ export class UsersService {
 
     // 6. Punto de integración Mock para envío de notificación al usuario
     this.logger.log(
-      `[NOTIFICACIÓN MOCK] Enviar contraseña temporal a ${savedUser.email}. Contraseña temporal: ${temporaryPassword}`
+      `[NOTIFICACIÓN MOCK] Enviar contraseña temporal a ${savedUser.email}. Contraseña temporal: ${temporaryPassword}`,
     );
 
     return {
@@ -76,9 +85,15 @@ export class UsersService {
   async findAll(
     page: number = 1,
     limit: number = 10,
-    filters?: { search?: string; email?: string; isActive?: boolean; roleId?: string },
+    filters?: {
+      search?: string;
+      email?: string;
+      isActive?: boolean;
+      roleId?: string;
+    },
   ) {
-    const queryBuilder = this.userRepository.createQueryBuilder('user')
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('user')
       .leftJoinAndSelect('user.roles', 'roles');
 
     if (filters) {
@@ -89,10 +104,14 @@ export class UsersService {
         );
       }
       if (filters.email) {
-        queryBuilder.andWhere('user.email ILIKE :email', { email: `%${filters.email}%` });
+        queryBuilder.andWhere('user.email ILIKE :email', {
+          email: `%${filters.email}%`,
+        });
       }
       if (filters.isActive !== undefined) {
-        queryBuilder.andWhere('user.isActive = :isActive', { isActive: filters.isActive });
+        queryBuilder.andWhere('user.isActive = :isActive', {
+          isActive: filters.isActive,
+        });
       }
       if (filters.roleId) {
         queryBuilder.andWhere('roles.id = :roleId', { roleId: filters.roleId });
@@ -164,8 +183,11 @@ export class UsersService {
     }
 
     // 2. Contar cuántos usuarios activos tienen el rol SUPERADMIN en total
-    const activeSuperadminsCount = await this.userRepository.createQueryBuilder('user')
-      .innerJoin('user.roles', 'role', 'role.name = :roleName', { roleName: 'SUPERADMIN' })
+    const activeSuperadminsCount = await this.userRepository
+      .createQueryBuilder('user')
+      .innerJoin('user.roles', 'role', 'role.name = :roleName', {
+        roleName: 'SUPERADMIN',
+      })
       .where('user.isActive = :isActive', { isActive: true })
       .getCount();
 
@@ -190,16 +212,20 @@ export class UsersService {
       // Buscar los roles correspondientes a los IDs del DTO
       const roles = await roleRepo.findBy({ id: In(assignRolesDto.roleIds) });
       if (roles.length !== assignRolesDto.roleIds.length) {
-        throw new NotFoundException('Uno o más roles especificados no fueron encontrados');
+        throw new NotFoundException(
+          'Uno o más roles especificados no fueron encontrados',
+        );
       }
 
       // Verificar si es el último SUPERADMIN activo en el sistema
       const isLastSuper = await this.isLastActiveSuperadmin(userId);
       if (isLastSuper) {
-        const containsSuperAdmin = roles.some((role) => role.name === 'SUPERADMIN');
+        const containsSuperAdmin = roles.some(
+          (role) => role.name === 'SUPERADMIN',
+        );
         if (!containsSuperAdmin) {
           throw new ConflictException(
-            'Operación rechazada: No se puede remover el rol SUPERADMIN del último administrador activo en el sistema.'
+            'Operación rechazada: No se puede remover el rol SUPERADMIN del último administrador activo en el sistema.',
           );
         }
       }
@@ -241,12 +267,15 @@ export class UsersService {
     }
 
     // 2. Si se actualiza el estado activo
-    if (updateUserDto.isActive !== undefined && updateUserDto.isActive !== user.isActive) {
+    if (
+      updateUserDto.isActive !== undefined &&
+      updateUserDto.isActive !== user.isActive
+    ) {
       if (updateUserDto.isActive === false) {
         const isLastSuper = await this.isLastActiveSuperadmin(id);
         if (isLastSuper) {
           throw new ConflictException(
-            'Operación rechazada: No se puede desactivar al último administrador activo en el sistema.'
+            'Operación rechazada: No se puede desactivar al último administrador activo en el sistema.',
           );
         }
         user.tokenVersion = (user.tokenVersion || 0) + 1;
@@ -257,17 +286,23 @@ export class UsersService {
 
     // 3. Si se actualizan los roles, verificar la protección del último SUPERADMIN activo
     if (updateUserDto.roleIds) {
-      const roles = await this.roleRepository.findBy({ id: In(updateUserDto.roleIds) });
+      const roles = await this.roleRepository.findBy({
+        id: In(updateUserDto.roleIds),
+      });
       if (roles.length !== updateUserDto.roleIds.length) {
-        throw new NotFoundException('Uno o más roles especificados no fueron encontrados');
+        throw new NotFoundException(
+          'Uno o más roles especificados no fueron encontrados',
+        );
       }
 
       const isLastSuper = await this.isLastActiveSuperadmin(id);
       if (isLastSuper) {
-        const containsSuperAdmin = roles.some((role) => role.name === 'SUPERADMIN');
+        const containsSuperAdmin = roles.some(
+          (role) => role.name === 'SUPERADMIN',
+        );
         if (!containsSuperAdmin) {
           throw new ConflictException(
-            'Operación rechazada: No se puede remover el rol SUPERADMIN del último administrador activo en el sistema.'
+            'Operación rechazada: No se puede remover el rol SUPERADMIN del último administrador activo en el sistema.',
           );
         }
       }
@@ -290,7 +325,7 @@ export class UsersService {
       const isLastSuper = await this.isLastActiveSuperadmin(id);
       if (isLastSuper) {
         throw new ConflictException(
-          'Operación rechazada: No se puede eliminar o desactivar al último administrador activo en el sistema.'
+          'Operación rechazada: No se puede eliminar o desactivar al último administrador activo en el sistema.',
         );
       }
 
@@ -307,8 +342,9 @@ export class UsersService {
     return removedUser;
   }
 
-  
-  async generateTemporaryPassword(id: string): Promise<{ temporaryPassword: string }> {
+  async generateTemporaryPassword(
+    id: string,
+  ): Promise<{ temporaryPassword: string }> {
     const user = await this.userRepository.findOneBy({ id });
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');
@@ -326,7 +362,7 @@ export class UsersService {
     await this.userRepository.save(user);
 
     this.logger.log(
-      `[TEMPORARY PASSWORD GENERATED] Contraseña temporal generada para usuario ${user.email}: ${temporaryPassword}`
+      `[TEMPORARY PASSWORD GENERATED] Contraseña temporal generada para usuario ${user.email}: ${temporaryPassword}`,
     );
 
     return { temporaryPassword };
@@ -349,7 +385,9 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
-  async unlockAndResetPassword(id: string): Promise<{ user: User; temporaryPassword: string }> {
+  async unlockAndResetPassword(
+    id: string,
+  ): Promise<{ user: User; temporaryPassword: string }> {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: ['roles'],
@@ -374,7 +412,7 @@ export class UsersService {
     const savedUser = await this.userRepository.save(user);
 
     this.logger.log(
-      `[TEMPORARY PASSWORD GENERATED] Contraseña temporal generada para usuario ${savedUser.email} (durante desbloqueo): ${temporaryPassword}`
+      `[TEMPORARY PASSWORD GENERATED] Contraseña temporal generada para usuario ${savedUser.email} (durante desbloqueo): ${temporaryPassword}`,
     );
 
     return {

@@ -27,25 +27,35 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Acceso no autorizado. Usuario no encontrado o inactivo.');
+      throw new UnauthorizedException(
+        'Acceso no autorizado. Usuario no encontrado o inactivo.',
+      );
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('Acceso no autorizado. La cuenta se encuentra inactiva.');
+      throw new UnauthorizedException(
+        'Acceso no autorizado. La cuenta se encuentra inactiva.',
+      );
     }
 
     if (user.isBlocked || (user.lockedUntil && new Date() < user.lockedUntil)) {
-      throw new UnauthorizedException('Acceso no autorizado. La cuenta se encuentra bloqueada.');
+      throw new UnauthorizedException(
+        'Acceso no autorizado. La cuenta se encuentra bloqueada.',
+      );
     }
 
     if (user.tokenVersion !== payload.tokenVersion) {
-      throw new UnauthorizedException('Acceso no autorizado. La sesión ha sido invalidada.');
+      throw new UnauthorizedException(
+        'Acceso no autorizado. La sesión ha sido invalidada.',
+      );
     }
 
     const roles = user.roles?.map((r) => r.name || '') || [];
     const permissions = Array.from(
       new Set(
-        user.roles?.flatMap((r) => r.permissions?.map((p) => p.code || '') || []) || [],
+        user.roles?.flatMap(
+          (r) => r.permissions?.map((p) => p.code || '') || [],
+        ) || [],
       ),
     );
 

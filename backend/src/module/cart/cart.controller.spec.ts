@@ -104,12 +104,20 @@ describe('CartController', () => {
 
     const result = await controller.getCart(req, undefined);
     expect(result.id).toBe('cart-uuid-1');
-    expect(service.resolveCart).toHaveBeenCalledWith('user-uuid-1', undefined, false);
+    expect(service.resolveCart).toHaveBeenCalledWith(
+      'user-uuid-1',
+      undefined,
+      true,
+    );
   });
 
   it('addItem should resolve cart and set X-Cart-Token header if new guest cart created', async () => {
     const req = { user: null };
-    const dto = { productId: 'prod-uuid-1', variantId: 'variant-uuid-1', quantity: 2 };
+    const dto = {
+      productId: 'prod-uuid-1',
+      variantId: 'variant-uuid-1',
+      quantity: 2,
+    };
     const plainGuestToken = 'new-plain-guest-token-123';
 
     mockCartService.resolveCart.mockResolvedValueOnce({
@@ -120,7 +128,10 @@ describe('CartController', () => {
 
     const result = await controller.addItem(req, mockResponse, undefined, dto);
     expect(result).toEqual(mockCartResponse);
-    expect(mockResponse.setHeader).toHaveBeenCalledWith('X-Cart-Token', plainGuestToken);
+    expect(mockResponse.setHeader).toHaveBeenCalledWith(
+      'X-Cart-Token',
+      plainGuestToken,
+    );
   });
 
   it('mergeCart should call mergeGuestCartIntoUserCart when authenticated', async () => {
@@ -129,11 +140,16 @@ describe('CartController', () => {
 
     const result = await controller.mergeCart(req, xCartToken);
     expect(result).toEqual(mockCartResponse);
-    expect(service.mergeGuestCartIntoUserCart).toHaveBeenCalledWith('user-uuid-1', xCartToken);
+    expect(service.mergeGuestCartIntoUserCart).toHaveBeenCalledWith(
+      'user-uuid-1',
+      xCartToken,
+    );
   });
 
   it('mergeCart should throw UnauthorizedException if req.user is missing', async () => {
     const req = { user: null };
-    await expect(controller.mergeCart(req, 'guest-token')).rejects.toThrow(UnauthorizedException);
+    await expect(controller.mergeCart(req, 'guest-token')).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 });

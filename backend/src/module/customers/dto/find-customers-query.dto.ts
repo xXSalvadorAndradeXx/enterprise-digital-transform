@@ -1,4 +1,13 @@
-import { IsOptional, IsInt, Min, IsString, IsBoolean, IsDate, Max, IsIn } from 'class-validator';
+import {
+  IsOptional,
+  IsInt,
+  Min,
+  IsString,
+  IsBoolean,
+  IsDate,
+  Max,
+  IsIn,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 export class FindCustomersQueryDto {
@@ -40,12 +49,15 @@ export class FindCustomersQueryDto {
 
   @IsOptional()
   @IsIn(['fullName', 'lastOrderAt', 'totalSpent', 'totalOrders'], {
-    message: 'sortBy debe ser uno de: fullName, lastOrderAt, totalSpent, totalOrders',
+    message:
+      'sortBy debe ser uno de: fullName, lastOrderAt, totalSpent, totalOrders',
   })
   sortBy?: string;
 
   @IsOptional()
-  @Transform(({ value }) => typeof value === 'string' ? value.toUpperCase() : value)
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
   @IsIn(['ASC', 'DESC'], {
     message: 'order debe ser ASC o DESC',
   })

@@ -23,7 +23,8 @@ export class PublicCategoryResponseDto {
 
   @ApiProperty({
     example: 12,
-    description: 'Cantidad de productos publicados y disponibles asociados a esta categoría',
+    description:
+      'Cantidad de productos publicados y disponibles asociados a esta categoría',
     type: 'integer',
   })
   publishedProductsCount!: number;

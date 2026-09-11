@@ -93,13 +93,17 @@ describe('CartService', () => {
 
   const mockCartRepository = {
     findOne: jest.fn(),
-    create: jest.fn().mockImplementation((dto) => ({ ...dto, id: 'cart-uuid-1' })),
+    create: jest
+      .fn()
+      .mockImplementation((dto) => ({ ...dto, id: 'cart-uuid-1' })),
     save: jest.fn().mockImplementation((cart) => Promise.resolve(cart)),
   };
 
   const mockCartItemRepository = {
     findOne: jest.fn(),
-    create: jest.fn().mockImplementation((dto) => ({ ...dto, id: 'item-uuid-1' })),
+    create: jest
+      .fn()
+      .mockImplementation((dto) => ({ ...dto, id: 'item-uuid-1' })),
     save: jest.fn().mockImplementation((item) => Promise.resolve(item)),
     remove: jest.fn().mockResolvedValue(mockCartItem),
     delete: jest.fn().mockResolvedValue({ affected: 1 }),
@@ -120,7 +124,8 @@ describe('CartService', () => {
           if (entity === Cart) return mockCartRepository;
           if (entity === CartItem) return mockCartItemRepository;
           if (entity === Product) return mockProductRepository;
-          if (entity === ProductVariantConfig) return mockVariantConfigRepository;
+          if (entity === ProductVariantConfig)
+            return mockVariantConfigRepository;
           return null;
         },
       }),
@@ -156,8 +161,12 @@ describe('CartService', () => {
 
     service = module.get<CartService>(CartService);
     cartRepository = module.get<Repository<Cart>>(getRepositoryToken(Cart));
-    cartItemRepository = module.get<Repository<CartItem>>(getRepositoryToken(CartItem));
-    productRepository = module.get<Repository<Product>>(getRepositoryToken(Product));
+    cartItemRepository = module.get<Repository<CartItem>>(
+      getRepositoryToken(CartItem),
+    );
+    productRepository = module.get<Repository<Product>>(
+      getRepositoryToken(Product),
+    );
     variantConfigRepository = module.get<Repository<ProductVariantConfig>>(
       getRepositoryToken(ProductVariantConfig),
     );
@@ -172,16 +181,19 @@ describe('CartService', () => {
   describe('resolveCart', () => {
     it('should prioritize userId when authenticated JWT is present', async () => {
       mockCartRepository.findOne.mockResolvedValueOnce(mockCart);
-      const result = await service.resolveCart('user-uuid-1', 'some-guest-token');
+      const result = await service.resolveCart(
+        'user-uuid-1',
+        'some-guest-token',
+      );
       expect(result.cart).toEqual(mockCart);
       expect(result.createdGuestToken).toBeNull();
     });
 
     it('should throw CART_NOT_FOUND when user has no active cart on read/update', async () => {
       mockCartRepository.findOne.mockResolvedValueOnce(null);
-      await expect(service.resolveCart('user-uuid-1', null, false)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.resolveCart('user-uuid-1', null, false),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should resolve guest cart via valid X-Cart-Token', async () => {
@@ -211,9 +223,9 @@ describe('CartService', () => {
 
   describe('mergeGuestCartIntoUserCart', () => {
     it('should throw CART_TOKEN_INVALID if xCartToken is missing', async () => {
-      await expect(service.mergeGuestCartIntoUserCart('user-uuid-1', '')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.mergeGuestCartIntoUserCart('user-uuid-1', ''),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should merge guest cart into user cart successfully and mark guest cart ABANDONED', async () => {
@@ -257,7 +269,10 @@ describe('CartService', () => {
       mockProductRepository.findOne.mockResolvedValue(mockProduct);
       mockVariantConfigRepository.findOne.mockResolvedValue(mockVariantConfig);
 
-      const result = await service.mergeGuestCartIntoUserCart('user-uuid-1', plainToken);
+      const result = await service.mergeGuestCartIntoUserCart(
+        'user-uuid-1',
+        plainToken,
+      );
       expect(result.id).toBe('cart-uuid-1');
       expect(mockCartItemRepository.save).toHaveBeenCalled();
       expect(mockCartRepository.save).toHaveBeenCalledWith(

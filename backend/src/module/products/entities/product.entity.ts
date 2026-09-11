@@ -16,6 +16,7 @@ import { User } from '../../users/entities/user.entity';
 import { ProductImage } from './product-image.entity';
 import { ProductTag } from './product-tag.entity';
 import { ProductVariantConfig } from './product-variant-config.entity';
+import { CustomerFavorite } from '../../customers/entities/customer-favorite.entity';
 import { ProductStatus } from '../enums/product-status.enum';
 
 @Entity('products')
@@ -80,7 +81,12 @@ export class Product {
   })
   status!: ProductStatus;
 
-  @Column({ name: 'is_published', type: 'boolean', default: false, nullable: false })
+  @Column({
+    name: 'is_published',
+    type: 'boolean',
+    default: false,
+    nullable: false,
+  })
   isPublished!: boolean;
 
   @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
@@ -109,7 +115,7 @@ export class Product {
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt!: Date | null;
 
-   get isActive(): boolean {
+  get isActive(): boolean {
     return this.status === ProductStatus.ACTIVE;
   }
 
@@ -127,4 +133,7 @@ export class Product {
 
   @OneToMany(() => ProductVariantConfig, (config) => config.product)
   variantConfigs!: ProductVariantConfig[];
+
+  @OneToMany(() => CustomerFavorite, (favorite) => favorite.product)
+  favorites!: CustomerFavorite[];
 }

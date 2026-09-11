@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class LinkCartsToEcommerceCustomers1787900000001
-  implements MigrationInterface
-{
+export class LinkCartsToEcommerceCustomers1787900000001 implements MigrationInterface {
   name = 'LinkCartsToEcommerceCustomers1787900000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  UnauthorizedException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { LocalStrategy } from './local.strategy';
 import { User } from '../../users/entities/user.entity';
@@ -41,7 +45,10 @@ describe('LocalStrategy', () => {
     authService = {
       checkLockout: jest.fn().mockImplementation((user: User) => {
         if (user.isBlocked) {
-          throw new HttpException('La cuenta se encuentra bloqueada por múltiples intentos fallidos', HttpStatus.LOCKED);
+          throw new HttpException(
+            'La cuenta se encuentra bloqueada por múltiples intentos fallidos',
+            HttpStatus.LOCKED,
+          );
         }
         if (!user.isActive) {
           throw new UnauthorizedException('La cuenta se encuentra inactiva');
@@ -77,18 +84,18 @@ describe('LocalStrategy', () => {
     const qb = userRepository.createQueryBuilder();
     qb.getOne.mockResolvedValue(null);
 
-    await expect(strategy.validate('wrong@example.com', 'password123')).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      strategy.validate('wrong@example.com', 'password123'),
+    ).rejects.toThrow(UnauthorizedException);
   });
 
   it('debe lanzar UnauthorizedException (401) si la contraseña es incorrecta', async () => {
     const qb = userRepository.createQueryBuilder();
     qb.getOne.mockResolvedValue(mockUser);
 
-    await expect(strategy.validate('juan@example.com', 'wrongpassword')).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      strategy.validate('juan@example.com', 'wrongpassword'),
+    ).rejects.toThrow(UnauthorizedException);
   });
 
   it('debe lanzar HttpException (423 - Locked) si la cuenta del usuario está bloqueada', async () => {
@@ -96,9 +103,9 @@ describe('LocalStrategy', () => {
     const qb = userRepository.createQueryBuilder();
     qb.getOne.mockResolvedValue(blockedUser);
 
-    await expect(strategy.validate('juan@example.com', 'password123')).rejects.toThrow(
-      HttpException,
-    );
+    await expect(
+      strategy.validate('juan@example.com', 'password123'),
+    ).rejects.toThrow(HttpException);
 
     try {
       await strategy.validate('juan@example.com', 'password123');

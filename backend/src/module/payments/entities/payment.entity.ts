@@ -53,7 +53,9 @@ export class Payment {
     transformer: {
       to: (value: number | string | null) => value,
       from: (value: string | null) =>
-        value === null || value === undefined ? null : String(Number(value).toFixed(2)),
+        value === null || value === undefined
+          ? null
+          : String(Number(value).toFixed(2)),
     },
   })
   amount!: string;
@@ -61,28 +63,60 @@ export class Payment {
   @Column({ type: 'varchar', length: 10, default: 'USD', name: 'currency' })
   currency!: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'external_reference' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'external_reference',
+  })
   externalReference?: string | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'transaction_id' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'transaction_id',
+  })
   transactionId?: string | null;
 
-  @Column({ type: 'varchar', length: 4, nullable: true, name: 'card_last_four' })
+  @Column({
+    type: 'varchar',
+    length: 4,
+    nullable: true,
+    name: 'card_last_four',
+  })
   cardLastFour?: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'card_brand' })
   cardBrand?: string | null;
 
-  @Column({ type: 'varchar', length: 50, nullable: true, name: 'response_code' })
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    name: 'response_code',
+  })
   responseCode?: string | null;
 
-  @Column({ type: 'timestamp with time zone', nullable: true, name: 'approved_at' })
+  @Column({
+    type: 'timestamp with time zone',
+    nullable: true,
+    name: 'approved_at',
+  })
   approvedAt?: Date | null;
 
-  @Column({ type: 'timestamp with time zone', nullable: true, name: 'failed_at' })
+  @Column({
+    type: 'timestamp with time zone',
+    nullable: true,
+    name: 'failed_at',
+  })
   failedAt?: Date | null;
 
-  @Column({ type: 'timestamp with time zone', nullable: true, name: 'refunded_at' })
+  @Column({
+    type: 'timestamp with time zone',
+    nullable: true,
+    name: 'refunded_at',
+  })
   refundedAt?: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })

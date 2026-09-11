@@ -19,10 +19,14 @@ export class BranchSeeder {
   ) {}
 
   async seed(): Promise<void> {
-    this.logger.log('Iniciando seed idempotente de Departamentos, Distritos y Sucursales...');
+    this.logger.log(
+      'Iniciando seed idempotente de Departamentos, Distritos y Sucursales...',
+    );
 
     // 1. Departamentos
-    let dept = await this.departmentRepository.findOne({ where: { code: 'SS' } });
+    let dept = await this.departmentRepository.findOne({
+      where: { code: 'SS' },
+    });
     if (!dept) {
       dept = this.departmentRepository.create({
         id: 1,
@@ -82,11 +86,15 @@ export class BranchSeeder {
     ];
 
     for (const data of branchesData) {
-      let branch = await this.branchRepository.findOne({ where: { code: data.code } });
+      let branch = await this.branchRepository.findOne({
+        where: { code: data.code },
+      });
       if (!branch) {
         branch = this.branchRepository.create(data);
         await this.branchRepository.save(branch);
-        this.logger.log(`Sucursal creada [${data.code}]: ${data.name} (pickup: ${data.allowsPickup})`);
+        this.logger.log(
+          `Sucursal creada [${data.code}]: ${data.name} (pickup: ${data.allowsPickup})`,
+        );
       } else {
         branch.name = data.name;
         branch.address = data.address;

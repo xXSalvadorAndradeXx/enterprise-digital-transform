@@ -23,7 +23,12 @@ export class OrderStatusHistory {
   order!: Order;
 
   // Estado anterior (nulo en la creación inicial de la orden)
-  @Column({ type: 'varchar', length: 50, name: 'status_before', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 50,
+    name: 'status_before',
+    nullable: true,
+  })
   statusBefore!: OrderStatus | null;
 
   // Nuevo estado asignado
@@ -46,4 +51,3 @@ export class OrderStatusHistory {
   @CreateDateColumn({ name: 'changed_at' })
   changedAt!: Date;
 }
-

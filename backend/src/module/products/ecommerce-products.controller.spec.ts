@@ -34,7 +34,13 @@ describe('EcommerceProductsController', () => {
     availableSizes: ['M'],
     images: ['http://localhost:3000/uploads/products/img1.webp'],
     tags: ['deporte'],
-    category: { id: 1, name: 'Calzado', slug: 'calzado', publishedProductsCount: 1, description: null },
+    category: {
+      id: 1,
+      name: 'Calzado',
+      slug: 'calzado',
+      publishedProductsCount: 1,
+      description: null,
+    },
     inStock: true,
     isPublished: true,
     publishedAt: '2026-08-15T12:00:00.000Z',
@@ -69,7 +75,13 @@ describe('EcommerceProductsController', () => {
       },
     ],
     tags: ['deporte'],
-    category: { id: 1, name: 'Calzado', slug: 'calzado', publishedProductsCount: 1, description: null },
+    category: {
+      id: 1,
+      name: 'Calzado',
+      slug: 'calzado',
+      publishedProductsCount: 1,
+      description: null,
+    },
   };
 
   const mockPaginatedResponse = {
@@ -86,7 +98,9 @@ describe('EcommerceProductsController', () => {
 
   const mockProductsService = {
     findEcommerceProducts: jest.fn().mockResolvedValue(mockPaginatedResponse),
-    findEcommerceProductById: jest.fn().mockResolvedValue(mockPublicDetailProduct),
+    findEcommerceProductById: jest
+      .fn()
+      .mockResolvedValue(mockPublicDetailProduct),
     findRelatedProducts: jest.fn().mockResolvedValue([mockPublicProduct]),
   };
 
@@ -101,7 +115,9 @@ describe('EcommerceProductsController', () => {
       ],
     }).compile();
 
-    controller = module.get<EcommerceProductsController>(EcommerceProductsController);
+    controller = module.get<EcommerceProductsController>(
+      EcommerceProductsController,
+    );
     service = module.get<ProductsService>(ProductsService);
   });
 
@@ -139,13 +155,18 @@ describe('EcommerceProductsController', () => {
   it('findOne should return single public detail product', async () => {
     const result = await controller.findOne('prod-uuid-1');
     expect(result).toEqual({ data: mockPublicDetailProduct });
-    expect(service.findEcommerceProductById).toHaveBeenCalledWith('prod-uuid-1');
+    expect(service.findEcommerceProductById).toHaveBeenCalledWith(
+      'prod-uuid-1',
+    );
   });
 
   it('findRelated should return array of related public product cards', async () => {
     const queryDto: RelatedProductsQueryDto = { limit: 4 };
     const result = await controller.findRelated('prod-uuid-1', queryDto);
     expect(result).toEqual([mockPublicProduct]);
-    expect(service.findRelatedProducts).toHaveBeenCalledWith('prod-uuid-1', queryDto);
+    expect(service.findRelatedProducts).toHaveBeenCalledWith(
+      'prod-uuid-1',
+      queryDto,
+    );
   });
 });

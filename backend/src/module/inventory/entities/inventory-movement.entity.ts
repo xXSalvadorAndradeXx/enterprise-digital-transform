@@ -8,9 +8,9 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Product }         from '../../products/entities/product.entity';
-import { User }            from '../../users/entities/user.entity';
-import { MovementType }    from '../enums/movement-type.enum';
+import { Product } from '../../products/entities/product.entity';
+import { User } from '../../users/entities/user.entity';
+import { MovementType } from '../enums/movement-type.enum';
 import { MovementChannel } from '../enums/movement-channel.enum';
 import { InventoryDetail } from './inventory-detail.entity';
 
@@ -44,7 +44,10 @@ export class InventoryMovement {
   @Column({ name: 'reference_id', type: 'uuid', nullable: true })
   referenceId!: string | null;
 
-  @ApiProperty({ enum: MovementChannel, example: MovementChannel.TIENDA_FISICA })
+  @ApiProperty({
+    enum: MovementChannel,
+    example: MovementChannel.TIENDA_FISICA,
+  })
   @Column({
     type: 'enum',
     enum: MovementChannel,
@@ -62,7 +65,11 @@ export class InventoryMovement {
   // publicado en el e-commerce. El movimiento se identifica por
   // inventory_detail_id → inventory_details → inventories → product_name.
   @ApiPropertyOptional({ type: () => Product })
-  @ManyToOne(() => Product, { eager: true, nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Product, {
+    eager: true,
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'product_id' })
   product!: Product | null;
 

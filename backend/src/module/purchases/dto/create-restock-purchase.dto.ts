@@ -1,12 +1,17 @@
 // src/purchases/dto/create-restock-purchase.dto.ts
 import {
-  IsUUID, IsOptional, IsString, IsDateString,
-  IsArray, ValidateNested, ArrayMinSize,
+  IsUUID,
+  IsOptional,
+  IsString,
+  IsDateString,
+  IsArray,
+  ValidateNested,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RestockExistingVariantDto } from './restock-existing-variant.dto';
-import { RestockNewVariantDto }      from './restock-new-variant.dto';
+import { RestockNewVariantDto } from './restock-new-variant.dto';
 
 export class CreateRestockPurchaseDto {
   /** RN-024 */
@@ -24,7 +29,9 @@ export class CreateRestockPurchaseDto {
   @IsDateString()
   purchaseDate!: string;
 
-  @ApiPropertyOptional({ example: 'https://storage.example.com/invoices/factura-002.pdf' })
+  @ApiPropertyOptional({
+    example: 'https://storage.example.com/invoices/factura-002.pdf',
+  })
   @IsOptional()
   @IsString()
   invoiceUrl?: string;

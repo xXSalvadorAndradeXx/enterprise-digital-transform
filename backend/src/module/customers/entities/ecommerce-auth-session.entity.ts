@@ -21,11 +21,18 @@ export class EcommerceAuthSession {
   @Column({ name: 'customer_id', type: 'uuid', nullable: false })
   customerId!: string;
 
-  @ManyToOne(() => Customer, (customer) => customer.authSessions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Customer, (customer) => customer.authSessions, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'customer_id' })
   customer!: Customer;
 
-  @Column({ name: 'refresh_token_hash', type: 'varchar', length: 255, nullable: false })
+  @Column({
+    name: 'refresh_token_hash',
+    type: 'varchar',
+    length: 255,
+    nullable: false,
+  })
   refreshTokenHash!: string;
 
   @Column({ name: 'expires_at', type: 'timestamptz', nullable: false })

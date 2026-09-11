@@ -1,7 +1,10 @@
 // src/purchases/purchases.service.ts
 import {
-  Injectable, NotFoundException, BadRequestException,
-  ConflictException, UnprocessableEntityException,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+  UnprocessableEntityException,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -10,14 +13,14 @@ import { randomUUID } from 'crypto';
 import * as path from 'path';
 import { promises as fs } from 'fs';
 
-import { SupplierPurchase }          from './entities/supplier-purchase.entity';
-import { SupplierPurchaseItem }       from './entities/supplier-purchase-item.entity';
+import { SupplierPurchase } from './entities/supplier-purchase.entity';
+import { SupplierPurchaseItem } from './entities/supplier-purchase-item.entity';
 import { CreateNewProductPurchaseDto } from './dto/create-new-product-purchase.dto';
-import { CreateRestockPurchaseDto }    from './dto/create-restock-purchase.dto';
-import { QueryPurchaseDto }            from './dto/query-purchase.dto';
-import { UpdatePurchaseMetadataDto }   from './dto/update-purchase-metadata.dto';
-import { PurchaseStatus }  from './enums/purchase-status.enum';
-import { PurchaseType }    from './enums/purchase-type.enum';
+import { CreateRestockPurchaseDto } from './dto/create-restock-purchase.dto';
+import { QueryPurchaseDto } from './dto/query-purchase.dto';
+import { UpdatePurchaseMetadataDto } from './dto/update-purchase-metadata.dto';
+import { PurchaseStatus } from './enums/purchase-status.enum';
+import { PurchaseType } from './enums/purchase-type.enum';
 import {
   PurchaseResponseDto,
   PurchaseItemResponseDto,
@@ -38,18 +41,26 @@ export class PurchasesService {
 
   // ── Mapa snake_case → camelCase para orderBy ─────────────────────────────
   private readonly SORT_FIELD_MAP: Record<string, string> = {
-    created_at:   'createdAt',
+    created_at: 'createdAt',
     total_amount: 'totalAmount',
     product_name: 'productName',
   };
 
   // ── Listado con filtros, relaciones y paginación ─────────────────────────
-  async findAll(query: QueryPurchaseDto): Promise<PaginatedPurchaseResponseDto> {
+  async findAll(
+    query: QueryPurchaseDto,
+  ): Promise<PaginatedPurchaseResponseDto> {
     const {
-      type, supplierId, dateFrom, dateTo, search,
-      sortBy = 'created_at', order = 'DESC',
+      type,
+      supplierId,
+      dateFrom,
+      dateTo,
+      search,
+      sortBy = 'created_at',
+      order = 'DESC',
       includeDeleted = false,
-      page = 1, limit = 20,
+      page = 1,
+      limit = 20,
     } = query;
 
     const skip = (page - 1) * limit;
@@ -57,16 +68,16 @@ export class PurchasesService {
 
     const qb = this.purchaseRepo
       .createQueryBuilder('p')
-      .leftJoinAndSelect('p.items',         'items')
-      .leftJoinAndSelect('p.supplier',      'supplier')
+      .leftJoinAndSelect('p.items', 'items')
+      .leftJoinAndSelect('p.supplier', 'supplier')
       .leftJoinAndSelect('p.createdByUser', 'createdByUser')
       .orderBy(`p.${sortField}`, order)
       .skip(skip)
       .take(limit);
 
     if (includeDeleted) qb.withDeleted();
-    if (type)           qb.andWhere('p.type = :type', { type });
-    if (supplierId)     qb.andWhere('p.supplierId = :supplierId', { supplierId });
+    if (type) qb.andWhere('p.type = :type', { type });
+    if (supplierId) qb.andWhere('p.supplierId = :supplierId', { supplierId });
 
     if (search) {
       qb.andWhere(
@@ -76,7 +87,7 @@ export class PurchasesService {
     }
 
     if (dateFrom) qb.andWhere('p.purchaseDate >= :dateFrom', { dateFrom });
-    if (dateTo)   qb.andWhere('p.purchaseDate <= :dateTo',   { dateTo });
+    if (dateTo) qb.andWhere('p.purchaseDate <= :dateTo', { dateTo });
 
     const [purchases, total] = await qb.getManyAndCount();
 
@@ -107,20 +118,24 @@ export class PurchasesService {
   }
 
   // ── Historial de compras por inventario ───────────────────────────────────
-  async findByInventory(inventoryId: string, query: QueryPurchaseDto): Promise<PaginatedPurchaseResponseDto> {
+  async findByInventory(
+    inventoryId: string,
+    query: QueryPurchaseDto,
+  ): Promise<PaginatedPurchaseResponseDto> {
     const [inventory] = await this.dataSource.query(
       `SELECT id FROM inventories WHERE id = $1 AND deleted_at IS NULL`,
       [inventoryId],
     );
-    if (!inventory) throw new NotFoundException(`Inventario ${inventoryId} no encontrado`);
+    if (!inventory)
+      throw new NotFoundException(`Inventario ${inventoryId} no encontrado`);
 
     const { page = 1, limit = 20, order = 'DESC' } = query;
     const skip = (page - 1) * limit;
 
     const qb = this.purchaseRepo
       .createQueryBuilder('p')
-      .leftJoinAndSelect('p.items',         'items')
-      .leftJoinAndSelect('p.supplier',      'supplier')
+      .leftJoinAndSelect('p.items', 'items')
+      .leftJoinAndSelect('p.supplier', 'supplier')
       .leftJoinAndSelect('p.createdByUser', 'createdByUser')
       .where('p.inventoryId = :inventoryId', { inventoryId })
       .orderBy('p.createdAt', order)
@@ -138,7 +153,7 @@ export class PurchasesService {
   // ── Selector de inventarios para formulario de reabastecimiento ──────────
   async getInventoryOptions(search?: string) {
     const param = search ? `%${search}%` : '%';
-    const rows  = await this.dataSource.query(
+    const rows = await this.dataSource.query(
       `SELECT i.id, i.product_name AS "productName", d.sku
        FROM inventories i
        LEFT JOIN LATERAL (
@@ -165,7 +180,8 @@ export class PurchasesService {
        WHERE i.id = $1 AND i.deleted_at IS NULL`,
       [inventoryId],
     );
-    if (!inventory) throw new NotFoundException(`Inventario ${inventoryId} no encontrado`);
+    if (!inventory)
+      throw new NotFoundException(`Inventario ${inventoryId} no encontrado`);
 
     const details = await this.dataSource.query(
       `SELECT id AS "inventoryDetailId", sku, size, color,
@@ -179,21 +195,21 @@ export class PurchasesService {
       statusCode: 200,
       data: {
         inventory: {
-          id:          inventory.id,
+          id: inventory.id,
           productName: inventory.productName,
-          brand:       inventory.brand,
+          brand: inventory.brand,
           category: {
-            id:   inventory.categoryId,
+            id: inventory.categoryId,
             name: inventory.categoryName,
           },
         },
         details: details.map((d: any) => ({
           inventoryDetailId: d.inventoryDetailId,
-          sku:               d.sku,
-          size:              d.size,
-          color:             d.color,
-          currentStock:      Number(d.currentStock),
-          currentUnitCost:   Number(d.currentUnitCost),
+          sku: d.sku,
+          size: d.size,
+          color: d.color,
+          currentStock: Number(d.currentStock),
+          currentUnitCost: Number(d.currentUnitCost),
         })),
       },
     };
@@ -204,23 +220,27 @@ export class PurchasesService {
   // accesible y persistente. Requiere useStaticAssets en main.ts.
   async uploadInvoice(file: Express.Multer.File) {
     const ALLOWED_MIME = ['image/png', 'image/jpeg', 'application/pdf'];
-    const MAX_BYTES    = 10 * 1024 * 1024; // 10 MB — RN-021
+    const MAX_BYTES = 10 * 1024 * 1024; // 10 MB — RN-021
 
     if (!file) {
       throw new BadRequestException('Se requiere un archivo');
     }
     if (!ALLOWED_MIME.includes(file.mimetype)) {
-      throw new UnprocessableEntityException('Archivo de factura no permitido. Use PNG, JPG o PDF.');
+      throw new UnprocessableEntityException(
+        'Archivo de factura no permitido. Use PNG, JPG o PDF.',
+      );
     }
     if (file.size > MAX_BYTES) {
-      throw new UnprocessableEntityException('El archivo excede el tamaño máximo de 10 MB.');
+      throw new UnprocessableEntityException(
+        'El archivo excede el tamaño máximo de 10 MB.',
+      );
     }
 
-    const ext      = path.extname(file.originalname).toLowerCase();
+    const ext = path.extname(file.originalname).toLowerCase();
     const filename = `${randomUUID()}${ext}`;
 
     const uploadDir = path.join(process.cwd(), 'uploads', 'invoices');
-    const filePath  = path.join(uploadDir, filename);
+    const filePath = path.join(uploadDir, filename);
 
     try {
       await fs.mkdir(uploadDir, { recursive: true });
@@ -231,15 +251,15 @@ export class PurchasesService {
       );
     }
 
-    const baseUrl    = process.env.APP_URL ?? 'http://localhost:3000';
+    const baseUrl = process.env.APP_URL ?? 'http://localhost:3000';
     const invoiceUrl = `${baseUrl}/uploads/invoices/${filename}`;
 
     return {
       statusCode: 201,
       data: {
         invoiceUrl,
-        fileName:  file.originalname,
-        mimeType:  file.mimetype,
+        fileName: file.originalname,
+        mimeType: file.mimetype,
         sizeBytes: file.size,
       },
     };
@@ -260,42 +280,54 @@ export class PurchasesService {
       this.validateDuplicateVariants(dto.variants);
 
       const totalQuantity = dto.variants.reduce((s, v) => s + v.quantity, 0);
-      const totalAmount   = dto.variants.reduce((s, v) => s + v.quantity * v.unitCost, 0);
+      const totalAmount = dto.variants.reduce(
+        (s, v) => s + v.quantity * v.unitCost,
+        0,
+      );
 
-      await this.checkDuplicatePurchase(qr, userId, dto.supplierId, totalAmount);
+      await this.checkDuplicatePurchase(
+        qr,
+        userId,
+        dto.supplierId,
+        totalAmount,
+      );
 
-      const skus = await this.generateSkusForVariants(qr, dto.productName, dto.variants.length);
+      const skus = await this.generateSkusForVariants(
+        qr,
+        dto.productName,
+        dto.variants.length,
+      );
       const reference = await this.generateReference(qr);
 
       // ── Paso 1: INSERT supplier_purchases ──────────────────────────────────
       const purchase = qr.manager.create(SupplierPurchase, {
         reference,
-        supplierId:   dto.supplierId,
+        supplierId: dto.supplierId,
         purchaseDate: dto.purchaseDate,
-        type:         PurchaseType.NUEVO_PRODUCTO,
-        productName:  dto.productName,
-        brand:        dto.brand,
-        categoryId:   dto.categoryId,
-        gender:       dto.gender ?? null,
+        type: PurchaseType.NUEVO_PRODUCTO,
+        productName: dto.productName,
+        brand: dto.brand,
+        categoryId: dto.categoryId,
+        gender: dto.gender ?? null,
         totalAmount,
         totalQuantity,
-        invoiceUrl:   dto.invoiceUrl ?? null,
-        status:       PurchaseStatus.COMPLETED,
-        inventoryId:  null,
-        createdBy:    userId,
+        invoiceUrl: dto.invoiceUrl ?? null,
+        status: PurchaseStatus.COMPLETED,
+        inventoryId: null,
+        createdBy: userId,
       });
       const savedPurchase = await qr.manager.save(SupplierPurchase, purchase);
 
       // ── Paso 2: INSERT supplier_purchase_items ─────────────────────────────
       const items = dto.variants.map((v, i) =>
         qr.manager.create(SupplierPurchaseItem, {
-          purchaseId:        savedPurchase.id,
-          sku:               skus[i],
-          size:              v.size,
-          color:             v.color,
-          quantity:          v.quantity,
-          unitCost:          v.unitCost,
-          subtotal:          v.quantity * v.unitCost,
+          purchaseId: savedPurchase.id,
+          sku: skus[i],
+          size: v.size,
+          color: v.color,
+          quantity: v.quantity,
+          unitCost: v.unitCost,
+          subtotal: v.quantity * v.unitCost,
           inventoryDetailId: null,
         }),
       );
@@ -394,7 +426,7 @@ export class PurchasesService {
     userId: string,
   ): Promise<PurchaseResponseDto> {
     const existingVariants = dto.existingVariants ?? [];
-    const newVariants      = dto.newVariants      ?? [];
+    const newVariants = dto.newVariants ?? [];
 
     if (existingVariants.length === 0 && newVariants.length === 0) {
       throw new UnprocessableEntityException(
@@ -414,7 +446,9 @@ export class PurchasesService {
         [dto.inventoryId],
       );
       if (!inventory) {
-        throw new NotFoundException(`Inventario ${dto.inventoryId} no encontrado o inactivo`);
+        throw new NotFoundException(
+          `Inventario ${dto.inventoryId} no encontrado o inactivo`,
+        );
       }
 
       const totalQuantity =
@@ -424,16 +458,32 @@ export class PurchasesService {
         existingVariants.reduce((s, v) => s + v.quantity * v.unitCost, 0) +
         newVariants.reduce((s, v) => s + v.quantity * v.unitCost, 0);
 
-      await this.checkDuplicatePurchase(qr, userId, dto.supplierId, totalAmount);
+      await this.checkDuplicatePurchase(
+        qr,
+        userId,
+        dto.supplierId,
+        totalAmount,
+      );
 
-      const existingDetailIds = existingVariants.map((v) => v.inventoryDetailId);
-      const lockedDetails = existingDetailIds.length > 0
-        ? await this.validateAndLockInventoryDetails(qr, dto.inventoryId, existingDetailIds)
-        : [];
+      const existingDetailIds = existingVariants.map(
+        (v) => v.inventoryDetailId,
+      );
+      const lockedDetails =
+        existingDetailIds.length > 0
+          ? await this.validateAndLockInventoryDetails(
+              qr,
+              dto.inventoryId,
+              existingDetailIds,
+            )
+          : [];
 
       if (newVariants.length > 0) {
         this.validateDuplicateVariants(newVariants);
-        await this.validateNewVariantsDontExist(qr, dto.inventoryId, newVariants);
+        await this.validateNewVariantsDontExist(
+          qr,
+          dto.inventoryId,
+          newVariants,
+        );
       }
 
       const reference = await this.generateReference(qr);
@@ -441,27 +491,27 @@ export class PurchasesService {
       // ── Paso 1: INSERT supplier_purchases ──────────────────────────────────
       const purchase = qr.manager.create(SupplierPurchase, {
         reference,
-        supplierId:   dto.supplierId,
+        supplierId: dto.supplierId,
         purchaseDate: dto.purchaseDate,
-        type:         PurchaseType.REABASTECIMIENTO,
-        productName:  inventory.product_name,
-        brand:        inventory.brand,
-        categoryId:   inventory.category_id,
-        gender:       inventory.gender ?? null,
+        type: PurchaseType.REABASTECIMIENTO,
+        productName: inventory.product_name,
+        brand: inventory.brand,
+        categoryId: inventory.category_id,
+        gender: inventory.gender ?? null,
         totalAmount,
         totalQuantity,
-        invoiceUrl:   dto.invoiceUrl ?? null,
-        status:       PurchaseStatus.COMPLETED,
-        inventoryId:  dto.inventoryId,
-        createdBy:    userId,
+        invoiceUrl: dto.invoiceUrl ?? null,
+        status: PurchaseStatus.COMPLETED,
+        inventoryId: dto.inventoryId,
+        createdBy: userId,
       });
       const savedPurchase = await qr.manager.save(SupplierPurchase, purchase);
 
       // ── Paso 2a: variantes EXISTENTES ─────────────────────────────────────
       for (const v of existingVariants) {
-        const detail      = lockedDetails.find((d) => d.id === v.inventoryDetailId)!;
+        const detail = lockedDetails.find((d) => d.id === v.inventoryDetailId)!;
         const stockBefore = Number(detail.stock);
-        const stockAfter  = stockBefore + v.quantity;
+        const stockAfter = stockBefore + v.quantity;
 
         await qr.query(
           `UPDATE inventory_details
@@ -477,8 +527,11 @@ export class PurchasesService {
            RETURNING *`,
           [
             savedPurchase.id,
-            detail.sku, detail.size, detail.color,
-            v.quantity, v.unitCost,
+            detail.sku,
+            detail.size,
+            detail.color,
+            v.quantity,
+            v.unitCost,
             v.quantity * v.unitCost,
             v.inventoryDetailId,
           ],
@@ -493,9 +546,12 @@ export class PurchasesService {
                    'Ingreso por reabastecimiento',
                    $5,'TIENDA_FISICA',$6)`,
           [
-            v.inventoryDetailId, v.quantity,
-            stockBefore, stockAfter,
-            savedPurchase.id, userId,
+            v.inventoryDetailId,
+            v.quantity,
+            stockBefore,
+            stockAfter,
+            savedPurchase.id,
+            userId,
           ],
         );
       }
@@ -503,7 +559,9 @@ export class PurchasesService {
       // ── Paso 2b: variantes NUEVAS ─────────────────────────────────────────
       if (newVariants.length > 0) {
         const skus = await this.generateSkusForVariants(
-          qr, inventory.product_name, newVariants.length,
+          qr,
+          inventory.product_name,
+          newVariants.length,
         );
 
         for (let i = 0; i < newVariants.length; i++) {
@@ -523,8 +581,11 @@ export class PurchasesService {
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
             [
               savedPurchase.id,
-              skus[i], v.size, v.color,
-              v.quantity, v.unitCost,
+              skus[i],
+              v.size,
+              v.color,
+              v.quantity,
+              v.unitCost,
               v.quantity * v.unitCost,
               detail.id,
             ],
@@ -601,7 +662,7 @@ export class PurchasesService {
         if (!detail) continue;
 
         const stockBefore = Number(detail.stock);
-        const stockAfter  = stockBefore - item.quantity;
+        const stockAfter = stockBefore - item.quantity;
 
         if (stockAfter < 0) {
           throw new UnprocessableEntityException(
@@ -687,8 +748,12 @@ export class PurchasesService {
           `SELECT id, deleted_at FROM suppliers WHERE id = $1`,
           [dto.supplierId],
         );
-        if (!supplier)           throw new NotFoundException(`Proveedor ${dto.supplierId} no encontrado`);
-        if (supplier.deleted_at) throw new NotFoundException('El proveedor ya no está activo');
+        if (!supplier)
+          throw new NotFoundException(
+            `Proveedor ${dto.supplierId} no encontrado`,
+          );
+        if (supplier.deleted_at)
+          throw new NotFoundException('El proveedor ya no está activo');
       }
 
       // ── 2. Validar categoría si cambia ──────────────────────────────────
@@ -697,7 +762,10 @@ export class PurchasesService {
           `SELECT id FROM categories WHERE id = $1`,
           [dto.categoryId],
         );
-        if (!cat) throw new NotFoundException(`Categoría ${dto.categoryId} no encontrada`);
+        if (!cat)
+          throw new NotFoundException(
+            `Categoría ${dto.categoryId} no encontrada`,
+          );
       }
 
       // ── 3. Validar y procesar variantes ─────────────────────────────────
@@ -705,7 +773,7 @@ export class PurchasesService {
         // 3a. Verificar combinaciones talla+color duplicadas
         this.validateDuplicateVariants(
           dto.variants.map((v) => ({
-            size:  v.size  ?? '',
+            size: v.size ?? '',
             color: v.color ?? '',
           })),
         );
@@ -724,7 +792,12 @@ export class PurchasesService {
         // 3c. Para variantes NUEVAS (sin id): validar campos requeridos
         const newVariants = dto.variants.filter((v) => !v.id);
         for (const v of newVariants) {
-          if (!v.size || !v.color || v.quantity === undefined || v.unitCost === undefined) {
+          if (
+            !v.size ||
+            !v.color ||
+            v.quantity === undefined ||
+            v.unitCost === undefined
+          ) {
             throw new UnprocessableEntityException(
               'Las variantes nuevas deben incluir size, color, quantity y unitCost',
             );
@@ -755,13 +828,18 @@ export class PurchasesService {
 
       // ── 4. Actualizar supplier_purchases ────────────────────────────────
       const purchaseChanges: Record<string, unknown> = {};
-      if (dto.supplierId   !== undefined) purchaseChanges['supplier_id']   = dto.supplierId;
-      if (dto.purchaseDate !== undefined) purchaseChanges['purchase_date'] = dto.purchaseDate;
-      if (dto.productName  !== undefined) purchaseChanges['product_name']  = dto.productName;
-      if (dto.categoryId   !== undefined) purchaseChanges['category_id']   = dto.categoryId;
-      if (dto.brand        !== undefined) purchaseChanges['brand']          = dto.brand;
-      if (dto.gender       !== undefined) purchaseChanges['gender']         = dto.gender;
-      if ('invoiceUrl' in dto)            purchaseChanges['invoice_url']    = dto.invoiceUrl ?? null;
+      if (dto.supplierId !== undefined)
+        purchaseChanges['supplier_id'] = dto.supplierId;
+      if (dto.purchaseDate !== undefined)
+        purchaseChanges['purchase_date'] = dto.purchaseDate;
+      if (dto.productName !== undefined)
+        purchaseChanges['product_name'] = dto.productName;
+      if (dto.categoryId !== undefined)
+        purchaseChanges['category_id'] = dto.categoryId;
+      if (dto.brand !== undefined) purchaseChanges['brand'] = dto.brand;
+      if (dto.gender !== undefined) purchaseChanges['gender'] = dto.gender;
+      if ('invoiceUrl' in dto)
+        purchaseChanges['invoice_url'] = dto.invoiceUrl ?? null;
 
       if (Object.keys(purchaseChanges).length > 0) {
         const setClauses = Object.keys(purchaseChanges)
@@ -777,36 +855,38 @@ export class PurchasesService {
       const inventoryId = existing.inventoryId;
       if (inventoryId) {
         const invChanges: Record<string, unknown> = {};
-        if (dto.productName !== undefined) invChanges['product_name'] = dto.productName;
-        if (dto.categoryId  !== undefined) invChanges['category_id']  = dto.categoryId;
-        if (dto.brand       !== undefined) invChanges['brand']         = dto.brand;
-        if (dto.gender      !== undefined) invChanges['gender']        = dto.gender;
-        if (dto.supplierId  !== undefined) invChanges['supplier_id']   = dto.supplierId;
+        if (dto.productName !== undefined)
+          invChanges['product_name'] = dto.productName;
+        if (dto.categoryId !== undefined)
+          invChanges['category_id'] = dto.categoryId;
+        if (dto.brand !== undefined) invChanges['brand'] = dto.brand;
+        if (dto.gender !== undefined) invChanges['gender'] = dto.gender;
+        if (dto.supplierId !== undefined)
+          invChanges['supplier_id'] = dto.supplierId;
 
         if (Object.keys(invChanges).length > 0) {
           const setClauses = Object.keys(invChanges)
             .map((col, i) => `${col} = $${i + 2}`)
             .join(', ');
-          await qr.query(
-            `UPDATE inventories SET ${setClauses} WHERE id = $1`,
-            [inventoryId, ...Object.values(invChanges)],
-          );
+          await qr.query(`UPDATE inventories SET ${setClauses} WHERE id = $1`, [
+            inventoryId,
+            ...Object.values(invChanges),
+          ]);
         }
       }
 
       // ── 6. Procesar variantes ────────────────────────────────────────────
       if (dto.variants && dto.variants.length > 0) {
-
         // ── 6a. Variantes EXISTENTES (con id) ──────────────────────────────
         for (const v of dto.variants) {
           if (!v.id) continue;
 
           const item = existing.items.find((i) => i.id === v.id)!;
 
-          const newQty      = v.quantity  ?? Number(item.quantity);
-          const newUnitCost = v.unitCost  ?? Number(item.unitCost);
-          const newSize     = v.size      ?? item.size;
-          const newColor    = v.color     ?? item.color;
+          const newQty = v.quantity ?? Number(item.quantity);
+          const newUnitCost = v.unitCost ?? Number(item.unitCost);
+          const newSize = v.size ?? item.size;
+          const newColor = v.color ?? item.color;
           const newSubtotal = newQty * newUnitCost;
 
           await qr.query(
@@ -824,22 +904,29 @@ export class PurchasesService {
             );
             if (detail) {
               const stockBefore = Number(detail.stock);
-              const diff        = newQty - Number(item.quantity);
-              const stockAfter  = stockBefore + diff;
+              const diff = newQty - Number(item.quantity);
+              const stockAfter = stockBefore + diff;
 
               await qr.query(
                 `UPDATE inventory_details
                  SET size = $1, color = $2, unit_cost = $3, stock = $4
                  WHERE id = $5`,
-                [newSize, newColor, newUnitCost, stockAfter, item.inventoryDetailId],
+                [
+                  newSize,
+                  newColor,
+                  newUnitCost,
+                  stockAfter,
+                  item.inventoryDetailId,
+                ],
               );
 
               if (diff !== 0) {
-                const movType  = diff > 0 ? 'Entrada' : 'Ajuste';
-                const movQty   = Math.abs(diff);
-                const movNotes = diff > 0
-                  ? 'Ajuste por edición de compra — aumento de cantidad'
-                  : 'Ajuste por edición de compra — reducción de cantidad';
+                const movType = diff > 0 ? 'Entrada' : 'Ajuste';
+                const movQty = Math.abs(diff);
+                const movNotes =
+                  diff > 0
+                    ? 'Ajuste por edición de compra — aumento de cantidad'
+                    : 'Ajuste por edición de compra — reducción de cantidad';
 
                 await qr.query(
                   `INSERT INTO inventory_movements
@@ -849,9 +936,13 @@ export class PurchasesService {
                    VALUES ($1,$2,$3,$4,$5,$6,$7,'TIENDA_FISICA',$8)`,
                   [
                     item.inventoryDetailId,
-                    movType, movQty,
-                    stockBefore, stockAfter,
-                    movNotes, id, userId,
+                    movType,
+                    movQty,
+                    stockBefore,
+                    stockAfter,
+                    movNotes,
+                    id,
+                    userId,
                   ],
                 );
               }
@@ -874,7 +965,12 @@ export class PurchasesService {
           for (let i = 0; i < newVariants.length; i++) {
             const v = newVariants[i];
 
-            if (!v.size || !v.color || v.quantity === undefined || v.unitCost === undefined) {
+            if (
+              !v.size ||
+              !v.color ||
+              v.quantity === undefined ||
+              v.unitCost === undefined
+            ) {
               throw new UnprocessableEntityException(
                 'Las variantes nuevas deben incluir size, color, quantity y unitCost',
               );
@@ -886,7 +982,15 @@ export class PurchasesService {
                  (purchase_id, sku, size, color, quantity, unit_cost, subtotal, inventory_detail_id)
                VALUES ($1,$2,$3,$4,$5,$6,$7,NULL)
                RETURNING *`,
-              [id, skus[i], v.size, v.color, v.quantity, v.unitCost, v.quantity * v.unitCost],
+              [
+                id,
+                skus[i],
+                v.size,
+                v.color,
+                v.quantity,
+                v.unitCost,
+                v.quantity * v.unitCost,
+              ],
             );
 
             // INSERT inventory_detail vinculado al inventory existente
@@ -895,7 +999,15 @@ export class PurchasesService {
                  (inventory_id, purchase_item_id, sku, size, color, stock, unit_cost, min_stock)
                VALUES ($1,$2,$3,$4,$5,$6,$7,0)
                RETURNING *`,
-              [inventoryId, newItem.id, skus[i], v.size, v.color, v.quantity, v.unitCost],
+              [
+                inventoryId,
+                newItem.id,
+                skus[i],
+                v.size,
+                v.color,
+                v.quantity,
+                v.unitCost,
+              ],
             );
 
             // Enlazar item ↔ detail
@@ -953,21 +1065,30 @@ export class PurchasesService {
   // ── Helpers privados ──────────────────────────────────────────────────────
 
   /** RN-024 */
-  private async validateActiveSupplier(qr: QueryRunner, supplierId: string): Promise<void> {
+  private async validateActiveSupplier(
+    qr: QueryRunner,
+    supplierId: string,
+  ): Promise<void> {
     const [supplier] = await qr.query(
       `SELECT id, deleted_at FROM suppliers WHERE id = $1`,
       [supplierId],
     );
-    if (!supplier)           throw new NotFoundException(`Proveedor ${supplierId} no encontrado`);
-    if (supplier.deleted_at) throw new NotFoundException('El proveedor ya no está activo');
+    if (!supplier)
+      throw new NotFoundException(`Proveedor ${supplierId} no encontrado`);
+    if (supplier.deleted_at)
+      throw new NotFoundException('El proveedor ya no está activo');
   }
 
-  private async validateCategory(qr: QueryRunner, categoryId: number): Promise<void> {
+  private async validateCategory(
+    qr: QueryRunner,
+    categoryId: number,
+  ): Promise<void> {
     const [category] = await qr.query(
       `SELECT id FROM categories WHERE id = $1`,
       [categoryId],
     );
-    if (!category) throw new NotFoundException(`Categoría ${categoryId} no encontrada`);
+    if (!category)
+      throw new NotFoundException(`Categoría ${categoryId} no encontrada`);
   }
 
   /** RN-029: mismo usuario + mismo proveedor + mismo total en < 30 s */
@@ -981,16 +1102,16 @@ export class PurchasesService {
 
     const duplicate = await qr.manager
       .createQueryBuilder(SupplierPurchase, 'p')
-      .where('p.createdBy = :userId',       { userId })
+      .where('p.createdBy = :userId', { userId })
       .andWhere('p.supplierId = :supplierId', { supplierId })
-      .andWhere('p.totalAmount = :total',    { total: totalAmount })
-      .andWhere('p.createdAt >= :since',     { since })
+      .andWhere('p.totalAmount = :total', { total: totalAmount })
+      .andWhere('p.createdAt >= :since', { since })
       .getOne();
 
     if (duplicate) {
       throw new ConflictException(
-        'Posible doble envío detectado. El mismo usuario ya registró una compra '
-        + 'idéntica en los últimos 30 segundos.',
+        'Posible doble envío detectado. El mismo usuario ya registró una compra ' +
+          'idéntica en los últimos 30 segundos.',
       );
     }
   }
@@ -1028,8 +1149,8 @@ export class PurchasesService {
       );
       if (existing) {
         throw new ConflictException(
-          `La variante talla "${v.size}" / color "${v.color}" ya existe en este inventario. `
-          + `Usa existingVariants para reabastecerla.`,
+          `La variante talla "${v.size}" / color "${v.color}" ya existe en este inventario. ` +
+            `Usa existingVariants para reabastecerla.`,
         );
       }
     }
@@ -1056,7 +1177,10 @@ export class PurchasesService {
           `SELECT id FROM inventory_details WHERE sku = $1 LIMIT 1`,
           [candidate],
         );
-        if (!existing) { sku = candidate; break; }
+        if (!existing) {
+          sku = candidate;
+          break;
+        }
         attempts++;
       }
 
@@ -1074,10 +1198,13 @@ export class PurchasesService {
 
   /** RN-006: PREFIJO-TIMESTAMP-VARIANTE */
   private buildSku(productName: string, index: number): string {
-    const prefix    = productName.substring(0, 3).toUpperCase()
-                        .replace(/[^A-Z]/g, 'X').padEnd(3, 'X');
+    const prefix = productName
+      .substring(0, 3)
+      .toUpperCase()
+      .replace(/[^A-Z]/g, 'X')
+      .padEnd(3, 'X');
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const variant   = String(index + 1).padStart(3, '0');
+    const variant = String(index + 1).padStart(3, '0');
     return `${prefix}-${timestamp}-${variant}`;
   }
 
@@ -1121,7 +1248,9 @@ export class PurchasesService {
       );
 
       if (!detail) {
-        throw new NotFoundException(`Detalle de inventario ${detailId} no encontrado`);
+        throw new NotFoundException(
+          `Detalle de inventario ${detailId} no encontrado`,
+        );
       }
       if (detail.inventory_id !== inventoryId) {
         throw new ConflictException(
@@ -1136,7 +1265,10 @@ export class PurchasesService {
   }
 
   /** Recalcula inventories.stock como SUM de sus variantes */
-  private async recalcInventoryStock(qr: QueryRunner, inventoryId: string): Promise<void> {
+  private async recalcInventoryStock(
+    qr: QueryRunner,
+    inventoryId: string,
+  ): Promise<void> {
     await qr.query(
       `UPDATE inventories
        SET stock = (
@@ -1153,25 +1285,25 @@ export class PurchasesService {
   private mapToResponseDto(p: SupplierPurchase): PurchaseResponseDto {
     const dto = new PurchaseResponseDto();
 
-    dto.id            = p.id;
-    dto.reference     = p.reference ?? '';
-    dto.type          = p.type;
-    dto.productName   = p.productName;
-    dto.brand         = p.brand ?? '';
-    dto.categoryId    = p.categoryId ?? 0;
-    dto.gender        = p.gender ?? null;
-    dto.purchaseDate  = p.purchaseDate ?? '';
-    dto.totalAmount   = Number(p.totalAmount);
+    dto.id = p.id;
+    dto.reference = p.reference ?? '';
+    dto.type = p.type;
+    dto.productName = p.productName;
+    dto.brand = p.brand ?? '';
+    dto.categoryId = p.categoryId ?? 0;
+    dto.gender = p.gender ?? null;
+    dto.purchaseDate = p.purchaseDate ?? '';
+    dto.totalAmount = Number(p.totalAmount);
     dto.totalQuantity = Number(p.totalQuantity);
-    dto.invoiceUrl    = p.invoiceUrl;
-    dto.status        = p.status;
-    dto.inventoryId   = p.inventoryId;
-    dto.createdAt     = p.createdAt;
-    dto.deletedAt     = p.deletedAt;
+    dto.invoiceUrl = p.invoiceUrl;
+    dto.status = p.status;
+    dto.inventoryId = p.inventoryId;
+    dto.createdAt = p.createdAt;
+    dto.deletedAt = p.deletedAt;
 
     if (p.supplier) {
       const s = new SupplierSummaryDto();
-      s.id   = p.supplier.id;
+      s.id = p.supplier.id;
       s.name = (p.supplier as any).name ?? '';
       dto.supplier = s;
     } else {
@@ -1180,9 +1312,9 @@ export class PurchasesService {
 
     if (p.createdByUser) {
       const u = new UserSummaryDto();
-      u.id        = p.createdByUser.id;
+      u.id = p.createdByUser.id;
       u.firstName = (p.createdByUser as any).firstName ?? '';
-      u.lastName  = (p.createdByUser as any).lastName  ?? '';
+      u.lastName = (p.createdByUser as any).lastName ?? '';
       dto.createdBy = u;
     } else {
       dto.createdBy = { id: p.createdBy, firstName: '', lastName: '' };
@@ -1192,13 +1324,13 @@ export class PurchasesService {
     // Frontend pueda vincular variante ↔ inventory_detail sin GET adicional.
     dto.items = (p.items ?? []).map((item) => {
       const i = new PurchaseItemResponseDto();
-      i.id                = item.id;
-      i.sku               = item.sku;
-      i.size              = item.size;
-      i.color             = item.color;
-      i.quantity          = Number(item.quantity);
-      i.unitCost          = Number(item.unitCost);
-      i.subtotal          = Number(item.subtotal);
+      i.id = item.id;
+      i.sku = item.sku;
+      i.size = item.size;
+      i.color = item.color;
+      i.quantity = Number(item.quantity);
+      i.unitCost = Number(item.unitCost);
+      i.subtotal = Number(item.subtotal);
       i.inventoryDetailId = item.inventoryDetailId ?? null; // ← FIX
       return i;
     });

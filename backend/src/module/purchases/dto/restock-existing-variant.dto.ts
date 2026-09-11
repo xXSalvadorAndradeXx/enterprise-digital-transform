@@ -15,7 +15,7 @@ export class RestockExistingVariantDto {
   quantity!: number;
 
   /** RN-003: actualiza el costo unitario histórico */
-  @ApiProperty({ example: 9.00 })
+  @ApiProperty({ example: 9.0 })
   @IsNumber()
   @Min(0)
   unitCost!: number;

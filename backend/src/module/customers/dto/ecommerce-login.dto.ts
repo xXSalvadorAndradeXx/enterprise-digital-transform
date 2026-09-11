@@ -1,5 +1,11 @@
 // src/module/customers/dto/ecommerce-login.dto.ts
-import { IsEmail, IsString, IsNotEmpty, IsBoolean, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsNotEmpty,
+  IsBoolean,
+  IsOptional,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -10,7 +16,9 @@ export class EcommerceLoginDto {
   })
   @IsEmail({}, { message: 'El formato del correo es inválido' })
   @IsNotEmpty({ message: 'El correo electrónico es obligatorio' })
-  @Transform(({ value }) => typeof value === 'string' ? value.toLowerCase().trim() : value)
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toLowerCase().trim() : value,
+  )
   email!: string;
 
   @ApiProperty({

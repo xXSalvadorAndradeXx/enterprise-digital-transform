@@ -1,9 +1,20 @@
 // src/purchases/dto/update-purchase-metadata.dto.ts
 import {
-  IsOptional, IsUUID, IsString, IsDateString,
-  IsEnum, IsArray, ValidateNested, IsInt,
-  IsNumber, IsPositive, Min, MinLength, MaxLength,
-  Matches, ArrayMinSize,
+  IsOptional,
+  IsUUID,
+  IsString,
+  IsDateString,
+  IsEnum,
+  IsArray,
+  ValidateNested,
+  IsInt,
+  IsNumber,
+  IsPositive,
+  Min,
+  MinLength,
+  MaxLength,
+  Matches,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
@@ -39,7 +50,7 @@ export class UpdatePurchaseVariantDto {
   quantity?: number;
 
   /** RN-009: >= 0 */
-  @ApiPropertyOptional({ example: 20.00 })
+  @ApiPropertyOptional({ example: 20.0 })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -86,7 +97,10 @@ export class UpdatePurchaseMetadataDto {
   gender?: ProductGender | null;
 
   /** RN-021/022 — admite null para borrar la factura */
-  @ApiPropertyOptional({ example: 'https://cdn.erp.com/invoices/inv-001.pdf', nullable: true })
+  @ApiPropertyOptional({
+    example: 'https://cdn.erp.com/invoices/inv-001.pdf',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   invoiceUrl?: string | null;

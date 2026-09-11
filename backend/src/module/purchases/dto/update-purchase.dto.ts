@@ -1,7 +1,10 @@
 // src/purchases/dto/update-purchase.dto.ts
 import {
-  IsOptional, IsUrl,
-  IsArray, ArrayMinSize, ValidateNested,
+  IsOptional,
+  IsUrl,
+  IsArray,
+  ArrayMinSize,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
@@ -13,7 +16,7 @@ export class UpdatePurchaseDto {
   @IsUrl()
   invoiceUrl?: string;
 
-@ApiPropertyOptional({ type: [CreatePurchaseVariantDto] })
-@Type(() => CreatePurchaseVariantDto)
-items?: CreatePurchaseVariantDto[];
+  @ApiPropertyOptional({ type: [CreatePurchaseVariantDto] })
+  @Type(() => CreatePurchaseVariantDto)
+  items?: CreatePurchaseVariantDto[];
 }

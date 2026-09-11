@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { NotFoundException, BadRequestException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { PurchasesService } from './purchases.service';
 import { SupplierPurchase } from './entities/supplier-purchase.entity';
 import { SupplierPurchaseItem } from './entities/supplier-purchase-item.entity';
@@ -15,7 +19,10 @@ const mockQR = {
   release: jest.fn().mockResolvedValue(undefined),
   manager: {
     create: jest.fn().mockImplementation((entityClass, data) => data),
-    save: jest.fn().mockImplementation(async (entityClass, data) => ({ id: 'purchase-1', ...data })),
+    save: jest.fn().mockImplementation(async (entityClass, data) => ({
+      id: 'purchase-1',
+      ...data,
+    })),
     createQueryBuilder: jest.fn().mockReturnValue({
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -56,8 +63,14 @@ describe('PurchasesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PurchasesService,
-        { provide: getRepositoryToken(SupplierPurchase), useValue: mockPurchaseRepo },
-        { provide: getRepositoryToken(SupplierPurchaseItem), useValue: mockItemRepo },
+        {
+          provide: getRepositoryToken(SupplierPurchase),
+          useValue: mockPurchaseRepo,
+        },
+        {
+          provide: getRepositoryToken(SupplierPurchaseItem),
+          useValue: mockItemRepo,
+        },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
@@ -93,7 +106,9 @@ describe('PurchasesService', () => {
         productName: 'Camisa Test',
         brand: 'Brand Test',
         categoryId: 1,
-        variants: [{ size: 'M', color: '#000000', quantity: 10, unitCost: 15.5 }],
+        variants: [
+          { size: 'M', color: '#000000', quantity: 10, unitCost: 15.5 },
+        ],
       };
 
       const result = await service.createNuevoProducto(dto as any, 'user-1');
@@ -115,11 +130,13 @@ describe('PurchasesService', () => {
         productName: 'Camisa Test',
         brand: 'Brand Test',
         categoryId: 1,
-        variants: [{ size: 'M', color: '#000000', quantity: 10, unitCost: 15.5 }],
+        variants: [
+          { size: 'M', color: '#000000', quantity: 10, unitCost: 15.5 },
+        ],
       };
 
       await expect(
-        service.createNuevoProducto(dto as any, 'user-1')
+        service.createNuevoProducto(dto as any, 'user-1'),
       ).rejects.toThrow(NotFoundException);
       expect(mockQR.rollbackTransaction).toHaveBeenCalled();
     });
@@ -138,12 +155,14 @@ describe('PurchasesService', () => {
         supplierId: 'bad-supplier',
         purchaseDate: new Date(),
         inventoryId: 'inv-1',
-        existingVariants: [{ inventoryDetailId: 'detail-1', quantity: 5, unitCost: 10 }],
+        existingVariants: [
+          { inventoryDetailId: 'detail-1', quantity: 5, unitCost: 10 },
+        ],
         newVariants: [],
       };
 
       await expect(
-        service.createReabastecimiento(dto as any, 'user-1')
+        service.createReabastecimiento(dto as any, 'user-1'),
       ).rejects.toThrow(NotFoundException);
     });
   });

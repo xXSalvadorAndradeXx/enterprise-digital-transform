@@ -11,7 +11,6 @@ export class PurchaseItemResponseDto {
   @ApiProperty() unitCost!: number;
   @ApiProperty() subtotal!: number;
 
-  
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   inventoryDetailId!: string | null;
 }
@@ -52,15 +51,17 @@ export class PurchaseResponseDto {
   @ApiProperty() totalQuantity!: number;
 
   @ApiPropertyOptional() invoiceUrl!: string | null;
-  @ApiProperty()         status!: string;
+  @ApiProperty() status!: string;
 
   @ApiPropertyOptional({ format: 'uuid' }) inventoryId!: string | null;
 
-  @ApiProperty({ type: () => SupplierSummaryDto }) supplier!: SupplierSummaryDto;
-  @ApiProperty({ type: [PurchaseItemResponseDto] }) items!: PurchaseItemResponseDto[];
-  @ApiProperty({ type: () => UserSummaryDto })      createdBy!: UserSummaryDto;
+  @ApiProperty({ type: () => SupplierSummaryDto })
+  supplier!: SupplierSummaryDto;
+  @ApiProperty({ type: [PurchaseItemResponseDto] })
+  items!: PurchaseItemResponseDto[];
+  @ApiProperty({ type: () => UserSummaryDto }) createdBy!: UserSummaryDto;
 
-  @ApiProperty()         createdAt!: Date;
+  @ApiProperty() createdAt!: Date;
   @ApiPropertyOptional() deletedAt!: Date | null;
 }
 

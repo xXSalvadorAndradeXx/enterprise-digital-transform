@@ -35,7 +35,8 @@ export class CheckoutItemDto {
   quantity!: number;
 
   @ApiProperty({
-    description: 'Precio de referencia del producto al agregarlo (opcional para control de fluctuaciones)',
+    description:
+      'Precio de referencia del producto al agregarlo (opcional para control de fluctuaciones)',
     example: '10.00',
     required: false,
   })
@@ -56,7 +57,10 @@ export class CheckoutContactDto {
     description: 'Correo electrónico de contacto',
     example: 'juan.perez@example.com',
   })
-  @IsEmail({}, { message: 'El correo electrónico debe ser una dirección válida' })
+  @IsEmail(
+    {},
+    { message: 'El correo electrónico debe ser una dirección válida' },
+  )
   email!: string;
 
   @ApiProperty({
@@ -90,7 +94,7 @@ export class CheckoutDeliveryDto {
     example: 'SS',
     required: false,
   })
-  @ValidateIf(o => o.deliveryType === DeliveryType.HOME_DELIVERY)
+  @ValidateIf((o) => o.deliveryType === DeliveryType.HOME_DELIVERY)
   @IsOptional()
   @IsString()
   departmentId?: string;
@@ -100,7 +104,7 @@ export class CheckoutDeliveryDto {
     example: 'SS-01',
     required: false,
   })
-  @ValidateIf(o => o.deliveryType === DeliveryType.HOME_DELIVERY)
+  @ValidateIf((o) => o.deliveryType === DeliveryType.HOME_DELIVERY)
   @IsOptional()
   @IsString()
   districtId?: string;
@@ -110,7 +114,7 @@ export class CheckoutDeliveryDto {
     example: 'San Salvador Centro',
     required: false,
   })
-  @ValidateIf(o => o.deliveryType === DeliveryType.HOME_DELIVERY)
+  @ValidateIf((o) => o.deliveryType === DeliveryType.HOME_DELIVERY)
   @IsOptional()
   @IsString()
   city?: string;
@@ -120,7 +124,7 @@ export class CheckoutDeliveryDto {
     example: 'Calle al Volcán, No. 12',
     required: false,
   })
-  @ValidateIf(o => o.deliveryType === DeliveryType.HOME_DELIVERY)
+  @ValidateIf((o) => o.deliveryType === DeliveryType.HOME_DELIVERY)
   @IsOptional()
   @IsString()
   addressLine?: string;
@@ -130,13 +134,14 @@ export class CheckoutDeliveryDto {
     example: '123e4567-e89b-12d3-a456-426614174888',
     required: false,
   })
-  @ValidateIf(o => o.deliveryType === DeliveryType.STORE_PICKUP)
+  @ValidateIf((o) => o.deliveryType === DeliveryType.STORE_PICKUP)
   @IsOptional()
   @IsUUID()
   branchId?: string;
 
   @ApiProperty({
-    description: 'Establecer esta dirección como predeterminada (solo para HOME_DELIVERY)',
+    description:
+      'Establecer esta dirección como predeterminada (solo para HOME_DELIVERY)',
     example: true,
     required: false,
   })
@@ -161,7 +166,8 @@ export class CheckoutCardDto {
   cardBrand!: string;
 
   @ApiProperty({
-    description: 'Token seguro de tarjeta del procesador (alternativo a datos de tarjeta)',
+    description:
+      'Token seguro de tarjeta del procesador (alternativo a datos de tarjeta)',
     example: 'tok_sandbox_12345',
     required: false,
   })
@@ -170,7 +176,8 @@ export class CheckoutCardDto {
   cardToken?: string;
 
   @ApiProperty({
-    description: 'Flag para simular el resultado exitoso (true) o fallido (false) del pago con tarjeta',
+    description:
+      'Flag para simular el resultado exitoso (true) o fallido (false) del pago con tarjeta',
     example: true,
     required: false,
   })
@@ -193,9 +200,11 @@ export class CheckoutDto {
     description: 'Lista de ítems (obligatorio solo para BUY_NOW)',
     required: false,
   })
-  @ValidateIf(o => o.source === CheckoutSource.BUY_NOW)
+  @ValidateIf((o) => o.source === CheckoutSource.BUY_NOW)
   @IsArray()
-  @ArrayNotEmpty({ message: 'Los ítems son obligatorios cuando source es BUY_NOW' })
+  @ArrayNotEmpty({
+    message: 'Los ítems son obligatorios cuando source es BUY_NOW',
+  })
   @ValidateNested({ each: true })
   @Type(() => CheckoutItemDto)
   items?: CheckoutItemDto[];
@@ -226,21 +235,23 @@ export class CheckoutDto {
 
   @ApiProperty({
     type: CheckoutCardDto,
-    description: 'Datos seguros de tarjeta (obligatorio si paymentMethod es CARD)',
+    description:
+      'Datos seguros de tarjeta (obligatorio si paymentMethod es CARD)',
     required: false,
   })
-  @ValidateIf(o => o.paymentMethod === PaymentMethod.CARD)
+  @ValidateIf((o) => o.paymentMethod === PaymentMethod.CARD)
   @IsOptional()
   @ValidateNested()
   @Type(() => CheckoutCardDto)
   card?: CheckoutCardDto;
 
   @ApiProperty({
-    description: 'Indica si se debe guardar la dirección (solo para HOME_DELIVERY y usuario autenticado)',
+    description:
+      'Indica si se debe guardar la dirección (solo para HOME_DELIVERY y usuario autenticado)',
     example: true,
     required: false,
   })
-  @ValidateIf(o => o.source === CheckoutSource.CART)
+  @ValidateIf((o) => o.source === CheckoutSource.CART)
   @IsOptional()
   @IsBoolean()
   saveAddress?: boolean;

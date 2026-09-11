@@ -1,4 +1,11 @@
-import { IsOptional, IsInt, Min, IsString, IsBoolean, IsUUID } from 'class-validator';
+import {
+  IsOptional,
+  IsInt,
+  Min,
+  IsString,
+  IsBoolean,
+  IsUUID,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 export class FindUsersQueryDto {
