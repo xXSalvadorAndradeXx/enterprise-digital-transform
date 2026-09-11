@@ -5,6 +5,7 @@ import {
   ApiOperation,
   ApiOkResponse,
   ApiNotFoundResponse,
+  ApiBadRequestResponse,
   ApiParam,
 } from '@nestjs/swagger';
 import { LocationsService } from './locations.service';
@@ -22,11 +23,12 @@ export class LocationsController {
    */
   @Get('departments')
   @ApiOperation({
-    summary: 'Listar departamentos activos',
+    summary: 'Listar departamentos activos (Catálogo Checkout y Direcciones)',
     description:
       'Devuelve el catálogo de departamentos activos de El Salvador, ' +
       'ordenados alfabéticamente por nombre. Solo retorna los campos ' +
-      'necesarios para selección en frontend: id, name y code.',
+      'necesarios para selección en frontend: id, name y code. ' +
+      'Sirve como catálogo base para formularios de direcciones y selector de destino en Checkout.',
   })
   @ApiOkResponse({
     description: 'Listado de departamentos activos obtenido exitosamente.',
@@ -46,7 +48,8 @@ export class LocationsController {
     description:
       'Devuelve los distritos activos pertenecientes al departamento indicado, ' +
       'ordenados alfabéticamente por nombre. Valida que el departamento exista ' +
-      'y esté activo. Retorna id, name, code y departmentId.',
+      'y esté activo. Retorna id, name, code y departmentId. ' +
+      'Permite la carga dinámica dependiente en la selección de ubicación de direcciones y Checkout.',
   })
   @ApiParam({
     name: 'departmentId',
@@ -58,6 +61,10 @@ export class LocationsController {
     description:
       'Listado de distritos activos del departamento obtenido exitosamente.',
     type: [DistrictResponseDto],
+  })
+  @ApiBadRequestResponse({
+    description:
+      'El parámetro departmentId no es válido o está vacío (VALIDATION_ERROR).',
   })
   @ApiNotFoundResponse({
     description:

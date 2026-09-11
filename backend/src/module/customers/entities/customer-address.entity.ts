@@ -36,6 +36,15 @@ export class CustomerAddress {
   @Column({ name: 'label', type: 'varchar', length: 50, nullable: false })
   label!: string;
 
+  @Column({ name: 'recipient_name', type: 'varchar', length: 150, nullable: true })
+  recipientName?: string | null;
+
+  @Column({ name: 'phone', type: 'varchar', length: 20, nullable: true })
+  phone?: string | null;
+
+  @Column({ name: 'reference', type: 'text', nullable: true })
+  reference?: string | null;
+
   @Column({
     name: 'is_default',
     type: 'boolean',

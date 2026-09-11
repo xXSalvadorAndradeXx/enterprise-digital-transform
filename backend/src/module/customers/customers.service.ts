@@ -19,6 +19,8 @@ import { HashService } from '../auth/services/hash.service';
 import { EcommerceRegisterDto } from './dto/ecommerce-register.dto';
 import { CustomerProfileResponseDto } from './dto/customer-profile-response.dto';
 import { UpdateCustomerProfileDto } from './dto/update-customer-profile.dto';
+import { CreateCustomerAddressDto } from './dto/create-customer-address.dto';
+import { UpdateCustomerAddressDto } from './dto/update-customer-address.dto';
 import { plainToInstance } from 'class-transformer';
 import {
   SESSION_ABSOLUTE_MAX_TTL_SECONDS,
@@ -486,17 +488,28 @@ export class CustomersService {
   }
 
   /**
-   * Obtiene todas las direcciones de un cliente, ordenadas de forma consistente (predeterminada primero).
+   * Obtiene todas las direcciones activas del cliente autenticado,
+   * ordenadas con la dirección predeterminada primero (isDefault: DESC) y luego
+   * por fecha de creación más reciente (createdAt: DESC) para máxima estabilidad.
+   * Retorna [] si no existen direcciones registradas.
    */
-  async getAddresses(customerId: string): Promise<CustomerAddress[]> {
+  async findAllByCustomer(customerId: string): Promise<CustomerAddress[]> {
     return await this.addressRepository.find({
-      where: { customerId },
+      where: { customerId, deletedAt: IsNull() },
       relations: ['department', 'district'],
       order: {
         isDefault: 'DESC',
-        createdAt: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
       },
     });
+  }
+
+  /**
+   * Alias de findAllByCustomer para compatibilidad con código existente.
+   */
+  async getAddresses(customerId: string): Promise<CustomerAddress[]> {
+    return await this.findAllByCustomer(customerId);
   }
 
   /**
@@ -506,11 +519,15 @@ export class CustomersService {
     manager: EntityManager,
     customerId: string,
   ): Promise<void> {
-    await manager.update(
-      CustomerAddress,
-      { customerId, isDefault: true, deletedAt: IsNull() },
-      { isDefault: false },
-    );
+    await manager
+      .createQueryBuilder()
+      .update(CustomerAddress)
+      .set({ isDefault: false })
+      .where(
+        'customer_id = :customerId AND is_default = true AND deleted_at IS NULL',
+        { customerId },
+      )
+      .execute();
   }
 
   /**
@@ -518,7 +535,7 @@ export class CustomersService {
    */
   async createAddress(
     customerId: string,
-    data: Partial<CustomerAddress>,
+    data: CreateCustomerAddressDto | any,
   ): Promise<CustomerAddress> {
     const customer = await this.findOne(customerId);
 
@@ -531,6 +548,11 @@ export class CustomersService {
       data.departmentId,
       data.districtId,
     );
+
+    const resolvedLabel =
+      typeof data.getResolvedLabel === 'function'
+        ? data.getResolvedLabel()
+        : data.alias || data.label || 'Principal';
 
     return await this.customerRepository.manager.transaction(
       async (manager) => {
@@ -548,7 +570,14 @@ export class CustomersService {
         }
 
         const address = manager.create(CustomerAddress, {
-          ...data,
+          departmentId: data.departmentId,
+          districtId: data.districtId,
+          city: data.city,
+          addressLine: data.addressLine,
+          label: resolvedLabel,
+          recipientName: data.recipientName ?? null,
+          phone: data.phone ?? null,
+          reference: data.reference ?? null,
           customerId: customer.id,
           isDefault,
         });
@@ -556,10 +585,12 @@ export class CustomersService {
         const savedAddress = await manager.save(CustomerAddress, address);
 
         // Recargar con relaciones
-        return (await manager.findOne(CustomerAddress, {
+        const reloaded = await manager.findOne(CustomerAddress, {
           where: { id: savedAddress.id },
           relations: ['department', 'district'],
-        }))!;
+        });
+
+        return reloaded || savedAddress;
       },
     );
   }
@@ -570,7 +601,7 @@ export class CustomersService {
   async updateAddress(
     customerId: string,
     addressId: string,
-    data: Partial<CustomerAddress>,
+    data: UpdateCustomerAddressDto | any,
   ): Promise<CustomerAddress> {
     const address = await this.addressRepository.findOne({
       where: { id: addressId, customerId },
@@ -602,13 +633,43 @@ export class CustomersService {
           await this.clearDefaultAddress(manager, customerId);
         }
 
-        Object.assign(address, data);
+        if (data.departmentId !== undefined) address.departmentId = data.departmentId;
+        if (data.districtId !== undefined) address.districtId = data.districtId;
+        if (data.city !== undefined) address.city = data.city;
+        if (data.addressLine !== undefined) address.addressLine = data.addressLine;
+        if (data.isDefault !== undefined) {
+          if (data.isDefault === false && address.isDefault) {
+            const activeAddressCount = await manager.count(CustomerAddress, {
+              where: { customerId, deletedAt: IsNull() },
+            });
+            // Si es la única dirección activa, no se desmarca como default
+            address.isDefault = activeAddressCount > 1 ? false : true;
+          } else {
+            address.isDefault = data.isDefault;
+          }
+        }
+        if (data.recipientName !== undefined) address.recipientName = data.recipientName;
+        if (data.phone !== undefined) address.phone = data.phone;
+        if (data.reference !== undefined) address.reference = data.reference;
+
+        const resolvedLabel =
+          typeof data.getResolvedLabel === 'function'
+            ? data.getResolvedLabel()
+            : data.alias !== undefined
+              ? data.alias
+              : data.label;
+        if (resolvedLabel !== undefined) {
+          address.label = resolvedLabel;
+        }
+
         const saved = await manager.save(CustomerAddress, address);
 
-        return (await manager.findOne(CustomerAddress, {
+        const reloaded = await manager.findOne(CustomerAddress, {
           where: { id: saved.id },
           relations: ['department', 'district'],
-        }))!;
+        });
+
+        return reloaded || saved;
       },
     );
   }
@@ -623,6 +684,7 @@ export class CustomersService {
     // 1. Validar que la dirección solicitada exista, pertenezca al cliente y no esté eliminada.
     const targetAddress = await this.addressRepository.findOne({
       where: { id: addressId, customerId },
+      relations: ['department', 'district'],
     });
 
     if (!targetAddress) {
@@ -632,7 +694,12 @@ export class CustomersService {
       });
     }
 
-    // 2. Ejecutar dentro de una transacción para asegurar consistencia
+    // 2. Operación idempotente si ya era la dirección principal activa
+    if (targetAddress.isDefault) {
+      return targetAddress;
+    }
+
+    // 3. Ejecutar dentro de una transacción para asegurar consistencia
     return await this.customerRepository.manager.transaction(
       async (transactionalEntityManager) => {
         // Desmarcar la dirección principal actual
@@ -640,21 +707,36 @@ export class CustomersService {
 
         // Marcar la nueva dirección como principal
         targetAddress.isDefault = true;
-        const saved = await transactionalEntityManager.save(targetAddress);
+        const saved = await transactionalEntityManager.save(
+          CustomerAddress,
+          targetAddress,
+        );
 
-        return (await transactionalEntityManager.findOne(CustomerAddress, {
-          where: { id: saved.id },
-          relations: ['department', 'district'],
-        }))!;
+        const reloaded = await transactionalEntityManager.findOne(
+          CustomerAddress,
+          {
+            where: { id: saved.id },
+            relations: ['department', 'district'],
+          },
+        );
+
+        return reloaded || saved;
       },
     );
   }
 
   /**
    * Elimina una dirección utilizando soft delete. Si era la dirección principal,
-   * reasigna automáticamente otra dirección activa del cliente como principal.
+   * reasigna automáticamente otra dirección activa del cliente como principal con
+   * criterio determinístico (la más reciente: createdAt DESC, id ASC) en la misma transacción.
    */
-  async removeAddress(customerId: string, addressId: string): Promise<void> {
+  async removeAddress(
+    customerId: string,
+    addressId: string,
+  ): Promise<{
+    deletedAddressId: string;
+    newDefaultAddress: CustomerAddress | null;
+  }> {
     // 1. Validar que la dirección pertenezca al cliente solicitado antes de eliminarla.
     const address = await this.addressRepository.findOne({
       where: { id: addressId, customerId },
@@ -668,29 +750,37 @@ export class CustomersService {
     }
 
     // 2. Ejecutar la operación dentro de una transacción.
-    await this.customerRepository.manager.transaction(
+    return await this.customerRepository.manager.transaction(
       async (transactionalEntityManager) => {
         // Marcar la dirección como eliminada (soft delete)
         await transactionalEntityManager.softDelete(CustomerAddress, addressId);
 
-        // Si la dirección eliminada era la principal, reasignar otra dirección activa
+        let newDefaultAddress: CustomerAddress | null = null;
+
+        // Si la dirección eliminada era la principal, reasignar otra dirección activa con criterio determinístico
         if (address.isDefault) {
           const remainingAddress = await transactionalEntityManager.findOne(
             CustomerAddress,
             {
-              where: { customerId }, // TypeORM aplica el filtro WHERE deleted_at IS NULL automáticamente
-              order: { createdAt: 'ASC' },
+              where: { customerId, deletedAt: IsNull() },
+              relations: ['department', 'district'],
+              order: { createdAt: 'DESC', id: 'ASC' },
             },
           );
 
           if (remainingAddress) {
             remainingAddress.isDefault = true;
-            await transactionalEntityManager.save(
+            newDefaultAddress = await transactionalEntityManager.save(
               CustomerAddress,
               remainingAddress,
             );
           }
         }
+
+        return {
+          deletedAddressId: addressId,
+          newDefaultAddress,
+        };
       },
     );
   }

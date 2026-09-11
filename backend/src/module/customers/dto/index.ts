@@ -1,5 +1,6 @@
 export * from './create-customer-address.dto';
 export * from './update-customer-address.dto';
+export * from './customer-address-response.dto';
 export * from './customer-admin-response.dto';
 export * from './customer-order-response.dto';
 export * from './customer-profile-response.dto';
