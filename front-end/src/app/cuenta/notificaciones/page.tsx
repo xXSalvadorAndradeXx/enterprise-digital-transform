@@ -24,6 +24,15 @@ import type {
 
 type NotificationTab = "all" | "orders" | "offers";
 
+const notificationTypeByTab: Record<
+  NotificationTab,
+  NotificationType | undefined
+> = {
+  all: undefined,
+  orders: "ORDER_STATUS_CHANGED",
+  offers: "FAVORITE_PRICE_DROPPED",
+};
+
 function formatNotificationDate(date: string) {
   const parsedDate = new Date(date);
 
@@ -146,49 +155,28 @@ export default function NotificationsPage() {
   } = useNotifications();
 
   const filteredNotifications = useMemo(() => {
-    if (activeTab === "orders") {
-      return notifications.filter(
-        (notification) =>
-          notification.type === "ORDER_STATUS_CHANGED",
-      );
+    const notificationType = notificationTypeByTab[activeTab];
+
+    if (!notificationType) {
+      return notifications;
     }
 
-    if (activeTab === "offers") {
-      return notifications.filter(
-        (notification) =>
-          notification.type === "FAVORITE_PRICE_DROPPED",
-      );
-    }
-
-    return notifications;
+    return notifications.filter(
+      (notification) => notification.type === notificationType,
+    );
   }, [notifications, activeTab]);
 
   const handleTabChange = (tab: NotificationTab) => {
     setActiveTab(tab);
 
-    if (tab === "orders") {
-      updateQuery({
-        page: 1,
-        limit: 10,
-        type: "ORDER_STATUS_CHANGED",
-      });
-
-      return;
-    }
-
-    if (tab === "offers") {
-      updateQuery({
-        page: 1,
-        limit: 10,
-        type: "FAVORITE_PRICE_DROPPED",
-      });
-
-      return;
-    }
+    const notificationType = notificationTypeByTab[tab];
 
     updateQuery({
       page: 1,
       limit: 10,
+      ...(notificationType
+        ? { type: notificationType }
+        : {}),
     });
   };
 
