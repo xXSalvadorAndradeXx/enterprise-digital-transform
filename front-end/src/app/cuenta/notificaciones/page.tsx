@@ -1,19 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import {
-  Bell,
-  Heart,
-  Package,
-  User,
-  Heart as HeartIcon,
-  MapPin,
-  LogOut,
-  ShoppingCart,
-  Tag,
-  CheckCircle2,
-  BellRing,
-} from "lucide-react";
+import { Bell, Package, Tag, CheckCircle2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useNotifications } from "@/hooks/notifications/useNotifications";
@@ -75,13 +62,8 @@ function getNotificationTypeLabel(type: NotificationType) {
   }
 }
 
-function NotificationItem({
-  notification,
-}: {
-  notification: Notification;
-}) {
-  const isOrderNotification =
-    notification.type === "ORDER_STATUS_CHANGED";
+function NotificationItem({ notification }: { notification: Notification }) {
+  const isOrderNotification = notification.type === "ORDER_STATUS_CHANGED";
 
   return (
     <article
@@ -121,9 +103,7 @@ function NotificationItem({
             <>
               <span>•</span>
 
-              <span>
-                Pedido {notification.orderRef.orderNumber}
-              </span>
+              <span>Pedido {notification.orderRef.orderNumber}</span>
             </>
           )}
 
@@ -131,9 +111,7 @@ function NotificationItem({
             <>
               <span>•</span>
 
-              <span>
-                Producto {notification.productRef.productId}
-              </span>
+              <span>Producto {notification.productRef.productId}</span>
             </>
           )}
         </div>
@@ -143,16 +121,10 @@ function NotificationItem({
 }
 
 export default function NotificationsPage() {
-  const [activeTab, setActiveTab] =
-    useState<NotificationTab>("all");
+  const [activeTab, setActiveTab] = useState<NotificationTab>("all");
 
-  const {
-    notifications,
-    isLoading,
-    error,
-    retry,
-    updateQuery,
-  } = useNotifications();
+  const { notifications, isLoading, error, retry, updateQuery } =
+    useNotifications();
 
   const filteredNotifications = useMemo(() => {
     const notificationType = notificationTypeByTab[activeTab];
@@ -174,245 +146,132 @@ export default function NotificationsPage() {
     updateQuery({
       page: 1,
       limit: 10,
-      ...(notificationType
-        ? { type: notificationType }
-        : {}),
+      ...(notificationType ? { type: notificationType } : {}),
     });
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto w-full max-w-[1180px] px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
-          {/* Sidebar */}
-          <aside className="hidden lg:block">
-            <nav className="space-y-2">
-              <Link
-                href="/cuenta"
-                className="flex items-center gap-4 rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"
-              >
-                <User className="h-5 w-5" />
-                <span>Cuenta</span>
-              </Link>
+    <main className="min-w-0">
+      {/* Título */}
+      <div className="mb-5">
+        <h1 className="text-4xl font-medium tracking-tight text-slate-800 sm:text-5xl">
+          Notificaciones
+        </h1>
+      </div>
 
-              <Link
-                href="/cuenta/pedidos"
-                className="flex items-center gap-4 rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"
-              >
-                <ShoppingCart className="h-5 w-5" />
-                <span>Pedidos</span>
-              </Link>
+      {/* Tabs */}
+      <div className="border-b border-slate-300">
+        <div className="flex gap-8">
+          <button
+            type="button"
+            onClick={() => handleTabChange("all")}
+            className={`relative pb-4 text-sm font-semibold transition ${
+              activeTab === "all"
+                ? "text-slate-800"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Todas
+            {activeTab === "all" && (
+              <span className="absolute bottom-0 left-0 h-0.5 w-full bg-[#1822d9]" />
+            )}
+          </button>
 
-              <Link
-                href="/cuenta/favoritos"
-                className="flex items-center gap-4 rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"
-              >
-                <Heart className="h-5 w-5" />
-                <span>Favoritos</span>
-              </Link>
+          <button
+            type="button"
+            onClick={() => handleTabChange("orders")}
+            className={`relative pb-4 text-sm font-semibold transition ${
+              activeTab === "orders"
+                ? "text-slate-800"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Pedidos
+            {activeTab === "orders" && (
+              <span className="absolute bottom-0 left-0 h-0.5 w-full bg-[#1822d9]" />
+            )}
+          </button>
 
-              <Link
-                href="/cuenta/direcciones"
-                className="flex items-center gap-4 rounded-lg px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50"
-              >
-                <MapPin className="h-5 w-5" />
-                <span>Direcciones</span>
-              </Link>
+          <button
+            type="button"
+            onClick={() => handleTabChange("offers")}
+            className={`relative pb-4 text-sm font-semibold transition ${
+              activeTab === "offers"
+                ? "text-slate-800"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            Ofertas
+            {activeTab === "offers" && (
+              <span className="absolute bottom-0 left-0 h-0.5 w-full bg-[#1822d9]" />
+            )}
+          </button>
+        </div>
+      </div>
 
-              <Link
-                href="/cuenta/notificaciones"
-                className="flex items-center gap-4 rounded-lg border-l-4 border-blue-300 bg-[#eef3fb] px-4 py-3 text-sm font-semibold text-slate-700"
-              >
-                <Bell className="h-5 w-5" />
-                <span>Notificaciones</span>
-              </Link>
+      {/* Estados */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-16">
+          <div className="flex items-center gap-3 text-sm text-slate-500">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-[#1822d9]" />
+            Cargando notificaciones...
+          </div>
+        </div>
+      )}
+
+      {error && !isLoading && (
+        <div className="my-6 rounded-lg border border-red-200 bg-red-50 p-5">
+          <div className="flex items-start gap-3">
+            <Bell className="mt-0.5 h-5 w-5 text-red-500" />
+
+            <div>
+              <p className="font-semibold text-red-700">
+                No fue posible cargar las notificaciones.
+              </p>
+
+              <p className="mt-1 text-sm text-red-600">{error}</p>
 
               <button
                 type="button"
-                className="flex w-full items-center gap-4 rounded-lg px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                onClick={() => void retry()}
+                className="mt-3 rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
               >
-                <LogOut className="h-5 w-5" />
-                <span>Cerrar sesión</span>
+                Reintentar
               </button>
-            </nav>
-          </aside>
-
-          {/* Contenido */}
-          <main className="min-w-0">
-            {/* Navegación móvil */}
-            <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-              <Link
-                href="/cuenta"
-                className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700"
-              >
-                <User className="h-4 w-4" />
-                Cuenta
-              </Link>
-
-              <Link
-                href="/cuenta/pedidos"
-                className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700"
-              >
-                <ShoppingCart className="h-4 w-4" />
-                Pedidos
-              </Link>
-
-              <Link
-                href="/cuenta/favoritos"
-                className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700"
-              >
-                <HeartIcon className="h-4 w-4" />
-                Favoritos
-              </Link>
-
-              <Link
-                href="/cuenta/direcciones"
-                className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700"
-              >
-                <MapPin className="h-4 w-4" />
-                Direcciones
-              </Link>
-
-              <Link
-                href="/cuenta/notificaciones"
-                className="flex shrink-0 items-center gap-2 rounded-lg border border-blue-300 bg-[#eef3fb] px-4 py-2 text-sm font-semibold text-slate-700"
-              >
-                <Bell className="h-4 w-4" />
-                Notificaciones
-              </Link>
             </div>
-
-            
-
-            {/* Título */}
-            <div className="mb-5">
-              <h1 className="text-4xl font-medium tracking-tight text-slate-800 sm:text-5xl">
-                Notificaciones
-              </h1>
-            </div>
-
-            {/* Tabs */}
-            <div className="border-b border-slate-300">
-              <div className="flex gap-8">
-                <button
-                  type="button"
-                  onClick={() => handleTabChange("all")}
-                  className={`relative pb-4 text-sm font-semibold transition ${
-                    activeTab === "all"
-                      ? "text-slate-800"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Todas
-
-                  {activeTab === "all" && (
-                    <span className="absolute bottom-0 left-0 h-0.5 w-full bg-[#1822d9]" />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTabChange("orders")}
-                  className={`relative pb-4 text-sm font-semibold transition ${
-                    activeTab === "orders"
-                      ? "text-slate-800"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Pedidos
-
-                  {activeTab === "orders" && (
-                    <span className="absolute bottom-0 left-0 h-0.5 w-full bg-[#1822d9]" />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTabChange("offers")}
-                  className={`relative pb-4 text-sm font-semibold transition ${
-                    activeTab === "offers"
-                      ? "text-slate-800"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  Ofertas
-
-                  {activeTab === "offers" && (
-                    <span className="absolute bottom-0 left-0 h-0.5 w-full bg-[#1822d9]" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Estados */}
-            {isLoading && (
-              <div className="flex items-center justify-center py-16">
-                <div className="flex items-center gap-3 text-sm text-slate-500">
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-[#1822d9]" />
-                  Cargando notificaciones...
-                </div>
-              </div>
-            )}
-
-            {error && !isLoading && (
-              <div className="my-6 rounded-lg border border-red-200 bg-red-50 p-5">
-                <div className="flex items-start gap-3">
-                  <Bell className="mt-0.5 h-5 w-5 text-red-500" />
-
-                  <div>
-                    <p className="font-semibold text-red-700">
-                      No fue posible cargar las notificaciones.
-                    </p>
-
-                    <p className="mt-1 text-sm text-red-600">
-                      {error}
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() => void retry()}
-                      className="mt-3 rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
-                    >
-                      Reintentar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Lista */}
-            {!isLoading && !error && (
-              <>
-                {filteredNotifications.length > 0 ? (
-                  <div>
-                    {filteredNotifications.map((notification) => (
-                      <NotificationItem
-                        key={notification.id}
-                        notification={notification}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f1f5fd] text-slate-400">
-                      <CheckCircle2 className="h-7 w-7" />
-                    </div>
-
-                    <h2 className="mt-5 text-lg font-semibold text-slate-800">
-                      No tienes notificaciones
-                    </h2>
-
-                    <p className="mt-2 max-w-md text-sm text-slate-500">
-                      Cuando tengas nuevas notificaciones,
-                      aparecerán aquí.
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-          </main>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* Lista */}
+      {!isLoading && !error && (
+        <>
+          {filteredNotifications.length > 0 ? (
+            <div>
+              {filteredNotifications.map((notification) => (
+                <NotificationItem
+                  key={notification.id}
+                  notification={notification}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f1f5fd] text-slate-400">
+                <CheckCircle2 className="h-7 w-7" />
+              </div>
+
+              <h2 className="mt-5 text-lg font-semibold text-slate-800">
+                No tienes notificaciones
+              </h2>
+
+              <p className="mt-2 max-w-md text-sm text-slate-500">
+                Cuando tengas nuevas notificaciones, aparecerán aquí.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </main>
   );
 }
