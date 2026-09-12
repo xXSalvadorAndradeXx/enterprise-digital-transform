@@ -282,34 +282,7 @@ export default function NotificationsPage() {
               </Link>
             </div>
 
-            {/* Banner */}
-            <div className="mb-8 flex flex-col gap-4 rounded-lg bg-[#f1f5fd] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <BellRing className="mt-0.5 h-5 w-5 shrink-0 text-slate-600" />
-
-                <p className="text-xs font-medium leading-5 text-slate-700">
-                  Activa las notificaciones push para enterarte al
-                  instante cuando tu pedido vaya en camino o cuando
-                  tus productos favoritos bajen de precio.
-                </p>
-              </div>
-
-              <div className="flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  className="rounded-full border border-slate-400 bg-white px-4 py-2 text-xs font-semibold text-slate-800 transition hover:bg-slate-50"
-                >
-                  Permitir notificaciones
-                </button>
-
-                <button
-                  type="button"
-                  className="px-3 py-2 text-xs font-semibold text-slate-700"
-                >
-                  Descartar
-                </button>
-              </div>
-            </div>
+            
 
             {/* Título */}
             <div className="mb-5">
