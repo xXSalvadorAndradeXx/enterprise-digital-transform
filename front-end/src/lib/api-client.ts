@@ -10,10 +10,39 @@ const API_BASE_URL = "http://localhost:3000/api/v1";
 interface RefreshRequest {
   accessToken: string;
   controller: AbortController;
-  promise: Promise<string | null>;
+  promise: Promise<RefreshResult>;
+}
+
+type RefreshResult =
+  | { status: "refreshed"; accessToken: string }
+  | { status: "session-invalid" }
+  | { status: "failed"; error: ApiRequestError }
+  | { status: "superseded" };
+
+interface CompletedRefresh {
+  accessToken: string;
+  version: number;
+  result: RefreshResult;
 }
 
 let refreshRequest: RefreshRequest | null = null;
+let refreshCompletionVersion = 0;
+let latestCompletedRefresh: CompletedRefresh | null = null;
+
+const SESSION_RECOVERY_ERROR_CODES = new Set([
+  "TOKEN_EXPIRED",
+  "UNAUTHORIZED",
+]);
+const TERMINAL_SESSION_ERROR_CODES = new Set([
+  "ACCOUNT_DISABLED",
+  "SESSION_EXPIRED_OR_REVOKED",
+]);
+const AUTH_RECOVERY_EXCLUDED_PATHS = new Set([
+  "/ecommerce/auth/register",
+  "/ecommerce/auth/login",
+  "/ecommerce/auth/refresh",
+  "/ecommerce/auth/logout",
+]);
 
 type ApiRequestOptions<TBody> = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -61,6 +90,33 @@ function getErrorCode(responseData: unknown): string | null {
   return typeof code === "string" && code.length > 0 ? code : null;
 }
 
+function createResponseError(response: Response, responseData: unknown) {
+  return new ApiRequestError(
+    getErrorMessage(responseData, "No se pudo completar la solicitud."),
+    response.status,
+    responseData,
+    getErrorCode(responseData),
+  );
+}
+
+function createNetworkError() {
+  return new ApiRequestError(
+    "No se pudo conectar con el servidor.",
+    0,
+    null,
+    null,
+  );
+}
+
+function createSessionEndedError(response: unknown = null) {
+  return new ApiRequestError(
+    "La sesión ya no está activa.",
+    401,
+    response,
+    "SESSION_ENDED",
+  );
+}
+
 async function readJsonResponse(response: Response): Promise<unknown> {
   if (response.status === 204) return null;
   if (!response.headers.get("content-type")?.includes("application/json")) return null;
@@ -72,18 +128,6 @@ async function readJsonResponse(response: Response): Promise<unknown> {
   }
 }
 
-function isJwtExpired(token: string): boolean {
-  try {
-    const payloadPart = token.split(".")[1];
-    if (!payloadPart) return true;
-    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
-    const payload = JSON.parse(atob(normalized)) as { exp?: unknown };
-    return typeof payload.exp !== "number" || payload.exp * 1000 <= Date.now() + 10_000;
-  } catch {
-    return true;
-  }
-}
-
 function extractRefreshedAccessToken(responseData: unknown): string | null {
   if (!responseData || typeof responseData !== "object") return null;
 
@@ -92,8 +136,54 @@ function extractRefreshedAccessToken(responseData: unknown): string | null {
   return extractRefreshedAccessToken(record.data);
 }
 
-function refreshAccessToken(accessToken: string): Promise<string | null> {
-  if (typeof window === "undefined") return Promise.resolve(null);
+function readBearerAccessToken(headers: HeadersInit | undefined): string | null {
+  const authorization = new Headers(headers).get("Authorization");
+  const match = authorization?.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] ?? null;
+}
+
+function withBearerAccessToken(
+  headers: HeadersInit | undefined,
+  accessToken: string,
+): Headers {
+  const nextHeaders = new Headers(headers);
+  nextHeaders.set("Authorization", `Bearer ${accessToken}`);
+  return nextHeaders;
+}
+
+function createRequestHeaders(headers: HeadersInit | undefined): Headers {
+  const requestHeaders = new Headers(headers);
+  requestHeaders.set("Content-Type", "application/json");
+  return requestHeaders;
+}
+
+function isSessionRecoveryError(error: ApiRequestError) {
+  return (
+    error.status === 401 &&
+    error.code !== null &&
+    SESSION_RECOVERY_ERROR_CODES.has(error.code)
+  );
+}
+
+function isTerminalSessionError(error: ApiRequestError) {
+  return (
+    error.status === 401 &&
+    error.code !== null &&
+    TERMINAL_SESSION_ERROR_CODES.has(error.code)
+  );
+}
+
+function canRecoverSession(path: string, error: ApiRequestError) {
+  return (
+    !AUTH_RECOVERY_EXCLUDED_PATHS.has(path.split("?", 1)[0]) &&
+    isSessionRecoveryError(error)
+  );
+}
+
+function refreshAccessToken(accessToken: string): Promise<RefreshResult> {
+  if (typeof window === "undefined") {
+    return Promise.resolve({ status: "superseded" });
+  }
 
   if (refreshRequest?.accessToken === accessToken) {
     return refreshRequest.promise;
@@ -102,8 +192,9 @@ function refreshAccessToken(accessToken: string): Promise<string | null> {
   refreshRequest?.controller.abort();
 
   const controller = new AbortController();
+  let isSavingRefreshedToken = false;
   const abortIfSessionChanged = () => {
-    if (readAccessToken() !== accessToken) {
+    if (!isSavingRefreshedToken && readAccessToken() !== accessToken) {
       controller.abort();
     }
   };
@@ -111,7 +202,7 @@ function refreshAccessToken(accessToken: string): Promise<string | null> {
   window.addEventListener(AUTH_SESSION_CHANGED_EVENT, abortIfSessionChanged);
   window.addEventListener("storage", abortIfSessionChanged);
 
-  const promise = (async () => {
+  const promise = (async (): Promise<RefreshResult> => {
     try {
       const response = await fetch(`${API_BASE_URL}/ecommerce/auth/refresh`, {
         method: "POST",
@@ -120,18 +211,52 @@ function refreshAccessToken(accessToken: string): Promise<string | null> {
         signal: controller.signal,
       });
       const responseData = await readJsonResponse(response);
-      const token = response.ok
-        ? extractRefreshedAccessToken(responseData)
-        : null;
 
-      if (token) {
-        return saveRefreshedAccessToken(token, accessToken) ? token : null;
+      if (!response.ok) {
+        const error = createResponseError(response, responseData);
+
+        if (isTerminalSessionError(error)) {
+          clearAuthSession(accessToken);
+          return { status: "session-invalid" };
+        }
+
+        return { status: "failed", error };
       }
 
-      clearAuthSession(accessToken);
-      return null;
+      const token = extractRefreshedAccessToken(responseData);
+
+      if (token) {
+        let tokenWasSaved = false;
+
+        isSavingRefreshedToken = true;
+        try {
+          tokenWasSaved = saveRefreshedAccessToken(token, accessToken);
+        } finally {
+          isSavingRefreshedToken = false;
+        }
+
+        if (!tokenWasSaved) {
+          return { status: "superseded" };
+        }
+
+        return { status: "refreshed", accessToken: token };
+      }
+
+      return {
+        status: "failed",
+        error: new ApiRequestError(
+          "El servidor no devolvió un access token válido.",
+          response.status,
+          responseData,
+          null,
+        ),
+      };
     } catch {
-      return null;
+      if (readAccessToken() !== accessToken) {
+        return { status: "superseded" };
+      }
+
+      return { status: "failed", error: createNetworkError() };
     } finally {
       window.removeEventListener(
         AUTH_SESSION_CHANGED_EVENT,
@@ -143,41 +268,19 @@ function refreshAccessToken(accessToken: string): Promise<string | null> {
         refreshRequest = null;
       }
     }
-  })();
+  })().then((result) => {
+    refreshCompletionVersion += 1;
+    latestCompletedRefresh = {
+      accessToken,
+      version: refreshCompletionVersion,
+      result,
+    };
+    return result;
+  });
 
   refreshRequest = { accessToken, controller, promise };
 
   return promise;
-}
-
-async function ensureFreshAuthorization(
-  path: string,
-  headers: HeadersInit | undefined,
-): Promise<HeadersInit | undefined> {
-  if (path.startsWith("/ecommerce/auth/")) return headers;
-
-  const token = readAccessToken();
-  if (!token || !isJwtExpired(token)) return headers;
-
-  const refreshedToken = await refreshAccessToken(token);
-
-  if (!refreshedToken) {
-    if (readAccessToken() !== token) {
-      throw new ApiRequestError(
-        "La sesión ya no está activa.",
-        401,
-        null,
-        "SESSION_ENDED",
-      );
-    }
-
-    return headers;
-  }
-
-  return {
-    ...headers,
-    Authorization: `Bearer ${refreshedToken}`,
-  };
 }
 
 async function executeRequest<TResponse, TBody>(
@@ -187,30 +290,96 @@ async function executeRequest<TResponse, TBody>(
   const { method = "GET", body, cache, headers, signal } = options;
 
   try {
-    const requestHeaders = await ensureFreshAuthorization(path, headers);
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      credentials: "include",
-      headers: { "Content-Type": "application/json", ...requestHeaders },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      cache,
-      signal,
-    });
+    if (path.split("?", 1)[0] === "/ecommerce/auth/logout") {
+      refreshRequest?.controller.abort();
+    }
 
-    const responseData = await readJsonResponse(response);
-    if (!response.ok) {
-      throw new ApiRequestError(
-        getErrorMessage(responseData, "No se pudo completar la solicitud."),
-        response.status,
-        responseData,
-        getErrorCode(responseData),
+    const requestBody =
+      body === undefined ? undefined : JSON.stringify(body);
+    const refreshVersionAtRequestStart = refreshCompletionVersion;
+    let requestHeaders = createRequestHeaders(headers);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const response = await fetch(`${API_BASE_URL}${path}`, {
+        method,
+        credentials: "include",
+        headers: requestHeaders,
+        body: requestBody,
+        cache,
+        signal,
+      });
+
+      const responseData = await readJsonResponse(response);
+      if (response.ok) {
+        return { data: responseData as TResponse, response };
+      }
+
+      const responseError = createResponseError(response, responseData);
+      const requestAccessToken = readBearerAccessToken(requestHeaders);
+
+      if (isTerminalSessionError(responseError) && requestAccessToken) {
+        clearAuthSession(requestAccessToken);
+        throw createSessionEndedError(responseData);
+      }
+
+      if (
+        attempt === 1 ||
+        !requestAccessToken ||
+        !canRecoverSession(path, responseError) ||
+        signal?.aborted
+      ) {
+        if (
+          attempt === 1 &&
+          requestAccessToken &&
+          isSessionRecoveryError(responseError)
+        ) {
+          clearAuthSession(requestAccessToken);
+          throw createSessionEndedError(responseData);
+        }
+
+        throw responseError;
+      }
+
+      const currentAccessToken = readAccessToken();
+      let refreshResult: RefreshResult;
+
+      if (
+        latestCompletedRefresh?.accessToken === requestAccessToken &&
+        latestCompletedRefresh.version > refreshVersionAtRequestStart
+      ) {
+        refreshResult = latestCompletedRefresh.result;
+      } else if (currentAccessToken === requestAccessToken) {
+        refreshResult = await refreshAccessToken(requestAccessToken);
+      } else {
+        throw responseError;
+      }
+
+      if (refreshResult.status === "session-invalid") {
+        throw createSessionEndedError(responseData);
+      }
+
+      if (refreshResult.status === "failed") {
+        throw refreshResult.error;
+      }
+
+      if (
+        refreshResult.status === "superseded" ||
+        signal?.aborted ||
+        readAccessToken() !== refreshResult.accessToken
+      ) {
+        throw responseError;
+      }
+
+      requestHeaders = withBearerAccessToken(
+        requestHeaders,
+        refreshResult.accessToken,
       );
     }
 
-    return { data: responseData as TResponse, response };
+    throw createNetworkError();
   } catch (error) {
     if (error instanceof ApiRequestError) throw error;
-    throw new ApiRequestError("No se pudo conectar con el servidor.", 0, null, null);
+    throw createNetworkError();
   }
 }
 
