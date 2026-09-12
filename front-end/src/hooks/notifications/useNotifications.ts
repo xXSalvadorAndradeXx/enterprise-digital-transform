@@ -8,6 +8,8 @@ import type {
   NotificationsQuery,
 } from "@/types/notifications/notification.types";
 
+const NOTIFICATIONS_POLLING_INTERVAL = 30_000;
+
 export interface UseNotificationsValue {
   notifications: Notification[];
   meta: NotificationsPaginationMeta | null;
@@ -37,10 +39,16 @@ export function useNotifications(
   const requestIdRef = useRef(0);
 
   const loadNotifications = useCallback(
-    async (currentQuery: NotificationsQuery) => {
+    async (
+      currentQuery: NotificationsQuery,
+      showLoading = true,
+    ) => {
       const requestId = ++requestIdRef.current;
 
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
+
       setError(null);
 
       try {
@@ -63,10 +71,13 @@ export function useNotifications(
             : "No fue posible cargar tus notificaciones.";
 
         setError(message);
-        setNotifications([]);
-        setMeta(null);
+
+        if (showLoading) {
+          setNotifications([]);
+          setMeta(null);
+        }
       } finally {
-        if (requestId === requestIdRef.current) {
+        if (requestId === requestIdRef.current && showLoading) {
           setIsLoading(false);
         }
       }
@@ -76,6 +87,16 @@ export function useNotifications(
 
   useEffect(() => {
     void loadNotifications(query);
+  }, [loadNotifications, query]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void loadNotifications(query, false);
+    }, NOTIFICATIONS_POLLING_INTERVAL);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, [loadNotifications, query]);
 
   const setPage = useCallback((page: number) => {
