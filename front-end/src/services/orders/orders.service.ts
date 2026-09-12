@@ -1,9 +1,23 @@
 import { ApiRequestError, apiRequest } from "@/lib/api-client";
 import { readAccessToken } from "@/lib/auth-session";
 import type {
+  OrderListItem,
+  OrdersPaginationMeta,
   OrdersQuery,
   OrdersResponse,
 } from "@/types/orders/order.types";
+
+type BackendOrderListItem = Omit<OrderListItem, "total"> & {
+  total: number | string;
+};
+
+type BackendOrdersResponse = {
+  success: boolean;
+  data: {
+    items: BackendOrderListItem[];
+    meta: OrdersPaginationMeta;
+  };
+};
 
 function getAuthHeaders() {
   const accessToken = readAccessToken();
@@ -46,10 +60,7 @@ function buildOrdersQuery(query: OrdersQuery = {}) {
 }
 
 export async function getOrders(query: OrdersQuery = {}) {
-  const response = await apiRequest<{
-    success: boolean;
-    data: OrdersResponse;
-  }>(
+  const response = await apiRequest<BackendOrdersResponse>(
     `/customers/me/orders${buildOrdersQuery(query)}`,
     {
       method: "GET",
@@ -57,5 +68,11 @@ export async function getOrders(query: OrdersQuery = {}) {
     },
   );
 
-  return response.data;
+  return {
+    data: response.data.items.map((order) => ({
+      ...order,
+      total: Number(order.total),
+    })),
+    meta: response.data.meta,
+  } satisfies OrdersResponse;
 }
