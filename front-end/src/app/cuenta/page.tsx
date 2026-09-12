@@ -10,7 +10,13 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { useForm } from "react-hook-form";
 
 import { useCustomerProfile } from "@/hooks/profile/useCustomerProfile";
@@ -31,9 +37,11 @@ const inputClassName =
 function ProfileFeedbackPanel({
   feedback,
   onClose,
+  closeButtonRef,
 }: {
   feedback: Exclude<ProfileFeedback, null>;
   onClose: () => void;
+  closeButtonRef: RefObject<HTMLButtonElement | null>;
 }) {
   const isSuccess = feedback.type === "success";
   const Icon = isSuccess ? CheckCircle2 : XCircle;
@@ -44,8 +52,10 @@ function ProfileFeedbackPanel({
         className="relative w-full max-w-[666px] rounded-[17px] bg-[#f7f7f7] px-6 py-8 text-center shadow-[0_10px_25px_rgba(0,0,0,0.03)] sm:px-12"
       >
         <button
+          ref={closeButtonRef}
           type="button"
           onClick={onClose}
+          autoFocus
           aria-label="Cerrar notificación"
           className="pointer-events-auto absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full text-[#565656] transition-colors hover:bg-black/5 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2528dc] sm:right-4 sm:top-4"
         >
@@ -83,10 +93,15 @@ export default function CuentaPage() {
     useCustomerProfile();
   const [isEditing, setIsEditing] = useState(false);
   const [feedback, setFeedback] = useState<ProfileFeedback>(null);
+  const feedbackCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
+  const feedbackFocusTargetRef = useRef<"edit" | "save" | null>(null);
   const {
     register,
     handleSubmit,
     reset,
+    setFocus,
     formState: { errors, isDirty, isValid, isSubmitting },
   } = useForm<UpdateCustomerProfileRequest>({
     resolver: zodResolver(updateCustomerProfileSchema),
@@ -95,17 +110,45 @@ export default function CuentaPage() {
     reValidateMode: "onChange",
   });
 
+  const dismissFeedback = useCallback(() => {
+    if (document.activeElement === feedbackCloseButtonRef.current) {
+      feedbackFocusTargetRef.current = isEditing ? "save" : "edit";
+    }
+
+    setFeedback(null);
+  }, [isEditing]);
+
+  useEffect(() => {
+    if (feedback || !feedbackFocusTargetRef.current) return;
+
+    const focusTarget = feedbackFocusTargetRef.current;
+    feedbackFocusTargetRef.current = null;
+
+    if (focusTarget === "save") {
+      saveButtonRef.current?.focus();
+      return;
+    }
+
+    editButtonRef.current?.focus();
+  }, [feedback]);
+
+  useEffect(() => {
+    if (isEditing) {
+      setFocus("name");
+    }
+  }, [isEditing, setFocus]);
+
   useEffect(() => {
     if (!feedback) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setFeedback(null);
+        dismissFeedback();
       }
     };
 
     const timeoutId = window.setTimeout(
-      () => setFeedback(null),
+      dismissFeedback,
       feedback.type === "success" ? 3_000 : 5_000,
     );
     window.addEventListener("keydown", handleKeyDown);
@@ -114,7 +157,7 @@ export default function CuentaPage() {
       window.clearTimeout(timeoutId);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [feedback]);
+  }, [dismissFeedback, feedback]);
 
   const profileFields = profile
     ? [
@@ -327,7 +370,8 @@ export default function CuentaPage() {
           {feedback ? (
             <ProfileFeedbackPanel
               feedback={feedback}
-              onClose={() => setFeedback(null)}
+              onClose={dismissFeedback}
+              closeButtonRef={feedbackCloseButtonRef}
             />
           ) : null}
         </section>
@@ -336,6 +380,7 @@ export default function CuentaPage() {
           <div className="mt-6 flex justify-end">
             {isEditing ? (
               <button
+                ref={saveButtonRef}
                 key="save-profile"
                 type="submit"
                 disabled={!isDirty || !isValid || isSubmitting || isUpdating}
@@ -347,6 +392,7 @@ export default function CuentaPage() {
               </button>
             ) : (
               <button
+                ref={editButtonRef}
                 key="edit-profile"
                 type="button"
                 onClick={beginEditing}
