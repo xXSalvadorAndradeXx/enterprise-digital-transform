@@ -74,6 +74,7 @@ function normalizeAddress(value: unknown): CustomerAddress {
     city: normalizeNullableString(value.city),
     addressLine: String(value.addressLine ?? ""),
     label: String(value.label ?? ""),
+    phone: normalizeNullableString(value.phone),
     isDefault: value.isDefault === true,
   };
 }

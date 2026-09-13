@@ -15,6 +15,7 @@ import AddressModal, {
   type AddressModalSubmitValues,
 } from "@/components/addresses/AddressModal";
 import { useAddresses } from "@/hooks/addresses/useAddresses";
+import { useCustomerProfile } from "@/hooks/profile/useCustomerProfile";
 import type {
   CreateAddressRequest,
   CustomerAddress,
@@ -70,6 +71,8 @@ function toAddressPayload(
   if (values.city) {
     payload.city = values.city;
   }
+
+  payload.phone = values.phone;
 
   return payload;
 }
@@ -284,6 +287,7 @@ function DeleteAddressConfirmationDialog({
 }
 
 export default function AddressesPage() {
+  const { profile } = useCustomerProfile();
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [addressModalMode, setAddressModalMode] =
     useState<AddressModalMode>("create");
@@ -531,6 +535,7 @@ export default function AddressesPage() {
         open={isAddressModalOpen}
         mode={addressModalMode}
         initialAddress={selectedAddress}
+        defaultPhone={profile?.phone}
         isSubmitting={isSubmittingAddress}
         submitError={addressSubmitError}
         onClose={closeAddressModal}

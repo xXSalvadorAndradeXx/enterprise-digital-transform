@@ -10,6 +10,7 @@ export interface CustomerAddress {
   city: string | null;
   addressLine: string;
   label: string;
+  phone?: string | null;
   isDefault: boolean;
 }
 
@@ -19,6 +20,7 @@ export interface CreateAddressRequest {
   city?: string;
   addressLine: string;
   label: string;
+  phone: string;
   isDefault?: boolean;
 }
 

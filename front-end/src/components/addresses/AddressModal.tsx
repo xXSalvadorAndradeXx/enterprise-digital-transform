@@ -28,6 +28,7 @@ interface AddressModalProps {
   open: boolean;
   mode: AddressModalMode;
   initialAddress?: CustomerAddress | null;
+  defaultPhone?: string | null;
   isSubmitting?: boolean;
   submitError?: string;
   onClose: () => void;
@@ -54,9 +55,17 @@ function toSelectValue(value: unknown): string {
 
 function getInitialValues(
   initialAddress: CustomerAddress | null | undefined,
+  defaultPhone: string | null | undefined,
 ): AddressModalSubmitValues {
+  const normalizedDefaultPhone = (defaultPhone ?? "")
+    .replace(/\D/g, "")
+    .slice(-8);
+
   if (!initialAddress) {
-    return emptyValues;
+    return {
+      ...emptyValues,
+      phone: normalizedDefaultPhone,
+    };
   }
 
   return {
@@ -65,7 +74,9 @@ function getInitialValues(
     districtId: toSelectValue(initialAddress.district?.id),
     city: initialAddress.city ?? "",
     addressLine: initialAddress.addressLine,
-    phone: "",
+    phone: (initialAddress.phone ?? defaultPhone ?? "")
+      .replace(/\D/g, "")
+      .slice(-8),
   };
 }
 
@@ -121,8 +132,8 @@ function validateValues(
     errors.addressLine = "La dirección debe tener máximo 500 caracteres.";
   }
 
-  if (values.phone.trim() && phoneDigits.length < 8) {
-    errors.phone = "Ingresa un teléfono válido.";
+  if (!/^[267]\d{7}$/.test(phoneDigits)) {
+    errors.phone = "Ingresa un teléfono válido de exactamente 8 dígitos.";
   }
 
   return errors;
@@ -132,13 +143,14 @@ export default function AddressModal({
   open,
   mode,
   initialAddress = null,
+  defaultPhone = null,
   isSubmitting = false,
   submitError = "",
   onClose,
   onSubmit,
 }: AddressModalProps) {
   const [values, setValues] = useState<AddressModalSubmitValues>(() =>
-    getInitialValues(initialAddress),
+    getInitialValues(initialAddress, defaultPhone),
   );
   const [errors, setErrors] = useState<AddressFormErrors>({});
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -150,7 +162,9 @@ export default function AddressModal({
     items: District[];
   } | null>(null);
   const [districtsStatus, setDistrictsStatus] = useState<CatalogStatus>(() =>
-    open && getInitialValues(initialAddress).departmentId ? "loading" : "idle",
+    open && getInitialValues(initialAddress, defaultPhone).departmentId
+      ? "loading"
+      : "idle",
   );
   const [catalogError, setCatalogError] = useState("");
 
@@ -393,10 +407,18 @@ export default function AddressModal({
               <input
                 id="address-phone"
                 value={values.phone}
-                onChange={(event) => updateValue("phone", event.target.value)}
+                onChange={(event) =>
+                  updateValue(
+                    "phone",
+                    event.target.value.replace(/\D/g, "").slice(0, 8),
+                  )
+                }
                 className={inputClassName}
-                placeholder="Teléfono de contacto"
-                inputMode="tel"
+                placeholder="Ej. 71234567"
+                inputMode="numeric"
+                maxLength={8}
+                pattern="[267][0-9]{7}"
+                required
                 autoComplete="tel"
                 aria-invalid={Boolean(errors.phone)}
                 disabled={isSubmitting}

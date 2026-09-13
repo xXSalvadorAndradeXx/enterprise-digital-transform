@@ -188,6 +188,35 @@ export async function getFavorites(
   return normalizeFavoritesPage(response.data);
 }
 
+export async function addFavorite(
+  productId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiRequest<ApiSuccess<unknown>, { productId: string }>(
+    FAVORITES_API_PATH,
+    {
+      method: "POST",
+      headers: getRequiredCustomerHeaders(),
+      body: { productId },
+      signal,
+    },
+  );
+}
+
+export async function checkFavorite(
+  productId: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const response = await apiRequest<
+    ApiSuccess<{ productId: string; isFavorite: boolean }>
+  >(`${FAVORITES_API_PATH}/${encodeURIComponent(productId)}/status`, {
+    headers: getRequiredCustomerHeaders(),
+    signal,
+  });
+
+  return response.data.isFavorite;
+}
+
 export async function removeFavorite(
   productId: string,
   signal?: AbortSignal,
@@ -224,6 +253,8 @@ export async function clearFavorites(
 
 export const favoritesService = {
   getFavorites,
+  addFavorite,
+  checkFavorite,
   removeFavorite,
   clearFavorites,
 };

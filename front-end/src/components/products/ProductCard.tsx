@@ -9,6 +9,12 @@ import { useEffect, useState } from "react";
 import { useCart } from "@/hooks/cart/useCart";
 import { saveBuyNowSelection } from "@/lib/buy-now";
 import { apiRequest } from "@/lib/api-client";
+import { hasActiveSession } from "@/lib/auth-session";
+import {
+  addFavorite,
+  checkFavorite,
+  removeFavorite,
+} from "@/services/favorites/favorites.service";
 
 import CartNotification from "@/components/cart/CartNotification";
 import BuyNowVariantModal from "@/components/products/BuyNowVariantModal";
@@ -346,6 +352,17 @@ export default function ProductCard({
       return;
     }
 
+    if (hasActiveSession()) {
+      const controller = new AbortController();
+
+      void checkFavorite(String(product.id), controller.signal).then(
+        setFavorite,
+        () => undefined,
+      );
+
+      return () => controller.abort();
+    }
+
     const timer = window.setTimeout(() => {
       try {
         const values = JSON.parse(
@@ -390,6 +407,30 @@ export default function ProductCard({
         if (!isFavoriteControlled) {
           setFavorite(next);
         }
+      } finally {
+        setIsUpdatingFavorite(false);
+      }
+
+      return;
+    }
+
+    if (hasActiveSession()) {
+      setIsUpdatingFavorite(true);
+
+      try {
+        if (next) {
+          await addFavorite(String(product.id));
+        } else {
+          await removeFavorite(String(product.id));
+        }
+
+        setFavorite(next);
+      } catch {
+        setCartError(
+          next
+            ? "No se pudo agregar el producto a favoritos. Intenta nuevamente."
+            : "No se pudo quitar el producto de favoritos. Intenta nuevamente.",
+        );
       } finally {
         setIsUpdatingFavorite(false);
       }
@@ -722,6 +763,17 @@ export default function ProductCard({
             </span>
           </div>
         )}
+
+        {!isAvailable ? (
+          <div
+            className="absolute inset-0 z-[5] flex items-center justify-center bg-black/35"
+            aria-label={`${name} agotado`}
+          >
+            <span className="rounded-md bg-black/80 px-5 py-2 text-sm font-bold uppercase tracking-wide text-white shadow-lg">
+              Agotado
+            </span>
+          </div>
+        ) : null}
       </div>
 
       <div
@@ -826,10 +878,10 @@ export default function ProductCard({
                   : "mt-1 text-xs font-medium text-slate-500"
               }
             >
-              <span className="text-green-600">
+              <span className={isAvailable ? "text-green-600" : "text-red-500"}>
                 ●
               </span>{" "}
-              {stock} unidades disponibles
+              {isAvailable ? `${stock} unidades disponibles` : "Agotado"}
             </p>
           </div>
 
