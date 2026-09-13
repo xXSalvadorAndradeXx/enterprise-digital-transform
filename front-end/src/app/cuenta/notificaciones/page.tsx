@@ -8,6 +8,7 @@ import type {
   Notification,
   NotificationType,
 } from "@/types/notifications/notification.types";
+import AccountPageHeader from "@/components/account/AccountPageHeader";
 
 type NotificationTab = "all" | "orders" | "offers";
 
@@ -152,12 +153,10 @@ export default function NotificationsPage() {
 
   return (
     <main className="min-w-0">
-      {/* Título */}
-      <div className="mb-5">
-        <h1 className="text-4xl font-medium tracking-tight text-slate-800 sm:text-5xl">
-          Notificaciones
-        </h1>
-      </div>
+      <AccountPageHeader
+        title="Notificaciones"
+        description="Mantente al día con el estado de tus pedidos, ofertas y novedades."
+      />
 
       {/* Tabs */}
       <div className="border-b border-slate-300">

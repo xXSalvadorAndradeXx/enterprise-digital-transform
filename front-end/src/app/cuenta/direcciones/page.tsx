@@ -21,6 +21,7 @@ import type {
   CustomerAddress,
   UpdateAddressRequest,
 } from "@/types/addresses/address.types";
+import AccountPageHeader from "@/components/account/AccountPageHeader";
 
 function AddressCardSkeleton() {
   return (
@@ -66,13 +67,12 @@ function toAddressPayload(
     departmentId: values.departmentId,
     districtId: values.districtId,
     addressLine: values.addressLine,
+    phone: values.phone,
   };
 
   if (values.city) {
     payload.city = values.city;
   }
-
-  payload.phone = values.phone;
 
   return payload;
 }
@@ -465,20 +465,18 @@ export default function AddressesPage() {
 
   return (
     <section className="min-h-[calc(100vh-10rem)] text-[#111111]">
-      <header className="flex flex-col gap-4 border-b border-[#d9dde5] pb-5 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-black sm:text-4xl">
-          Direcciones
-        </h1>
-
-        <button
+      <AccountPageHeader
+        title="Direcciones"
+        description="Administra las direcciones que utilizas para recibir tus pedidos."
+        action={<button
           type="button"
           onClick={openCreateAddressModal}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-sm bg-[#1822d9] px-4 text-sm font-semibold text-white transition hover:bg-[#1118b8] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1822d9]"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Nueva Dirección
-        </button>
-      </header>
+        </button>}
+      />
 
       <div className="mt-8">
         {pageError ? (

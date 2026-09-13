@@ -4,6 +4,7 @@ import type { Product } from "@/types/products/product.types";
 import ProductCard from "@/components/products/ProductCard";
 import { useFavorites } from "@/hooks/favorites/useFavorites";
 import type { FavoriteProduct } from "@/types/favorites/favorites.types";
+import AccountPageHeader from "@/components/account/AccountPageHeader";
 
 const FAVORITES_LIMIT = 9;
 
@@ -217,23 +218,12 @@ export default function FavoritesPage() {
 
   return (
     <section className="min-h-[calc(100vh-10rem)] text-[#111111]">
-      <header className="flex flex-col gap-4 border-b border-[#d9dde5] pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-black sm:text-[28px]">
-            Favoritos
-          </h1>
-
-          {total > 0 ? (
-            <p className="mt-2 text-sm font-medium text-[#4A4A4A]">
-              {total}{" "}
-              {total === 1
-                ? "artículo guardado"
-                : "artículos guardados"}
-            </p>
-          ) : null}
-        </div>
-
-        <button
+      <AccountPageHeader
+        title="Favoritos"
+        description={total > 0
+          ? `${total} ${total === 1 ? "artículo guardado" : "artículos guardados"}. Encuentra aquí los productos que más te gustan.`
+          : "Guarda tus productos preferidos para encontrarlos fácilmente más adelante."}
+        action={<button
           type="button"
           onClick={() => void handleClearFavorites()}
           disabled={
@@ -244,8 +234,8 @@ export default function FavoritesPage() {
           className="inline-flex h-11 items-center justify-center rounded-sm border border-[#2222e7] px-5 text-sm font-semibold text-[#2222e7] transition hover:bg-[#f2f5fb] disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400 disabled:hover:bg-transparent"
         >
           {isClearing ? "Vaciando..." : "Vaciar lista"}
-        </button>
-      </header>
+        </button>}
+      />
 
       <div className="mt-8">
         {error && hasFavorites ? (

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import useOrders from "@/hooks/orders/useOrders";
+import AccountPageHeader from "@/components/account/AccountPageHeader";
 
 function getStatusLabel(status: string) {
   const labels: Record<string, string> = {
@@ -190,6 +191,11 @@ export default function PedidosPage() {
 
   return (
     <main className="min-w-0">
+      <AccountPageHeader
+        title="Pedidos"
+        description="Consulta tus compras, revisa su estado y vuelve a visitar los productos que pediste."
+      />
+
       {/* LOADING */}
       {isLoading && (
         <div className="rounded-xl border border-slate-200 bg-white p-8">
