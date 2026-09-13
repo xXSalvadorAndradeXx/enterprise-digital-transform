@@ -33,6 +33,8 @@ export default function Header() {
     items,
     totalItems,
     subtotal,
+    discountTotal,
+    total,
     removeFromCart,
   } = useCart();
 
@@ -98,6 +100,8 @@ export default function Header() {
       items={items}
       totalItems={totalItems}
       subtotal={subtotal}
+      discountTotal={discountTotal}
+      total={total}
       onRemove={removeFromCart}
     />
   </header>;

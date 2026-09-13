@@ -40,8 +40,11 @@ import {
 import type {
   ProductImagePreview,
 } from "@/types/productos/product-image-form.types";
+import type { ProductFormMode } from "@/types/productos/product-form.types";
 
 interface ProductManualFieldsProps {
+  mode: ProductFormMode;
+
   register:
     UseFormRegister<ProductFormInput>;
 
@@ -76,6 +79,7 @@ const inputClass =
   "h-11 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-[#1C21D1] focus:ring-1 focus:ring-[#1C21D1]";
 
 export function ProductManualFields({
+  mode,
   register,
   control,
   errors,
@@ -507,7 +511,11 @@ export function ProductManualFields({
                 }
               >
                 {
-                  option.label
+                  mode === "edit"
+                    ? option.value === "ACTIVE"
+                      ? "Publicar en e-commerce"
+                      : "Deshabilitar del e-commerce"
+                    : option.label
                 }
               </option>
             ),

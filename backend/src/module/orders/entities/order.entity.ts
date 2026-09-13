@@ -18,6 +18,7 @@ import { OrderStatusHistory } from './order-status-history.entity';
 import { OrderStatus } from '../enums/order-status.enum';
 import { Customer } from '../../customers/entities/customer.entity';
 import { DeliveryMethod } from '../enums/delivery-method.enum';
+import { Payment } from '../../payments/entities/payment.entity';
 
 @Entity({ name: 'orders' })
 @Index('IDX_orders_customer_created_at', ['customerId', 'createdAt'])
@@ -170,6 +171,9 @@ export class Order {
     nullable: true,
   })
   delivery?: OrderDelivery;
+
+  @OneToOne(() => Payment, (payment) => payment.order)
+  payment?: Payment;
 
   @OneToMany(() => OrderStatusHistory, (hist) => hist.order, {
     cascade: true,

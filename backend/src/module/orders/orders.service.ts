@@ -1097,7 +1097,7 @@ export class OrdersService {
         }
 
         // F. Cálculo de totales
-        const calculatedSubtotal = totalEffective;
+        const calculatedSubtotal = totalSubtotal;
         const calculatedDiscountTotal = totalDiscount;
 
         let shippingTotal = '0.00';
@@ -1109,7 +1109,7 @@ export class OrdersService {
           ).toFixed(2);
         }
 
-        const total = calculatedSubtotal + Number(shippingTotal);
+        const total = totalEffective + Number(shippingTotal);
         order.subtotal = calculatedSubtotal.toFixed(2);
         order.discountTotal = calculatedDiscountTotal.toFixed(2);
         order.deliveryCost = shippingTotal;
@@ -1146,6 +1146,7 @@ export class OrdersService {
               inventoryId: inventory.id,
               quantity: itemDto.quantity,
               status: ReservationStatus.ACTIVE,
+              expiresAt: paymentDeadline!,
             });
             await tx.save(InventoryReservation, reservation);
           } else {

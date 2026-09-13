@@ -13,6 +13,8 @@ export interface ProductQuery {
 
   status?: ProductStatus;
 
+  isPublished?: boolean;
+
   supplierId?: string;
 
   categoryId?: string;

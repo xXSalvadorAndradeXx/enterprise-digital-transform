@@ -52,6 +52,11 @@ export class InventoryReservation {
   status!: ReservationStatus;
 
   @ApiProperty()
+  @Index()
+  @Column({ name: 'expires_at', type: 'timestamptz', nullable: false })
+  expiresAt!: Date;
+
+  @ApiProperty()
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 

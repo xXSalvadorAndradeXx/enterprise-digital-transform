@@ -48,7 +48,7 @@ export function ProductsCatalog() {
 
     setSearch,
     setCategory,
-    setStatus,
+    setPublication,
     setPage,
 
     refetch,
@@ -173,7 +173,7 @@ export function ProductsCatalog() {
   const hasActiveFilters =
     filters.search.trim() !== "" ||
     filters.categoryId !== "" ||
-    filters.status !== "";
+    filters.publication !== "";
 
   const isCatalogEmpty =
     !isLoading &&
@@ -196,8 +196,8 @@ export function ProductsCatalog() {
           categoryId={
             filters.categoryId
           }
-          status={
-            filters.status
+          publication={
+            filters.publication
           }
           categories={
             categories
@@ -208,8 +208,8 @@ export function ProductsCatalog() {
           onCategoryChange={
             setCategory
           }
-          onStatusChange={
-            setStatus
+          onPublicationChange={
+            setPublication
           }
         />
 

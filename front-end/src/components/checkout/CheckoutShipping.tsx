@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { Building2, MapPin, Phone, Store, Truck } from "lucide-react";
 import {
   getDepartments,
+  getCustomerAddresses,
   getDistricts,
   getPickupBranches,
   type CheckoutBranchOption,
   type CheckoutCatalogOption,
 } from "@/services/checkout/checkout-catalog.service";
+import { readAccessToken } from "@/lib/auth-session";
 
 type DeliveryType = "HOME_DELIVERY" | "STORE_PICKUP";
 
@@ -90,10 +92,37 @@ export default function CheckoutShipping({
   }, [addressLine, branchId, city, departmentId, districtId, onDataChange, saveInfo]);
 
   /*
-   * Cargar información previamente guardada
-   * para el usuario invitado.
+   * Para clientes autenticados se utiliza primero la dirección principal
+   * guardada durante el registro. Los invitados conservan el respaldo local.
    */
   useEffect(() => {
+    const controller = new AbortController();
+
+    if (readAccessToken()) {
+      void getCustomerAddresses(controller.signal).then(
+        (addresses) => {
+          if (controller.signal.aborted) return;
+
+          const address =
+            addresses.find((item) => item.isDefault) ?? addresses[0];
+
+          if (!address) return;
+
+          setDepartmentId(String(address.departmentId));
+          setDistrictId(String(address.districtId));
+          setAddressLine(address.addressLine ?? "");
+          setCity(address.city ?? "");
+        },
+        (error: unknown) => {
+          if (!controller.signal.aborted) {
+            console.error("No se pudo cargar la dirección del cliente:", error);
+          }
+        },
+      );
+
+      return () => controller.abort();
+    }
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
 
@@ -111,6 +140,8 @@ export default function CheckoutShipping({
         error,
       );
     }
+
+    return () => controller.abort();
   }, []);
 
   /*

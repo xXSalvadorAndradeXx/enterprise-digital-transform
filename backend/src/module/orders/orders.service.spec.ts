@@ -744,8 +744,8 @@ describe('OrdersService - Orquestación Atómica de Checkout e Idempotencia Rigu
 
         const previewResult = await service.checkoutPreview(dto, undefined);
         expect(previewResult.data.freeShippingApplied).toBe(false);
-        expect(previewResult.data.shippingTotal).toBe('5.00');
-        expect(previewResult.data.total).toBe('54.99');
+        expect(previewResult.data.shippingTotal).toBe('4.00');
+        expect(previewResult.data.total).toBe('53.99');
       });
 
       it('debe aplicar envío gratuito si el subtotal es exactamente 50.00', async () => {

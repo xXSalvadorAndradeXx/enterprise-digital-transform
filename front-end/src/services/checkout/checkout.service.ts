@@ -91,10 +91,8 @@ export async function createCheckout(
     source: data.source,
     ...(data.source === "BUY_NOW" ? { items: data.items } : {}),
     contact: data.contact,
-    delivery: {
-      ...mapDelivery(data),
-      ...(data.saveAddress ? { isDefault: true } : {}),
-    },
+    delivery: mapDelivery(data),
+    saveAddress: data.saveAddress,
     paymentMethod: data.paymentMethod,
     ...(data.paymentMethod === "CARD"
       ? {

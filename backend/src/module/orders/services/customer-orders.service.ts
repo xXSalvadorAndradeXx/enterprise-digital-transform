@@ -97,6 +97,7 @@ export class CustomerOrdersService {
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('product.images', 'images')
       .leftJoinAndSelect('order.delivery', 'delivery')
+      .leftJoinAndSelect('order.payment', 'payment')
       .where(
         'order.customerId = :customerId AND order.customerId IS NOT NULL',
         { customerId },
@@ -156,7 +157,7 @@ export class CustomerOrdersService {
         orderNumber: o.orderNumber,
         status: this.mapHistoricalStatus(o.status),
         createdAt: o.createdAt,
-        paymentMethod: 'CREDIT_CARD', // Default per checkout specification
+        paymentMethod: o.payment?.paymentMethod || 'CARD',
         deliveryType:
           o.delivery?.deliveryType ||
           (o.deliveryMethod === DeliveryMethod.PICKUP
@@ -238,6 +239,7 @@ export class CustomerOrdersService {
         'items.product.images',
         'delivery',
         'delivery.branch',
+        'payment',
         'statusHistory',
       ],
     });
@@ -337,7 +339,7 @@ export class CustomerOrdersService {
       orderNumber: order.orderNumber,
       createdAt: order.createdAt,
       status: this.mapHistoricalStatus(order.status),
-      paymentMethod: 'CREDIT_CARD', // Default per checkout specification
+      paymentMethod: order.payment?.paymentMethod || 'CARD',
       deliveryType:
         order.delivery?.deliveryType ||
         (order.deliveryMethod === DeliveryMethod.PICKUP

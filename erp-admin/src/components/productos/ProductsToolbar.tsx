@@ -11,9 +11,7 @@ import {
 import { SearchBar } from "@/components/ui/SearchBar";
 import { ProductFilter } from "./ProductFilter";
 
-import type {
-  ProductStatus,
-} from "@/types/productos";
+import type { ProductPublicationFilter } from "@/hooks/productos/useProductsCatalog";
 
 interface ProductCategoryOption {
   label: string;
@@ -23,9 +21,7 @@ interface ProductCategoryOption {
 interface ProductsToolbarProps {
   search: string;
   categoryId: string;
-  status:
-    | ProductStatus
-    | "";
+  publication: ProductPublicationFilter;
 
   categories:
     ProductCategoryOption[];
@@ -38,43 +34,33 @@ interface ProductsToolbarProps {
     value: string,
   ) => void;
 
-  onStatusChange: (
-    value:
-      | ProductStatus
-      | "",
+  onPublicationChange: (
+    value: ProductPublicationFilter,
   ) => void;
 }
 
-const STATUS_OPTIONS: Array<{
+const PUBLICATION_OPTIONS: Array<{
   label: string;
-  value: ProductStatus;
+  value: Exclude<ProductPublicationFilter, "">;
 }> = [
   {
-    label: "Borrador",
-    value: "DRAFT",
+    label: "Publicados",
+    value: "PUBLISHED",
   },
   {
-    label: "Activo",
-    value: "ACTIVE",
-  },
-  {
-    label: "Pausado",
-    value: "PAUSED",
-  },
-  {
-    label: "Descontinuado",
-    value: "DISCONTINUED",
+    label: "No publicados",
+    value: "UNPUBLISHED",
   },
 ];
 
 export function ProductsToolbar({
   search,
   categoryId,
-  status,
+  publication,
   categories,
   onSearchChange,
   onCategoryChange,
-  onStatusChange,
+  onPublicationChange,
 }: ProductsToolbarProps) {
   const router =
     useRouter();
@@ -96,15 +82,11 @@ export function ProductsToolbar({
 
         <ProductFilter
           type="status"
-          placeholder="Estado"
-          value={status}
-          options={STATUS_OPTIONS}
+          placeholder="Publicación"
+          value={publication}
+          options={PUBLICATION_OPTIONS}
           onChange={(value) =>
-            onStatusChange(
-              value as
-                | ProductStatus
-                | "",
-            )
+            onPublicationChange(value as ProductPublicationFilter)
           }
         />
 

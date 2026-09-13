@@ -411,6 +411,7 @@ describe('CustomerOrdersService', () => {
           'items.product.images',
           'delivery',
           'delivery.branch',
+          'payment',
           'statusHistory',
         ],
       });

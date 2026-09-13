@@ -25,7 +25,10 @@ export class Payment {
   @Column({ type: 'uuid', name: 'order_id', nullable: false })
   orderId!: string;
 
-  @OneToOne(() => Order, { onDelete: 'RESTRICT', nullable: false })
+  @OneToOne(() => Order, (order) => order.payment, {
+    onDelete: 'RESTRICT',
+    nullable: false,
+  })
   @JoinColumn({ name: 'order_id' })
   order!: Order;
 

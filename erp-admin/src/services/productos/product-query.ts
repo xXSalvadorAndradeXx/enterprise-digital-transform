@@ -42,6 +42,10 @@ export function buildProductQueryString(
     );
   }
 
+  if (query.isPublished !== undefined) {
+    params.set("isPublished", String(query.isPublished));
+  }
+
   if (
     query.supplierId
   ) {

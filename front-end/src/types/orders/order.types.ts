@@ -17,6 +17,8 @@ export type OrderListItem = {
 
 export type OrderListItemArticle = {
   productId: string | null;
+  isAvailable: boolean;
+  canRepurchase?: boolean;
   commercialName: string;
   imageUrl: string | null;
   quantity: number;

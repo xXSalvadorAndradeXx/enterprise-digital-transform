@@ -313,8 +313,7 @@ const defaultValues =
         ),
 
       status:
-        product.status ===
-        "ACTIVE"
+        product.status === "ACTIVE" && product.isPublished
           ? "ACTIVE"
           : "DRAFT",
     };
@@ -412,28 +411,34 @@ const defaultValues =
       }
 
       const shouldPublish =
-        values.status ===
-          "ACTIVE" &&
-        updatedProduct.status !==
-          "ACTIVE";
+        values.status === "ACTIVE" &&
+        (updatedProduct.status !== "ACTIVE" || !updatedProduct.isPublished);
 
-      if (shouldPublish) {
-        const publishedProduct =
+      const shouldDisable =
+        values.status === "DRAFT" &&
+        (updatedProduct.status === "ACTIVE" || updatedProduct.isPublished);
+
+      if (shouldPublish || shouldDisable) {
+        const statusProduct =
           await changeStatus(
             id,
             {
-              status: "ACTIVE",
+              status: shouldPublish ? "ACTIVE" : "PAUSED",
             },
           );
 
-        if (!publishedProduct) {
+        if (!statusProduct) {
           setResultModal({
             type: "error",
             title:
-              "No se pudo publicar",
+              shouldPublish
+                ? "No se pudo publicar"
+                : "No se pudo deshabilitar",
             message:
               statusError?.message ??
-              "Los cambios se guardaron, pero no fue posible publicar el producto. Inténtalo nuevamente.",
+              `Los cambios se guardaron, pero no fue posible ${
+                shouldPublish ? "publicar" : "deshabilitar"
+              } el producto. Inténtalo nuevamente.`,
           });
 
           return;
@@ -445,13 +450,15 @@ const defaultValues =
       );
 
       setResultModal(
-        shouldPublish
+        shouldPublish || shouldDisable
           ? {
               type: "success",
               title:
                 "¡Estado actualizado!",
               message:
-                "El producto fue publicado correctamente en el e-commerce.",
+                shouldPublish
+                  ? "El producto fue publicado correctamente en el e-commerce."
+                  : "El producto fue deshabilitado correctamente del e-commerce.",
             }
           : {
               type: "success",

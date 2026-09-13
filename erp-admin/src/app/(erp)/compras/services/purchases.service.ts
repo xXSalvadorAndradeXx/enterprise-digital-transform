@@ -61,8 +61,13 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 function getMessage(body: unknown): string {
-  if (typeof body === "object" && body !== null && "message" in body) {
-    const message = (body as { message?: unknown }).message;
+  if (typeof body === "object" && body !== null) {
+    const record = body as Record<string, unknown>;
+    const container =
+      typeof record.error === "object" && record.error !== null
+        ? (record.error as Record<string, unknown>)
+        : record;
+    const message = container.message;
     if (typeof message === "string") return message;
     if (Array.isArray(message)) return message.filter((item): item is string => typeof item === "string").join(" ");
   }
