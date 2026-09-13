@@ -16,7 +16,9 @@ export class PasswordResetToken {
   @Column({ name: 'user_id', type: 'uuid' })
   userId!: string;
 
-  @ManyToOne(() => User, (user) => user.passwordResetTokens, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.passwordResetTokens, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'user_id' })
   user!: User;
 

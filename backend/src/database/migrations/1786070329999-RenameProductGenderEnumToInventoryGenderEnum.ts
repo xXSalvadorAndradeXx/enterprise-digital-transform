@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RenameProductGenderEnumToInventoryGenderEnum1786070329999
-  implements MigrationInterface
-{
+export class RenameProductGenderEnumToInventoryGenderEnum1786070329999 implements MigrationInterface {
   name = 'RenameProductGenderEnumToInventoryGenderEnum1786070329999';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

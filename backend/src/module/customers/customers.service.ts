@@ -1,20 +1,32 @@
-import { Injectable, ConflictException, NotFoundException, UnprocessableEntityException, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  UnprocessableEntityException,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository, EntityManager } from 'typeorm';
 import { Response } from 'express';
 import { Customer } from './entities/customer.entity';
 import { CustomerAddress } from './entities/customer-address.entity';
 import { EcommerceAuthSession } from './entities/ecommerce-auth-session.entity';
-import { Order } from '../orders/entities/order.entity';
 import { LocationsService } from '../locations/locations.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { HashService } from '../auth/services/hash.service';
 import { EcommerceRegisterDto } from './dto/ecommerce-register.dto';
+import { CustomerProfileResponseDto } from './dto/customer-profile-response.dto';
+import { UpdateCustomerProfileDto } from './dto/update-customer-profile.dto';
+import { CreateCustomerAddressDto } from './dto/create-customer-address.dto';
+import { UpdateCustomerAddressDto } from './dto/update-customer-address.dto';
+import { plainToInstance } from 'class-transformer';
 import {
   SESSION_ABSOLUTE_MAX_TTL_SECONDS,
   COOKIE_TTL_SHORT,
   COOKIE_TTL_LONG_SECONDS,
+  REFRESH_TOKEN_COOKIE_PATH,
   REFRESH_TOKEN_COOKIE_NAME,
   buildRefreshTokenCookieOptions,
   hashToken,
@@ -29,8 +41,6 @@ export class CustomersService {
     private readonly addressRepository: Repository<CustomerAddress>,
     @InjectRepository(EcommerceAuthSession)
     private readonly sessionRepository: Repository<EcommerceAuthSession>,
-    @InjectRepository(Order)
-    private readonly orderRepository: Repository<Order>,
     private readonly locationsService: LocationsService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
@@ -83,7 +93,8 @@ export class CustomersService {
       if (emailExists) {
         throw new ConflictException({
           code: 'EMAIL_ALREADY_EXISTS',
-          message: 'El correo electrónico ya está registrado por otro cliente activo',
+          message:
+            'El correo electrónico ya está registrado por otro cliente activo',
           details: { email: normalizedEmail },
         });
       }
@@ -127,7 +138,8 @@ export class CustomersService {
     if (data.totalOrders !== undefined && data.totalOrders < 0) {
       throw new UnprocessableEntityException({
         code: 'INVALID_TOTAL_ORDERS',
-        message: 'El total de órdenes (totalOrders) no puede ser menor que cero',
+        message:
+          'El total de órdenes (totalOrders) no puede ser menor que cero',
       });
     }
 
@@ -152,7 +164,10 @@ export class CustomersService {
     await this.validateUniqueness(dto.email, dto.dui);
 
     // 2. Validar que el par departamento-distrito sea válido
-    await this.locationsService.validateDepartmentDistrict(dto.departmentId, dto.districtId);
+    await this.locationsService.validateDepartmentDistrict(
+      dto.departmentId,
+      dto.districtId,
+    );
 
     // 3. Hashear la contraseña utilizando HashService
     const hashedPassword = await this.hashService.hashPassword(dto.password);
@@ -166,73 +181,80 @@ export class CustomersService {
     }
 
     // 4. Ejecutar la creación en una transacción única de base de datos
-    return await this.customerRepository.manager.transaction(async (manager) => {
-      const customer = manager.create(Customer, {
-        fullName: dto.fullName,
-        email: dto.email,
-        dui: dto.dui,
-        phone: dto.phone,
-        passwordHash: hashedPassword,
-        isActive: true,
-        totalSpent: 0,
-        totalOrders: 0,
-        lastOrderAt: null,
-      });
+    return await this.customerRepository.manager.transaction(
+      async (manager) => {
+        const customer = manager.create(Customer, {
+          fullName: dto.fullName,
+          email: dto.email,
+          dui: dto.dui,
+          phone: dto.phone,
+          passwordHash: hashedPassword,
+          isActive: true,
+          totalSpent: 0,
+          totalOrders: 0,
+          lastOrderAt: null,
+        });
 
-      const savedCustomer = await manager.save(Customer, customer);
+        const savedCustomer = await manager.save(Customer, customer);
 
-      // Crear dirección principal (isDefault = true, label = 'Casa')
-      const address = manager.create(CustomerAddress, {
-        customerId: savedCustomer.id,
-        departmentId: Number(dto.departmentId),
-        districtId: Number(dto.districtId),
-        city: dto.city || null,
-        addressLine: effectiveAddress,
-        label: 'Casa',
-        isDefault: true,
-      });
+        // Crear dirección principal (isDefault = true, label = 'Casa')
+        const address = manager.create(CustomerAddress, {
+          customerId: savedCustomer.id,
+          departmentId: Number(dto.departmentId),
+          districtId: Number(dto.districtId),
+          city: dto.city || null,
+          addressLine: effectiveAddress,
+          label: 'Casa',
+          isDefault: true,
+        });
 
-      await manager.save(CustomerAddress, address);
+        await manager.save(CustomerAddress, address);
 
-      // Crear sesión de autenticación en la misma transacción
-      const refreshSecret =
-        this.configService.get<string>('JWT_REFRESH_SECRET') ||
-        this.configService.get<string>('JWT_SECRET') ||
-        'default_secret';
+        // Crear sesión de autenticación en la misma transacción
+        const refreshSecret =
+          this.configService.get<string>('JWT_REFRESH_SECRET') ||
+          this.configService.get<string>('JWT_SECRET') ||
+          'default_secret';
 
-      const rawRefreshToken = await this.jwtService.signAsync(
-        { sub: savedCustomer.id, type: 'refresh' },
-        { secret: refreshSecret, expiresIn: SESSION_ABSOLUTE_MAX_TTL_SECONDS },
-      );
+        const rawRefreshToken = await this.jwtService.signAsync(
+          { sub: savedCustomer.id, type: 'refresh' },
+          {
+            secret: refreshSecret,
+            expiresIn: SESSION_ABSOLUTE_MAX_TTL_SECONDS,
+          },
+        );
 
-      const tokenHash = hashToken(rawRefreshToken);
-      const expiresAt = new Date(Date.now() + SESSION_ABSOLUTE_MAX_TTL_SECONDS * 1000);
+        const tokenHash = hashToken(rawRefreshToken);
+        const expiresAt = new Date(
+          Date.now() + SESSION_ABSOLUTE_MAX_TTL_SECONDS * 1000,
+        );
 
-      const session = manager.create(EcommerceAuthSession, {
-        customerId: savedCustomer.id,
-        refreshTokenHash: tokenHash,
-        expiresAt,
-        revokedAt: null,
-        lastUsedAt: null,
-        userAgent: userAgent || null,
-        ipHash: ipHash || null,
-      });
+        const session = manager.create(EcommerceAuthSession, {
+          customerId: savedCustomer.id,
+          refreshTokenHash: tokenHash,
+          expiresAt,
+          revokedAt: null,
+          lastUsedAt: null,
+          userAgent: userAgent || null,
+          ipHash: ipHash || null,
+        });
 
-      await manager.save(EcommerceAuthSession, session);
+        await manager.save(EcommerceAuthSession, session);
 
-      // Generar el Access Token con duración fija de 15 minutos (900s)
-      const accessToken = await this.generateAccessToken(savedCustomer);
+        // Generar el Access Token con duración fija de 15 minutos (900s)
+        const accessToken = await this.generateAccessToken(savedCustomer);
 
-      // rememberMe es false por defecto en el registro
-      const cookieMaxAge = COOKIE_TTL_SHORT;
+        // rememberMe es false por defecto en el registro
+        const cookieMaxAge = COOKIE_TTL_SHORT;
 
-      return {
-        customer: savedCustomer,
-        accessToken,
-        rawRefreshToken,
-        cookieMaxAge,
-      };
-    });
+        return {
+          customer: savedCustomer,
+          accessToken,
+          rawRefreshToken,
+          cookieMaxAge,
+        };
+      },
+    );
   }
 
   /**
@@ -254,8 +276,10 @@ export class CustomersService {
     const duiToCheck = data.dui !== undefined ? data.dui : customer.dui;
     await this.validateUniqueness(emailToCheck, duiToCheck, id);
 
-    const totalSpentToCheck = data.totalSpent !== undefined ? data.totalSpent : customer.totalSpent;
-    const totalOrdersToCheck = data.totalOrders !== undefined ? data.totalOrders : customer.totalOrders;
+    const totalSpentToCheck =
+      data.totalSpent !== undefined ? data.totalSpent : customer.totalSpent;
+    const totalOrdersToCheck =
+      data.totalOrders !== undefined ? data.totalOrders : customer.totalOrders;
 
     if (Number(totalSpentToCheck) < 0) {
       throw new UnprocessableEntityException({
@@ -267,7 +291,8 @@ export class CustomersService {
     if (totalOrdersToCheck < 0) {
       throw new UnprocessableEntityException({
         code: 'INVALID_TOTAL_ORDERS',
-        message: 'El total de órdenes (totalOrders) no puede ser menor que cero',
+        message:
+          'El total de órdenes (totalOrders) no puede ser menor que cero',
       });
     }
 
@@ -306,35 +331,212 @@ export class CustomersService {
     return customer;
   }
 
+  async getMyProfile(
+    customerId: string,
+    cachedUser?: Partial<Customer> & { customerId?: string; fullName?: string },
+  ): Promise<CustomerProfileResponseDto> {
+    if (!customerId) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Identificador de cliente no provisto en el token de acceso.',
+      });
+    }
+
+    // 1. Optimización: Si la estrategia Auth ya cargó los campos requeridos en la misma petición,
+    // evitamos hacer una consulta adicional a la base de datos.
+    if (
+      cachedUser &&
+      (cachedUser.id === customerId || cachedUser.customerId === customerId) &&
+      cachedUser.email &&
+      cachedUser.phone
+    ) {
+      const dto = new CustomerProfileResponseDto();
+      dto.id = cachedUser.id ?? customerId;
+      dto.name = cachedUser.fullName ?? '';
+      dto.fullName = cachedUser.fullName;
+      dto.email = cachedUser.email;
+      dto.phone = cachedUser.phone;
+      dto.dui = cachedUser.dui ?? null;
+      dto.role = 'cliente';
+      dto.createdAt = cachedUser.createdAt ?? null;
+
+      return plainToInstance(CustomerProfileResponseDto, dto, {
+        excludeExtraneousValues: false,
+      });
+    }
+
+    // 2. Consulta con proyección mínima en caso de que falten campos en memoria
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId, deletedAt: IsNull() },
+      select: [
+        'id',
+        'fullName',
+        'email',
+        'phone',
+        'dui',
+        'isActive',
+        'createdAt',
+      ],
+    });
+
+    if (!customer) {
+      throw new NotFoundException({
+        code: 'CUSTOMER_NOT_FOUND',
+        message: 'No se encontró la cuenta del cliente asociada al token.',
+      });
+    }
+
+    if (!customer.isActive) {
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_DISABLED',
+        message: 'La cuenta del cliente se encuentra inactiva o deshabilitada.',
+      });
+    }
+
+    const dto = new CustomerProfileResponseDto();
+    dto.id = customer.id;
+    dto.name = customer.fullName;
+    dto.fullName = customer.fullName;
+    dto.email = customer.email;
+    dto.phone = customer.phone;
+    dto.dui = customer.dui ?? null;
+    dto.role = 'cliente';
+    dto.createdAt = customer.createdAt;
+
+    return plainToInstance(CustomerProfileResponseDto, dto, {
+      excludeExtraneousValues: false,
+    });
+  }
+
+  async updateMyProfile(
+    customerId: string,
+    dto: UpdateCustomerProfileDto,
+  ): Promise<CustomerProfileResponseDto> {
+    if (!customerId) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Identificador de cliente no provisto en el token de acceso.',
+      });
+    }
+
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId, deletedAt: IsNull() },
+    });
+
+    if (!customer) {
+      throw new NotFoundException({
+        code: 'CUSTOMER_NOT_FOUND',
+        message: 'No se encontró la cuenta de cliente a actualizar.',
+      });
+    }
+
+    if (!customer.isActive) {
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_DISABLED',
+        message: 'La cuenta del cliente se encuentra inactiva o deshabilitada.',
+      });
+    }
+
+    let hasChanges = false;
+
+    // 1. Actualización de nombre (resuelto desde dto.name o dto.fullName)
+    const newName = dto.getResolvedName
+      ? dto.getResolvedName()
+      : (dto.name ?? dto.fullName);
+    if (newName !== undefined && newName !== null) {
+      const normalizedName = newName.trim();
+      if (normalizedName.length > 0 && normalizedName !== customer.fullName) {
+        customer.fullName = normalizedName;
+        hasChanges = true;
+      }
+    }
+
+    // 2. Actualización de teléfono salvadoreño
+    if (dto.phone !== undefined && dto.phone !== null) {
+      let normalizedPhone = dto.phone.trim();
+      const cleanedDigits = normalizedPhone.replace(/[^\d+]/g, '');
+      if (/^\d{8}$/.test(cleanedDigits)) {
+        normalizedPhone = `+503${cleanedDigits}`;
+      } else {
+        normalizedPhone = cleanedDigits;
+      }
+
+      if (normalizedPhone !== customer.phone) {
+        customer.phone = normalizedPhone;
+        hasChanges = true;
+      }
+    }
+
+    let savedCustomer = customer;
+    if (hasChanges) {
+      savedCustomer = await this.customerRepository.save(customer);
+    }
+
+    const responseDto = new CustomerProfileResponseDto();
+    responseDto.id = savedCustomer.id;
+    responseDto.name = savedCustomer.fullName;
+    responseDto.fullName = savedCustomer.fullName;
+    responseDto.email = savedCustomer.email;
+    responseDto.phone = savedCustomer.phone;
+    responseDto.dui = savedCustomer.dui ?? null;
+    responseDto.role = 'cliente';
+    responseDto.createdAt = savedCustomer.createdAt;
+
+    return plainToInstance(CustomerProfileResponseDto, responseDto, {
+      excludeExtraneousValues: false,
+    });
+  }
+
   /**
-   * Obtiene todas las direcciones de un cliente, ordenadas de forma consistente (predeterminada primero).
+   * Obtiene todas las direcciones activas del cliente autenticado,
+   * ordenadas con la dirección predeterminada primero (isDefault: DESC) y luego
+   * por fecha de creación más reciente (createdAt: DESC) para máxima estabilidad.
+   * Retorna [] si no existen direcciones registradas.
    */
-  async getAddresses(customerId: string): Promise<CustomerAddress[]> {
+  async findAllByCustomer(customerId: string): Promise<CustomerAddress[]> {
     return await this.addressRepository.find({
-      where: { customerId },
+      where: { customerId, deletedAt: IsNull() },
       relations: ['department', 'district'],
       order: {
         isDefault: 'DESC',
-        createdAt: 'ASC',
+        createdAt: 'DESC',
+        id: 'ASC',
       },
     });
   }
 
   /**
+   * Alias de findAllByCustomer para compatibilidad con código existente.
+   */
+  async getAddresses(customerId: string): Promise<CustomerAddress[]> {
+    return await this.findAllByCustomer(customerId);
+  }
+
+  /**
    * Desmarca la dirección principal activa anterior para el cliente en el manager dado.
    */
-  private async clearDefaultAddress(manager: EntityManager, customerId: string): Promise<void> {
-    await manager.update(
-      CustomerAddress,
-      { customerId, isDefault: true, deletedAt: IsNull() },
-      { isDefault: false },
-    );
+  private async clearDefaultAddress(
+    manager: EntityManager,
+    customerId: string,
+  ): Promise<void> {
+    await manager
+      .createQueryBuilder()
+      .update(CustomerAddress)
+      .set({ isDefault: false })
+      .where(
+        'customer_id = :customerId AND is_default = true AND deleted_at IS NULL',
+        { customerId },
+      )
+      .execute();
   }
 
   /**
    * Crea una dirección asociada a un cliente, validando el par department-district.
    */
-  async createAddress(customerId: string, data: Partial<CustomerAddress>): Promise<CustomerAddress> {
+  async createAddress(
+    customerId: string,
+    data: CreateCustomerAddressDto | any,
+  ): Promise<CustomerAddress> {
     const customer = await this.findOne(customerId);
 
     if (!data.departmentId || !data.districtId) {
@@ -347,34 +549,50 @@ export class CustomersService {
       data.districtId,
     );
 
-    return await this.customerRepository.manager.transaction(async (manager) => {
-      // Contar direcciones activas (no borradas)
-      const activeAddressCount = await manager.count(CustomerAddress, {
-        where: { customerId, deletedAt: IsNull() },
-      });
+    const resolvedLabel =
+      typeof data.getResolvedLabel === 'function'
+        ? data.getResolvedLabel()
+        : data.alias || data.label || 'Principal';
 
-      // Si es la primera dirección activa o el DTO solicita isDefault = true, marcar como principal
-      const isDefault = activeAddressCount === 0 || data.isDefault === true;
+    return await this.customerRepository.manager.transaction(
+      async (manager) => {
+        // Contar direcciones activas (no borradas)
+        const activeAddressCount = await manager.count(CustomerAddress, {
+          where: { customerId, deletedAt: IsNull() },
+        });
 
-      if (isDefault) {
-        // Desmarcar principal anterior
-        await this.clearDefaultAddress(manager, customerId);
-      }
+        // Si es la primera dirección activa o el DTO solicita isDefault = true, marcar como principal
+        const isDefault = activeAddressCount === 0 || data.isDefault === true;
 
-      const address = manager.create(CustomerAddress, {
-        ...data,
-        customerId: customer.id,
-        isDefault,
-      });
+        if (isDefault) {
+          // Desmarcar principal anterior
+          await this.clearDefaultAddress(manager, customerId);
+        }
 
-      const savedAddress = await manager.save(CustomerAddress, address);
+        const address = manager.create(CustomerAddress, {
+          departmentId: data.departmentId,
+          districtId: data.districtId,
+          city: data.city,
+          addressLine: data.addressLine,
+          label: resolvedLabel,
+          recipientName: data.recipientName ?? null,
+          phone: data.phone ?? null,
+          reference: data.reference ?? null,
+          customerId: customer.id,
+          isDefault,
+        });
 
-      // Recargar con relaciones
-      return (await manager.findOne(CustomerAddress, {
-        where: { id: savedAddress.id },
-        relations: ['department', 'district'],
-      }))!;
-    });
+        const savedAddress = await manager.save(CustomerAddress, address);
+
+        // Recargar con relaciones
+        const reloaded = await manager.findOne(CustomerAddress, {
+          where: { id: savedAddress.id },
+          relations: ['department', 'district'],
+        });
+
+        return reloaded || savedAddress;
+      },
+    );
   }
 
   /**
@@ -383,7 +601,7 @@ export class CustomersService {
   async updateAddress(
     customerId: string,
     addressId: string,
-    data: Partial<CustomerAddress>,
+    data: UpdateCustomerAddressDto | any,
   ): Promise<CustomerAddress> {
     const address = await this.addressRepository.findOne({
       where: { id: addressId, customerId },
@@ -396,37 +614,77 @@ export class CustomersService {
       });
     }
 
-    const deptId = data.departmentId !== undefined ? data.departmentId : address.departmentId;
-    const distId = data.districtId !== undefined ? data.districtId : address.districtId;
+    const deptId =
+      data.departmentId !== undefined
+        ? data.departmentId
+        : address.departmentId;
+    const distId =
+      data.districtId !== undefined ? data.districtId : address.districtId;
 
     if (data.departmentId !== undefined || data.districtId !== undefined) {
       // Re-validar par departamento-distrito si uno de ellos cambia
       await this.locationsService.validateDepartmentDistrict(deptId, distId);
     }
 
-    return await this.customerRepository.manager.transaction(async (manager) => {
-      // Si cambia a isDefault = true
-      if (data.isDefault === true) {
-        await this.clearDefaultAddress(manager, customerId);
-      }
+    return await this.customerRepository.manager.transaction(
+      async (manager) => {
+        // Si cambia a isDefault = true
+        if (data.isDefault === true) {
+          await this.clearDefaultAddress(manager, customerId);
+        }
 
-      Object.assign(address, data);
-      const saved = await manager.save(CustomerAddress, address);
+        if (data.departmentId !== undefined) address.departmentId = data.departmentId;
+        if (data.districtId !== undefined) address.districtId = data.districtId;
+        if (data.city !== undefined) address.city = data.city;
+        if (data.addressLine !== undefined) address.addressLine = data.addressLine;
+        if (data.isDefault !== undefined) {
+          if (data.isDefault === false && address.isDefault) {
+            const activeAddressCount = await manager.count(CustomerAddress, {
+              where: { customerId, deletedAt: IsNull() },
+            });
+            // Si es la única dirección activa, no se desmarca como default
+            address.isDefault = activeAddressCount > 1 ? false : true;
+          } else {
+            address.isDefault = data.isDefault;
+          }
+        }
+        if (data.recipientName !== undefined) address.recipientName = data.recipientName;
+        if (data.phone !== undefined) address.phone = data.phone;
+        if (data.reference !== undefined) address.reference = data.reference;
 
-      return (await manager.findOne(CustomerAddress, {
-        where: { id: saved.id },
-        relations: ['department', 'district'],
-      }))!;
-    });
+        const resolvedLabel =
+          typeof data.getResolvedLabel === 'function'
+            ? data.getResolvedLabel()
+            : data.alias !== undefined
+              ? data.alias
+              : data.label;
+        if (resolvedLabel !== undefined) {
+          address.label = resolvedLabel;
+        }
+
+        const saved = await manager.save(CustomerAddress, address);
+
+        const reloaded = await manager.findOne(CustomerAddress, {
+          where: { id: saved.id },
+          relations: ['department', 'district'],
+        });
+
+        return reloaded || saved;
+      },
+    );
   }
 
   /**
    * Establece una dirección como principal dentro de una transacción.
    */
-  async setDefaultAddress(customerId: string, addressId: string): Promise<CustomerAddress> {
+  async setDefaultAddress(
+    customerId: string,
+    addressId: string,
+  ): Promise<CustomerAddress> {
     // 1. Validar que la dirección solicitada exista, pertenezca al cliente y no esté eliminada.
     const targetAddress = await this.addressRepository.findOne({
       where: { id: addressId, customerId },
+      relations: ['department', 'district'],
     });
 
     if (!targetAddress) {
@@ -436,57 +694,95 @@ export class CustomersService {
       });
     }
 
-    // 2. Ejecutar dentro de una transacción para asegurar consistencia
-    return await this.customerRepository.manager.transaction(async (transactionalEntityManager) => {
-      // Desmarcar la dirección principal actual
-      await this.clearDefaultAddress(transactionalEntityManager, customerId);
+    // 2. Operación idempotente si ya era la dirección principal activa
+    if (targetAddress.isDefault) {
+      return targetAddress;
+    }
 
-      // Marcar la nueva dirección como principal
-      targetAddress.isDefault = true;
-      const saved = await transactionalEntityManager.save(targetAddress);
+    // 3. Ejecutar dentro de una transacción para asegurar consistencia
+    return await this.customerRepository.manager.transaction(
+      async (transactionalEntityManager) => {
+        // Desmarcar la dirección principal actual
+        await this.clearDefaultAddress(transactionalEntityManager, customerId);
 
-      return (await transactionalEntityManager.findOne(CustomerAddress, {
-        where: { id: saved.id },
-        relations: ['department', 'district'],
-      }))!;
-    });
+        // Marcar la nueva dirección como principal
+        targetAddress.isDefault = true;
+        const saved = await transactionalEntityManager.save(
+          CustomerAddress,
+          targetAddress,
+        );
+
+        const reloaded = await transactionalEntityManager.findOne(
+          CustomerAddress,
+          {
+            where: { id: saved.id },
+            relations: ['department', 'district'],
+          },
+        );
+
+        return reloaded || saved;
+      },
+    );
   }
 
   /**
    * Elimina una dirección utilizando soft delete. Si era la dirección principal,
-   * reasigna automáticamente otra dirección activa del cliente como principal.
+   * reasigna automáticamente otra dirección activa del cliente como principal con
+   * criterio determinístico (la más reciente: createdAt DESC, id ASC) en la misma transacción.
    */
-  async removeAddress(customerId: string, addressId: string): Promise<void> {
+  async removeAddress(
+    customerId: string,
+    addressId: string,
+  ): Promise<{
+    deletedAddressId: string;
+    newDefaultAddress: CustomerAddress | null;
+  }> {
     // 1. Validar que la dirección pertenezca al cliente solicitado antes de eliminarla.
     const address = await this.addressRepository.findOne({
       where: { id: addressId, customerId },
     });
 
     if (!address) {
-      throw new NotFoundException({ 
+      throw new NotFoundException({
         code: 'ADDRESS_NOT_FOUND',
         message: `No se encontró la dirección con id ${addressId} para el cliente`,
       });
     }
 
     // 2. Ejecutar la operación dentro de una transacción.
-    await this.customerRepository.manager.transaction(async (transactionalEntityManager) => {
-      // Marcar la dirección como eliminada (soft delete)
-      await transactionalEntityManager.softDelete(CustomerAddress, addressId);
+    return await this.customerRepository.manager.transaction(
+      async (transactionalEntityManager) => {
+        // Marcar la dirección como eliminada (soft delete)
+        await transactionalEntityManager.softDelete(CustomerAddress, addressId);
 
-      // Si la dirección eliminada era la principal, reasignar otra dirección activa
-      if (address.isDefault) {
-        const remainingAddress = await transactionalEntityManager.findOne(CustomerAddress, {
-          where: { customerId }, // TypeORM aplica el filtro WHERE deleted_at IS NULL automáticamente
-          order: { createdAt: 'ASC' },
-        });
+        let newDefaultAddress: CustomerAddress | null = null;
 
-        if (remainingAddress) {
-          remainingAddress.isDefault = true;
-          await transactionalEntityManager.save(CustomerAddress, remainingAddress);
+        // Si la dirección eliminada era la principal, reasignar otra dirección activa con criterio determinístico
+        if (address.isDefault) {
+          const remainingAddress = await transactionalEntityManager.findOne(
+            CustomerAddress,
+            {
+              where: { customerId, deletedAt: IsNull() },
+              relations: ['department', 'district'],
+              order: { createdAt: 'DESC', id: 'ASC' },
+            },
+          );
+
+          if (remainingAddress) {
+            remainingAddress.isDefault = true;
+            newDefaultAddress = await transactionalEntityManager.save(
+              CustomerAddress,
+              remainingAddress,
+            );
+          }
         }
-      }
-    });
+
+        return {
+          deletedAddressId: addressId,
+          newDefaultAddress,
+        };
+      },
+    );
   }
 
   /**
@@ -500,7 +796,8 @@ export class CustomersService {
       type: 'access',
     };
 
-    const secret = this.configService.get<string>('JWT_SECRET') || 'default_secret';
+    const secret =
+      this.configService.get<string>('JWT_SECRET') || 'default_secret';
     return this.jwtService.signAsync(payload, {
       secret,
       expiresIn: 900,
@@ -536,7 +833,9 @@ export class CustomersService {
     );
 
     const tokenHash = hashToken(rawToken);
-    const expiresAt = new Date(Date.now() + SESSION_ABSOLUTE_MAX_TTL_SECONDS * 1000);
+    const expiresAt = new Date(
+      Date.now() + SESSION_ABSOLUTE_MAX_TTL_SECONDS * 1000,
+    );
 
     const session = this.sessionRepository.create({
       customerId,
@@ -550,7 +849,9 @@ export class CustomersService {
     await this.sessionRepository.save(session);
 
     // rememberMe solo controla la persistencia de la cookie en el navegador
-    const cookieMaxAge = rememberMe ? COOKIE_TTL_LONG_SECONDS : COOKIE_TTL_SHORT;
+    const cookieMaxAge = rememberMe
+      ? COOKIE_TTL_LONG_SECONDS
+      : COOKIE_TTL_SHORT;
     return { rawToken, cookieMaxAge };
   }
 
@@ -562,7 +863,9 @@ export class CustomersService {
    *
    * @returns La sesión válida si pasa todas las verificaciones.
    */
-  async validateSessionForRefresh(refreshToken: string): Promise<EcommerceAuthSession> {
+  async validateSessionForRefresh(
+    refreshToken: string,
+  ): Promise<EcommerceAuthSession> {
     const tokenHash = hashToken(refreshToken);
 
     const session = await this.sessionRepository.findOne({
@@ -603,7 +906,11 @@ export class CustomersService {
   async rotateRefreshToken(
     currentRefreshToken: string,
     rememberMe: boolean,
-  ): Promise<{ rawToken: string; cookieMaxAge: number | undefined; customerId: string }> {
+  ): Promise<{
+    rawToken: string;
+    cookieMaxAge: number | undefined;
+    customerId: string;
+  }> {
     // 1. Validar la sesión actual
     const session = await this.validateSessionForRefresh(currentRefreshToken);
 
@@ -638,7 +945,7 @@ export class CustomersService {
 
     // 5. Cookie: rememberMe controla persistencia, pero maxAge no excede el tiempo restante
     const cookieMaxAge = rememberMe
-      ? Math.min(COOKIE_TTL_LONG_SECONDS!, remainingSeconds)
+      ? Math.min(COOKIE_TTL_LONG_SECONDS, remainingSeconds)
       : COOKIE_TTL_SHORT;
 
     return { rawToken, cookieMaxAge, customerId: session.customerId };
@@ -649,6 +956,9 @@ export class CustomersService {
    * Útil para logout o invalidación por compromiso de seguridad.
    */
   async revokeSession(refreshToken: string): Promise<void> {
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      return;
+    }
     const tokenHash = hashToken(refreshToken);
     const session = await this.sessionRepository.findOne({
       where: { refreshTokenHash: tokenHash, revokedAt: IsNull() },
@@ -674,29 +984,48 @@ export class CustomersService {
   /**
    * Configura la cookie segura del refresh token en la respuesta HTTP.
    */
-  setRefreshTokenCookie(res: Response, rawToken: string, cookieMaxAge: number | undefined): void {
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-    const cookieOptions = buildRefreshTokenCookieOptions(cookieMaxAge, isProduction);
+  setRefreshTokenCookie(
+    res: Response,
+    rawToken: string,
+    cookieMaxAge: number | undefined,
+  ): void {
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
+    const cookieOptions = buildRefreshTokenCookieOptions(
+      cookieMaxAge,
+      isProduction,
+    );
     res.cookie(REFRESH_TOKEN_COOKIE_NAME, rawToken, cookieOptions);
   }
 
   /**
-   * Limpia la cookie del refresh token (útil para logout).
+   * Limpia la cookie HttpOnly del refresh token utilizando la misma configuración
+   * (Path, SameSite, Secure) con la que fue emitida, garantizando logout en el cliente.
    */
   clearRefreshTokenCookie(res: Response): void {
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
+    const clearOptions = {
       httpOnly: true,
-      sameSite: 'lax',
-      path: '/api/v1/ecommerce/auth',
+      sameSite: 'lax' as const,
+      path: REFRESH_TOKEN_COOKIE_PATH,
       secure: isProduction,
+    };
+
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, clearOptions);
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
+      ...clearOptions,
+      path: '/',
     });
   }
 
   /**
    * Valida las credenciales de inicio de sesión de un cliente comprador.
    */
-  async validateCredentials(email: string, password: string): Promise<Customer> {
+  async validateCredentials(
+    email: string,
+    password: string,
+  ): Promise<Customer> {
     const normalizedEmail = this.normalizeEmail(email);
     const customer = await this.customerRepository.findOne({
       where: { email: normalizedEmail },
@@ -716,7 +1045,10 @@ export class CustomersService {
       });
     }
 
-    const isPasswordValid = await this.hashService.comparePassword(password, customer.passwordHash);
+    const isPasswordValid = await this.hashService.comparePassword(
+      password,
+      customer.passwordHash,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
@@ -754,14 +1086,21 @@ export class CustomersService {
         );
       }
       if (filters.isActive !== undefined) {
-        queryBuilder.andWhere('customer.isActive = :isActive', { isActive: filters.isActive });
+        queryBuilder.andWhere('customer.isActive = :isActive', {
+          isActive: filters.isActive,
+        });
       }
 
       // Validar coherencia del rango de fecha de última orden
-      if (filters.lastOrderFrom && filters.lastOrderTo && filters.lastOrderFrom > filters.lastOrderTo) {
+      if (
+        filters.lastOrderFrom &&
+        filters.lastOrderTo &&
+        filters.lastOrderFrom > filters.lastOrderTo
+      ) {
         throw new BadRequestException({
           code: 'VALIDATION_ERROR',
-          message: 'La fecha de inicio (lastOrderFrom) no puede ser posterior a la fecha de fin (lastOrderTo)',
+          message:
+            'La fecha de inicio (lastOrderFrom) no puede ser posterior a la fecha de fin (lastOrderTo)',
         });
       }
 
@@ -787,7 +1126,9 @@ export class CustomersService {
       totalOrders: 'customer.totalOrders',
     };
 
-    const sortColumn = (filters && filters.sortBy && sortByWhitelist[filters.sortBy]) || 'customer.createdAt';
+    const sortColumn =
+      (filters && filters.sortBy && sortByWhitelist[filters.sortBy]) ||
+      'customer.createdAt';
     const sortOrder = (filters && filters.order) || 'DESC';
 
     queryBuilder.orderBy(sortColumn, sortOrder);
@@ -801,38 +1142,6 @@ export class CustomersService {
 
     return {
       customers,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages,
-      },
-    };
-  }
-
-  /**
-   * Obtiene el historial de pedidos de un cliente con paginación.
-   */
-  async findOrdersForCustomer(
-    customerId: string,
-    page: number = 1,
-    limit: number = 10,
-  ) {
-    await this.findOne(customerId);
-
-    const queryBuilder = this.orderRepository.createQueryBuilder('order');
-    queryBuilder.where('order.customerId = :customerId', { customerId });
-    queryBuilder.orderBy('order.createdAt', 'DESC');
-    queryBuilder.addOrderBy('order.id', 'ASC');
-
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
-
-    const [orders, total] = await queryBuilder.getManyAndCount();
-    const totalPages = Math.ceil(total / limit);
-
-    return {
-      orders,
       meta: {
         total,
         page,

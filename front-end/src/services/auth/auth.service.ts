@@ -25,3 +25,9 @@ export function loginUser(data: LoginRequest) {
     },
   );
 }
+
+export function logoutUser() {
+  return apiRequest<unknown>("/ecommerce/auth/logout", {
+    method: "POST",
+  });
+}

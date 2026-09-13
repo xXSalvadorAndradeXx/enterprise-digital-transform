@@ -35,22 +35,42 @@ export class OrderDelivery {
   estimatedDeliveryDate?: Date;
 
   // Snapshot de dirección para entrega a domicilio
-  @Column({ type: 'varchar', length: 50, name: 'department_id', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 50,
+    name: 'department_id',
+    nullable: true,
+  })
   departmentId?: string | null;
 
   @Column({ type: 'varchar', length: 50, name: 'district_id', nullable: true })
   districtId?: string | null;
 
-  @Column({ type: 'varchar', length: 100, name: 'department_name', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 100,
+    name: 'department_name',
+    nullable: true,
+  })
   departmentName?: string | null;
 
-  @Column({ type: 'varchar', length: 100, name: 'district_name', nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 100,
+    name: 'district_name',
+    nullable: true,
+  })
   districtName?: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   city?: string | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'address_line' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'address_line',
+  })
   addressLine?: string | null;
 
   // Relación con sucursal (para el método de retiro en tienda)
@@ -65,13 +85,24 @@ export class OrderDelivery {
   @Column({ type: 'varchar', length: 100, nullable: true, name: 'branch_name' })
   branchName?: string | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'branch_address' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'branch_address',
+  })
   branchAddress?: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'branch_phone' })
   branchPhone?: string | null;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2, name: 'shipping_total', default: '0.00' })
+  @Column({
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    name: 'shipping_total',
+    default: '0.00',
+  })
   shippingTotal!: string;
 
   @CreateDateColumn({ name: 'created_at' })

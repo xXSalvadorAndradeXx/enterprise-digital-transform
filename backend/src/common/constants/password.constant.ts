@@ -8,7 +8,8 @@
  * - Al menos un símbolo o carácter especial (?=.*[\W_])
  * - Mínimo 8 caracteres de longitud (.{8,})
  */
-export const PASSWORD_POLICY_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+export const PASSWORD_POLICY_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
 /**
  * Mensaje estándar de error cuando la contraseña no cumple la política.

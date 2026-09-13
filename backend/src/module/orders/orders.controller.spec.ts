@@ -25,9 +25,7 @@ describe('OrdersController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [OrdersController],
-      providers: [
-        { provide: OrdersService, useValue: ordersService },
-      ],
+      providers: [{ provide: OrdersService, useValue: ordersService }],
     }).compile();
 
     controller = module.get<OrdersController>(OrdersController);
@@ -40,8 +38,18 @@ describe('OrdersController', () => {
   describe('checkout', () => {
     const checkoutDto: CheckoutDto = {
       source: CheckoutSource.BUY_NOW,
-      contact: { fullName: 'Juan Perez', email: 'juan@example.com', phone: '+50370000000' },
-      delivery: { deliveryType: DeliveryType.HOME_DELIVERY, departmentId: 'SS', districtId: 'San_Salvador', city: 'San Salvador', addressLine: 'Calle 1' },
+      contact: {
+        fullName: 'Juan Perez',
+        email: 'juan@example.com',
+        phone: '+50370000000',
+      },
+      delivery: {
+        deliveryType: DeliveryType.HOME_DELIVERY,
+        departmentId: 'SS',
+        districtId: 'San_Salvador',
+        city: 'San Salvador',
+        addressLine: 'Calle 1',
+      },
       paymentMethod: PaymentMethod.CARD,
     };
     const validIdempotencyKey = '123e4567-e89b-12d3-a456-426614174000';
@@ -59,7 +67,11 @@ describe('OrdersController', () => {
 
     it('debe lanzar BadRequestException si el header Idempotency-Key no es un UUID v4 válido', async () => {
       try {
-        await controller.checkout(checkoutDto, { user: null }, 'invalid-uuid-key');
+        await controller.checkout(
+          checkoutDto,
+          { user: null },
+          'invalid-uuid-key',
+        );
         fail('Debería haber lanzado BadRequestException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(BadRequestException);
@@ -73,9 +85,18 @@ describe('OrdersController', () => {
       const mockOrder = { id: 'order-123', orderNumber: 'A1B2C3D4' };
       ordersService.checkout.mockResolvedValue(mockOrder);
 
-      const result = await controller.checkout(checkoutDto, req, validIdempotencyKey);
+      const result = await controller.checkout(
+        checkoutDto,
+        req,
+        validIdempotencyKey,
+      );
 
-      expect(ordersService.checkout).toHaveBeenCalledWith(checkoutDto, 'user-123', validIdempotencyKey);
+      expect(ordersService.checkout).toHaveBeenCalledWith(
+        checkoutDto,
+        'user-123',
+        validIdempotencyKey,
+        undefined,
+      );
       expect(result).toEqual(mockOrder);
     });
   });
@@ -103,8 +124,16 @@ describe('OrdersController', () => {
 
       ordersService.findOneByOrderNumber.mockResolvedValue(mockOrder);
 
-      const result = await controller.findOneByOrderNumber('A7K29P4Q', req, accessToken);
-      expect(ordersService.findOneByOrderNumber).toHaveBeenCalledWith('A7K29P4Q', req.user, 'guest-token-123');
+      const result = await controller.findOneByOrderNumber(
+        'A7K29P4Q',
+        req,
+        accessToken,
+      );
+      expect(ordersService.findOneByOrderNumber).toHaveBeenCalledWith(
+        'A7K29P4Q',
+        req.user,
+        'guest-token-123',
+      );
       expect(result).toEqual(mockOrder);
     });
   });
@@ -114,12 +143,15 @@ describe('OrdersController', () => {
       const updateDto: UpdateOrderStatusDto = {
         status: OrderStatus.PENDING,
         notes: 'Entrega en proceso',
-      } as any;
+      };
       const mockOrder = { id: 'order-99', status: OrderStatus.PENDING };
       ordersService.updateStatus.mockResolvedValue(mockOrder);
 
       const result = await controller.updateStatus('order-99', updateDto);
-      expect(ordersService.updateStatus).toHaveBeenCalledWith('order-99', updateDto);
+      expect(ordersService.updateStatus).toHaveBeenCalledWith(
+        'order-99',
+        updateDto,
+      );
       expect(result).toEqual(mockOrder);
     });
   });

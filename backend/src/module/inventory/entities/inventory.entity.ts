@@ -13,13 +13,13 @@ import {
   Index,
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Product }          from '../../products/entities/product.entity';
-import { Supplier }         from '../../suppliers/entities/supplier.entity';
-import { Category }         from '../../categories/entities/category.entity';
+import { Product } from '../../products/entities/product.entity';
+import { Supplier } from '../../suppliers/entities/supplier.entity';
+import { Category } from '../../categories/entities/category.entity';
 import { SupplierPurchase } from '../../purchases/entities/supplier-purchase.entity';
-import { InventoryDetail }  from './inventory-detail.entity';
-import { InventoryStatus }  from '../enums/inventory-status.enum';
-import { ProductGender }    from '../../purchases/enums/product-gender.enum';
+import { InventoryDetail } from './inventory-detail.entity';
+import { InventoryStatus } from '../enums/inventory-status.enum';
+import { ProductGender } from '../../purchases/enums/product-gender.enum';
 
 @Entity('inventories')
 export class Inventory {
@@ -28,7 +28,12 @@ export class Inventory {
   id!: string;
 
   @ApiProperty({ example: 'Audífonos Inalámbricos' })
-  @Column({ name: 'product_name', type: 'varchar', length: 200, nullable: false })
+  @Column({
+    name: 'product_name',
+    type: 'varchar',
+    length: 200,
+    nullable: false,
+  })
   productName!: string;
 
   @ApiProperty({ example: 'Sony' })
@@ -48,12 +53,21 @@ export class Inventory {
   gender!: ProductGender | null;
 
   @ApiPropertyOptional({ example: 'https://images.com/audifonos.jpg' })
-  @Column({ name: 'main_image_url', type: 'varchar', length: 500, nullable: true })
+  @Column({
+    name: 'main_image_url',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
   mainImageUrl!: string | null;
 
   @ApiProperty({ enum: InventoryStatus, default: InventoryStatus.ACTIVE })
   @Index()
-  @Column({ type: 'enum', enum: InventoryStatus, default: InventoryStatus.ACTIVE })
+  @Column({
+    type: 'enum',
+    enum: InventoryStatus,
+    default: InventoryStatus.ACTIVE,
+  })
   status!: InventoryStatus;
 
   // ── Relaciones ────────────────────────────────────────────────────────────

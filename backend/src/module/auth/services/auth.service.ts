@@ -51,7 +51,9 @@ export class AuthService {
    * 3. Crea el registro en BD de User y le asigna automáticamente un Cart.
    * 4. Retorna la entidad del usuario recién creado omitiendo la contraseña.
    */
-  async register(registerDto: RegisterDto): Promise<Omit<User, 'passwordHash'>> {
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<Omit<User, 'passwordHash'>> {
     const existingUser = await this.userRepository.findOneBy({
       email: registerDto.email,
     });
@@ -94,7 +96,12 @@ export class AuthService {
    * Verifica el estado de la cuenta (activa / bloqueada por lockout).
    */
   checkAccountStatus(user: User): void {
-    if (user.isBlocked || (user.lockedUntil !== null && user.lockedUntil !== undefined && new Date() < user.lockedUntil)) {
+    if (
+      user.isBlocked ||
+      (user.lockedUntil !== null &&
+        user.lockedUntil !== undefined &&
+        new Date() < user.lockedUntil)
+    ) {
       throw new HttpException(
         'La cuenta se encuentra bloqueada por múltiples intentos fallidos',
         HttpStatus.LOCKED,
@@ -154,7 +161,8 @@ export class AuthService {
   async issueAccessToken(user: User): Promise<string> {
     this.checkAccountStatus(user);
 
-    const rol = user.roles && user.roles.length > 0 ? user.roles[0].name : 'cliente';
+    const rol =
+      user.roles && user.roles.length > 0 ? user.roles[0].name : 'cliente';
 
     const payload = {
       sub: user.id,
@@ -163,10 +171,14 @@ export class AuthService {
       tokenVersion: user.tokenVersion,
     };
 
-    const secret = this.configService.get<string>('JWT_SECRET') || 'default_secret';
+    const secret =
+      this.configService.get<string>('JWT_SECRET') || 'default_secret';
     const expiresIn = this.configService.get<string>('JWT_EXPIRES_IN', '15m');
 
-    return this.jwtService.signAsync(payload, { secret, expiresIn: expiresIn as any });
+    return this.jwtService.signAsync(payload, {
+      secret,
+      expiresIn: expiresIn as any,
+    });
   }
 
   /**
@@ -251,7 +263,9 @@ export class AuthService {
     }
 
     if (payload.type !== 'refresh') {
-      throw new UnauthorizedException('El token provisto no es un refresh token');
+      throw new UnauthorizedException(
+        'El token provisto no es un refresh token',
+      );
     }
 
     const tokenHash = this.hashToken(rawToken);
@@ -260,7 +274,9 @@ export class AuthService {
     });
 
     if (!tokenRecord) {
-      throw new UnauthorizedException('Refresh token no encontrado en el sistema');
+      throw new UnauthorizedException(
+        'Refresh token no encontrado en el sistema',
+      );
     }
 
     // Detección de Reutilización Maliciosa
@@ -442,9 +458,7 @@ export class AuthService {
       id: tokenRecord.userId,
     });
     if (!user) {
-      throw new BadRequestException(
-        'Usuario asociado al token no encontrado',
-      );
+      throw new BadRequestException('Usuario asociado al token no encontrado');
     }
 
     if (!PASSWORD_COMPLEXITY_REGEX.test(newPassword)) {

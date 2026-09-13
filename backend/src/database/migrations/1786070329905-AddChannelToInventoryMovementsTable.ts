@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddChannelToInventoryMovementsTable1786070329905
-  implements MigrationInterface
-{
+export class AddChannelToInventoryMovementsTable1786070329905 implements MigrationInterface {
   name = 'AddChannelToInventoryMovementsTable1786070329905';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

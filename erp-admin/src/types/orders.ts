@@ -47,6 +47,8 @@ export interface AdminOrderDetail extends AdminOrderListItem {
     id: string;
     quantity: number;
     unitPrice: number;
+    salePriceSnapshot?: number;
+    discountSnapshot?: number;
     subtotal: number;
     sku?: string | null;
     size?: string | null;

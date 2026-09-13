@@ -9,13 +9,14 @@ import { useProducts } from "./useProducts";
 
 import type {
   ProductQuery,
-  ProductStatus,
 } from "@/types/productos";
+
+export type ProductPublicationFilter = "PUBLISHED" | "UNPUBLISHED" | "";
 
 export interface ProductCatalogFilters {
   search: string;
   categoryId: string;
-  status: ProductStatus | "";
+  publication: ProductPublicationFilter;
 }
 
 interface UseProductsCatalogReturn {
@@ -32,8 +33,8 @@ interface UseProductsCatalogReturn {
 
   setSearch: (value: string) => void;
   setCategory: (value: string) => void;
-  setStatus: (
-    value: ProductStatus | "",
+  setPublication: (
+    value: ProductPublicationFilter,
   ) => void;
 
   setPage: (page: number) => void;
@@ -52,7 +53,7 @@ export function useProductsCatalog(): UseProductsCatalogReturn {
     useState<ProductCatalogFilters>({
       search: "",
       categoryId: "",
-      status: "",
+      publication: "",
     });
 
   const [
@@ -76,16 +77,17 @@ const query =
         filters.categoryId ||
         undefined,
 
-      status:
-        filters.status ||
-        undefined,
+      isPublished:
+        filters.publication === ""
+          ? undefined
+          : filters.publication === "PUBLISHED",
     }),
     [
       page,
       limit,
       filters.search,
       filters.categoryId,
-      filters.status,
+      filters.publication,
     ],
   );
 
@@ -119,14 +121,12 @@ const query =
     setPage(1);
   };
 
-  const setStatus = (
-    value:
-      | ProductStatus
-      | "",
+  const setPublication = (
+    value: ProductPublicationFilter,
   ): void => {
     setFilters((current) => ({
       ...current,
-      status: value,
+      publication: value,
     }));
 
     setPage(1);
@@ -170,7 +170,7 @@ const query =
 
     setSearch,
     setCategory,
-    setStatus,
+    setPublication,
 
     setPage,
 

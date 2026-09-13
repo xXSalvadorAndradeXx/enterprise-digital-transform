@@ -66,6 +66,8 @@ export interface ProductDetail {
   status:
     ProductStatus;
 
+  isPublished: boolean;
+
   tags:
     string[];
 

@@ -14,58 +14,115 @@ export class CartItemVariantDto {
 }
 
 export class CartItemResponseDto {
-  @ApiProperty({ example: 'a1b2c3d4-e5f6-4000-a000-ef1234567890', description: 'ID del ítem' })
+  @ApiProperty({
+    example: 'a1b2c3d4-e5f6-4000-a000-ef1234567890',
+    description: 'ID del ítem',
+  })
   id!: string;
 
-  @ApiProperty({ example: 'b1c2d3e4-f5a6-4000-a000-ef1234567890', description: 'ID del producto' })
+  @ApiProperty({
+    example: 'b1c2d3e4-f5a6-4000-a000-ef1234567890',
+    description: 'ID del producto',
+  })
   productId!: string;
 
-  @ApiProperty({ example: 'c1d2e3f4-a5b6-4000-a000-ef1234567890', description: 'ID de la variante' })
+  @ApiProperty({
+    example: 'c1d2e3f4-a5b6-4000-a000-ef1234567890',
+    description: 'ID de la variante',
+  })
   variantId!: string;
 
-  @ApiProperty({ example: 'Camisa Deportiva', description: 'Nombre comercial del producto' })
+  @ApiProperty({
+    example: 'Camisa Deportiva',
+    description: 'Nombre comercial del producto',
+  })
   productName!: string;
 
-  @ApiProperty({ example: 'Camisa Deportiva', description: 'Nombre comercial del producto (alias para retrocompatibilidad)' })
+  @ApiProperty({
+    example: 'Camisa Deportiva',
+    description:
+      'Nombre comercial del producto (alias para retrocompatibilidad)',
+  })
   commercialName!: string;
 
-  @ApiPropertyOptional({ example: 'http://localhost:3000/uploads/products/camisa.webp', description: 'URL absoluta de la imagen principal del producto', nullable: true })
+  @ApiPropertyOptional({
+    example: 'http://localhost:3000/uploads/products/camisa.webp',
+    description: 'URL absoluta de la imagen principal del producto',
+    nullable: true,
+  })
   imageUrl!: string | null;
 
-  @ApiPropertyOptional({ example: 'http://localhost:3000/uploads/products/camisa.webp', description: 'Imagen principal (alias para retrocompatibilidad)', nullable: true })
+  @ApiPropertyOptional({
+    example: 'http://localhost:3000/uploads/products/camisa.webp',
+    description: 'Imagen principal (alias para retrocompatibilidad)',
+    nullable: true,
+  })
   primaryImage!: string | null;
 
-  @ApiProperty({ type: CartItemVariantDto, description: 'Información reducida de la variante seleccionada' })
+  @ApiProperty({
+    type: CartItemVariantDto,
+    description: 'Información reducida de la variante seleccionada',
+  })
   variant!: CartItemVariantDto;
 
-  @ApiPropertyOptional({ example: 'M', description: 'Talla (retrocompatibilidad)', nullable: true })
+  @ApiPropertyOptional({
+    example: 'M',
+    description: 'Talla (retrocompatibilidad)',
+    nullable: true,
+  })
   size!: string | null;
 
-  @ApiPropertyOptional({ example: 'Negro', description: 'Color (retrocompatibilidad)', nullable: true })
+  @ApiPropertyOptional({
+    example: 'Negro',
+    description: 'Color (retrocompatibilidad)',
+    nullable: true,
+  })
   color!: string | null;
 
   @ApiProperty({ example: 2, description: 'Cantidad seleccionada' })
   quantity!: number;
 
-  @ApiProperty({ example: 10, description: 'Stock real disponible en inventario para esta variante' })
+  @ApiProperty({
+    example: 10,
+    description: 'Stock real disponible en inventario para esta variante',
+  })
   availableStock!: number;
 
-  @ApiProperty({ example: '50.00', description: 'Precio de lista por unidad como string decimal' })
+  @ApiProperty({
+    example: '50.00',
+    description: 'Precio de lista por unidad como string decimal',
+  })
   salePrice!: string;
 
-  @ApiProperty({ example: '40.00', description: 'Precio efectivo actual por unidad como string decimal' })
+  @ApiProperty({
+    example: '40.00',
+    description: 'Precio efectivo actual por unidad como string decimal',
+  })
   unitPrice!: string;
 
-  @ApiProperty({ example: '40.00', description: 'Precio efectivo unitario (alias para retrocompatibilidad)' })
+  @ApiProperty({
+    example: '40.00',
+    description: 'Precio efectivo unitario (alias para retrocompatibilidad)',
+  })
   effectiveUnitPrice!: string;
 
-  @ApiProperty({ example: '20.00', description: 'Monto total de descuento de esta línea como string decimal' })
+  @ApiProperty({
+    example: '20.00',
+    description: 'Monto total de descuento de esta línea como string decimal',
+  })
   lineDiscount!: string;
 
-  @ApiProperty({ example: '80.00', description: 'Monto total final de la línea (unitPrice * cantidad) como string decimal' })
+  @ApiProperty({
+    example: '80.00',
+    description:
+      'Monto total final de la línea (unitPrice * cantidad) como string decimal',
+  })
   lineTotal!: string;
 
-  @ApiProperty({ example: '80.00', description: 'Subtotal de la línea (alias para retrocompatibilidad)' })
+  @ApiProperty({
+    example: '80.00',
+    description: 'Subtotal de la línea (alias para retrocompatibilidad)',
+  })
   subtotal!: string;
 
   static fromEntity(entity: CartItem): CartItemResponseDto {
@@ -119,7 +176,9 @@ export class CartItemResponseDto {
     // Imagen principal absoluta
     const images = product?.images ?? [];
     const primaryImg = images.find((i) => i.sortOrder === 0) || images[0];
-    dto.imageUrl = primaryImg ? UrlUtil.resolveImageUrl(primaryImg.imageUrl) : null;
+    dto.imageUrl = primaryImg
+      ? UrlUtil.resolveImageUrl(primaryImg.imageUrl)
+      : null;
     dto.primaryImage = dto.imageUrl;
 
     return dto;
@@ -127,34 +186,70 @@ export class CartItemResponseDto {
 }
 
 export class CartResponseDto {
-  @ApiProperty({ example: 'a1b2c3d4-e5f6-4000-a000-ef1234567890', description: 'ID del carrito' })
+  @ApiProperty({
+    example: 'a1b2c3d4-e5f6-4000-a000-ef1234567890',
+    description: 'ID del carrito',
+  })
   id!: string;
 
-  @ApiPropertyOptional({ example: 'b1c2d3e4-f5a6-4000-a000-ef1234567890', description: 'ID del cliente si está autenticado', nullable: true })
+  @ApiPropertyOptional({
+    example: 'b1c2d3e4-f5a6-4000-a000-ef1234567890',
+    description: 'ID del cliente si está autenticado',
+    nullable: true,
+  })
   customerId!: string | null;
 
-  @ApiPropertyOptional({ example: 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', description: 'Hash del token de invitado si es visitante', nullable: true })
+  @ApiPropertyOptional({
+    example: 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',
+    description: 'Hash del token de invitado si es visitante',
+    nullable: true,
+  })
   guestTokenHash!: string | null;
 
-  @ApiProperty({ enum: CartStatus, example: CartStatus.ACTIVE, description: 'Estado canónico del carrito' })
+  @ApiProperty({
+    enum: CartStatus,
+    example: CartStatus.ACTIVE,
+    description: 'Estado canónico del carrito',
+  })
   status!: CartStatus;
 
-  @ApiPropertyOptional({ example: '2026-09-01T12:00:00.000Z', description: 'Fecha de expiración para carritos de invitado', nullable: true })
+  @ApiPropertyOptional({
+    example: '2026-09-01T12:00:00.000Z',
+    description: 'Fecha de expiración para carritos de invitado',
+    nullable: true,
+  })
   expiresAt!: Date | null;
 
-  @ApiProperty({ type: [CartItemResponseDto], description: 'Lista de ítems en el carrito' })
+  @ApiProperty({
+    type: [CartItemResponseDto],
+    description: 'Lista de ítems en el carrito',
+  })
   items!: CartItemResponseDto[];
 
-  @ApiProperty({ example: '100.00', description: 'Subtotal global sin descuento (suma de salePrice * cantidad) como string decimal' })
+  @ApiProperty({
+    example: '100.00',
+    description:
+      'Subtotal global sin descuento (suma de salePrice * cantidad) como string decimal',
+  })
   subtotal!: string;
 
-  @ApiProperty({ example: '20.00', description: 'Descuento total acumulado como string decimal' })
+  @ApiProperty({
+    example: '20.00',
+    description: 'Descuento total acumulado como string decimal',
+  })
   discountTotal!: string;
 
-  @ApiProperty({ example: '80.00', description: 'Monto total a pagar (subtotal - discountTotal) como string decimal' })
+  @ApiProperty({
+    example: '80.00',
+    description:
+      'Monto total a pagar (subtotal - discountTotal) como string decimal',
+  })
   total!: string;
 
-  @ApiProperty({ example: 4, description: 'Cantidad total acumulada de unidades en el carrito' })
+  @ApiProperty({
+    example: 4,
+    description: 'Cantidad total acumulada de unidades en el carrito',
+  })
   itemCount!: number;
 
   static fromEntity(entity: Cart): CartResponseDto {

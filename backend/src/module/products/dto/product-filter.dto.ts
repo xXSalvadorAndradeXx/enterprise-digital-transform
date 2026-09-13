@@ -6,8 +6,10 @@ import {
   IsEnum,
   IsIn,
   IsUUID,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 import { ProductStatus } from '../enums/product-status.enum';
@@ -41,6 +43,15 @@ export class ProductFilterDto extends PaginationDto {
   @IsOptional()
   @IsEnum(ProductStatus)
   status?: ProductStatus;
+
+  @ApiPropertyOptional({
+    description: 'Filtrar por visibilidad en el e-commerce',
+    type: Boolean,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  isPublished?: boolean;
 
   @ApiPropertyOptional({ description: 'Filtrar por ID del proveedor' })
   @IsOptional()

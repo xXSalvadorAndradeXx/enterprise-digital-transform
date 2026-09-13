@@ -1,6 +1,10 @@
 import {
-  IsOptional, IsEnum, IsUUID, IsDateString,
-  IsString, IsBoolean,
+  IsOptional,
+  IsEnum,
+  IsUUID,
+  IsDateString,
+  IsString,
+  IsBoolean,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
@@ -35,7 +39,10 @@ export class QueryPurchaseDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ enum: ['created_at', 'total_amount', 'product_name'], default: 'created_at' })
+  @ApiPropertyOptional({
+    enum: ['created_at', 'total_amount', 'product_name'],
+    default: 'created_at',
+  })
   @IsOptional()
   @IsString()
   sortBy?: string = 'created_at';

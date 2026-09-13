@@ -5,8 +5,8 @@ dotenv.config();
 
 import dataSource from '../../database/data-source';
 import { seedPermissions } from './01-permissions.seed';
-import { seedRoles }       from './02-roles.seed';
-import { seedUsers }       from './03-users.seed';
+import { seedRoles } from './02-roles.seed';
+import { seedUsers } from './03-users.seed';
 
 async function run(): Promise<void> {
   console.log('🔌 Conectando a la base de datos...');

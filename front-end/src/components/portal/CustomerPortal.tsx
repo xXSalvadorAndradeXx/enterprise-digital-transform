@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
-import { AUTH_SESSION_CHANGED_EVENT, hasActiveSession } from "@/lib/auth-session";
+import {
+  AUTH_SESSION_CHANGED_EVENT,
+  clearAuthSession,
+  readAuthSessionIdentity,
+} from "@/lib/auth-session";
+import { logoutUser } from "@/services/auth/auth.service";
 import { PortalNavigation } from "./PortalNavigation";
 
 function subscribe(listener: () => void) {
@@ -16,19 +28,44 @@ function subscribe(listener: () => void) {
 
 export function CustomerPortal({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const authenticated = useSyncExternalStore(subscribe, hasActiveSession, () => null);
+  const logoutRequestRef = useRef<Promise<unknown> | null>(null);
+  const sessionIdentity = useSyncExternalStore(
+    subscribe,
+    readAuthSessionIdentity,
+    () => null,
+  );
 
   useEffect(() => {
-    if (authenticated === false) router.replace("/login");
-  }, [authenticated, router]);
+    if (sessionIdentity === null && !logoutRequestRef.current) {
+      router.replace("/login");
+    }
+  }, [router, sessionIdentity]);
 
-  if (!authenticated) {
+  const handleLogout = useCallback(() => {
+    if (logoutRequestRef.current) return;
+
+    const logoutRequest = logoutUser();
+    logoutRequestRef.current = logoutRequest;
+
+    // Complete the session-driven remount before choosing the logout destination.
+    flushSync(() => {
+      clearAuthSession();
+    });
+    router.replace("/");
+
+    void logoutRequest.catch(() => undefined);
+  }, [router]);
+
+  if (!sessionIdentity) {
     return <p role="status" className="px-6 py-12 text-center text-[#4A4A4A]">Comprobando sesión...</p>;
   }
 
   return (
-    <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-8 sm:px-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-12 lg:py-14">
-      <PortalNavigation />
+    <div
+      key={sessionIdentity}
+      className="mx-auto grid max-w-[1440px] gap-8 px-5 py-8 sm:px-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-12 lg:py-14"
+    >
+      <PortalNavigation onLogout={handleLogout} />
       <div className="min-w-0 text-[#4A4A4A]">{children}</div>
     </div>
   );

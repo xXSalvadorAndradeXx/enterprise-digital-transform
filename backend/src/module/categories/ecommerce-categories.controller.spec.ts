@@ -32,7 +32,9 @@ describe('EcommerceCategoriesController', () => {
       ],
     }).compile();
 
-    controller = module.get<EcommerceCategoriesController>(EcommerceCategoriesController);
+    controller = module.get<EcommerceCategoriesController>(
+      EcommerceCategoriesController,
+    );
     service = module.get<CategoriesService>(CategoriesService);
   });
 

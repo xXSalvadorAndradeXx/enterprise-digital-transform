@@ -28,15 +28,15 @@ describe('ProductsService', () => {
   let dataSourceMock: any;
   let queryRunnerMock: any;
 
-  const mockInventory: Inventory = {
+  const mockInventory: Inventory = Object.assign(new Inventory(), {
     id: 'inv-uuid-1',
     productName: 'Audífonos Bluetooth',
     brand: 'Sony',
+    gender: null,
     mainImageUrl: null,
     status: InventoryStatus.ACTIVE,
     stock: 100,
     reserved: 0,
-    available: 100,
     supplier: null,
     supplierId: 'supplier-uuid-1',
     category: null,
@@ -46,28 +46,32 @@ describe('ProductsService', () => {
     details: [],
     product: null,
     productId: null,
+    createdBy: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
-  };
+  });
 
-  const mockInventoryDetail: InventoryDetail = {
-    id: 'inv-detail-uuid-1',
-    sku: 'SKU-AUD-RED',
-    size: 'M',
-    color: '#FF0000',
-    stock: 50,
-    unitCost: 10,
-    minStock: 5,
-    inventory: mockInventory,
-    inventoryId: 'inv-uuid-1',
-    purchaseItem: null,
-    purchaseItemId: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  const mockInventoryDetail: InventoryDetail = Object.assign(
+    new InventoryDetail(),
+    {
+      id: 'inv-detail-uuid-1',
+      sku: 'SKU-AUD-RED',
+      size: 'M',
+      color: '#FF0000',
+      stock: 50,
+      unitCost: 10,
+      minStock: 5,
+      inventory: mockInventory,
+      inventoryId: 'inv-uuid-1',
+      purchaseItem: null,
+      purchaseItemId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  );
 
-  const mockProduct: Product = {
+  const mockProduct: Product = Object.assign(new Product(), {
     id: 'prod-uuid-1',
     inventoryId: 'inv-uuid-1',
     inventory: mockInventory,
@@ -78,6 +82,9 @@ describe('ProductsService', () => {
     discountStartsAt: null,
     discountEndsAt: new Date(Date.now() + 86400000), // Válido por 1 día
     status: ProductStatus.ACTIVE,
+    isPublished: true,
+    publishedAt: new Date(),
+    favorites: [],
     createdById: 'user-uuid-1',
     updatedById: 'user-uuid-1',
     createdBy: null,
@@ -107,7 +114,7 @@ describe('ProductsService', () => {
         updatedAt: new Date(),
       },
     ],
-  };
+  });
 
   const createQueryBuilderMock: any = {
     where: jest.fn().mockReturnThis(),
@@ -182,6 +189,7 @@ describe('ProductsService', () => {
     }).compile();
 
     service = module.get<ProductsService>(ProductsService);
+    jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -877,10 +885,10 @@ describe('ProductsService', () => {
 
   describe('Fallback de variantes en DTOs públicos cuando variantConfigs está vacío', () => {
     it('debe construir variantes desde inventory.details si variantConfigs está vacío en PublicProductResponseDto', () => {
-      const productWithoutConfigs: Product = {
+      const productWithoutConfigs: Product = Object.assign(new Product(), {
         ...mockProduct,
         variantConfigs: [],
-        inventory: {
+        inventory: Object.assign(new Inventory(), {
           ...mockInventory,
           details: [
             {
@@ -899,10 +907,14 @@ describe('ProductsService', () => {
               updatedAt: new Date(),
             },
           ],
-        },
-      };
+        }),
+      });
 
-      const dto = PublicProductResponseDto.fromEntity(productWithoutConfigs, 200.0, true);
+      const dto = PublicProductResponseDto.fromEntity(
+        productWithoutConfigs,
+        200.0,
+        true,
+      );
       expect(dto.variants).toHaveLength(1);
       expect(dto.variants[0].sku).toBe('SKU-FALLBACK');
       expect(dto.variants[0].size).toBe('XL');
@@ -911,10 +923,10 @@ describe('ProductsService', () => {
     });
 
     it('debe construir variantes desde inventory.details si variantConfigs está vacío en PublicProductDetailResponseDto', () => {
-      const productWithoutConfigs: Product = {
+      const productWithoutConfigs: Product = Object.assign(new Product(), {
         ...mockProduct,
         variantConfigs: [],
-        inventory: {
+        inventory: Object.assign(new Inventory(), {
           ...mockInventory,
           details: [
             {
@@ -933,10 +945,14 @@ describe('ProductsService', () => {
               updatedAt: new Date(),
             },
           ],
-        },
-      };
+        }),
+      });
 
-      const dto = PublicProductDetailResponseDto.fromEntity(productWithoutConfigs, 200.0, true);
+      const dto = PublicProductDetailResponseDto.fromEntity(
+        productWithoutConfigs,
+        200.0,
+        true,
+      );
       expect(dto.variants).toHaveLength(1);
       expect(dto.variants[0].id).toBe('inv-detail-uuid-1');
       expect(dto.variants[0].sku).toBe('SKU-FALLBACK-DETAIL');

@@ -43,11 +43,16 @@ export class PaymentsService {
       }
 
       // 2. Verificar si ya existe un pago para esta orden
-      const existingPayment = await transactionalEntityManager.findOne(Payment, {
-        where: { orderId },
-      });
+      const existingPayment = await transactionalEntityManager.findOne(
+        Payment,
+        {
+          where: { orderId },
+        },
+      );
       if (existingPayment) {
-        throw new ConflictException(`Ya existe un pago registrado para la orden con ID ${orderId}`);
+        throw new ConflictException(
+          `Ya existe un pago registrado para la orden con ID ${orderId}`,
+        );
       }
 
       // 3. Crear el pago en estado PENDING capturando amount directamente de order.totalAmount
@@ -93,9 +98,17 @@ export class PaymentsService {
       const isApproved = dto.responseCode ? dto.responseCode === '00' : true;
 
       if (isApproved) {
-        return await this.markAsApprovedInternal(payment, dto, transactionalEntityManager);
+        return await this.markAsApprovedInternal(
+          payment,
+          dto,
+          transactionalEntityManager,
+        );
       } else {
-        return await this.markAsFailedInternal(payment, dto, transactionalEntityManager);
+        return await this.markAsFailedInternal(
+          payment,
+          dto,
+          transactionalEntityManager,
+        );
       }
     });
   }
@@ -116,7 +129,11 @@ export class PaymentsService {
       if (!payment) {
         throw new NotFoundException(`Pago con ID ${paymentId} no encontrado`);
       }
-      return await this.markAsApprovedInternal(payment, details, transactionalEntityManager);
+      return await this.markAsApprovedInternal(
+        payment,
+        details,
+        transactionalEntityManager,
+      );
     });
   }
 
@@ -136,14 +153,21 @@ export class PaymentsService {
       if (!payment) {
         throw new NotFoundException(`Pago con ID ${paymentId} no encontrado`);
       }
-      return await this.markAsFailedInternal(payment, details, transactionalEntityManager);
+      return await this.markAsFailedInternal(
+        payment,
+        details,
+        transactionalEntityManager,
+      );
     });
   }
 
   /**
    * Transiciona un pago a CANCELLED
    */
-  async markAsCancelled(paymentId: string, externalManager?: EntityManager): Promise<Payment> {
+  async markAsCancelled(
+    paymentId: string,
+    externalManager?: EntityManager,
+  ): Promise<Payment> {
     const manager = externalManager || this.paymentRepository.manager;
     return await manager.transaction(async (transactionalEntityManager) => {
       const payment = await transactionalEntityManager.findOne(Payment, {
@@ -164,7 +188,10 @@ export class PaymentsService {
   /**
    * Transiciona un pago a REFUNDED
    */
-  async markAsRefunded(paymentId: string, externalManager?: EntityManager): Promise<Payment> {
+  async markAsRefunded(
+    paymentId: string,
+    externalManager?: EntityManager,
+  ): Promise<Payment> {
     const manager = externalManager || this.paymentRepository.manager;
     return await manager.transaction(async (transactionalEntityManager) => {
       const payment = await transactionalEntityManager.findOne(Payment, {
@@ -213,7 +240,8 @@ export class PaymentsService {
     if (details.cardLastFour) payment.cardLastFour = details.cardLastFour;
     if (details.cardBrand) payment.cardBrand = details.cardBrand;
     if (details.transactionId) payment.transactionId = details.transactionId;
-    if (details.externalReference) payment.externalReference = details.externalReference;
+    if (details.externalReference)
+      payment.externalReference = details.externalReference;
     if (details.responseCode) payment.responseCode = details.responseCode;
 
     return await manager.save(Payment, payment);
@@ -231,7 +259,8 @@ export class PaymentsService {
 
     if (details.responseCode) payment.responseCode = details.responseCode;
     if (details.transactionId) payment.transactionId = details.transactionId;
-    if (details.externalReference) payment.externalReference = details.externalReference;
+    if (details.externalReference)
+      payment.externalReference = details.externalReference;
 
     return await manager.save(Payment, payment);
   }
@@ -239,31 +268,57 @@ export class PaymentsService {
   /**
    * Control estricto de transiciones de estados de pago.
    */
-  private validateTransition(current: PaymentStatus, target: PaymentStatus): void {
+  private validateTransition(
+    current: PaymentStatus,
+    target: PaymentStatus,
+  ): void {
     if (current === target) return;
 
     // Regla de cancelación o falla solo permitida desde PENDING
-    if (target === PaymentStatus.CANCELLED && current !== PaymentStatus.PENDING) {
-      throw new BadRequestException(`No se puede cancelar el pago desde el estado ${current}`);
+    if (
+      target === PaymentStatus.CANCELLED &&
+      current !== PaymentStatus.PENDING
+    ) {
+      throw new BadRequestException(
+        `No se puede cancelar el pago desde el estado ${current}`,
+      );
     }
 
     if (target === PaymentStatus.FAILED && current !== PaymentStatus.PENDING) {
-      throw new BadRequestException(`No se puede fallar el pago desde el estado ${current}`);
+      throw new BadRequestException(
+        `No se puede fallar el pago desde el estado ${current}`,
+      );
     }
 
-    if (target === PaymentStatus.APPROVED && current !== PaymentStatus.PENDING) {
-      throw new BadRequestException(`No se puede aprobar el pago desde el estado ${current}`);
+    if (
+      target === PaymentStatus.APPROVED &&
+      current !== PaymentStatus.PENDING
+    ) {
+      throw new BadRequestException(
+        `No se puede aprobar el pago desde el estado ${current}`,
+      );
     }
 
     // Un reembolso solo es válido si el pago ya fue APPROVED
-    if (target === PaymentStatus.REFUNDED && current !== PaymentStatus.APPROVED) {
-      throw new BadRequestException(`No se puede reembolsar el pago desde el estado ${current}. Primero debe estar APROBADO.`);
+    if (
+      target === PaymentStatus.REFUNDED &&
+      current !== PaymentStatus.APPROVED
+    ) {
+      throw new BadRequestException(
+        `No se puede reembolsar el pago desde el estado ${current}. Primero debe estar APROBADO.`,
+      );
     }
 
     // Impedir cualquier transición desde estados terminales (FAILED, CANCELLED, REFUNDED)
-    const terminalStates = [PaymentStatus.FAILED, PaymentStatus.CANCELLED, PaymentStatus.REFUNDED];
+    const terminalStates = [
+      PaymentStatus.FAILED,
+      PaymentStatus.CANCELLED,
+      PaymentStatus.REFUNDED,
+    ];
     if (terminalStates.includes(current)) {
-      throw new BadRequestException(`El pago se encuentra en un estado terminal (${current}) y no se puede modificar.`);
+      throw new BadRequestException(
+        `El pago se encuentra en un estado terminal (${current}) y no se puede modificar.`,
+      );
     }
   }
 }

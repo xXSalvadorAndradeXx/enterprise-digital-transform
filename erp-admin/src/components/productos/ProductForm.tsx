@@ -533,6 +533,7 @@ export function ProductForm({
           />
 
           <ProductManualFields
+            mode={mode}
             register={
               register
             }

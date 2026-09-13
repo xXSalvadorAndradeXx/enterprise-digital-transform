@@ -650,7 +650,10 @@ export class ProductsService {
 
     // Validación de máquina de estados
     const allowedTransitions = PRODUCT_STATUS_TRANSITIONS[currentStatus] || [];
-    if (!allowedTransitions.includes(newStatus)) {
+    if (
+      currentStatus !== newStatus &&
+      !allowedTransitions.includes(newStatus)
+    ) {
       throw new ConflictException(
         `La transición ${currentStatus} → ${newStatus} no está permitida`,
       );
@@ -683,10 +686,13 @@ export class ProductsService {
         },
       );
     } else {
+      const isPublished = newStatus === ProductStatus.ACTIVE;
       await this.productRepository.update(
         { id },
         {
           status: newStatus,
+          isPublished,
+          publishedAt: isPublished ? (product.publishedAt ?? new Date()) : null,
           updatedById: actorId,
         },
       );
@@ -798,6 +804,7 @@ export class ProductsService {
       page = 1,
       search,
       status,
+      isPublished,
       supplierId,
       categoryId,
       tag,
@@ -839,6 +846,10 @@ export class ProductsService {
       query.andWhere('p.status != :discontinued', {
         discontinued: ProductStatus.DISCONTINUED,
       });
+    }
+
+    if (isPublished !== undefined) {
+      query.andWhere('p.is_published = :isPublished', { isPublished });
     }
 
     // 4. Filtros relacionados

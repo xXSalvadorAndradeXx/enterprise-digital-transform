@@ -1,5 +1,22 @@
-import { Controller, Get, Post, Body, Param, Patch, Req, Headers, BadRequestException, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiHeader, ApiParam } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Req,
+  Headers,
+  BadRequestException,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiHeader,
+  ApiParam,
+} from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -15,12 +32,14 @@ export class OrdersController {
   @Post('checkout')
   @ApiOperation({
     summary: 'Procesar el checkout definitivo de una orden',
-    description: 'Crea la orden de compra y el pago, consumiendo stock de forma atómica e idempotente. Soporta origen CART y BUY_NOW para usuarios autenticados o invitados.',
+    description:
+      'Crea la orden de compra y el pago, consumiendo stock de forma atómica e idempotente. Soporta origen CART y BUY_NOW para usuarios autenticados o invitados.',
   })
   @ApiHeader({
     name: 'Idempotency-Key',
     required: true,
-    description: 'UUID v4 único para evitar duplicación de transacciones en escenarios de reintento o doble clic.',
+    description:
+      'UUID v4 único para evitar duplicación de transacciones en escenarios de reintento o doble clic.',
   })
   @ApiHeader({
     name: 'X-Cart-Token',
@@ -33,11 +52,13 @@ export class OrdersController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Error por datos inválidos o stock insuficiente (STOCK_INSUFFICIENT)',
+    description:
+      'Error por datos inválidos o stock insuficiente (STOCK_INSUFFICIENT)',
   })
   @ApiResponse({
     status: 409,
-    description: 'Fluctuación de precios detectada (PRICE_CHANGED) o reuso incorrecto de llave idempotente (IDEMPOTENCY_KEY_REUSED, CHECKOUT_ALREADY_PROCESSING)',
+    description:
+      'Fluctuación de precios detectada (PRICE_CHANGED) o reuso incorrecto de llave idempotente (IDEMPOTENCY_KEY_REUSED, CHECKOUT_ALREADY_PROCESSING)',
   })
   async checkout(
     @Body() checkoutDto: CheckoutDto,
@@ -51,7 +72,8 @@ export class OrdersController {
         code: 'MISSING_IDEMPOTENCY_KEY',
       });
     }
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(idempotencyKey)) {
       throw new BadRequestException({
         message: 'El header Idempotency-Key debe ser un UUID v4 válido',
@@ -79,7 +101,8 @@ export class OrdersController {
   @Get(':orderNumber')
   @ApiOperation({
     summary: 'Consultar detalles de una orden mediante su orderNumber',
-    description: 'Permite consultar una orden asociada al JWT del cliente propietario o mediante X-Order-Access-Token para pedidos de invitados.',
+    description:
+      'Permite consultar una orden asociada al JWT del cliente propietario o mediante X-Order-Access-Token para pedidos de invitados.',
   })
   @ApiParam({
     name: 'orderNumber',
@@ -88,7 +111,8 @@ export class OrdersController {
   @ApiHeader({
     name: 'X-Order-Access-Token',
     required: false,
-    description: 'Token criptográfico para autorizar acceso a órdenes creadas por invitados',
+    description:
+      'Token criptográfico para autorizar acceso a órdenes creadas por invitados',
   })
   @ApiResponse({
     status: 200,
@@ -96,7 +120,8 @@ export class OrdersController {
   })
   @ApiResponse({
     status: 401,
-    description: 'Acceso no autorizado debido a falta de token (ORDER_ACCESS_TOKEN_REQUIRED)',
+    description:
+      'Acceso no autorizado debido a falta de token (ORDER_ACCESS_TOKEN_REQUIRED)',
   })
   @ApiResponse({
     status: 403,
@@ -111,7 +136,11 @@ export class OrdersController {
     @Req() req: any,
     @Headers('x-order-access-token') accessToken?: string,
   ) {
-    return this.ordersService.findOneByOrderNumber(orderNumber, req.user, accessToken);
+    return this.ordersService.findOneByOrderNumber(
+      orderNumber,
+      req.user,
+      accessToken,
+    );
   }
 
   @Patch(':id/status')
@@ -123,5 +152,3 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, updateOrderStatusDto);
   }
 }
-
-

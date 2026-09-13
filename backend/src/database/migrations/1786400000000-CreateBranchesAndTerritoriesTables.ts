@@ -6,9 +6,7 @@ import {
   TableIndex,
 } from 'typeorm';
 
-export class CreateBranchesAndTerritoriesTables1786400000000
-  implements MigrationInterface
-{
+export class CreateBranchesAndTerritoriesTables1786400000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Crear tabla departments
     const hasDepartments = await queryRunner.hasTable('departments');

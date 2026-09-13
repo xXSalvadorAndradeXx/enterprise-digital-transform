@@ -61,7 +61,10 @@ export class CreateProductDto {
   @IsOptional()
   status?: ProductStatus;
 
-  @ApiPropertyOptional({ example: true, description: 'Indica si el producto está publicado en e-commerce' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Indica si el producto está publicado en e-commerce',
+  })
   @IsBoolean()
   @IsOptional()
   isPublished?: boolean;

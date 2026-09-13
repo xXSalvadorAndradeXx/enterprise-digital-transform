@@ -22,6 +22,8 @@ interface MiniCartProps {
   items: CartItem[];
   totalItems: number;
   subtotal: number;
+  discountTotal: number;
+  total: number;
   onRemove: (
     itemId: string,
   ) => Promise<void>;
@@ -42,6 +44,8 @@ export function MiniCart({
   items,
   totalItems,
   subtotal,
+  discountTotal,
+  total,
   onRemove,
 }: MiniCartProps) {
   const router = useRouter();
@@ -356,13 +360,31 @@ export function MiniCart({
         <div className="border-t border-black pt-5">
           <div className="px-5">
             {/* Subtotal */}
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-semibold text-[#111827]">
                 Sub Total
               </span>
 
               <span className="text-sm font-semibold text-[#111827]">
                 ${subtotal.toFixed(2)}
+              </span>
+            </div>
+
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-[#4b5563]">
+                Descuento
+              </span>
+              <span className="text-sm font-medium text-[#4b5563]">
+                -${discountTotal.toFixed(2)}
+              </span>
+            </div>
+
+            <div className="mb-4 flex items-center justify-between border-t border-gray-200 pt-3">
+              <span className="text-sm font-semibold text-[#111827]">
+                Total
+              </span>
+              <span className="text-sm font-semibold text-[#111827]">
+                ${total.toFixed(2)}
               </span>
             </div>
 

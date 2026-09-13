@@ -1,4 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany, BeforeInsert, BeforeUpdate } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+  OneToMany,
+  BeforeInsert,
+  BeforeUpdate,
+} from 'typeorm';
 import { SupplierPurchase } from './supplier-purchase.entity';
 
 @Entity('suppliers')
@@ -9,7 +19,12 @@ export class Supplier {
   @Column({ type: 'varchar', length: 150, unique: true })
   name!: string;
 
-  @Column({ name: 'contact_name', type: 'varchar', length: 150, nullable: true })
+  @Column({
+    name: 'contact_name',
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+  })
   contactName?: string | null;
 
   @Column({ type: 'varchar', length: 30, nullable: true })

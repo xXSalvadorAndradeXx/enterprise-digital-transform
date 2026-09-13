@@ -4,7 +4,8 @@ export class UrlUtil {
    * utilizando APP_BASE_URL, HOST o fallback a http://localhost:3000 sin barra final.
    */
   static getBaseUrl(): string {
-    const raw = process.env.APP_BASE_URL || process.env.HOST || 'http://localhost:3000';
+    const raw =
+      process.env.APP_BASE_URL || process.env.HOST || 'http://localhost:3000';
     return raw.replace(/\/+$/, '');
   }
 

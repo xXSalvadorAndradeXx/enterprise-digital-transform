@@ -144,7 +144,9 @@ describe('AuthService (Pruebas Unitarias de Seguridad)', () => {
 
     it('debe incrementar intentos fallidos y bloquear la cuenta al llegar a 3 fallos', async () => {
       const user = { ...mockUser, failedLoginAttempts: 2 };
-      await expect(service.handleFailedLogin(user)).rejects.toThrow(HttpException);
+      await expect(service.handleFailedLogin(user)).rejects.toThrow(
+        HttpException,
+      );
 
       expect(user.failedLoginAttempts).toBe(3);
       expect(user.isBlocked).toBe(true);
@@ -307,7 +309,10 @@ describe('AuthService (Pruebas Unitarias de Seguridad)', () => {
     it('Prueba: forgot-password con email existente', async () => {
       userRepository.findOneBy.mockResolvedValue(mockUser);
 
-      const result = await service.forgotPassword('test@example.com', '127.0.0.1');
+      const result = await service.forgotPassword(
+        'test@example.com',
+        '127.0.0.1',
+      );
 
       expect(result).toEqual({
         message:
@@ -319,7 +324,10 @@ describe('AuthService (Pruebas Unitarias de Seguridad)', () => {
     it('Prueba: forgot-password con email inexistente (misma respuesta genérica)', async () => {
       userRepository.findOneBy.mockResolvedValue(null);
 
-      const result = await service.forgotPassword('nonexistent@example.com', '127.0.0.1');
+      const result = await service.forgotPassword(
+        'nonexistent@example.com',
+        '127.0.0.1',
+      );
 
       expect(result).toEqual({
         message:
@@ -334,7 +342,10 @@ describe('AuthService (Pruebas Unitarias de Seguridad)', () => {
   // ------------------------------------------------------------------
   describe('Reset Password (Token Válido, Expirado y Ya Usado)', () => {
     const rawToken = 'valid_raw_reset_token';
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
     const newPassword = 'NewSecretPass123!';
 
     it('Prueba: reset-password con token válido', async () => {
@@ -351,9 +362,13 @@ describe('AuthService (Pruebas Unitarias de Seguridad)', () => {
 
       const result = await service.resetPassword(rawToken, newPassword);
 
-      expect(result).toEqual({ message: 'Contraseña restablecida exitosamente' });
+      expect(result).toEqual({
+        message: 'Contraseña restablecida exitosamente',
+      });
       expect(tokenRecord.used).toBe(true);
-      expect(passwordResetTokenRepository.save).toHaveBeenCalledWith(tokenRecord);
+      expect(passwordResetTokenRepository.save).toHaveBeenCalledWith(
+        tokenRecord,
+      );
       expect(refreshTokenRepository.update).toHaveBeenCalledWith(
         { userId: mockUser.id, revoked: false },
         { revoked: true },
@@ -369,11 +384,13 @@ describe('AuthService (Pruebas Unitarias de Seguridad)', () => {
         expiresAt: new Date(Date.now() - 100000), // Ya paso la fecha de expiracion
       };
 
-      passwordResetTokenRepository.findOneBy.mockResolvedValue(expiredTokenRecord);
-
-      await expect(service.resetPassword(rawToken, newPassword)).rejects.toThrow(
-        BadRequestException,
+      passwordResetTokenRepository.findOneBy.mockResolvedValue(
+        expiredTokenRecord,
       );
+
+      await expect(
+        service.resetPassword(rawToken, newPassword),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('Prueba: reset-password con token ya usado', async () => {
@@ -387,9 +404,9 @@ describe('AuthService (Pruebas Unitarias de Seguridad)', () => {
 
       passwordResetTokenRepository.findOneBy.mockResolvedValue(usedTokenRecord);
 
-      await expect(service.resetPassword(rawToken, newPassword)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.resetPassword(rawToken, newPassword),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

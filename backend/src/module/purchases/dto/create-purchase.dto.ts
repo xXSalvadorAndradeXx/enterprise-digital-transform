@@ -1,7 +1,11 @@
 // src/purchases/dto/create-purchase.dto.ts
 import {
-  IsUUID, IsOptional, IsUrl,
-  IsArray, ArrayMinSize, ValidateNested,
+  IsUUID,
+  IsOptional,
+  IsUrl,
+  IsArray,
+  ArrayMinSize,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -17,7 +21,7 @@ export class CreatePurchaseDto {
   @IsUrl()
   invoiceUrl?: string;
 
-@ApiProperty({ type: [CreatePurchaseVariantDto] })
-@Type(() => CreatePurchaseVariantDto)
-items!: CreatePurchaseVariantDto[];
+  @ApiProperty({ type: [CreatePurchaseVariantDto] })
+  @Type(() => CreatePurchaseVariantDto)
+  items!: CreatePurchaseVariantDto[];
 }

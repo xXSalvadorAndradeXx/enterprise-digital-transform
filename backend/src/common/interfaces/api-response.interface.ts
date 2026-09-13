@@ -27,4 +27,3 @@ export interface ApiError {
     details?: ApiErrorDetail[] | string[];
   };
 }
-

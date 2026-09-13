@@ -88,8 +88,12 @@ describe('UsersService', () => {
       };
 
       mockUserRepository.findOne.mockResolvedValue(null);
-      mockRoleRepository.findBy.mockResolvedValue([{ id: 'role-uuid', name: 'CLIENTE' }]);
-      mockUserRepository.save.mockImplementation((user) => Promise.resolve({ id: 'new-user-uuid', ...user }));
+      mockRoleRepository.findBy.mockResolvedValue([
+        { id: 'role-uuid', name: 'CLIENTE' },
+      ]);
+      mockUserRepository.save.mockImplementation((user) =>
+        Promise.resolve({ id: 'new-user-uuid', ...user }),
+      );
       mockUserRepository.query.mockResolvedValue([]);
 
       const result = await service.create(createUserDto);
@@ -102,7 +106,10 @@ describe('UsersService', () => {
       expect(result.temporaryPassword.length).toBeGreaterThanOrEqual(12);
 
       // Verificar que se hasheó con bcrypt
-      const isMatch = await bcrypt.compare(result.temporaryPassword, result.user.passwordHash);
+      const isMatch = await bcrypt.compare(
+        result.temporaryPassword,
+        result.user.passwordHash,
+      );
       expect(isMatch).toBe(true);
 
       expect(mockUserRepository.save).toHaveBeenCalled();
@@ -110,7 +117,9 @@ describe('UsersService', () => {
     });
 
     it('debe lanzar ConflictException si el correo electrónico ya existe', async () => {
-      mockUserRepository.findOne.mockResolvedValue({ id: 'existing-id' } as User);
+      mockUserRepository.findOne.mockResolvedValue({
+        id: 'existing-id',
+      });
 
       await expect(
         service.create({
@@ -118,7 +127,7 @@ describe('UsersService', () => {
           lastName: 'Doe',
           email: 'john@example.com',
           roleIds: ['role-uuid'],
-        })
+        }),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -132,7 +141,7 @@ describe('UsersService', () => {
           lastName: 'Doe',
           email: 'john@example.com',
           roleIds: ['role-uuid'],
-        })
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -225,17 +234,23 @@ describe('UsersService', () => {
       } as User;
 
       let userState = { ...mockUser };
-      mockUserRepository.findOne.mockImplementation(() => Promise.resolve(userState));
+      mockUserRepository.findOne.mockImplementation(() =>
+        Promise.resolve(userState),
+      );
       mockQueryBuilder.getCount.mockResolvedValue(2); // Hay otro activo, por ende se le permite cambiar
 
-      const newRoles = [{ id: 'role-client-uuid', name: 'CLIENTE', permissions: [] }] as unknown as Role[];
+      const newRoles = [
+        { id: 'role-client-uuid', name: 'CLIENTE', permissions: [] },
+      ] as unknown as Role[];
       mockRoleRepository.findBy.mockResolvedValue(newRoles);
       mockUserRepository.save.mockImplementation((user) => {
         userState = { ...user };
         return Promise.resolve(userState);
       });
 
-      const result = await service.assignRoles('user-uuid', { roleIds: ['role-client-uuid'] });
+      const result = await service.assignRoles('user-uuid', {
+        roleIds: ['role-client-uuid'],
+      });
 
       expect(result.roles).toEqual(newRoles);
       expect(mockUserRepository.save).toHaveBeenCalled();
@@ -256,7 +271,9 @@ describe('UsersService', () => {
         if (where.id === 'user-uuid') return Promise.resolve(mockUser);
         return Promise.resolve(null);
       });
-      mockUserRepository.save.mockImplementation((user) => Promise.resolve(user));
+      mockUserRepository.save.mockImplementation((user) =>
+        Promise.resolve(user),
+      );
 
       const result = await service.update('user-uuid', {
         firstName: 'Johnny',
@@ -278,7 +295,8 @@ describe('UsersService', () => {
 
       mockUserRepository.findOne.mockImplementation(({ where }) => {
         if (where.id === 'user-uuid') return Promise.resolve(mockUser);
-        if (where.email === 'duplicate@example.com') return Promise.resolve({ id: 'other-uuid' } as User);
+        if (where.email === 'duplicate@example.com')
+          return Promise.resolve({ id: 'other-uuid' } as User);
         return Promise.resolve(null);
       });
 
@@ -313,7 +331,9 @@ describe('UsersService', () => {
       } as User;
 
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockUserRepository.save.mockImplementation((user) => Promise.resolve(user));
+      mockUserRepository.save.mockImplementation((user) =>
+        Promise.resolve(user),
+      );
 
       const result = await service.update('user-uuid', { isActive: false });
 
@@ -332,7 +352,7 @@ describe('UsersService', () => {
       mockQueryBuilder.getCount.mockResolvedValue(1); // Es el último activo
 
       await expect(
-        service.update('user-uuid', { isActive: false })
+        service.update('user-uuid', { isActive: false }),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -348,7 +368,9 @@ describe('UsersService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockQueryBuilder.getCount.mockResolvedValue(1); // Es el último activo
 
-      await expect(service.remove('user-uuid')).rejects.toThrow(ConflictException);
+      await expect(service.remove('user-uuid')).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('debe permitir la desactivación y softRemove si no es el último SUPERADMIN activo', async () => {
@@ -360,15 +382,24 @@ describe('UsersService', () => {
 
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockQueryBuilder.getCount.mockResolvedValue(2); // Hay más de uno activo
-      mockUserRepository.save.mockResolvedValue({ ...mockUser, isActive: false });
-      mockUserRepository.softRemove.mockResolvedValue({ ...mockUser, isActive: false, deletedAt: new Date() });
+      mockUserRepository.save.mockResolvedValue({
+        ...mockUser,
+        isActive: false,
+      });
+      mockUserRepository.softRemove.mockResolvedValue({
+        ...mockUser,
+        isActive: false,
+        deletedAt: new Date(),
+      });
 
       const result = await service.remove('user-uuid');
 
       expect(result.isActive).toBe(false);
       expect(mockUserRepository.save).toHaveBeenCalled();
       expect(mockUserRepository.softRemove).toHaveBeenCalled();
-      expect(mockRefreshTokenService.revokeAllUserTokens).toHaveBeenCalledWith('user-uuid');
+      expect(mockRefreshTokenService.revokeAllUserTokens).toHaveBeenCalledWith(
+        'user-uuid',
+      );
     });
   });
 });

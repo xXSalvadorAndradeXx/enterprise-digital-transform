@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  Param,
-  ParseUUIDPipe,
-} from '@nestjs/common';
+import { Controller, Get, Query, Param, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { PublicProductFilterDto } from './dto/public-product-filter.dto';
@@ -28,7 +22,8 @@ export class EcommerceProductsController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Catálogo de productos públicos filtrado y paginado exitosamente',
+    description:
+      'Catálogo de productos públicos filtrado y paginado exitosamente',
     type: PaginatedResponseDto,
   })
   @ApiResponse({
@@ -75,7 +70,8 @@ export class EcommerceProductsController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Lista de tarjetas públicas de productos relacionados obtenida exitosamente',
+    description:
+      'Lista de tarjetas públicas de productos relacionados obtenida exitosamente',
     type: [PublicProductResponseDto],
   })
   @ApiResponse({

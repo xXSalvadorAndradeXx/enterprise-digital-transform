@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+  ManyToMany,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Permission } from '../../permissions/entities/permission.entity';
 
@@ -13,7 +21,12 @@ export class Role {
   @Column({ type: 'varchar', length: 255, nullable: true })
   description!: string | null;
 
-  @Column({ name: 'is_system', type: 'boolean', default: false, nullable: false })
+  @Column({
+    name: 'is_system',
+    type: 'boolean',
+    default: false,
+    nullable: false,
+  })
   isSystem!: boolean;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

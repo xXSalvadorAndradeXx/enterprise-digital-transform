@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddProductDiscountStartsAt1786200000001
-  implements MigrationInterface
-{
+export class AddProductDiscountStartsAt1786200000001 implements MigrationInterface {
   name = 'AddProductDiscountStartsAt1786200000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

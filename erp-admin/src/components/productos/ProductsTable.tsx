@@ -13,10 +13,6 @@ import {
   ProductImage,
 } from "./ProductImage";
 
-import {
-  ProductStockStatus,
-} from "./ProductStockStatus";
-
 import type {
   ProductSummary,
 } from "@/types/productos";
@@ -208,42 +204,26 @@ export function ProductsTable({
 
         {
           key:
-            "stockStatus",
+            "publicationStatus",
 
           header:
             "Estado",
 
           accessor: (
             product,
-          ) => {
-            const status =
-              product
-                .inventory
-                ?.status;
-
-            if (
-              status !==
-                "ACTIVE" &&
-              status !==
-                "LOW_STOCK" &&
-              status !==
-                "OUT_OF_STOCK"
-            ) {
-              return (
-                <span className="text-sm text-gray-500">
-                  Sin información
-                </span>
-              );
-            }
-
-            return (
-              <ProductStockStatus
-                status={
-                  status
-                }
-              />
-            );
-          },
+          ) => (
+            <span
+              className={`inline-flex rounded-md px-2.5 py-1 text-xs font-medium ${
+                product.isPublished
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-700"
+              }`}
+            >
+              {product.isPublished
+                ? "Publicado"
+                : "No publicado"}
+            </span>
+          ),
         },
       ]}
       actions={[

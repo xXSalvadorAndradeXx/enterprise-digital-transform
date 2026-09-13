@@ -1,4 +1,9 @@
-import { MigrationInterface, QueryRunner, TableColumn, TableIndex } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  TableColumn,
+  TableIndex,
+} from 'typeorm';
 
 export class AddPublicationFieldsToProduct1786300000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -27,7 +32,9 @@ export class AddPublicationFieldsToProduct1786300000000 implements MigrationInte
         );
       }
 
-      const hasIndex = table.indices.some((idx) => idx.columnNames.includes('is_published'));
+      const hasIndex = table.indices.some((idx) =>
+        idx.columnNames.includes('is_published'),
+      );
       if (!hasIndex) {
         await queryRunner.createIndex(
           'products',

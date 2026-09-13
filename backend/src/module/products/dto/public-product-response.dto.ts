@@ -12,7 +12,8 @@ export class PublicDiscountInfoDto {
 
   @ApiProperty({
     example: true,
-    description: 'Indica si el descuento se encuentra activo y vigente según fecha actual',
+    description:
+      'Indica si el descuento se encuentra activo y vigente según fecha actual',
   })
   isActive!: boolean;
 }
@@ -102,13 +103,15 @@ export class PublicProductDetailVariantDto {
 
   @ApiProperty({
     example: 8,
-    description: 'Existencia total disponible comercialmente para esta variante',
+    description:
+      'Existencia total disponible comercialmente para esta variante',
   })
   stock!: number;
 
   @ApiProperty({
     example: true,
-    description: 'Indica si la variante se encuentra disponible para venta (stock > 0)',
+    description:
+      'Indica si la variante se encuentra disponible para venta (stock > 0)',
   })
   available!: boolean;
 }
@@ -156,14 +159,16 @@ export class PublicProductResponseDto {
 
   @ApiProperty({
     example: '35.00',
-    description: 'Precio base de venta formateado como string decimal (2 decimales)',
+    description:
+      'Precio base de venta formateado como string decimal (2 decimales)',
     type: 'string',
   })
   salePrice!: string;
 
   @ApiProperty({
     example: '28.00',
-    description: 'Precio final efectivo formateado como string decimal después de evaluar descuentos vigentes',
+    description:
+      'Precio final efectivo formateado como string decimal después de evaluar descuentos vigentes',
     type: 'string',
   })
   effectivePrice!: string;
@@ -205,7 +210,8 @@ export class PublicProductResponseDto {
 
   @ApiProperty({
     example: 'IN_STOCK',
-    description: 'Estado comercial global de disponibilidad (IN_STOCK o LOW_STOCK)',
+    description:
+      'Estado comercial global de disponibilidad (IN_STOCK o LOW_STOCK)',
   })
   availability!: string;
 
@@ -218,7 +224,8 @@ export class PublicProductResponseDto {
 
   @ApiProperty({
     example: ['S', 'M', 'L'],
-    description: 'Listado único de tallas que realmente poseen disponibilidad activa',
+    description:
+      'Listado único de tallas que realmente poseen disponibilidad activa',
     type: [String],
   })
   availableSizes!: string[];
@@ -274,7 +281,9 @@ export class PublicProductResponseDto {
     dto.brand = entity.inventory?.brand ?? null;
     dto.gender = entity.inventory?.gender ?? null;
     dto.isPublished = entity.isPublished ?? false;
-    dto.publishedAt = entity.publishedAt ? entity.publishedAt.toISOString() : null;
+    dto.publishedAt = entity.publishedAt
+      ? entity.publishedAt.toISOString()
+      : null;
 
     const rawSalePrice = Number(entity.salePrice ?? 0);
     const rawDiscountPercentage = Number(entity.discount ?? 0);
@@ -322,8 +331,14 @@ export class PublicProductResponseDto {
       ? PublicCategoryResponseDto.fromEntity(entity.inventory.category)
       : null;
 
-    const invStock = entity.inventory ? Number(entity.inventory.stock ?? (entity.inventory as any).available ?? 0) : 0;
-    const invMinStock = entity.inventory ? Number((entity.inventory as any).minStock ?? 5) : 5;
+    const invStock = entity.inventory
+      ? Number(
+          entity.inventory.stock ?? (entity.inventory as any).available ?? 0,
+        )
+      : 0;
+    const invMinStock = entity.inventory
+      ? Number((entity.inventory as any).minStock ?? 5)
+      : 5;
 
     dto.stockTotal = invStock;
     dto.inStock = inStock && invStock > 0;
@@ -334,7 +349,7 @@ export class PublicProductResponseDto {
 
     const details = entity.variantConfigs?.length
       ? entity.variantConfigs.map((vc) => vc.inventoryDetail).filter(Boolean)
-      : entity.inventory?.details ?? [];
+      : (entity.inventory?.details ?? []);
 
     dto.variants = [];
     if (entity.variantConfigs?.length) {
@@ -429,14 +444,16 @@ export class PublicProductDetailResponseDto {
 
   @ApiProperty({
     example: '35.00',
-    description: 'Precio base de venta formateado como string decimal (2 decimales)',
+    description:
+      'Precio base de venta formateado como string decimal (2 decimales)',
     type: 'string',
   })
   salePrice!: string;
 
   @ApiProperty({
     example: '28.00',
-    description: 'Precio final efectivo formateado como string decimal después de evaluar descuentos vigentes',
+    description:
+      'Precio final efectivo formateado como string decimal después de evaluar descuentos vigentes',
     type: 'string',
   })
   effectivePrice!: string;
@@ -457,19 +474,22 @@ export class PublicProductDetailResponseDto {
 
   @ApiProperty({
     example: 'IN_STOCK',
-    description: 'Estado comercial global de disponibilidad (IN_STOCK o LOW_STOCK)',
+    description:
+      'Estado comercial global de disponibilidad (IN_STOCK o LOW_STOCK)',
   })
   availability!: string;
 
   @ApiProperty({
     type: [PublicProductDetailImageDto],
-    description: 'Listado completo de imágenes públicas con indicador isPrimary y URLs absolutas',
+    description:
+      'Listado completo de imágenes públicas con indicador isPrimary y URLs absolutas',
   })
   images!: PublicProductDetailImageDto[];
 
   @ApiProperty({
     type: [PublicProductDetailVariantDto],
-    description: 'Variantes configuradas con atributos de talla, color, stock y disponibilidad',
+    description:
+      'Variantes configuradas con atributos de talla, color, stock y disponibilidad',
   })
   variants!: PublicProductDetailVariantDto[];
 
@@ -519,8 +539,14 @@ export class PublicProductDetailResponseDto {
       ? PublicCategoryResponseDto.fromEntity(entity.inventory.category)
       : null;
 
-    const invStock = entity.inventory ? Number(entity.inventory.stock ?? (entity.inventory as any).available ?? 0) : 0;
-    const invMinStock = entity.inventory ? Number((entity.inventory as any).minStock ?? 5) : 5;
+    const invStock = entity.inventory
+      ? Number(
+          entity.inventory.stock ?? (entity.inventory as any).available ?? 0,
+        )
+      : 0;
+    const invMinStock = entity.inventory
+      ? Number((entity.inventory as any).minStock ?? 5)
+      : 5;
 
     dto.stockTotal = invStock;
     dto.availability =
@@ -539,7 +565,7 @@ export class PublicProductDetailResponseDto {
 
     const details = entity.variantConfigs?.length
       ? entity.variantConfigs.map((vc) => vc.inventoryDetail).filter(Boolean)
-      : entity.inventory?.details ?? [];
+      : (entity.inventory?.details ?? []);
 
     if (entity.variantConfigs?.length) {
       dto.variants = entity.variantConfigs.map((vc) => {

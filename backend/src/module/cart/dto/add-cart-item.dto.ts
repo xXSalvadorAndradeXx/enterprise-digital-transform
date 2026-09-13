@@ -20,7 +20,8 @@ export class AddCartItemDto {
 
   @ApiProperty({
     example: 2,
-    description: 'Cantidad a agregar al carrito (debe ser un entero mayor o igual a 1)',
+    description:
+      'Cantidad a agregar al carrito (debe ser un entero mayor o igual a 1)',
     minimum: 1,
   })
   @IsNotEmpty()

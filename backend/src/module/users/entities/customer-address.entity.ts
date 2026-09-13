@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { User } from './user.entity';
 
 @Entity({ name: 'customer_addresses' })
@@ -24,7 +31,12 @@ export class CustomerAddress {
   @Column({ type: 'varchar', length: 255 })
   addressLine!: string;
 
-  @Column({ type: 'boolean', name: 'is_default', default: false, nullable: false })
+  @Column({
+    type: 'boolean',
+    name: 'is_default',
+    default: false,
+    nullable: false,
+  })
   isDefault!: boolean;
 
   @CreateDateColumn({ name: 'created_at' })

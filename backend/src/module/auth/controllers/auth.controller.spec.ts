@@ -102,7 +102,9 @@ describe('AuthController', () => {
         accessToken: 'new_access_token',
         refreshToken: 'new_refresh_token',
       });
-      expect(authService.validateAndRotate).toHaveBeenCalledWith('valid_refresh_token');
+      expect(authService.validateAndRotate).toHaveBeenCalledWith(
+        'valid_refresh_token',
+      );
     });
 
     it('debe propagar UnauthorizedException si el token es revocado', async () => {
@@ -112,7 +114,9 @@ describe('AuthController', () => {
 
       const dto = { refreshToken: 'revoked_token' };
 
-      await expect(controller.refresh(dto)).rejects.toThrow(UnauthorizedException);
+      await expect(controller.refresh(dto)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
@@ -123,7 +127,9 @@ describe('AuthController', () => {
 
       await controller.logout(req, dto);
 
-      expect(authService.revokeToken).toHaveBeenCalledWith('active_refresh_token');
+      expect(authService.revokeToken).toHaveBeenCalledWith(
+        'active_refresh_token',
+      );
     });
 
     it('debe invocar revokeAllUserTokens cuando no se envía DTO', async () => {
@@ -131,7 +137,9 @@ describe('AuthController', () => {
 
       await controller.logout(req);
 
-      expect(authService.revokeAllUserTokens).toHaveBeenCalledWith('user-uuid-123');
+      expect(authService.revokeAllUserTokens).toHaveBeenCalledWith(
+        'user-uuid-123',
+      );
     });
   });
 
@@ -145,7 +153,9 @@ describe('AuthController', () => {
 
       const result = await controller.changePassword(req, dto);
 
-      expect(result).toEqual({ message: 'Contraseña actualizada exitosamente' });
+      expect(result).toEqual({
+        message: 'Contraseña actualizada exitosamente',
+      });
       expect(authService.changePassword).toHaveBeenCalledWith(
         'user-uuid-123',
         'OldPass123!',
@@ -180,7 +190,9 @@ describe('AuthController', () => {
 
       const result = await controller.resetPassword(dto);
 
-      expect(result).toEqual({ message: 'Contraseña restablecida exitosamente' });
+      expect(result).toEqual({
+        message: 'Contraseña restablecida exitosamente',
+      });
       expect(authService.resetPassword).toHaveBeenCalledWith(
         'raw_reset_token',
         'NewSecurePass456!',

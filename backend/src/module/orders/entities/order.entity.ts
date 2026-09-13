@@ -9,6 +9,7 @@ import {
   JoinColumn,
   ManyToOne,
   Check,
+  Index,
 } from 'typeorm';
 import { OrderItem } from './order-item.entity';
 import { OrderDelivery } from './order-delivery.entity';
@@ -17,9 +18,15 @@ import { OrderStatusHistory } from './order-status-history.entity';
 import { OrderStatus } from '../enums/order-status.enum';
 import { Customer } from '../../customers/entities/customer.entity';
 import { DeliveryMethod } from '../enums/delivery-method.enum';
+import { Payment } from '../../payments/entities/payment.entity';
 
 @Entity({ name: 'orders' })
-@Check('orders_totals_non_negative', '"subtotal" >= 0 AND "discount_total" >= 0 AND "delivery_cost" >= 0 AND "total_amount" >= 0')
+@Index('IDX_orders_customer_created_at', ['customerId', 'createdAt'])
+@Index('IDX_orders_order_number', ['orderNumber'], { unique: true })
+@Check(
+  'orders_totals_non_negative',
+  '"subtotal" >= 0 AND "discount_total" >= 0 AND "delivery_cost" >= 0 AND "total_amount" >= 0',
+)
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -37,7 +44,10 @@ export class Order {
     default: '0.00',
     transformer: {
       to: (value: number | string | null) => value,
-      from: (value: string | null) => value === null || value === undefined ? null : String(Number(value).toFixed(2)),
+      from: (value: string | null) =>
+        value === null || value === undefined
+          ? null
+          : String(Number(value).toFixed(2)),
     },
   })
   subtotal!: string;
@@ -51,7 +61,10 @@ export class Order {
     default: '0.00',
     transformer: {
       to: (value: number | string | null) => value,
-      from: (value: string | null) => value === null || value === undefined ? null : String(Number(value).toFixed(2)),
+      from: (value: string | null) =>
+        value === null || value === undefined
+          ? null
+          : String(Number(value).toFixed(2)),
     },
   })
   discountTotal!: string;
@@ -65,7 +78,10 @@ export class Order {
     default: '0.00',
     transformer: {
       to: (value: number | string | null) => value,
-      from: (value: string | null) => value === null || value === undefined ? null : String(Number(value).toFixed(2)),
+      from: (value: string | null) =>
+        value === null || value === undefined
+          ? null
+          : String(Number(value).toFixed(2)),
     },
   })
   deliveryCost!: string;
@@ -79,7 +95,10 @@ export class Order {
     default: '0.00',
     transformer: {
       to: (value: number | string | null) => value,
-      from: (value: string | null) => value === null || value === undefined ? null : String(Number(value).toFixed(2)),
+      from: (value: string | null) =>
+        value === null || value === undefined
+          ? null
+          : String(Number(value).toFixed(2)),
     },
   })
   totalAmount!: string;
@@ -119,13 +138,28 @@ export class Order {
   guestCustomer?: GuestCustomer | null;
 
   // Snapshot del comprador (inmutabilidad histórica)
-  @Column({ type: 'varchar', length: 150, nullable: true, name: 'customer_email' })
+  @Column({
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+    name: 'customer_email',
+  })
   customerEmail?: string | null;
 
-  @Column({ type: 'varchar', length: 150, nullable: true, name: 'customer_name' })
+  @Column({
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+    name: 'customer_name',
+  })
   customerName?: string | null;
 
-  @Column({ type: 'varchar', length: 50, nullable: true, name: 'customer_phone' })
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    name: 'customer_phone',
+  })
   customerPhone?: string | null;
 
   // Relaciones
@@ -138,6 +172,9 @@ export class Order {
   })
   delivery?: OrderDelivery;
 
+  @OneToOne(() => Payment, (payment) => payment.order)
+  payment?: Payment;
+
   @OneToMany(() => OrderStatusHistory, (hist) => hist.order, {
     cascade: true,
   })
@@ -147,17 +184,28 @@ export class Order {
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @Column({ type: 'timestamp with time zone', nullable: true, name: 'payment_deadline' })
+  @Column({
+    type: 'timestamp with time zone',
+    nullable: true,
+    name: 'payment_deadline',
+  })
   paymentDeadline?: Date | null;
 
-  @Column({ type: 'varchar', length: 64, nullable: true, name: 'guest_order_access_token_hash' })
+  @Column({
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+    name: 'guest_order_access_token_hash',
+  })
   guestOrderAccessTokenHash?: string | null;
 
-  @Column({ type: 'timestamp with time zone', nullable: true, name: 'customer_metrics_counted_at' })
+  @Column({
+    type: 'timestamp with time zone',
+    nullable: true,
+    name: 'customer_metrics_counted_at',
+  })
   customerMetricsCountedAt?: Date | null;
 
   @Column({ type: 'jsonb', nullable: true, name: 'contact_snapshot' })
   contactSnapshot?: Record<string, any>;
 }
-
-

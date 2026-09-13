@@ -3,8 +3,7 @@ import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 
 describe('PaginationQueryDto', () => {
-  const toDto = (plain: object) =>
-    plainToInstance(PaginationQueryDto, plain);
+  const toDto = (plain: object) => plainToInstance(PaginationQueryDto, plain);
 
   it('debe aceptar valores por defecto cuando no se envían parámetros', async () => {
     const dto = toDto({});

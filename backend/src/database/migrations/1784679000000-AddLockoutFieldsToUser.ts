@@ -13,9 +13,7 @@ export class AddLockoutFieldsToUser1784679000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "users" DROP COLUMN "locked_until"`,
-    );
+    await queryRunner.query(`ALTER TABLE "users" DROP COLUMN "locked_until"`);
     await queryRunner.query(
       `ALTER TABLE "users" DROP COLUMN "failed_login_attempts"`,
     );

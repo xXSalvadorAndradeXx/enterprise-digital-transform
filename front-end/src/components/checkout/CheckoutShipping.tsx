@@ -149,9 +149,9 @@ export default function CheckoutShipping({
   }, [addressLine, branchId, city, departmentId, districtId, onDataChange, saveInfo]);
 
   /*
-   * Cargar información previamente guardada
-   * para el usuario invitado.
-   */
+   * Para clientes autenticados se utiliza primero la dirección principal
+   * guardada durante el registro. Los invitados conservan el respaldo local.
+  */
   useEffect(() => {
     let isActive = true;
 

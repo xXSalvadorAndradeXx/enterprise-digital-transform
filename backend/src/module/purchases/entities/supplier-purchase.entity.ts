@@ -1,17 +1,24 @@
 // src/purchases/entities/supplier-purchase.entity.ts
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn, DeleteDateColumn,
-  OneToMany, ManyToOne, JoinColumn, Index,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+  OneToMany,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PurchaseStatus } from '../enums/purchase-status.enum';
-import { PurchaseType }   from '../enums/purchase-type.enum';
-import { ProductGender }  from '../enums/product-gender.enum';
-import { SupplierPurchaseItem }   from './supplier-purchase-item.entity';
-import { PurchaseStatusHistory }  from './purchase-status-history.entity';
+import { PurchaseType } from '../enums/purchase-type.enum';
+import { ProductGender } from '../enums/product-gender.enum';
+import { SupplierPurchaseItem } from './supplier-purchase-item.entity';
+import { PurchaseStatusHistory } from './purchase-status-history.entity';
 import { Supplier } from '../../suppliers/entities/supplier.entity';
-import { User }     from '../../users/entities/user.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('supplier_purchases')
 export class SupplierPurchase {
@@ -63,7 +70,13 @@ export class SupplierPurchase {
 
   /** Calculado en Service — RN-027 */
   @ApiProperty()
-  @Column({ name: 'total_amount', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  @Column({
+    name: 'total_amount',
+    type: 'numeric',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
   totalAmount!: number;
 
   @ApiProperty()
@@ -87,7 +100,11 @@ export class SupplierPurchase {
 
   // ── RELACIÓN: proveedor completo (para devolver name en la respuesta) ────
   @ApiPropertyOptional({ type: () => Supplier })
-  @ManyToOne(() => Supplier, { onDelete: 'SET NULL', nullable: true, eager: false })
+  @ManyToOne(() => Supplier, {
+    onDelete: 'SET NULL',
+    nullable: true,
+    eager: false,
+  })
   @JoinColumn({ name: 'supplier_id' })
   supplier!: Supplier | null;
 

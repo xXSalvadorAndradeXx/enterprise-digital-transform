@@ -95,8 +95,8 @@ export default function CheckoutContact({ onDataChange }: CheckoutContactProps) 
       setData({
         fullName: sessionUser.fullName ?? sessionUser.nombre ?? "",
         email: sessionUser.email ?? "",
-        dui: sessionUser.dui ?? "",
-        phone: sessionUser.phone ?? "",
+        dui: (sessionUser.dui ?? "").replace(/\D/g, "").slice(0, 9),
+        phone: (sessionUser.phone ?? "").replace(/\D/g, "").slice(-8),
       });
     }
 

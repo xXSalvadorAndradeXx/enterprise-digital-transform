@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/api-client";
+import { readAccessToken } from "@/lib/auth-session";
 
 export interface CheckoutCatalogOption {
   id: string;
@@ -12,6 +13,15 @@ export interface CheckoutBranchOption extends CheckoutCatalogOption {
   allowsPickup: boolean;
   department: CheckoutCatalogOption | null;
   district: CheckoutCatalogOption | null;
+}
+
+export interface CheckoutSavedAddress {
+  id: string;
+  departmentId: string | number;
+  districtId: string | number;
+  city: string | null;
+  addressLine: string;
+  isDefault: boolean;
 }
 
 type ApiListResponse<T extends CheckoutCatalogOption = CheckoutCatalogOption> =
@@ -38,4 +48,24 @@ export async function getPickupBranches() {
       "/branches?allowsPickup=true",
     ),
   );
+}
+
+export async function getCustomerAddresses(
+  signal?: AbortSignal,
+): Promise<CheckoutSavedAddress[]> {
+  const accessToken = readAccessToken();
+
+  if (!accessToken) return [];
+
+  const response = await apiRequest<{
+    data: CheckoutSavedAddress[];
+  }>("/customers/me/addresses", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    signal,
+  });
+
+  return response.data ?? [];
 }

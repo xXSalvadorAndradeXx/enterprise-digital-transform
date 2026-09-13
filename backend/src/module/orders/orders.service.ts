@@ -7,6 +7,7 @@ import {
   UnprocessableEntityException,
   ForbiddenException,
   UnauthorizedException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, EntityManager, IsNull, Brackets } from 'typeorm';
@@ -24,6 +25,8 @@ import { Product } from '../products/entities/product.entity';
 import { ProductStatus } from '../products/enums/product-status.enum';
 import { OrderStatusHistory } from './entities/order-status-history.entity';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { OrderStatusChangedEvent } from './events/order-status-changed.event';
+import { OrderEventsPublisherService } from './services/order-events-publisher.service';
 import { CheckoutSource } from './enums/checkout-source.enum';
 import { CheckoutDto } from './dto/checkout.dto';
 import { DeliveryType } from './enums/delivery-type.enum';
@@ -66,6 +69,8 @@ export class OrdersService {
     private readonly variantConfigRepository: Repository<ProductVariantConfig>,
     @InjectRepository(CheckoutIdempotency)
     private readonly idempotencyRepository: Repository<CheckoutIdempotency>,
+    @Optional()
+    private readonly eventsPublisher?: OrderEventsPublisherService,
   ) {}
 
   async findAllForAdmin(query: FindAdminOrdersQueryDto) {
@@ -90,17 +95,25 @@ export class OrdersService {
         new Brackets((where) => {
           where
             .where('order.orderNumber ILIKE :search', { search: `%${search}%` })
-            .orWhere('order.customerName ILIKE :search', { search: `%${search}%` })
-            .orWhere('order.customerEmail ILIKE :search', { search: `%${search}%` });
+            .orWhere('order.customerName ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('order.customerEmail ILIKE :search', {
+              search: `%${search}%`,
+            });
         }),
       );
     }
 
     const [orders, total] = await builder.getManyAndCount();
     const payments = orders.length
-      ? await this.orderRepository.manager.getRepository(Payment).find({ where: { orderId: In(orders.map((order) => order.id)) } })
+      ? await this.orderRepository.manager
+          .getRepository(Payment)
+          .find({ where: { orderId: In(orders.map((order) => order.id)) } })
       : [];
-    const paymentByOrder = new Map(payments.map((payment) => [payment.orderId, payment]));
+    const paymentByOrder = new Map(
+      payments.map((payment) => [payment.orderId, payment]),
+    );
 
     const statusCounts = await this.orderRepository
       .createQueryBuilder('order')
@@ -108,7 +121,9 @@ export class OrdersService {
       .addSelect('COUNT(*)', 'count')
       .groupBy('order.status')
       .getRawMany<{ status: OrderStatus; count: string }>();
-    const counts = Object.fromEntries(statusCounts.map((row) => [row.status, Number(row.count)]));
+    const counts = Object.fromEntries(
+      statusCounts.map((row) => [row.status, Number(row.count)]),
+    );
 
     return {
       success: true,
@@ -116,8 +131,10 @@ export class OrdersService {
         items: orders.map((order) => ({
           id: order.id,
           orderNumber: order.orderNumber,
-          customerName: order.customerName || order.guestCustomer?.name || 'Cliente',
-          customerEmail: order.customerEmail || order.guestCustomer?.email || null,
+          customerName:
+            order.customerName || order.guestCustomer?.name || 'Cliente',
+          customerEmail:
+            order.customerEmail || order.guestCustomer?.email || null,
           createdAt: order.createdAt,
           total: order.totalAmount,
           deliveryType: order.delivery?.deliveryType || order.deliveryMethod,
@@ -128,7 +145,9 @@ export class OrdersService {
         })),
         summary: {
           newOrders: counts[OrderStatus.NEW] || 0,
-          inProcess: (counts[OrderStatus.PENDING] || 0) + (counts[OrderStatus.READY_FOR_PICKUP] || 0),
+          inProcess:
+            (counts[OrderStatus.PENDING] || 0) +
+            (counts[OrderStatus.READY_FOR_PICKUP] || 0),
           onRoute: counts[OrderStatus.ON_ROUTE] || 0,
         },
         meta: {
@@ -157,10 +176,15 @@ export class OrdersService {
     });
 
     if (!order) {
-      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'El pedido solicitado no existe' });
+      throw new NotFoundException({
+        code: 'ORDER_NOT_FOUND',
+        message: 'El pedido solicitado no existe',
+      });
     }
 
-    const payment = await this.orderRepository.manager.getRepository(Payment).findOne({ where: { orderId: order.id } });
+    const payment = await this.orderRepository.manager
+      .getRepository(Payment)
+      .findOne({ where: { orderId: order.id } });
     return {
       success: true,
       data: {
@@ -168,7 +192,8 @@ export class OrdersService {
         guestOrderAccessTokenHash: undefined,
         customerType: order.customerId ? 'REGISTERED' : 'GUEST',
         buyer: {
-          fullName: order.customerName || order.guestCustomer?.name || 'Cliente',
+          fullName:
+            order.customerName || order.guestCustomer?.name || 'Cliente',
           email: order.customerEmail || order.guestCustomer?.email || null,
           phone: order.customerPhone || order.guestCustomer?.phone || null,
           dui: order.contactSnapshot?.dui || null,
@@ -215,7 +240,9 @@ export class OrdersService {
 
     // Manejar cliente autenticado vs cliente invitado con snapshot del comprador
     if (customerId) {
-      const user = await this.customerRepository.findOne({ where: { id: customerId } });
+      const user = await this.customerRepository.findOne({
+        where: { id: customerId },
+      });
       if (!user) {
         throw new NotFoundException(`Customer with ID ${customerId} not found`);
       }
@@ -226,15 +253,16 @@ export class OrdersService {
 
       // Snapshot del comprador para inmutabilidad histórica
       order.customerEmail = customerEmail || user.email;
-      order.customerName =
-        customerName || user.fullName;
+      order.customerName = customerName || user.fullName;
       order.customerPhone = customerPhone || user.phone || null;
     } else if (guestCustomer?.email || customerEmail) {
       const email = guestCustomer?.email || customerEmail!;
       order.customerId = null;
       order.customer = null;
 
-      let guest = await this.guestCustomerRepository.findOne({ where: { email } });
+      let guest = await this.guestCustomerRepository.findOne({
+        where: { email },
+      });
       if (!guest) {
         guest = this.guestCustomerRepository.create({
           email,
@@ -249,8 +277,10 @@ export class OrdersService {
 
       // Snapshot del comprador para inmutabilidad histórica
       order.customerEmail = email;
-      order.customerName = guestCustomer?.name || customerName || guest.name || null;
-      order.customerPhone = guestCustomer?.phone || customerPhone || guest.phone || null;
+      order.customerName =
+        guestCustomer?.name || customerName || guest.name || null;
+      order.customerPhone =
+        guestCustomer?.phone || customerPhone || guest.phone || null;
     } else {
       throw new BadRequestException(
         'Must provide either an authenticated customerId or guest customer details (email)',
@@ -265,7 +295,9 @@ export class OrdersService {
 
     if (selectedMethod === DeliveryMethod.PICKUP) {
       if (!selectedBranchId) {
-        throw new BadRequestException('Branch ID is required for pickup delivery method');
+        throw new BadRequestException(
+          'Branch ID is required for pickup delivery method',
+        );
       }
       if (
         delivery?.department ||
@@ -278,15 +310,21 @@ export class OrdersService {
         );
       }
 
-      const branch = await this.branchRepository.findOne({ where: { id: selectedBranchId } });
+      const branch = await this.branchRepository.findOne({
+        where: { id: selectedBranchId },
+      });
       if (!branch) {
-        throw new NotFoundException(`Branch with ID ${selectedBranchId} not found`);
+        throw new NotFoundException(
+          `Branch with ID ${selectedBranchId} not found`,
+        );
       }
       if (!branch.isActive) {
         throw new BadRequestException('The selected branch is not active');
       }
       if (!branch.allowsPickup) {
-        throw new BadRequestException('The selected branch does not allow pickup');
+        throw new BadRequestException(
+          'The selected branch does not allow pickup',
+        );
       }
 
       order.delivery = this.orderRepository.manager.create(OrderDelivery, {
@@ -307,12 +345,21 @@ export class OrdersService {
     } else {
       // Validar detalles de despacho y dirección para entrega a domicilio
       if (!delivery) {
-        throw new BadRequestException('Delivery details are required for home delivery method');
+        throw new BadRequestException(
+          'Delivery details are required for home delivery method',
+        );
       }
       if (selectedBranchId) {
-        throw new BadRequestException('Branch ID is not allowed for home delivery method');
+        throw new BadRequestException(
+          'Branch ID is not allowed for home delivery method',
+        );
       }
-      if (!delivery.department || !delivery.district || !delivery.city || !delivery.addressLine) {
+      if (
+        !delivery.department ||
+        !delivery.district ||
+        !delivery.city ||
+        !delivery.addressLine
+      ) {
         throw new BadRequestException(
           'Complete shipping address (department, district, city, addressLine) is required for home delivery',
         );
@@ -343,7 +390,9 @@ export class OrdersService {
           where: { id: itemDto.productId },
         });
         if (!product) {
-          throw new NotFoundException(`Product with ID ${itemDto.productId} not found`);
+          throw new NotFoundException(
+            `Product with ID ${itemDto.productId} not found`,
+          );
         }
 
         // Snapshot del precio de venta base y del descuento
@@ -352,7 +401,9 @@ export class OrdersService {
 
         // Calcular precio unitario (precio efectivo)
         const discountAmount = salePriceSnapshot * (discountSnapshot / 100);
-        const calculatedEffectivePrice = Number((salePriceSnapshot - discountAmount).toFixed(2));
+        const calculatedEffectivePrice = Number(
+          (salePriceSnapshot - discountAmount).toFixed(2),
+        );
 
         const unitPrice = calculatedEffectivePrice;
         const subtotal = Number((unitPrice * itemDto.quantity).toFixed(2));
@@ -373,12 +424,19 @@ export class OrdersService {
     }
 
     // Calcular totales de la orden
-    const calculatedSubtotal = order.items ? order.items.reduce((sum, item) => sum + item.subtotal, 0) : 0;
-    const calculatedDiscountTotal = order.items ? order.items.reduce((sum, item) => {
-      const basePrice = item.salePriceSnapshot * item.quantity;
-      return sum + (basePrice - item.subtotal);
-    }, 0) : 0;
-    const selectedDeliveryCost = selectedMethod === DeliveryMethod.PICKUP ? 0 : (createOrderDto.deliveryCost || 0);
+    const calculatedSubtotal = order.items
+      ? order.items.reduce((sum, item) => sum + item.subtotal, 0)
+      : 0;
+    const calculatedDiscountTotal = order.items
+      ? order.items.reduce((sum, item) => {
+          const basePrice = item.salePriceSnapshot * item.quantity;
+          return sum + (basePrice - item.subtotal);
+        }, 0)
+      : 0;
+    const selectedDeliveryCost =
+      selectedMethod === DeliveryMethod.PICKUP
+        ? 0
+        : createOrderDto.deliveryCost || 0;
     const calculatedTotalAmount = calculatedSubtotal + selectedDeliveryCost;
 
     order.subtotal = calculatedSubtotal.toFixed(2);
@@ -387,14 +445,17 @@ export class OrdersService {
     order.totalAmount = calculatedTotalAmount.toFixed(2);
 
     // Crear el historial de estado inicial (null -> estado actual)
-    const initialHistory = this.orderRepository.manager.create(OrderStatusHistory, {
-      statusBefore: null,
-      statusAfter: order.status,
-      notes: 'Creación inicial de la orden',
-      // El estado inicial lo genera el sistema. changedById referencia a un
-      // usuario administrativo del ERP, no al Customer del e-commerce.
-      changedById: null,
-    });
+    const initialHistory = this.orderRepository.manager.create(
+      OrderStatusHistory,
+      {
+        statusBefore: null,
+        statusAfter: order.status,
+        notes: 'Creación inicial de la orden',
+        // El estado inicial lo genera el sistema. changedById referencia a un
+        // usuario administrativo del ERP, no al Customer del e-commerce.
+        changedById: null,
+      },
+    );
     order.statusHistory = [initialHistory];
 
     // TypeORM guardará en cascada las entidades relacionadas (items, delivery, etc.)
@@ -414,7 +475,6 @@ export class OrdersService {
     idempotencyKey?: string,
     xCartToken?: string,
   ): Promise<any> {
-
     const {
       source,
       items,
@@ -440,19 +500,25 @@ export class OrdersService {
     const emailNormal = contact.email.trim().toLowerCase();
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(emailNormal)) {
-      throw new BadRequestException('Formato de correo electrónico inválido (RFC 5322)');
+      throw new BadRequestException(
+        'Formato de correo electrónico inválido (RFC 5322)',
+      );
     }
 
     const phoneClean = contact.phone.trim().replace(/[^\d+]/g, '');
     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
     if (!phoneRegex.test(phoneClean)) {
-      throw new BadRequestException('Formato de teléfono inválido (debe cumplir formato E.164)');
+      throw new BadRequestException(
+        'Formato de teléfono inválido (debe cumplir formato E.164)',
+      );
     }
 
     if (contact.dui) {
       const cleanDui = contact.dui.replace(/-/g, '').trim();
       if (cleanDui.length !== 9 || !/^\d{9}$/.test(cleanDui)) {
-        throw new BadRequestException('El formato de DUI debe ser de 9 dígitos numéricos.');
+        throw new BadRequestException(
+          'El formato de DUI debe ser de 9 dígitos numéricos.',
+        );
       }
       let sum = 0;
       for (let i = 0; i < 8; i++) {
@@ -461,14 +527,18 @@ export class OrdersService {
       const rem = sum % 10;
       const validator = rem === 0 ? 0 : 10 - rem;
       if (validator !== parseInt(cleanDui[8])) {
-        throw new BadRequestException('El DUI ingresado no es válido (dígito verificador incorrecto).');
+        throw new BadRequestException(
+          'El DUI ingresado no es válido (dígito verificador incorrecto).',
+        );
       }
     }
 
     // 3. Resolución de Comprador
     let customerId: string | null = null;
     if (userId) {
-      const user = await this.customerRepository.findOne({ where: { id: userId } });
+      const user = await this.customerRepository.findOne({
+        where: { id: userId },
+      });
       if (!user) {
         throw new NotFoundException(`Cliente con ID ${userId} no encontrado`);
       }
@@ -488,7 +558,8 @@ export class OrdersService {
         : DeliveryMethod.PICKUP;
 
     if (delivery.deliveryType === DeliveryType.HOME_DELIVERY) {
-      const { departmentId, districtId, city, addressLine, branchId } = delivery;
+      const { departmentId, districtId, city, addressLine, branchId } =
+        delivery;
       if (!departmentId || !districtId || !city || !addressLine) {
         throw new BadRequestException({
           message: 'Dirección completa es requerida para entrega a domicilio',
@@ -498,16 +569,20 @@ export class OrdersService {
       if (branchId) {
         delete (delivery as any).branchId;
       }
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { validateDepartmentDistrict } = require('../../common/utils/address.util');
+
+      const {
+        validateDepartmentDistrict,
+      } = require('../../common/utils/address.util');
       if (!validateDepartmentDistrict(departmentId, districtId)) {
         throw new BadRequestException({
-          message: 'Departamento y distrito no coinciden o tienen formato inválido',
+          message:
+            'Departamento y distrito no coinciden o tienen formato inválido',
           code: 'INVALID_DELIVERY_DATA',
         });
       }
     } else if (delivery.deliveryType === DeliveryType.STORE_PICKUP) {
-      const { branchId, departmentId, districtId, city, addressLine } = delivery;
+      const { branchId, departmentId, districtId, city, addressLine } =
+        delivery;
       if (!branchId) {
         throw new BadRequestException({
           message: 'branchId es obligatorio para retiro en tienda',
@@ -520,7 +595,9 @@ export class OrdersService {
         delete (delivery as any).city;
         delete (delivery as any).addressLine;
       }
-      const branch = await this.branchRepository.findOne({ where: { id: branchId } });
+      const branch = await this.branchRepository.findOne({
+        where: { id: branchId },
+      });
       if (!branch) {
         throw new NotFoundException({
           message: `Sucursal con ID ${branchId} no encontrada`,
@@ -542,13 +619,19 @@ export class OrdersService {
     }
 
     // 5. Validación e inicio de adquisición de Idempotencia
-    const requestHash = idempotencyKey ? this.generateRequestHash(checkoutDto) : '';
+    const requestHash = idempotencyKey
+      ? this.generateRequestHash(checkoutDto)
+      : '';
 
     if (idempotencyKey) {
       // Eliminar registro expirado si lo hubiere
-      await this.idempotencyRepository.createQueryBuilder()
+      await this.idempotencyRepository
+        .createQueryBuilder()
         .delete()
-        .where('key = :key AND expiresAt <= :now', { key: idempotencyKey, now: new Date() })
+        .where('key = :key AND expiresAt <= :now', {
+          key: idempotencyKey,
+          now: new Date(),
+        })
         .execute();
 
       const existing = await this.idempotencyRepository.findOne({
@@ -561,7 +644,8 @@ export class OrdersService {
             success: false,
             error: {
               code: 'IDEMPOTENCY_KEY_REUSED',
-              message: 'La Idempotency-Key especificada ya fue utilizada con un payload diferente',
+              message:
+                'La Idempotency-Key especificada ya fue utilizada con un payload diferente',
             },
           });
         }
@@ -570,7 +654,8 @@ export class OrdersService {
             success: false,
             error: {
               code: 'CHECKOUT_ALREADY_PROCESSING',
-              message: 'El checkout asociado a esta solicitud todavía está siendo procesado',
+              message:
+                'El checkout asociado a esta solicitud todavía está siendo procesado',
             },
           });
         }
@@ -609,7 +694,8 @@ export class OrdersService {
             }
           }
 
-          await tx.createQueryBuilder()
+          await tx
+            .createQueryBuilder()
             .insert()
             .into(CheckoutIdempotency)
             .values({
@@ -625,20 +711,31 @@ export class OrdersService {
         }
 
         // Resolver ítems reales basados en el origen (source)
-        let itemsToProcess: { variantId: string; quantity: number; size?: string; color?: string; sku?: string; referencePrice?: number }[] = [];
+        let itemsToProcess: {
+          variantId: string;
+          quantity: number;
+          size?: string;
+          color?: string;
+          sku?: string;
+          referencePrice?: number;
+        }[] = [];
         let userCart: Cart | null = null;
 
         if (source === CheckoutSource.BUY_NOW) {
           if (!items || items.length === 0) {
-            throw new BadRequestException('Los ítems son obligatorios cuando source es BUY_NOW');
+            throw new BadRequestException(
+              'Los ítems son obligatorios cuando source es BUY_NOW',
+            );
           }
-          itemsToProcess = items.map(item => ({
+          itemsToProcess = items.map((item) => ({
             variantId: item.variantId,
             quantity: item.quantity,
             size: (item as any).size,
             color: (item as any).color,
             sku: (item as any).sku,
-            referencePrice: item.priceAtAdded ? Number(item.priceAtAdded) : undefined,
+            referencePrice: item.priceAtAdded
+              ? Number(item.priceAtAdded)
+              : undefined,
           }));
         } else if (source === CheckoutSource.CART) {
           if (userId) {
@@ -674,7 +771,8 @@ export class OrdersService {
           } else {
             throw new BadRequestException({
               code: 'CART_TOKEN_INVALID',
-              message: 'El token del carrito es requerido para completar el checkout como invitado',
+              message:
+                'El token del carrito es requerido para completar el checkout como invitado',
             });
           }
 
@@ -697,11 +795,15 @@ export class OrdersService {
               code: 'CART_EMPTY',
             });
           }
-          itemsToProcess = userCart.items.map(item => {
+          itemsToProcess = userCart.items.map((item) => {
             if (!item.product) {
-              throw new BadRequestException('El carrito contiene un producto no válido');
+              throw new BadRequestException(
+                'El carrito contiene un producto no válido',
+              );
             }
-            const dtoItem = items?.find(di => di.variantId === item.variantId);
+            const dtoItem = items?.find(
+              (di) => di.variantId === item.variantId,
+            );
             const detail = item.variantConfig?.inventoryDetail;
             // El carrito no persiste un snapshot del precio efectivo. Si el
             // cliente no envía priceAtAdded, Backend recalcula el precio
@@ -751,7 +853,9 @@ export class OrdersService {
         if (customerId) {
           order.customerId = customerId;
           order.guestOrderAccessTokenHash = null;
-          const userObj = await tx.findOne(Customer, { where: { id: customerId } });
+          const userObj = await tx.findOne(Customer, {
+            where: { id: customerId },
+          });
           order.customer = userObj!;
         } else {
           // Generar token de acceso seguro para la orden de invitado (Requerimientos 1 y 2)
@@ -762,7 +866,9 @@ export class OrdersService {
             .digest('hex');
 
           // Crear/usar GuestCustomer
-          let guest = await tx.findOne(GuestCustomer, { where: { email: emailNormal } });
+          let guest = await tx.findOne(GuestCustomer, {
+            where: { email: emailNormal },
+          });
           if (!guest) {
             guest = tx.create(GuestCustomer, {
               email: emailNormal,
@@ -791,7 +897,7 @@ export class OrdersService {
           product: Product;
           inventory: Inventory;
           inventoryDetail: InventoryDetail;
-          itemDto: typeof itemsToProcess[0];
+          itemDto: (typeof itemsToProcess)[0];
           salePrice: number;
           effectivePrice: number;
           subtotal: number;
@@ -815,8 +921,15 @@ export class OrdersService {
             });
           }
           const product = variant.product;
-          if (product.status !== ProductStatus.ACTIVE || !product.isActive || !product.isPublished || product.deletedAt !== null) {
-            throw new BadRequestException(`El producto "${product.commercialName}" no está disponible para venta.`);
+          if (
+            product.status !== ProductStatus.ACTIVE ||
+            !product.isActive ||
+            !product.isPublished ||
+            product.deletedAt !== null
+          ) {
+            throw new BadRequestException(
+              `El producto "${product.commercialName}" no está disponible para venta.`,
+            );
           }
 
           const inventory = await tx
@@ -827,7 +940,9 @@ export class OrdersService {
             })
             .getOne();
           if (!inventory) {
-            throw new BadRequestException(`El producto ${product.id} no tiene inventario asignado`);
+            throw new BadRequestException(
+              `El producto ${product.id} no tiene inventario asignado`,
+            );
           }
 
           const inventoryDetail = await tx
@@ -840,7 +955,8 @@ export class OrdersService {
           if (!inventoryDetail) {
             throw new BadRequestException({
               code: 'VARIANT_NOT_FOUND',
-              message: 'La variante seleccionada no tiene inventario disponible',
+              message:
+                'La variante seleccionada no tiene inventario disponible',
             });
           }
 
@@ -859,8 +975,12 @@ export class OrdersService {
           const now = new Date();
           let isDiscountActive = false;
           if (product.discount && product.discount > 0) {
-            const starts = product.discountStartsAt ? new Date(product.discountStartsAt) : null;
-            const ends = product.discountEndsAt ? new Date(product.discountEndsAt) : null;
+            const starts = product.discountStartsAt
+              ? new Date(product.discountStartsAt)
+              : null;
+            const ends = product.discountEndsAt
+              ? new Date(product.discountEndsAt)
+              : null;
             const hasStarted = !starts || now >= starts;
             const hasNotEnded = !ends || now <= ends;
             if (hasStarted && hasNotEnded) {
@@ -869,19 +989,32 @@ export class OrdersService {
           }
 
           const salePrice = Number(product.salePrice);
-          const discountPercentage = isDiscountActive ? Number(product.discount || 0) : 0;
+          const discountPercentage = isDiscountActive
+            ? Number(product.discount || 0)
+            : 0;
           const discountAmount = salePrice * (discountPercentage / 100);
-          const effectivePrice = Number((salePrice - discountAmount).toFixed(2));
-          const lineBaseTotal = Number((salePrice * itemDto.quantity).toFixed(2));
-          const lineTotal = Number((effectivePrice * itemDto.quantity).toFixed(2));
-          const lineDiscountTotal = Number((lineBaseTotal - lineTotal).toFixed(2));
+          const effectivePrice = Number(
+            (salePrice - discountAmount).toFixed(2),
+          );
+          const lineBaseTotal = Number(
+            (salePrice * itemDto.quantity).toFixed(2),
+          );
+          const lineTotal = Number(
+            (effectivePrice * itemDto.quantity).toFixed(2),
+          );
+          const lineDiscountTotal = Number(
+            (lineBaseTotal - lineTotal).toFixed(2),
+          );
 
           totalSubtotal += lineBaseTotal;
           totalDiscount += lineDiscountTotal;
           totalEffective += lineTotal;
 
           // Detección de fluctuación de precios (PRICE_CHANGED)
-          if (itemDto.referencePrice !== undefined && Number(itemDto.referencePrice.toFixed(2)) !== effectivePrice) {
+          if (
+            itemDto.referencePrice !== undefined &&
+            Number(itemDto.referencePrice.toFixed(2)) !== effectivePrice
+          ) {
             hasPriceChanged = true;
           }
 
@@ -935,8 +1068,15 @@ export class OrdersService {
 
         // 5. Crear ítems de orden
         for (const loaded of loadedItemsData) {
-          const { product, inventoryDetail, itemDto, salePrice, effectivePrice, subtotal } = loaded;
-          
+          const {
+            product,
+            inventoryDetail,
+            itemDto,
+            salePrice,
+            effectivePrice,
+            subtotal,
+          } = loaded;
+
           const orderItem = tx.create(OrderItem, {
             product,
             quantity: itemDto.quantity,
@@ -957,15 +1097,19 @@ export class OrdersService {
         }
 
         // F. Cálculo de totales
-        const calculatedSubtotal = totalEffective;
+        const calculatedSubtotal = totalSubtotal;
         const calculatedDiscountTotal = totalDiscount;
 
         let shippingTotal = '0.00';
         if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
-          shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
+          shippingTotal = (
+            calculatedSubtotal >= CHECKOUT_CONFIG.FREE_SHIPPING_THRESHOLD
+              ? 0
+              : CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE
+          ).toFixed(2);
         }
 
-        const total = calculatedSubtotal + Number(shippingTotal);
+        const total = totalEffective + Number(shippingTotal);
         order.subtotal = calculatedSubtotal.toFixed(2);
         order.discountTotal = calculatedDiscountTotal.toFixed(2);
         order.deliveryCost = shippingTotal;
@@ -991,7 +1135,8 @@ export class OrdersService {
 
           if (paymentMethod === PaymentMethod.PAY_AT_STORE) {
             // PAY_AT_STORE -> Reserva de inventario (incrementa reserved)
-            inventory.reserved = Number(inventory.reserved || 0) + itemDto.quantity;
+            inventory.reserved =
+              Number(inventory.reserved || 0) + itemDto.quantity;
             await tx.save(Inventory, inventory);
 
             // Crear registro explícito de reserva vinculado a la orden
@@ -1001,11 +1146,13 @@ export class OrdersService {
               inventoryId: inventory.id,
               quantity: itemDto.quantity,
               status: ReservationStatus.ACTIVE,
+              expiresAt: paymentDeadline!,
             });
             await tx.save(InventoryReservation, reservation);
           } else {
             // CARD / Pago Aprobado -> Consumo definitivo de inventario
-            inventoryDetail.stock = Number(inventoryDetail.stock) - itemDto.quantity;
+            inventoryDetail.stock =
+              Number(inventoryDetail.stock) - itemDto.quantity;
             await tx.save(InventoryDetail, inventoryDetail);
 
             const stockBefore = Number(inventory.stock || 0);
@@ -1037,20 +1184,20 @@ export class OrdersService {
         if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
           const { departmentId, districtId, city, addressLine } = delivery;
           const DEPARTMENTS: Record<string, string> = {
-            'AH': 'Ahuachapán',
-            'CA': 'Cabañas',
-            'CH': 'Chalatenango',
-            'CU': 'Cuscatlán',
-            'LL': 'La Libertad',
-            'LP': 'La Paz',
-            'LM': 'La Unión',
-            'MO': 'Morazán',
-            'SM': 'San Miguel',
-            'SS': 'San Salvador',
-            'SV': 'San Vicente',
-            'SA': 'Santa Ana',
-            'SO': 'Sonsonate',
-            'US': 'Usulután',
+            AH: 'Ahuachapán',
+            CA: 'Cabañas',
+            CH: 'Chalatenango',
+            CU: 'Cuscatlán',
+            LL: 'La Libertad',
+            LP: 'La Paz',
+            LM: 'La Unión',
+            MO: 'Morazán',
+            SM: 'San Miguel',
+            SS: 'San Salvador',
+            SV: 'San Vicente',
+            SA: 'Santa Ana',
+            SO: 'Sonsonate',
+            US: 'Usulután',
           };
           const departmentName = DEPARTMENTS[departmentId!] || departmentId!;
           const districtName = districtId!;
@@ -1074,7 +1221,9 @@ export class OrdersService {
             branchPhone: null,
           });
         } else {
-          const branch = await tx.findOne(Branch, { where: { id: delivery.branchId } });
+          const branch = await tx.findOne(Branch, {
+            where: { id: delivery.branchId },
+          });
           orderDelivery = tx.create(OrderDelivery, {
             orderId: savedOrder.id,
             deliveryType: DeliveryType.STORE_PICKUP,
@@ -1095,12 +1244,16 @@ export class OrdersService {
         await tx.save(OrderDelivery, orderDelivery);
 
         // Evaluar resultado de pago simulado para CARD (Requerimiento 1, 3, 4)
-        if (paymentMethod === PaymentMethod.CARD && card?.simulateSuccess === false) {
+        if (
+          paymentMethod === PaymentMethod.CARD &&
+          card?.simulateSuccess === false
+        ) {
           throw new BadRequestException({
             success: false,
             error: {
               code: 'PAYMENT_FAILED',
-              message: 'El pago con tarjeta fue rechazado por la entidad emisora',
+              message:
+                'El pago con tarjeta fue rechazado por la entidad emisora',
             },
           });
         }
@@ -1118,16 +1271,26 @@ export class OrdersService {
           status: initialPaymentStatus,
           cardLastFour: card?.cardLastFour || null,
           cardBrand: card?.cardBrand || null,
-          approvedAt: initialPaymentStatus === PaymentStatus.APPROVED ? new Date() : null,
-          responseCode: initialPaymentStatus === PaymentStatus.APPROVED ? '200' : 'PENDING',
+          approvedAt:
+            initialPaymentStatus === PaymentStatus.APPROVED ? new Date() : null,
+          responseCode:
+            initialPaymentStatus === PaymentStatus.APPROVED ? '200' : 'PENDING',
         });
         await tx.save(Payment, payment);
 
         // J. Guardar dirección permanente si corresponde
-        if (saveAddress && customerId && deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
+        if (
+          saveAddress &&
+          customerId &&
+          deliveryMethod === DeliveryMethod.HOME_DELIVERY
+        ) {
           if (delivery.isDefault) {
             // Desactivar default en otras direcciones del cliente para unicidad
-            await tx.update(CustomerAddress, { customerId }, { isDefault: false });
+            await tx.update(
+              CustomerAddress,
+              { customerId },
+              { isDefault: false },
+            );
           }
           const address = tx.create(CustomerAddress, {
             customerId,
@@ -1151,7 +1314,9 @@ export class OrdersService {
           savedOrder.customerMetricsCountedAt = new Date();
           await tx.save(Order, savedOrder);
 
-          const userObj = await tx.findOne(Customer, { where: { id: customerId } });
+          const userObj = await tx.findOne(Customer, {
+            where: { id: customerId },
+          });
           if (userObj) {
             userObj.totalOrders = Number(userObj.totalOrders || 0) + 1;
             const currentSpent = Number(userObj.totalSpent || 0);
@@ -1174,12 +1339,16 @@ export class OrdersService {
             status: savedOrder.status,
             paymentMethod,
             paymentStatus: payment.status,
-            paymentDeadline: savedOrder.paymentDeadline ? savedOrder.paymentDeadline.toISOString() : null,
+            paymentDeadline: savedOrder.paymentDeadline
+              ? savedOrder.paymentDeadline.toISOString()
+              : null,
             subtotal: savedOrder.subtotal,
             discountTotal: savedOrder.discountTotal,
             shippingTotal: savedOrder.deliveryCost,
             total: savedOrder.totalAmount,
-            ...(rawGuestAccessToken ? { guestOrderAccessToken: rawGuestAccessToken } : {}),
+            ...(rawGuestAccessToken
+              ? { guestOrderAccessToken: rawGuestAccessToken }
+              : {}),
           },
         };
 
@@ -1209,13 +1378,15 @@ export class OrdersService {
         if (existing) {
           if (existing.requestHash !== requestHash) {
             throw new UnprocessableEntityException({
-              message: 'La Idempotency-Key ya ha sido utilizada con un payload diferente.',
+              message:
+                'La Idempotency-Key ya ha sido utilizada con un payload diferente.',
               code: 'IDEMPOTENCY_KEY_REUSED',
             });
           }
           if (existing.status === CheckoutIdempotencyStatus.PROCESSING) {
             throw new ConflictException({
-              message: 'El checkout asociado a esta solicitud todavía está siendo procesado.',
+              message:
+                'El checkout asociado a esta solicitud todavía está siendo procesado.',
               code: 'CHECKOUT_ALREADY_PROCESSING',
             });
           }
@@ -1258,7 +1429,10 @@ export class OrdersService {
     return crypto.createHash('sha256').update(normalizedPayload).digest('hex');
   }
 
-  private async generateUniqueOrderNumber(attempt = 1, manager?: EntityManager): Promise<string> {
+  private async generateUniqueOrderNumber(
+    attempt = 1,
+    manager?: EntityManager,
+  ): Promise<string> {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let value = '';
     const bytes = crypto.randomBytes(8);
@@ -1281,7 +1455,14 @@ export class OrdersService {
   async findOne(id: string): Promise<Order> {
     const order = await this.orderRepository.findOne({
       where: { id },
-      relations: ['items', 'delivery', 'delivery.branch', 'customer', 'guestCustomer', 'statusHistory'],
+      relations: [
+        'items',
+        'delivery',
+        'delivery.branch',
+        'customer',
+        'guestCustomer',
+        'statusHistory',
+      ],
     });
     if (!order) {
       throw new NotFoundException(`Order with id ${id} not found`);
@@ -1299,7 +1480,14 @@ export class OrdersService {
   ): Promise<Partial<Order>> {
     const order = await this.orderRepository.findOne({
       where: { orderNumber },
-      relations: ['items', 'delivery', 'delivery.branch', 'customer', 'guestCustomer', 'statusHistory'],
+      relations: [
+        'items',
+        'delivery',
+        'delivery.branch',
+        'customer',
+        'guestCustomer',
+        'statusHistory',
+      ],
     });
 
     if (!order) {
@@ -1319,7 +1507,8 @@ export class OrdersService {
       user &&
       (user.role === 'ADMIN' ||
         (Array.isArray(user.roles) && user.roles.includes('ADMIN')) ||
-        (Array.isArray(user.permissions) && user.permissions.includes('orders:read')))
+        (Array.isArray(user.permissions) &&
+          user.permissions.includes('orders:read')))
     ) {
       isAuthorized = true;
     }
@@ -1346,13 +1535,20 @@ export class OrdersService {
           success: false,
           error: {
             code: 'ORDER_ACCESS_TOKEN_REQUIRED',
-            message: 'Se requiere un token de acceso para consultar este pedido',
+            message:
+              'Se requiere un token de acceso para consultar este pedido',
           },
         });
       }
 
-      const tokenHash = crypto.createHash('sha256').update(accessToken).digest('hex');
-      if (order.guestOrderAccessTokenHash && tokenHash === order.guestOrderAccessTokenHash) {
+      const tokenHash = crypto
+        .createHash('sha256')
+        .update(accessToken)
+        .digest('hex');
+      if (
+        order.guestOrderAccessTokenHash &&
+        tokenHash === order.guestOrderAccessTokenHash
+      ) {
         isAuthorized = true;
       } else {
         throw new ForbiddenException({
@@ -1382,7 +1578,10 @@ export class OrdersService {
     return sanitizedOrder;
   }
 
-  async updateStatus(id: string, updateStatusDto: UpdateOrderStatusDto): Promise<Order> {
+  async updateStatus(
+    id: string,
+    updateStatusDto: UpdateOrderStatusDto,
+  ): Promise<Order> {
     const { status: newStatus, changedById, notes } = updateStatusDto;
 
     return await this.orderRepository.manager.transaction(async (tx) => {
@@ -1417,7 +1616,11 @@ export class OrdersService {
       // Si la orden se cancela, liberar reservas e inhabilitar pago de forma atómica
       if (newStatus === OrderStatus.CANCELLED) {
         await this.releaseOrderReservations(order.id, tx);
-        await tx.update(Payment, { orderId: order.id, status: PaymentStatus.PENDING }, { status: PaymentStatus.CANCELLED });
+        await tx.update(
+          Payment,
+          { orderId: order.id, status: PaymentStatus.PENDING },
+          { status: PaymentStatus.CANCELLED },
+        );
       }
 
       order.status = newStatus;
@@ -1444,64 +1647,101 @@ export class OrdersService {
     orderNumber: string,
     updateStatusDto: UpdateOrderStatusDto,
     changedById?: string,
-  ): Promise<Order> {
+  ): Promise<Order & { domainEvent?: OrderStatusChangedEvent }> {
     const { status: newStatus, notes } = updateStatusDto;
+    const actorId = changedById || updateStatusDto.changedById || null;
 
-    return await this.orderRepository.manager.transaction(async (tx) => {
-      const order = await tx.findOne(Order, {
-        where: { orderNumber },
-        relations: ['statusHistory'],
-      });
+    let domainEvent: OrderStatusChangedEvent | undefined;
 
-      if (!order) {
-        throw new NotFoundException({
-          success: false,
-          error: {
-            code: 'ORDER_NOT_FOUND',
-            message: 'El pedido solicitado no existe',
-          },
+    const updatedOrder = await this.orderRepository.manager.transaction(
+      async (tx) => {
+        const order = await tx.findOne(Order, {
+          where: { orderNumber },
+          lock: { mode: 'pessimistic_write' },
         });
-      }
 
-      const oldStatus = order.status;
-      if (oldStatus === newStatus) {
-        return order;
-      }
-
-      if (!this.isValidTransition(oldStatus, newStatus, order.deliveryMethod)) {
-        throw new BadRequestException({
-          success: false,
-          error: {
-            code: 'INVALID_STATUS_TRANSITION',
-            message: 'La transición de estado solicitada no está permitida',
-            details: {
-              currentStatus: oldStatus,
-              requestedStatus: newStatus,
+        if (!order) {
+          throw new NotFoundException({
+            success: false,
+            error: {
+              code: 'ORDER_NOT_FOUND',
+              message: 'El pedido solicitado no existe',
             },
-          },
+          });
+        }
+
+        if (typeof tx.find === 'function') {
+          order.statusHistory = await tx.find(OrderStatusHistory, {
+            where: { order: { id: order.id } },
+          });
+        }
+
+        const oldStatus = order.status;
+
+        // Idempotencia / No-Op: Si el estado actual es igual al nuevo estado solicitado, no realizar cambios ni eventos
+        if (oldStatus === newStatus) {
+          return order;
+        }
+
+        // Validar transición con reglas de máquina de estados canónica
+        if (
+          !this.isValidTransition(oldStatus, newStatus, order.deliveryMethod)
+        ) {
+          throw new BadRequestException({
+            success: false,
+            error: {
+              code: 'INVALID_STATUS_TRANSITION',
+              message: 'La transición de estado solicitada no está permitida',
+              details: {
+                currentStatus: oldStatus,
+                requestedStatus: newStatus,
+              },
+            },
+          });
+        }
+
+        if (newStatus === OrderStatus.CANCELLED) {
+          await this.releaseOrderReservations(order.id, tx);
+          await tx.update(
+            Payment,
+            { orderId: order.id, status: PaymentStatus.PENDING },
+            { status: PaymentStatus.CANCELLED },
+          );
+        }
+
+        order.status = newStatus;
+
+        const historyEntry = tx.create(OrderStatusHistory, {
+          order,
+          statusBefore: oldStatus,
+          statusAfter: newStatus,
+          changedById: actorId,
+          notes: notes || null,
         });
-      }
 
-      if (newStatus === OrderStatus.CANCELLED) {
-        await this.releaseOrderReservations(order.id, tx);
-        await tx.update(Payment, { orderId: order.id, status: PaymentStatus.PENDING }, { status: PaymentStatus.CANCELLED });
-      }
+        await tx.save(Order, order);
+        await tx.save(OrderStatusHistory, historyEntry);
 
-      order.status = newStatus;
+        // Generar evento de dominio solo tras persisitir la transición atómica exitosamente
+        domainEvent = new OrderStatusChangedEvent({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          customerId: order.customerId ?? null,
+          previousStatus: oldStatus,
+          newStatus: newStatus,
+          changedById: actorId,
+        });
 
-      const historyEntry = tx.create(OrderStatusHistory, {
-        order,
-        statusBefore: oldStatus,
-        statusAfter: newStatus,
-        changedById: changedById || updateStatusDto.changedById || null,
-        notes: notes || null,
-      });
+        return order;
+      },
+    );
 
-      await tx.save(Order, order);
-      await tx.save(OrderStatusHistory, historyEntry);
+    if (domainEvent) {
+      Object.assign(updatedOrder, { domainEvent });
+      this.eventsPublisher?.publishOrderStatusChanged(domainEvent);
+    }
 
-      return order;
-    });
+    return updatedOrder;
   }
 
   /**
@@ -1516,7 +1756,10 @@ export class OrdersService {
     if (currentStatus === newStatus) return true;
 
     // Los estados terminales (DELIVERED y CANCELLED) no permiten ninguna transición posterior
-    if (currentStatus === OrderStatus.DELIVERED || currentStatus === OrderStatus.CANCELLED) {
+    if (
+      currentStatus === OrderStatus.DELIVERED ||
+      currentStatus === OrderStatus.CANCELLED
+    ) {
       return false;
     }
 
@@ -1558,14 +1801,12 @@ export class OrdersService {
     return false;
   }
 
-  async checkoutPreview(checkoutDto: CheckoutDto, userId?: string, xCartToken?: string): Promise<any> {
-    const {
-      source,
-      items,
-      contact,
-      delivery,
-      paymentMethod,
-    } = checkoutDto;
+  async checkoutPreview(
+    checkoutDto: CheckoutDto,
+    userId?: string,
+    xCartToken?: string,
+  ): Promise<any> {
+    const { source, items, contact, delivery, paymentMethod } = checkoutDto;
 
     // 1. Validar combinación prohibida de método de pago y tipo de entrega
     if (
@@ -1582,19 +1823,25 @@ export class OrdersService {
     const emailNormal = contact.email.trim().toLowerCase();
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(emailNormal)) {
-      throw new BadRequestException('Formato de correo electrónico inválido (RFC 5322)');
+      throw new BadRequestException(
+        'Formato de correo electrónico inválido (RFC 5322)',
+      );
     }
 
     const phoneClean = contact.phone.trim().replace(/[^\d+]/g, '');
     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
     if (!phoneRegex.test(phoneClean)) {
-      throw new BadRequestException('Formato de teléfono inválido (debe cumplir formato E.164)');
+      throw new BadRequestException(
+        'Formato de teléfono inválido (debe cumplir formato E.164)',
+      );
     }
 
     if (contact.dui) {
       const cleanDui = contact.dui.replace(/-/g, '').trim();
       if (cleanDui.length !== 9 || !/^\d{9}$/.test(cleanDui)) {
-        throw new BadRequestException('El formato de DUI debe ser de 9 dígitos numéricos.');
+        throw new BadRequestException(
+          'El formato de DUI debe ser de 9 dígitos numéricos.',
+        );
       }
       let sum = 0;
       for (let i = 0; i < 8; i++) {
@@ -1603,13 +1850,17 @@ export class OrdersService {
       const rem = sum % 10;
       const validator = rem === 0 ? 0 : 10 - rem;
       if (validator !== parseInt(cleanDui[8])) {
-        throw new BadRequestException('El DUI ingresado no es válido (dígito verificador incorrecto).');
+        throw new BadRequestException(
+          'El DUI ingresado no es válido (dígito verificador incorrecto).',
+        );
       }
     }
 
     // 3. Resolución de Comprador
     if (userId) {
-      const user = await this.customerRepository.findOne({ where: { id: userId } });
+      const user = await this.customerRepository.findOne({
+        where: { id: userId },
+      });
       if (!user) {
         throw new NotFoundException(`Cliente con ID ${userId} no encontrado`);
       }
@@ -1628,7 +1879,8 @@ export class OrdersService {
         : DeliveryMethod.PICKUP;
 
     if (delivery.deliveryType === DeliveryType.HOME_DELIVERY) {
-      const { departmentId, districtId, city, addressLine, branchId } = delivery;
+      const { departmentId, districtId, city, addressLine, branchId } =
+        delivery;
       if (!departmentId || !districtId || !city || !addressLine) {
         throw new BadRequestException({
           message: 'Dirección completa es requerida para entrega a domicilio',
@@ -1638,16 +1890,20 @@ export class OrdersService {
       if (branchId) {
         delete (delivery as any).branchId;
       }
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { validateDepartmentDistrict } = require('../../common/utils/address.util');
+
+      const {
+        validateDepartmentDistrict,
+      } = require('../../common/utils/address.util');
       if (!validateDepartmentDistrict(departmentId, districtId)) {
         throw new BadRequestException({
-          message: 'Departamento y distrito no coinciden o tienen formato inválido',
+          message:
+            'Departamento y distrito no coinciden o tienen formato inválido',
           code: 'INVALID_DELIVERY_DATA',
         });
       }
     } else if (delivery.deliveryType === DeliveryType.STORE_PICKUP) {
-      const { branchId, departmentId, districtId, city, addressLine } = delivery;
+      const { branchId, departmentId, districtId, city, addressLine } =
+        delivery;
       if (!branchId) {
         throw new BadRequestException({
           message: 'branchId es obligatorio para retiro en tienda',
@@ -1660,7 +1916,9 @@ export class OrdersService {
         delete (delivery as any).city;
         delete (delivery as any).addressLine;
       }
-      const branch = await this.branchRepository.findOne({ where: { id: branchId } });
+      const branch = await this.branchRepository.findOne({
+        where: { id: branchId },
+      });
       if (!branch) {
         throw new NotFoundException({
           message: `Sucursal con ID ${branchId} no encontrada`,
@@ -1682,21 +1940,32 @@ export class OrdersService {
     }
 
     // 5. Resolver ítems reales basados en el origen (source)
-    let itemsToProcess: { variantId: string; quantity: number; size?: string; color?: string; sku?: string; referencePrice?: number }[] = [];
+    let itemsToProcess: {
+      variantId: string;
+      quantity: number;
+      size?: string;
+      color?: string;
+      sku?: string;
+      referencePrice?: number;
+    }[] = [];
     const cartRepository = this.orderRepository.manager.getRepository(Cart);
     let userCart: Cart | null = null;
 
     if (source === CheckoutSource.BUY_NOW) {
       if (!items || items.length === 0) {
-        throw new BadRequestException('Los ítems son obligatorios cuando source es BUY_NOW');
+        throw new BadRequestException(
+          'Los ítems son obligatorios cuando source es BUY_NOW',
+        );
       }
-      itemsToProcess = items.map(item => ({
+      itemsToProcess = items.map((item) => ({
         variantId: item.variantId,
         quantity: item.quantity,
         size: (item as any).size,
         color: (item as any).color,
         sku: (item as any).sku,
-        referencePrice: item.priceAtAdded ? Number(item.priceAtAdded) : undefined,
+        referencePrice: item.priceAtAdded
+          ? Number(item.priceAtAdded)
+          : undefined,
       }));
     } else if (source === CheckoutSource.CART) {
       if (userId) {
@@ -1734,11 +2003,13 @@ export class OrdersService {
         });
       }
 
-      itemsToProcess = userCart.items.map(item => {
+      itemsToProcess = userCart.items.map((item) => {
         if (!item.product) {
-          throw new BadRequestException('El carrito contiene un producto no válido');
+          throw new BadRequestException(
+            'El carrito contiene un producto no válido',
+          );
         }
-        const dtoItem = items?.find(di => di.variantId === item.variantId);
+        const dtoItem = items?.find((di) => di.variantId === item.variantId);
         const detail = item.variantConfig?.inventoryDetail;
         // CartItem.unitPrice expone salePrice y no incluye el descuento
         // vigente. Solo comparar cuando existe una referencia real enviada.
@@ -1775,12 +2046,21 @@ export class OrdersService {
         });
       }
       const product = variant.product;
-      if (product.status !== ProductStatus.ACTIVE || !product.isActive || !product.isPublished || product.deletedAt !== null) {
-        throw new BadRequestException(`El producto "${product.commercialName}" no está disponible para venta.`);
+      if (
+        product.status !== ProductStatus.ACTIVE ||
+        !product.isActive ||
+        !product.isPublished ||
+        product.deletedAt !== null
+      ) {
+        throw new BadRequestException(
+          `El producto "${product.commercialName}" no está disponible para venta.`,
+        );
       }
 
       if (!product.inventory) {
-        throw new BadRequestException(`El producto ${product.id} no tiene inventario asignado`);
+        throw new BadRequestException(
+          `El producto ${product.id} no tiene inventario asignado`,
+        );
       }
       if (Number(variant.inventoryDetail.stock) < itemDto.quantity) {
         throw new BadRequestException({
@@ -1798,8 +2078,12 @@ export class OrdersService {
       const now = new Date();
       let isDiscountActive = false;
       if (product.discount && product.discount > 0) {
-        const starts = product.discountStartsAt ? new Date(product.discountStartsAt) : null;
-        const ends = product.discountEndsAt ? new Date(product.discountEndsAt) : null;
+        const starts = product.discountStartsAt
+          ? new Date(product.discountStartsAt)
+          : null;
+        const ends = product.discountEndsAt
+          ? new Date(product.discountEndsAt)
+          : null;
         const hasStarted = !starts || now >= starts;
         const hasNotEnded = !ends || now <= ends;
         if (hasStarted && hasNotEnded) {
@@ -1808,7 +2092,9 @@ export class OrdersService {
       }
 
       const salePrice = Number(product.salePrice);
-      const discountPercentage = isDiscountActive ? Number(product.discount || 0) : 0;
+      const discountPercentage = isDiscountActive
+        ? Number(product.discount || 0)
+        : 0;
       const discountAmount = salePrice * (discountPercentage / 100);
       const effectivePrice = Number((salePrice - discountAmount).toFixed(2));
       const lineBaseTotal = Number((salePrice * itemDto.quantity).toFixed(2));
@@ -1820,7 +2106,10 @@ export class OrdersService {
       totalEffective += lineTotal;
 
       // Detección de fluctuación de precios (PRICE_CHANGED)
-      if (itemDto.referencePrice !== undefined && Number(itemDto.referencePrice.toFixed(2)) !== effectivePrice) {
+      if (
+        itemDto.referencePrice !== undefined &&
+        Number(itemDto.referencePrice.toFixed(2)) !== effectivePrice
+      ) {
         hasPriceChanged = true;
       }
 
@@ -1851,14 +2140,19 @@ export class OrdersService {
 
     // 7. Calcular costo de envío y envío gratis
     let shippingTotal = '0.00';
-    let freeShippingApplied = deliveryMethod === DeliveryMethod.PICKUP;
+    let freeShippingApplied = false;
 
     if (deliveryMethod === DeliveryMethod.HOME_DELIVERY) {
-      shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
-      freeShippingApplied = false;
+      if (totalEffective >= CHECKOUT_CONFIG.FREE_SHIPPING_THRESHOLD) {
+        shippingTotal = '0.00';
+        freeShippingApplied = true;
+      } else {
+        shippingTotal = CHECKOUT_CONFIG.STANDARD_SHIPPING_FEE.toFixed(2);
+        freeShippingApplied = false;
+      }
     } else {
       shippingTotal = '0.00';
-      freeShippingApplied = true;
+      freeShippingApplied = false;
     }
 
     const total = totalEffective + Number(shippingTotal);
@@ -1954,7 +2248,6 @@ export class OrdersService {
     return this.orderRepository.manager.transaction(runInTx);
   }
 
-  
   async checkAndReleaseExpiredReservations(
     manager?: EntityManager,
   ): Promise<{ cancelledOrdersCount: number }> {
@@ -1976,7 +2269,9 @@ export class OrdersService {
 
       for (const expiredOrder of expiredOrders) {
         // Re-verificar PaymentStatus dentro de la transacción para evitar ejecuciones concurrentes
-        const payment = await tx.findOne(Payment, { where: { orderId: expiredOrder.id } });
+        const payment = await tx.findOne(Payment, {
+          where: { orderId: expiredOrder.id },
+        });
         if (payment && payment.status !== PaymentStatus.PENDING) {
           continue;
         }
@@ -1994,14 +2289,19 @@ export class OrdersService {
           payment.status = PaymentStatus.CANCELLED;
           await tx.save(Payment, payment);
         } else {
-          await tx.update(Payment, { orderId: expiredOrder.id }, { status: PaymentStatus.CANCELLED });
+          await tx.update(
+            Payment,
+            { orderId: expiredOrder.id },
+            { status: PaymentStatus.CANCELLED },
+          );
         }
 
         // Historial obligatorio de cambio de estado (Requerimiento 2 y 6)
         const history = tx.create(OrderStatusHistory, {
           statusBefore,
           statusAfter: OrderStatus.CANCELLED,
-          notes: 'Cancelación automática por vencimiento de plazo de pago (paymentDeadline de 3 días)',
+          notes:
+            'Cancelación automática por vencimiento de plazo de pago (paymentDeadline de 3 días)',
           changedById: null,
         });
         history.order = expiredOrder;

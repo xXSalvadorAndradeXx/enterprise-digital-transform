@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { Payment } from './entities/payment.entity';
 import { Order } from '../orders/entities/order.entity';
@@ -36,7 +40,8 @@ describe('PaymentsService', () => {
             }
             if (entityClass === Payment) {
               if (options.where.orderId === 'order-uuid-1') return null; // No existing payment by default
-              if (options.where.id === 'payment-uuid-1') return { ...mockPayment };
+              if (options.where.id === 'payment-uuid-1')
+                return { ...mockPayment };
               return null;
             }
             return null;
@@ -95,7 +100,9 @@ describe('PaymentsService', () => {
         return cb(mockManager);
       });
 
-      await expect(service.createPayment(dto)).rejects.toThrow(NotFoundException);
+      await expect(service.createPayment(dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ConflictException if a payment already exists for the order', async () => {
@@ -116,7 +123,9 @@ describe('PaymentsService', () => {
         return cb(mockManager);
       });
 
-      await expect(service.createPayment(dto)).rejects.toThrow(ConflictException);
+      await expect(service.createPayment(dto)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -167,9 +176,9 @@ describe('PaymentsService', () => {
         return cb(mockManager);
       });
 
-      await expect(service.processCardPayment('payment-uuid-1', dto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.processCardPayment('payment-uuid-1', dto),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -218,7 +227,9 @@ describe('PaymentsService', () => {
         return cb(mockManager);
       });
 
-      await expect(service.markAsRefunded('payment-uuid-1')).rejects.toThrow(BadRequestException);
+      await expect(service.markAsRefunded('payment-uuid-1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

@@ -13,7 +13,10 @@ import { CartStatus } from './enums/cart-status.enum';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { ProductSpecification } from '../products/helpers/product-specification.helper';
 import { CartResponseDto } from './dto/cart-response.dto';
-import { generateGuestToken, hashGuestToken } from '../../common/utils/security.util';
+import {
+  generateGuestToken,
+  hashGuestToken,
+} from '../../common/utils/security.util';
 
 export interface ResolvedCartResult {
   cart: Cart;
@@ -37,7 +40,10 @@ export class CartService {
   /**
    * Valida la restricción XOR del propietario del carrito a nivel de aplicación.
    */
-  private validateCartOwner(customerId?: string | null, guestTokenHash?: string | null): void {
+  private validateCartOwner(
+    customerId?: string | null,
+    guestTokenHash?: string | null,
+  ): void {
     const hasCustomer = !!customerId;
     const hasGuest = !!guestTokenHash;
     if ((hasCustomer && hasGuest) || (!hasCustomer && !hasGuest)) {
@@ -60,7 +66,11 @@ export class CartService {
     // 1. Prioridad: JWT Autenticado (customerId)
     if (userId) {
       let cart = await this.cartRepository.findOne({
-        where: { customerId: userId, status: CartStatus.ACTIVE, deletedAt: IsNull() },
+        where: {
+          customerId: userId,
+          status: CartStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
         relations: [
           'items',
           'items.product',
@@ -218,23 +228,35 @@ export class CartService {
   /**
    * Agrega un ítem al carrito resuelto o acumula su cantidad si la variante ya existe.
    */
-  async addItemToCart(cartId: string, dto: AddCartItemDto): Promise<CartResponseDto> {
+  async addItemToCart(
+    cartId: string,
+    dto: AddCartItemDto,
+  ): Promise<CartResponseDto> {
     const cart = await this.findActiveCartById(cartId);
 
     if (cart.status !== CartStatus.ACTIVE) {
       throw new BadRequestException({
         code: 'CART_NOT_ACTIVE',
-        message: 'No es posible modificar un carrito que no se encuentra activo',
+        message:
+          'No es posible modificar un carrito que no se encuentra activo',
       });
     }
 
     // 1. Validar producto publicable
     const product = await this.productRepository.findOne({
       where: { id: dto.productId, deletedAt: IsNull() },
-      relations: ['inventory', 'inventory.details', 'variantConfigs', 'variantConfigs.inventoryDetail'],
+      relations: [
+        'inventory',
+        'inventory.details',
+        'variantConfigs',
+        'variantConfigs.inventoryDetail',
+      ],
     });
 
-    if (!product || !ProductSpecification.isProductPublishableAndSellable(product)) {
+    if (
+      !product ||
+      !ProductSpecification.isProductPublishableAndSellable(product)
+    ) {
       throw new BadRequestException({
         code: 'PRODUCT_NOT_PUBLISHED',
         message: 'El producto no se encuentra disponible para compra',
@@ -314,7 +336,8 @@ export class CartService {
     if (quantity <= 0) {
       throw new BadRequestException({
         code: 'INVALID_QUANTITY',
-        message: 'La cantidad debe ser mayor que cero. Para eliminar, use la operación de eliminación explícita.',
+        message:
+          'La cantidad debe ser mayor que cero. Para eliminar, use la operación de eliminación explícita.',
       });
     }
 
@@ -323,7 +346,8 @@ export class CartService {
     if (cart.status !== CartStatus.ACTIVE) {
       throw new BadRequestException({
         code: 'CART_NOT_ACTIVE',
-        message: 'No es posible modificar un carrito que no se encuentra activo',
+        message:
+          'No es posible modificar un carrito que no se encuentra activo',
       });
     }
 
@@ -376,7 +400,8 @@ export class CartService {
     if (cart.status !== CartStatus.ACTIVE) {
       throw new BadRequestException({
         code: 'CART_NOT_ACTIVE',
-        message: 'No es posible modificar un carrito que no se encuentra activo',
+        message:
+          'No es posible modificar un carrito que no se encuentra activo',
       });
     }
 
@@ -406,7 +431,8 @@ export class CartService {
     if (cart.status !== CartStatus.ACTIVE) {
       throw new BadRequestException({
         code: 'CART_NOT_ACTIVE',
-        message: 'No es posible modificar un carrito que no se encuentra activo',
+        message:
+          'No es posible modificar un carrito que no se encuentra activo',
       });
     }
 
@@ -426,7 +452,8 @@ export class CartService {
     if (!xCartToken || xCartToken.trim().length === 0) {
       throw new BadRequestException({
         code: 'CART_TOKEN_INVALID',
-        message: 'Se requiere el header X-Cart-Token para realizar la fusión del carrito',
+        message:
+          'Se requiere el header X-Cart-Token para realizar la fusión del carrito',
       });
     }
 
@@ -462,7 +489,11 @@ export class CartService {
 
       // 2. Resolver o crear carrito activo para el cliente autenticado
       let userCart = await cartRepo.findOne({
-        where: { customerId: userId, status: CartStatus.ACTIVE, deletedAt: IsNull() },
+        where: {
+          customerId: userId,
+          status: CartStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
         relations: ['items'],
       });
 
@@ -493,10 +524,18 @@ export class CartService {
         // Validar producto publicable
         const product = await productRepo.findOne({
           where: { id: guestItem.productId, deletedAt: IsNull() },
-          relations: ['inventory', 'inventory.details', 'variantConfigs', 'variantConfigs.inventoryDetail'],
+          relations: [
+            'inventory',
+            'inventory.details',
+            'variantConfigs',
+            'variantConfigs.inventoryDetail',
+          ],
         });
 
-        if (!product || !ProductSpecification.isProductPublishableAndSellable(product)) {
+        if (
+          !product ||
+          !ProductSpecification.isProductPublishableAndSellable(product)
+        ) {
           throw new BadRequestException({
             code: 'PRODUCT_NOT_PUBLISHED',
             message: 'El producto no se encuentra disponible para compra',
@@ -519,7 +558,9 @@ export class CartService {
         }
 
         // Buscar si la variante ya existe en el carrito del cliente
-        const existingUserItem = userItems.find((ui) => ui.variantId === guestItem.variantId);
+        const existingUserItem = userItems.find(
+          (ui) => ui.variantId === guestItem.variantId,
+        );
         const existingQty = existingUserItem ? existingUserItem.quantity : 0;
         const combinedQty = existingQty + guestItem.quantity;
 
